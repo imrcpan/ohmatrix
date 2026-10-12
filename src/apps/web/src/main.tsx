@@ -1,23 +1,14 @@
 import { createRoot } from "react-dom/client";
-import type { AttachmentSource, PlatformServices, Preferences, Session, SessionStore } from "@ohmatrix/core";
+import type { AttachmentSource, PlatformServices, Preferences } from "@ohmatrix/core";
 import { JsSdkEngine } from "@ohmatrix/engine-js";
 import { createAppController } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
+import { createSecureBox } from "./secureBox.js";
+import { createSecureSessionStore } from "./secureSession.js";
 import { installRouter } from "./router.js";
 
-const KEY = "ohmatrix.session.v1";
-// TODO: encrypt at rest (WebCrypto non-extractable key in IndexedDB) before shipping.
-const sessionStore: SessionStore = {
-  load: async () => {
-    try {
-      return JSON.parse(localStorage.getItem(KEY) ?? "null") as Session | null;
-    } catch {
-      return null;
-    }
-  },
-  save: async (s) => localStorage.setItem(KEY, JSON.stringify(s)),
-  clear: async () => localStorage.removeItem(KEY),
-};
+// The session (access token) is encrypted with a non-extractable WebCrypto key before it is stored.
+const sessionStore = createSecureSessionStore(createSecureBox());
 
 const PREFS_KEY = "ohmatrix.prefs.v1";
 const preferences = {
