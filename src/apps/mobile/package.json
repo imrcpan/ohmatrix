@@ -1,0 +1,24 @@
+{
+  "name": "@ohmatrix/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "start": "expo start",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@ohmatrix/app": "workspace:*",
+    "@ohmatrix/core": "workspace:*",
+    "@ohmatrix/engine-mock": "workspace:*",
+    "@ohmatrix/state": "workspace:*",
+    "expo": "^57.0.27",
+    "react": "^19.3.0",
+    "react-native": "^0.87.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0"
+  },
+  "main": "index.ts"
+}
