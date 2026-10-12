@@ -665,7 +665,8 @@ test("chat list rows have a fixed height and truncate previews with three dots",
 
 test("signing in again after sign-out (new device) works and old crypto stores are removed", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  const stores = () => page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name ?? "").filter((n) => n.startsWith("ohmatrix-")));
+  const stores = () =>
+    page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name ?? "").filter((n) => n.startsWith("ohmatrix-") && n !== "ohmatrix-secure"));
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page);
@@ -675,7 +676,7 @@ test("signing in again after sign-out (new device) works and old crypto stores a
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Sign out" }).last().click();
-  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible({ timeout: 20000 });
   await expect.poll(async () => (await stores()).filter((n) => first.includes(n)).length, { timeout: 10000 }).toBe(0);
   // A second login is a new device; it must come up cleanly, with its own store.
   const inputs = page.locator("input");
@@ -815,5 +816,61 @@ test("routing: a deep link opens after signing in; old #/ links are upgraded", a
   await expect(fresh.getByText("Appearance")).toBeVisible({ timeout: 20000 });
   expect(roomPath(fresh)).toBe("/settings");
   expect(fresh.url()).not.toContain("#");
+  await ctx.close();
+});
+
+test("session is stored encrypted: no plaintext token; reload restores it; old plaintext sessions are upgraded", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const stored = () =>
+    page.evaluate(() => ({
+      v1: localStorage.getItem("ohmatrix.session.v1"),
+      v2: localStorage.getItem("ohmatrix.session.v2"),
+      all: JSON.stringify({ ...localStorage }),
+    }));
+  const s = await stored();
+  expect(s.v1).toBeNull();
+  expect(s.v2).toBeTruthy();
+  const token = await page.evaluate(async () => {
+    // the app's own copy of the token, read via the Matrix API the app is using (the Authorization header on /sync)
+    return await new Promise<string>((resolve) => {
+      const orig = window.fetch;
+      window.fetch = (i, init) => {
+        const h = new Headers(init?.headers);
+        const a = h.get("Authorization");
+        if (a) {
+          window.fetch = orig;
+          resolve(a.replace("Bearer ", ""));
+        }
+        return orig(i, init);
+      };
+    });
+  });
+  expect(token.length).toBeGreaterThan(10);
+  expect(s.all).not.toContain(token);
+  expect(s.all).not.toContain("accessToken");
+  await page.reload();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 }); // restored without signing in again
+
+  // A browser that still holds a plaintext v1 session (from an earlier version) gets it re-encrypted on first load.
+  const login2 = (await (
+    await fetch("http://localhost:8008/_matrix/client/v3/login", {
+      method: "POST",
+      body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user: "test" }, password: "123456" }),
+    })
+  ).json()) as { access_token: string; device_id: string; user_id: string };
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(
+    (sess) => {
+      if (!localStorage.getItem("ohmatrix.session.v2")) localStorage.setItem("ohmatrix.session.v1", JSON.stringify(sess));
+    },
+    { homeserver: "http://localhost:8008", userId: login2.user_id, deviceId: login2.device_id, accessToken: login2.access_token },
+  );
+  const old = await ctx.newPage();
+  await old.goto("/");
+  await expect(old.getByPlaceholder("Search")).toBeVisible({ timeout: 25000 });
+  const after = await old.evaluate(() => ({ v1: localStorage.getItem("ohmatrix.session.v1"), v2: localStorage.getItem("ohmatrix.session.v2") }));
+  expect(after.v1).toBeNull();
+  expect(after.v2).toBeTruthy();
   await ctx.close();
 });
