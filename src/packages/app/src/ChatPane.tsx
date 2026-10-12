@@ -5,7 +5,7 @@ import { FlatList, Text, View } from "react-native";
 import { ActionSheet, Avatar, Bubble, Chip, Dialog, PrimaryButton, ReactionChips, TextButton, Composer, fontFamily, IconButton, useTheme } from "@ohmatrix/ui";
 import { useMediaUrl } from "./useMedia.js";
 import { useServices, useAppState, useController, useLocale, useT } from "./context.js";
-import { formatBytes, formatClock } from "./format.js";
+import { formatBytes, formatClock, typingLabel } from "./format.js";
 import { buildRows, type Row } from "./timelineRows.js";
 
 const AVATAR = 32;
@@ -86,7 +86,8 @@ function TimelineRow({ row, isGroup, actions }: { row: Row; isGroup: boolean; ac
             own={m.isOwn}
             text={content.kind === "image" || content.kind === "file" ? "" : content.kind === "undecryptable" ? t("undecryptable") : contentText(content)}
             time={formatClock(m.ts, locale)}
-            status={m.isOwn ? m.status : undefined}
+            status={m.isOwn ? (m.readBy?.length && m.status === "sent" ? "read" : m.status) : undefined}
+            readLabel={m.readBy?.length ? t("readBy", { names: m.readBy.map((r) => r.name).join(", ") }) : undefined}
             senderName={showAvatar && row.first ? m.senderName : undefined}
             senderId={m.sender}
             image={dims ? { uri: image, ...dims } : undefined}
@@ -148,15 +149,20 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
   const items = useAppState((s) => s.timelines[props.roomId]);
   const headerAvatar = useMediaUrl(room?.avatar, { width: 76, height: 76, fit: "crop" });
   const handle = useRef<ReturnType<typeof controller.openRoom> | null>(null);
+  const [typing, setTyping] = useState<string[]>([]);
   const lastItemId = items?.[items.length - 1]?.id;
 
   const [unreadFrom, setUnreadFrom] = useState<string | null>(null);
   useEffect(() => {
     const h = controller.openRoom(props.roomId);
     handle.current = h;
+    const offTyping = h.onTyping(setTyping);
     setUnreadFrom(h.firstUnreadEventId);
     return () => {
       handle.current = null;
+      offTyping();
+      setTyping([]);
+      h.setTyping(false);
       h.close();
     };
   }, [controller, props.roomId]);
@@ -226,8 +232,14 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
             {room?.name ?? ""}
           </Text>
           {room && (
-            <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
-              {room.isDirect ? t("directChat") : room.memberCount === 1 ? t("member.one") : t("members", { n: room.memberCount })}
+            <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: typing.length ? colors.accent : colors.textSecondary }}>
+              {typing.length
+                ? typingLabel(typing, t, room.isDirect)
+                : room.isDirect
+                  ? t("directChat")
+                  : room.memberCount === 1
+                    ? t("member.one")
+                    : t("members", { n: room.memberCount })}
             </Text>
           )}
         </View>
@@ -250,6 +262,7 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
       <Composer
         placeholder={t("message")}
         prefill={prefill}
+        onTyping={(on) => handle.current?.setTyping(on)}
         onAttach={
           services.pickFiles
             ? () => void services.pickFiles!().then((files) => files.forEach((f) => handle.current?.sendAttachment(f).catch(() => {})))

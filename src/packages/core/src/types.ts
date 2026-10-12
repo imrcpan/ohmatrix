@@ -19,6 +19,8 @@ export interface RoomSummary {
   avatar?: MxcUri;
   /** Pending invitation: not joined yet; `inviter` is the display name of who invited me. */
   invite?: { inviter: string };
+  /** Names of people currently typing in this room (never includes me). */
+  typing?: string[];
   /** Pinned chats float to the top of the list. */
   pinned?: boolean;
   /** Manually marked unread (shows a badge even with no unread messages). */
@@ -49,6 +51,11 @@ export interface ReactionSummary {
   mine: boolean;
 }
 
+export interface Reader {
+  userId: UserId;
+  name: string;
+}
+
 export interface TimelineItem {
   id: EventId;
   /** Local echo id while sending; equals `id` once acknowledged. */
@@ -61,6 +68,8 @@ export interface TimelineItem {
   ts: number;
   content: MessageContent;
   reactions?: ReactionSummary[];
+  /** On my own messages: the other people who have read up to this message. */
+  readBy?: Reader[];
   edited?: boolean;
   /** This message replies to another; `preview` is plain text of the original. */
   replyTo?: { id: EventId; senderName: string; sender: UserId; preview: string };

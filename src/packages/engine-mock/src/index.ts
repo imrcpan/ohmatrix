@@ -122,6 +122,11 @@ export class MockEngine implements MatrixEngine {
       },
       paginateBackwards: async () => {},
       sendText: async (body) => this.send(roomId, body),
+      setTyping: () => {},
+      onTyping: (cb) => {
+        cb([]);
+        return () => {};
+      },
       sendAttachment: async () => {},
       edit: async () => {},
       redact: async () => {},

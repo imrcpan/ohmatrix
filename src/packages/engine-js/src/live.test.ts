@@ -353,3 +353,60 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   40000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "typing indicators and read receipts between two users",
+  async () => {
+    const a = new JsSdkEngine({ cryptoStorage: "memory" });
+    const b = new JsSdkEngine({ cryptoStorage: "memory" });
+    await a.auth.loginWithPassword("http://localhost:8008", "alice", "123456");
+    await b.auth.loginWithPassword("http://localhost:8008", "bob", "123456");
+    let aRooms: RoomSummary[] = [],
+      bRooms: RoomSummary[] = [];
+    a.rooms.subscribe((u) => {
+      aRooms = applyUpdates(aRooms, u);
+    });
+    b.rooms.subscribe((u) => {
+      bRooms = applyUpdates(bRooms, u);
+    });
+    await a.sync.start();
+    await b.sync.start();
+    const roomId = await a.rooms.createGroup({ name: `Receipts ${Date.now()}`, invite: ["@bob:localhost"] });
+    await expect.poll(() => bRooms.some((r) => r.id === roomId && r.invite), { timeout: 15000 }).toBe(true);
+    await b.rooms.acceptInvite(roomId);
+    await expect.poll(() => bRooms.some((r) => r.id === roomId && !r.invite), { timeout: 15000 }).toBe(true);
+
+    const ta = a.openTimeline(roomId);
+    let items: TimelineItem[] = [];
+    ta.subscribe((u) => {
+      items = applyUpdates(items, u);
+    });
+    const tb = b.openTimeline(roomId);
+
+    // Typing: bob types, alice sees "bob" (also on the room summary); stops → cleared.
+    let typing: string[] = [];
+    ta.onTyping((n) => {
+      typing = n;
+    });
+    tb.setTyping(true);
+    await expect.poll(() => typing, { timeout: 10000 }).toEqual(["bob"]);
+    await expect.poll(() => aRooms.find((r) => r.id === roomId)?.typing, { timeout: 10000 }).toEqual(["bob"]);
+    tb.setTyping(false);
+    await expect.poll(() => typing, { timeout: 10000 }).toEqual([]);
+    await expect.poll(() => aRooms.find((r) => r.id === roomId)?.typing, { timeout: 10000 }).toBeUndefined();
+
+    // Receipts: alice's message is unread until bob reads it.
+    await ta.sendText("did you read this?");
+    await expect.poll(() => items.find((i) => i.content.kind === "text" && i.status === "sent")?.id, { timeout: 10000 }).toBeTruthy();
+    const msg = () => items.find((i) => i.content.kind === "text" && i.content.body === "did you read this?")!;
+    expect(msg().readBy).toBeUndefined();
+    await expect.poll(() => bRooms.find((r) => r.id === roomId)?.unreadCount, { timeout: 10000 }).toBeGreaterThan(0);
+    await tb.markRead();
+    await expect.poll(() => msg().readBy?.map((r) => r.name), { timeout: 10000 }).toEqual(["bob"]);
+    ta.close();
+    tb.close();
+    await a.sync.stop();
+    await b.sync.stop();
+  },
+  90000,
+);

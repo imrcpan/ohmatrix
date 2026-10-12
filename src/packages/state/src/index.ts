@@ -49,6 +49,8 @@ export interface OpenRoom {
   /** Where the "New messages" divider goes; fixed at open time. */
   firstUnreadEventId: EventId | null;
   sendText(body: string): Promise<void>;
+  setTyping(typing: boolean): void;
+  onTyping(cb: (names: string[]) => void): () => void;
   paginateBackwards(): Promise<void>;
   sendAttachment(file: AttachmentSource): Promise<void>;
   edit(eventId: EventId, body: string): Promise<void>;
@@ -222,6 +224,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       return {
         firstUnreadEventId: tl.firstUnreadEventId,
         sendText: (body) => tl.sendText(body),
+        setTyping: (typing) => tl.setTyping(typing),
+        onTyping: (cb) => tl.onTyping(cb),
         paginateBackwards: () => tl.paginateBackwards(),
         sendAttachment: (file) => tl.sendAttachment(file),
         edit: (eventId, body) => tl.edit(eventId, body),
