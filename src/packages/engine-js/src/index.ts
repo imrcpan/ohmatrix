@@ -2,6 +2,7 @@ import {
   ClientEvent,
   createClient,
   Direction,
+  IndexedDBStore,
   PendingEventOrdering,
   MatrixError,
   MemoryStore,
@@ -95,7 +96,18 @@ async function keyFingerprint(key: Uint8Array<ArrayBuffer>): Promise<string> {
 }
 
 /** One crypto store per user *and device*, so a new login can never collide with an old device's keys. */
+const syncDbName = (s: Session) => `${cryptoBase(s)}-sync`;
 const cryptoBase = (s: Session) => `ohmatrix-${s.userId}-${s.deviceId}`;
+
+/** The sync cache of a device (IndexedDBStore names its database `matrix-js-sdk:<dbName>`). */
+function deleteSyncCache(base: string): Promise<void> {
+  const idb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
+  if (!idb) return Promise.resolve();
+  return new Promise((resolve) => {
+    const r = idb.deleteDatabase(`matrix-js-sdk:${base}-sync`);
+    r.onsuccess = r.onerror = r.onblocked = () => resolve();
+  });
+}
 
 async function deleteCryptoStores(prefix: string, keep?: string): Promise<void> {
   const idb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
@@ -273,6 +285,36 @@ export class JsSdkEngine implements MatrixEngine {
   };
 
   /**
+   * Creates the client with its sync cache: rooms and recent events kept in IndexedDB, so a reload shows the chat
+   * list at once and only fetches what changed. Falls back to a memory store if IndexedDB is unavailable or the
+   * cache cannot be opened. (Events of encrypted rooms are stored as received, i.e. still encrypted.)
+   */
+  private async createClientWithCache(s: Session): Promise<MatrixClient> {
+    const make = (store: MemoryStore) =>
+      createClient({
+        baseUrl: s.homeserver,
+        accessToken: s.accessToken,
+        userId: s.userId,
+        deviceId: s.deviceId,
+        store,
+        cryptoCallbacks: this.secretKeys.callbacks,
+      });
+    const memory = () => new MemoryStore({ localStorage: globalThis.localStorage });
+    const idb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
+    if (this.options.cryptoStorage === "memory" || !idb) return make(memory());
+    const store = new IndexedDBStore({ indexedDB: idb, localStorage: globalThis.localStorage, dbName: syncDbName(s) });
+    const client = make(store);
+    try {
+      await store.startup(); // must come after the store is attached to a client
+      return client;
+    } catch (e) {
+      console.warn("sync cache unusable, starting without it:", e);
+      await store.deleteAllData().catch(() => {});
+      return make(memory());
+    }
+  }
+
+  /**
    * Stores of this device left under another name belong to a key we no longer have (or to the unencrypted
    * format of earlier versions). If the current store does not exist either, the device's encryption identity
    * is gone: it cannot be reused, so the user must sign in again (a new device). Otherwise just tidy up.
@@ -287,6 +329,7 @@ export class JsSdkEngine implements MatrixEngine {
       return;
     }
     void deleteCryptoStores(base);
+    void deleteSyncCache(base);
     await keys?.remove(base);
     throw new EngineError("keys_lost", "The encryption keys of this device are unavailable. Please sign in again.");
   }
@@ -339,14 +382,7 @@ export class JsSdkEngine implements MatrixEngine {
     restore: (s: Session) =>
       guard(async () => {
         await this.sync.stop();
-        const client = createClient({
-          baseUrl: s.homeserver,
-          accessToken: s.accessToken,
-          userId: s.userId,
-          deviceId: s.deviceId,
-          store: new MemoryStore({ localStorage: globalThis.localStorage }),
-          cryptoCallbacks: this.secretKeys.callbacks,
-        });
+        const client = await this.createClientWithCache(s);
         const base = cryptoBase(s);
         const useIndexedDB = this.options.cryptoStorage !== "memory";
         const keyProvider = useIndexedDB ? this.options.storageKey : undefined;
@@ -377,6 +413,7 @@ export class JsSdkEngine implements MatrixEngine {
         } catch {
           /* token may already be invalid */
         }
+        await c.store.deleteAllData().catch(() => {}); // the cached rooms and events belong to this login
         c.removeAllListeners();
         this.client = null;
         // The device is gone from the server, so its local encryption keys are useless: remove them.

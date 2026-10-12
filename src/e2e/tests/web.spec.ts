@@ -953,3 +953,54 @@ test("crypto store is keyed: key sealed in storage, survives reload, a lost key 
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible({ timeout: 20000 });
   await expect.poll(async () => (await keys()).length, { timeout: 10000 }).toBe(0);
 });
+
+test("sync cache: after a reload the chat list appears from the cache even with no network sync", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await expect(
+    page
+      .getByRole("button")
+      .filter({ hasText: /\d{1,2}:\d\d/ })
+      .first(),
+  ).toBeVisible({ timeout: 20000 });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () =>
+          (await indexedDB.databases()).some((d) => (d.name ?? "").startsWith("matrix-js-sdk:ohmatrix-") && (d.name ?? "").endsWith("-sync")),
+        ),
+      { timeout: 15000 },
+    )
+    .toBe(true);
+  await page.waitForTimeout(4000); // let the cache be written (it is flushed periodically)
+
+  // Make every sync request hang: only the cache can populate the list now.
+  await page.route("**/_matrix/client/v3/sync**", () => {
+    /* never answered */
+  });
+  const started = Date.now();
+  await page.reload();
+  await expect(
+    page
+      .getByRole("button")
+      .filter({ hasText: /\d{1,2}:\d\d/ })
+      .first(),
+  ).toBeVisible({ timeout: 15000 });
+  const took = Date.now() - started;
+  await shot(page, "34-cold-start-from-cache");
+  expect(took).toBeLessThan(10000);
+  await page.unroute("**/_matrix/client/v3/sync**");
+});
+
+test("sign-out deletes the sync cache", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const caches = () => page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name ?? "").filter((n) => n.startsWith("matrix-js-sdk:ohmatrix-")));
+  await expect.poll(async () => (await caches()).length, { timeout: 15000 }).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out" }).last().click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible({ timeout: 20000 });
+  await expect.poll(async () => (await caches()).length, { timeout: 15000 }).toBe(0);
+});
