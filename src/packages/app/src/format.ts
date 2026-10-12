@@ -53,3 +53,14 @@ export function typingLabel(names: readonly string[], t: Translate, direct: bool
   if (names.length === 2) return t("typing.two", { a: names[0]!, b: names[1]! });
   return t("typing.many", { a: names[0]!, n: names.length - 1 });
 }
+
+/** "just now", "5 minutes ago", "yesterday", or a date: for "last active". */
+export function formatRelative(ts: number, now: number, locale: Locale): string {
+  const diff = now - ts;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (diff < 60_000) return rtf.format(0, "second");
+  if (diff < 3_600_000) return rtf.format(-Math.floor(diff / 60_000), "minute");
+  if (diff < 86_400_000) return rtf.format(-Math.floor(diff / 3_600_000), "hour");
+  if (diff < 7 * 86_400_000) return rtf.format(-Math.floor(diff / 86_400_000), "day");
+  return new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(ts);
+}

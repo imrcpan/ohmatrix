@@ -1,6 +1,7 @@
 import type { ListUpdate } from "./diff.js";
 import type {
   AttachmentSource,
+  DeviceInfo,
   IncomingNotification,
   RoomDetails,
   Profile,
@@ -92,6 +93,15 @@ export interface ProfileApi {
   subscribe(cb: Listener<Profile | null>): Unsubscribe;
   setDisplayName(name: string): Promise<void>;
   setAvatar(file: AttachmentSource): Promise<void>;
+  /** Set the status line; empty clears it. Rejects with "unsupported" on servers without custom profile fields. */
+  setStatus(status: string): Promise<void>;
+}
+
+export interface DevicesApi {
+  /** My sessions, current one first, then most recently active. */
+  list(): Promise<DeviceInfo[]>;
+  /** Sign out other sessions. Needs the account password; a wrong one rejects with "forbidden". */
+  remove(deviceIds: string[], password: string): Promise<void>;
 }
 
 export interface UserDirectoryApi {
@@ -151,6 +161,7 @@ export interface MatrixEngine {
   readonly media: MediaApi;
   readonly security: SecurityApi;
   readonly profile: ProfileApi;
+  readonly devices: DevicesApi;
   readonly users: UserDirectoryApi;
   readonly notifications: NotificationsApi;
   openTimeline(roomId: RoomId): TimelineHandle;

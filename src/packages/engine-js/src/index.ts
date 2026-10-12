@@ -1,6 +1,7 @@
 import {
   ClientEvent,
   createClient,
+  Method,
   Direction,
   IndexedDBStore,
   PendingEventOrdering,
@@ -23,6 +24,7 @@ import {
   EngineError,
   type AttachmentSource,
   type EngineErrorCode,
+  type DeviceInfo,
   type IncomingNotification,
   type MediaOptions,
   type Profile,
@@ -99,6 +101,9 @@ async function keyFingerprint(key: Uint8Array<ArrayBuffer>): Promise<string> {
 }
 
 /** One crypto store per user *and device*, so a new login can never collide with an old device's keys. */
+/** Custom profile field holding the status line. */
+const STATUS_FIELD = "com.ohmatrix.status";
+
 const syncDbName = (s: Session) => `${cryptoBase(s)}-sync`;
 const cryptoBase = (s: Session) => `ohmatrix-${s.userId}-${s.deviceId}`;
 
@@ -244,10 +249,12 @@ export class JsSdkEngine implements MatrixEngine {
     if (!c || !id) return this.emitProfile(null);
     try {
       const info = await c.getProfileInfo(id);
+      const status = (info as Record<string, unknown>)[STATUS_FIELD];
       this.emitProfile({
         userId: id,
         displayName: info.displayname || id.replace(/^@/, "").replace(/:.*$/, ""),
         ...(info.avatar_url && { avatar: info.avatar_url }),
+        ...(typeof status === "string" && status && { status }),
       });
     } catch {
       /* keep the previous value */
@@ -267,12 +274,51 @@ export class JsSdkEngine implements MatrixEngine {
         await this.requireClient().setDisplayName(name);
         await this.refreshProfile();
       }),
+    setStatus: (status: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const path = `/profile/${encodeURIComponent(c.getUserId()!)}/${STATUS_FIELD}`;
+        try {
+          if (status.trim()) await c.http.authedRequest(Method.Put, path, undefined, { [STATUS_FIELD]: status.trim() });
+          else await c.http.authedRequest(Method.Delete, path);
+        } catch (e) {
+          if (e instanceof MatrixError && (e.errcode === "M_UNRECOGNIZED" || e.httpStatus === 404 || e.httpStatus === 405))
+            throw new EngineError("unsupported", "This server does not support profile status.", e);
+          throw e;
+        }
+        await this.refreshProfile();
+      }),
     setAvatar: (file: AttachmentSource) =>
       guard(async () => {
         const c = this.requireClient();
         const up = await c.uploadContent(file.data as Blob, { name: file.name, type: file.mimeType });
         await c.setAvatarUrl(up.content_uri);
         await this.refreshProfile();
+      }),
+  };
+
+  readonly devices = {
+    list: () =>
+      guard(async (): Promise<DeviceInfo[]> => {
+        const c = this.requireClient();
+        const mine = c.getDeviceId();
+        const { devices } = await c.getDevices();
+        return devices
+          .map((d) => ({
+            id: d.device_id,
+            name: d.display_name || d.device_id,
+            current: d.device_id === mine,
+            ...(d.last_seen_ts && { lastSeenTs: d.last_seen_ts }),
+            ...(d.last_seen_ip && { lastSeenIp: d.last_seen_ip.replace(/^::ffff:/, "") }),
+          }))
+          .sort((a, b) => Number(b.current) - Number(a.current) || (b.lastSeenTs ?? 0) - (a.lastSeenTs ?? 0));
+      }),
+    remove: (ids: string[], password: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const others = ids.filter((id) => id !== c.getDeviceId()); // signing out the running session is "Sign out"
+        if (others.length === 0) return;
+        await c.deleteMultipleDevices(others, { type: "m.login.password", identifier: { type: "m.id.user", user: c.getUserId()! }, password } as never);
       }),
   };
 

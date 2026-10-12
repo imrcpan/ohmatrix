@@ -4,10 +4,10 @@ import { totalUnread, type AppController } from "@ohmatrix/state";
  * URL scheme (history API, no hash):
  *   /                      chat list
  *   /chat/<roomId>         a chat           /chat/<roomId>/info   its info panel
- *   /profile, /settings    left-pane pages  (with a chat open: /chat/<roomId>?panel=profile|settings)
+ *   /profile, /settings, /sessions   left-pane pages  (with a chat open: /chat/<roomId>?panel=profile|settings|sessions)
  * Room ids keep their `!` and `:` readable.
  */
-export type Page = "chats" | "profile" | "settings";
+export type Page = "chats" | "profile" | "settings" | "sessions";
 export interface Route {
   page: Page;
   room: string | null;
@@ -15,11 +15,11 @@ export interface Route {
 }
 
 const enc = (s: string) => encodeURIComponent(s).replace(/%21/g, "!").replace(/%3A/gi, ":");
-const isPage = (s: string | null | undefined): s is "profile" | "settings" => s === "profile" || s === "settings";
+const isPage = (s: string | null | undefined): s is "profile" | "settings" | "sessions" => s === "profile" || s === "settings" || s === "sessions";
 
 export function parseLocation(pathname: string, search = "", hash = ""): Route {
   // Links from the first version used the hash: #/<page>/room/<id>[/info].
-  const legacy = hash.match(/^#\/(chats|profile|settings)?(?:\/?room\/([^/]+)(\/info)?)?$/);
+  const legacy = hash.match(/^#\/(chats|profile|settings|sessions)?(?:\/?room\/([^/]+)(\/info)?)?$/);
   if (legacy && (legacy[1] || legacy[2])) {
     return { page: (legacy[1] as Page | undefined) ?? "chats", room: legacy[2] ? decodeURIComponent(legacy[2]) : null, info: !!legacy[3] };
   }

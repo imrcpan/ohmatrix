@@ -122,6 +122,19 @@ export interface Profile {
   userId: UserId;
   displayName: string;
   avatar?: MxcUri;
+  /** Free-text status line shown on the profile (a custom profile field). */
+  status?: string;
+}
+
+/** One login session (device) of the account. */
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  /** Milliseconds since epoch of the last request seen from it. */
+  lastSeenTs?: number;
+  lastSeenIp?: string;
+  /** This is the session the app is running as. */
+  current: boolean;
 }
 
 export interface RoomMember {

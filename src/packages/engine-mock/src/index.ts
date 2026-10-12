@@ -50,6 +50,12 @@ export class MockEngine implements MatrixEngine {
     },
     setDisplayName: async () => {},
     setAvatar: async () => {},
+    setStatus: async () => {},
+  };
+
+  readonly devices = {
+    list: async () => [{ id: "MOCK", name: "Mock", current: true }],
+    remove: async () => {},
   };
 
   readonly users = {

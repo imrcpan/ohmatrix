@@ -7,6 +7,7 @@ test("paths are clean and readable", () => {
   expect(buildPath({ page: "chats", room: null, info: false })).toBe("/");
   expect(buildPath({ page: "profile", room: null, info: false })).toBe("/profile");
   expect(buildPath({ page: "settings", room: null, info: false })).toBe("/settings");
+  expect(buildPath({ page: "sessions", room: null, info: false })).toBe("/sessions");
   expect(buildPath({ page: "chats", room: "!abc:matrix.org", info: false })).toBe("/chat/!abc:matrix.org");
   expect(buildPath({ page: "chats", room: "!abc:matrix.org", info: true })).toBe("/chat/!abc:matrix.org/info");
   expect(buildPath({ page: "profile", room: "!abc:localhost", info: false })).toBe("/chat/!abc:localhost?panel=profile");
@@ -17,6 +18,7 @@ test("parse is the inverse of build", () => {
     { page: "chats", room: null, info: false },
     { page: "profile", room: null, info: false },
     { page: "settings", room: null, info: false },
+    { page: "sessions", room: null, info: false },
     { page: "chats", room: "!a/b c:server", info: true },
     { page: "settings", room: "!x:localhost", info: false },
   ];

@@ -86,6 +86,9 @@ export function SettingsPage() {
             />
           )}
         </Section>
+        <Section title={t("sessions")}>
+          <Row label={t("sessions")} icon="device" last onPress={() => controller.openSidebarPage("sessions")} />
+        </Section>
         <Section title={t("account")}>
           <Row label={t("signOut")} danger last onPress={() => setConfirm(true)} chevron={false} />
         </Section>
