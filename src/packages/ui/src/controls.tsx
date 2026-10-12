@@ -50,7 +50,7 @@ export function TextField(props: TextInputProps & { label: string }) {
         }}
         style={[
           {
-            height: 48,
+            ...(rest.multiline ? { minHeight: 96, paddingTop: 12, paddingBottom: 12, textAlignVertical: "top" as const } : { height: 48 }),
             borderRadius: radius.control,
             paddingHorizontal: 14,
             fontSize: 17,

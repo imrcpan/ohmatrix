@@ -10,6 +10,7 @@ import {
   type DeviceInfo,
   type IncomingNotification,
   type MatrixEngine,
+  type RoomAdminApi,
   type MediaOptions,
   type Profile,
   type UserSuggestion,
@@ -91,6 +92,10 @@ export interface AppController {
   setPinned(roomId: RoomId, pinned: boolean): Promise<void>;
   setMarkedUnread(roomId: RoomId, unread: boolean): Promise<void>;
   markRoomRead(roomId: RoomId): Promise<void>;
+  /** Room administration (name, topic, avatar, invitations, removal, roles). */
+  roomAdmin: RoomAdminApi;
+  /** Load older messages of an open room (e.g. to find more shared media). */
+  paginateRoom(roomId: RoomId): Promise<void>;
   /** Fires for each new message that should notify (see `NotificationsApi`). */
   subscribeNotifications(cb: (n: IncomingNotification) => void): () => void;
   /** Mute or unmute a room. */
@@ -142,6 +147,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
   ];
 
   const select = (selectedRoomId: RoomId | null) => set((s) => (s.selectedRoomId === selectedRoomId ? {} : { selectedRoomId, roomInfoOpen: false }));
+
+  const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
 
   const signedOut = (authError: string | null = null) =>
     set({
@@ -212,6 +219,10 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     setPinned: (roomId, pinned) => engine.rooms.setPinned(roomId, pinned),
     setMarkedUnread: (roomId, unread) => engine.rooms.setMarkedUnread(roomId, unread),
     markRoomRead: (roomId) => engine.rooms.markRead(roomId),
+    roomAdmin: engine.roomAdmin,
+    paginateRoom: async (roomId) => {
+      await handles.get(roomId)?.paginateBackwards();
+    },
     subscribeNotifications: (cb) => engine.notifications.subscribe(cb),
     setRoomMuted: (roomId, muted) => engine.rooms.setMuted(roomId, muted),
     searchUsers: (term) => engine.users.search(term),
@@ -235,6 +246,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     resolveMedia: (mxc, opts) => engine.media.resolve(mxc, opts),
     openRoom(roomId) {
       const tl = engine.openTimeline(roomId);
+      handles.set(roomId, tl);
       const off = tl.subscribe((updates) => set((s) => ({ timelines: { ...s.timelines, [roomId]: applyUpdates(s.timelines[roomId] ?? [], updates) } })));
       void tl.markRead().catch(() => {});
       return {
@@ -252,6 +264,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         close: () => {
           off();
           tl.close();
+          if (handles.get(roomId) === tl) handles.delete(roomId);
         },
       };
     },

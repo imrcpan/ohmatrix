@@ -1181,3 +1181,92 @@ test("profile status and sessions", async ({ page }) => {
   await page.goBack();
   await expect(page.getByText("Appearance")).toBeVisible();
 });
+
+async function newGroup(page: Page, name: string, members: string[]) {
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New group" }).click();
+  await page.getByText("Group name").locator("..").locator("input").last().fill(name);
+  for (const m of members) await pickPerson(page, m, m);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+}
+
+test("room administration UI: edit name and topic, invite, roles, remove, mute", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const name = `Admin ${Date.now().toString(36)}`;
+  await newGroup(page, name, ["bob"]);
+  const roomId = decodeURIComponent(new URL(page.url()).pathname.replace("/chat/", ""));
+  await api(await apiLogin("bob"), "POST", `/join/${encodeURIComponent(roomId)}`, {}); // bob accepts the invitation
+  await page.getByRole("button", { name: "Chat info" }).click();
+  await expect(page.getByText("Members · 2")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Invited", { exact: true })).toHaveCount(0, { timeout: 15000 });
+
+  // Edit the name and the topic from the panel.
+  const renamed = `${name} v2`;
+  await page.getByRole("button", { name: "Group name", exact: true }).click();
+  await page.locator("input").last().fill(renamed);
+  await page.getByRole("button", { name: "Save", exact: true }).last().click();
+  await expect(page.getByText(renamed).first()).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: "Topic", exact: true }).click();
+  await page.locator("textarea").last().fill("Only shipping on Fridays");
+  await page.getByRole("button", { name: "Save", exact: true }).last().click();
+  await expect(page.getByText("Only shipping on Fridays")).toBeVisible({ timeout: 15000 });
+  await shot(page, "38-room-admin");
+
+  // Invite another person through the picker.
+  await page.getByRole("button", { name: "Invite people" }).click();
+  await pickPerson(page, "ali", "alice");
+  await page.getByRole("button", { name: "Invite 1", exact: true }).click();
+  await expect(page.getByText("Members · 3")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("Invited", { exact: true })).toBeVisible();
+
+  // Roles: promote bob (a pending invitation has no role to change, only withdrawal).
+  await page.getByRole("button", { name: "alice", exact: true }).last().click();
+  await expect(page.getByRole("menuitem", { name: "Withdraw invitation" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Make moderator" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.mouse.click(5, 5);
+  await page.getByRole("button", { name: "bob", exact: true }).last().click();
+  await page.getByRole("menuitem", { name: "Make moderator" }).click();
+  await expect(page.getByText("Moderator", { exact: true })).toBeVisible({ timeout: 15000 });
+
+  // Withdraw alice's invitation, remove bob (both ask first).
+  await page.getByRole("button", { name: "alice", exact: true }).last().click();
+  await page.getByRole("menuitem", { name: "Withdraw invitation" }).click();
+  await page.getByRole("button", { name: "Withdraw invitation", exact: true }).last().click();
+  await expect(page.getByText("Members · 2")).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: "bob", exact: true }).last().click();
+  await page.getByRole("menuitem", { name: "Remove from group" }).click();
+  await expect(page.getByText("Remove bob?")).toBeVisible();
+  await page.getByRole("button", { name: "Remove from group", exact: true }).last().click();
+  await expect(page.getByText("Members · 1")).toBeVisible({ timeout: 15000 });
+
+  // Mute from the panel: the switch is on and the chat list marks the chat.
+  await page.getByRole("switch", { name: "Mute notifications" }).click();
+  await expect(page.getByRole("switch", { name: "Mute notifications" })).toBeChecked({ timeout: 10000 });
+  await page.getByRole("switch", { name: "Mute notifications" }).click();
+  await expect(page.getByRole("switch", { name: "Mute notifications" })).not.toBeChecked({ timeout: 10000 });
+});
+
+test("room administration UI: members without rights see no editing; shared media lists the photo", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "OhMatrix Dev");
+  await page.getByRole("button", { name: "Chat info" }).click();
+  await expect(page.getByText("Group info", { exact: true })).toBeVisible();
+  await expect(page.getByText("Members · 3")).toBeVisible({ timeout: 15000 });
+  // test is a plain member of alice's room: nothing to edit, invite or manage.
+  await page
+    .getByRole("button", { name: "Group name", exact: true })
+    .click({ timeout: 2000 })
+    .catch(() => {});
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Invite people" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "alice", exact: true })).toHaveCount(0);
+  // Shared photos come from the loaded messages; older ones can be loaded on demand.
+  await expect(page.getByText(/^Photos · \d+/)).toBeVisible({ timeout: 15000 });
+  await shot(page, "39-shared-media");
+  await page.getByRole("button", { name: "Load older messages" }).click();
+  await expect(page.getByText(/^Photos · \d+/)).toBeVisible();
+});

@@ -53,6 +53,15 @@ export class MockEngine implements MatrixEngine {
     setStatus: async () => {},
   };
 
+  readonly roomAdmin = {
+    setName: async () => {},
+    setTopic: async () => {},
+    setAvatar: async () => {},
+    invite: async () => {},
+    kick: async () => {},
+    setRole: async () => {},
+  };
+
   readonly devices = {
     list: async () => [{ id: "MOCK", name: "Mock", current: true }],
     remove: async () => {},
@@ -102,7 +111,18 @@ export class MockEngine implements MatrixEngine {
     markRead: async (roomId: string) => this.markRead(roomId),
     subscribeDetails: (roomId: string, cb: Listener<import("@ohmatrix/core").RoomDetails>) => {
       const r = this.roomData.get(roomId);
-      if (r) cb({ id: roomId, name: r.name, isDirect: false, isEncrypted: false, members: [] });
+      if (r)
+        cb({
+          id: roomId,
+          name: r.name,
+          isDirect: false,
+          isEncrypted: false,
+          members: [],
+          muted: false,
+          me: this.me,
+          myRole: "admin",
+          can: { editInfo: false, invite: false, kick: false, changeRoles: false },
+        });
       return () => {};
     },
     leave: async (roomId: string) => {

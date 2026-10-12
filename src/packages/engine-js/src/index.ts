@@ -26,6 +26,7 @@ import {
   type EngineErrorCode,
   type DeviceInfo,
   type IncomingNotification,
+  type MemberRole,
   type MediaOptions,
   type Profile,
   type UserSuggestion,
@@ -103,6 +104,9 @@ async function keyFingerprint(key: Uint8Array<ArrayBuffer>): Promise<string> {
 /** One crypto store per user *and device*, so a new login can never collide with an old device's keys. */
 /** Custom profile field holding the status line. */
 const STATUS_FIELD = "com.ohmatrix.status";
+
+const ROLE_LEVEL: Record<MemberRole, number> = { admin: 100, moderator: 50, member: 0 };
+const roleOf = (power: number): MemberRole => (power >= 100 ? "admin" : power >= 50 ? "moderator" : "member");
 
 const syncDbName = (s: Session) => `${cryptoBase(s)}-sync`;
 const cryptoBase = (s: Session) => `ohmatrix-${s.userId}-${s.deviceId}`;
@@ -294,6 +298,36 @@ export class JsSdkEngine implements MatrixEngine {
         const up = await c.uploadContent(file.data as Blob, { name: file.name, type: file.mimeType });
         await c.setAvatarUrl(up.content_uri);
         await this.refreshProfile();
+      }),
+  };
+
+  readonly roomAdmin = {
+    setName: (roomId: RoomId, name: string) =>
+      guard(async () => {
+        await this.requireClient().setRoomName(roomId, name.trim());
+      }),
+    setTopic: (roomId: RoomId, topic: string) =>
+      guard(async () => {
+        await this.requireClient().setRoomTopic(roomId, topic.trim());
+      }),
+    setAvatar: (roomId: RoomId, file: AttachmentSource) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const up = await c.uploadContent(file.data as Blob, { name: file.name, type: file.mimeType });
+        await c.sendStateEvent(roomId, EventType.RoomAvatar as never, { url: up.content_uri } as never, "");
+      }),
+    invite: (roomId: RoomId, userIds: string[]) =>
+      guard(async () => {
+        const c = this.requireClient();
+        for (const id of userIds) await c.invite(roomId, id);
+      }),
+    kick: (roomId: RoomId, userId: string) =>
+      guard(async () => {
+        await this.requireClient().kick(roomId, userId);
+      }),
+    setRole: (roomId: RoomId, userId: string, role: MemberRole) =>
+      guard(async () => {
+        await this.requireClient().setPowerLevel(roomId, userId, ROLE_LEVEL[role]);
       }),
   };
 
@@ -651,7 +685,7 @@ export class JsSdkEngine implements MatrixEngine {
               userId: m.userId,
               name: nameOf(m, m.userId),
               ...(avatar && { avatar }),
-              role: m.powerLevel >= 100 ? "admin" : m.powerLevel >= 50 ? "moderator" : "member",
+              role: roleOf(m.powerLevel),
               ...(m.membership === "invite" && { invited: true }),
             } as RoomMember;
           })
@@ -660,12 +694,25 @@ export class JsSdkEngine implements MatrixEngine {
         const avatar = room.getMxcAvatarUrl() ?? undefined;
         const alias = room.getCanonicalAlias() ?? undefined;
         const summary = toRoomSummary(c, room);
+        const me = c.getUserId() ?? "";
+        const myPower = room.getMember(me)?.powerLevel ?? 0;
+        const st = room.currentState;
+        const manage = !summary.isDirect; // one-to-one chats have nothing to administer
         return {
           id: roomId,
           name: room.name || roomId,
           isDirect: summary.isDirect,
           isEncrypted: c.isRoomEncrypted(roomId),
           members,
+          muted: !!summary.muted,
+          me,
+          myRole: roleOf(myPower),
+          can: {
+            editInfo: manage && st.maySendStateEvent(EventType.RoomName, me) && st.maySendStateEvent(EventType.RoomTopic, me),
+            invite: manage && st.hasSufficientPowerLevelFor("invite", myPower),
+            kick: manage && st.hasSufficientPowerLevelFor("kick", myPower),
+            changeRoles: manage && st.maySendStateEvent(EventType.RoomPowerLevels, me),
+          },
           ...(topic && { topic }),
           ...(avatar && { avatar }),
           ...(alias && { alias }),
@@ -682,12 +729,14 @@ export class JsSdkEngine implements MatrixEngine {
         });
       };
       c.on(RoomEvent.Name, refresh as never);
+      c.on(ClientEvent.AccountData, refresh as never); // push rules: mute
       c.on(RoomStateEvent.Members, refresh as never);
       c.on(RoomStateEvent.Events, refresh as never);
       refresh();
       return () => {
         live = false;
         c.off(RoomEvent.Name, refresh as never);
+        c.off(ClientEvent.AccountData, refresh as never);
         c.off(RoomStateEvent.Members, refresh as never);
         c.off(RoomStateEvent.Events, refresh as never);
       };

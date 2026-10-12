@@ -523,3 +523,77 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   60000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "room administration: edit info, invite, roles and permissions, remove, mute",
+  async () => {
+    const a = new JsSdkEngine({ cryptoStorage: "memory" });
+    const b = new JsSdkEngine({ cryptoStorage: "memory" });
+    await a.auth.loginWithPassword("http://localhost:8008", "alice", "123456");
+    await b.auth.loginWithPassword("http://localhost:8008", "bob", "123456");
+    let aRooms: RoomSummary[] = [],
+      bRooms: RoomSummary[] = [];
+    a.rooms.subscribe((u) => {
+      aRooms = applyUpdates(aRooms, u);
+    });
+    b.rooms.subscribe((u) => {
+      bRooms = applyUpdates(bRooms, u);
+    });
+    await a.sync.start();
+    await b.sync.start();
+    const room = await a.rooms.createGroup({ name: `Admin ${Date.now()}`, invite: ["@bob:localhost"] });
+    await expect.poll(() => bRooms.some((r) => r.id === room && r.invite), { timeout: 15000 }).toBe(true);
+    await b.rooms.acceptInvite(room);
+    await expect.poll(() => bRooms.some((r) => r.id === room && !r.invite), { timeout: 15000 }).toBe(true);
+
+    const watch = (e: JsSdkEngine) => {
+      const st = { d: null as import("@ohmatrix/core").RoomDetails | null };
+      e.rooms.subscribeDetails(room, (d) => {
+        st.d = d;
+      });
+      return st;
+    };
+    const da = watch(a),
+      db = watch(b);
+    await expect.poll(() => da.d?.members.filter((m) => !m.invited).length, { timeout: 15000 }).toBe(2);
+    await expect.poll(() => db.d?.members.filter((m) => !m.invited).length, { timeout: 15000 }).toBe(2);
+
+    // Permissions follow the power levels: the creator is an admin who can do everything; a plain member can do nothing.
+    expect(da.d).toMatchObject({ myRole: "admin", muted: false, can: { editInfo: true, invite: true, kick: true, changeRoles: true } });
+    expect(db.d).toMatchObject({ myRole: "member", can: { editInfo: false, kick: false, changeRoles: false } });
+    await expect(b.roomAdmin.setName(room, "Hijacked")).rejects.toMatchObject({ code: "forbidden" });
+
+    // Editing: name, topic, avatar propagate to everyone.
+    await a.roomAdmin.setName(room, "Renamed room");
+    await a.roomAdmin.setTopic(room, "  A fresh topic ");
+    await a.roomAdmin.setAvatar(room, { name: "r.png", mimeType: "image/png", size: PNG_1X1.length, data: new Blob([PNG_1X1], { type: "image/png" }) });
+    await expect.poll(() => db.d && [db.d.name, db.d.topic, !!db.d.avatar], { timeout: 15000 }).toEqual(["Renamed room", "A fresh topic", true]);
+    await a.roomAdmin.setTopic(room, "");
+    await expect.poll(() => db.d?.topic, { timeout: 10000 }).toBeUndefined();
+
+    // Roles: promoting bob to moderator lets him edit, but not remove the admin.
+    await a.roomAdmin.setRole(room, "@bob:localhost", "moderator");
+    await expect.poll(() => db.d?.myRole, { timeout: 10000 }).toBe("moderator");
+    expect(db.d?.can).toMatchObject({ editInfo: true, kick: true });
+    await expect.poll(() => da.d?.members.find((m) => m.userId === "@bob:localhost")?.role, { timeout: 10000 }).toBe("moderator");
+    await expect(b.roomAdmin.kick(room, "@alice:localhost")).rejects.toMatchObject({ code: "forbidden" });
+    await expect(b.roomAdmin.setRole(room, "@alice:localhost", "member")).rejects.toMatchObject({ code: "forbidden" });
+
+    // Invites show as pending and can be withdrawn.
+    await a.roomAdmin.invite(room, ["@test:localhost"]);
+    await expect.poll(() => da.d?.members.find((m) => m.userId === "@test:localhost")?.invited, { timeout: 10000 }).toBe(true);
+    await a.roomAdmin.kick(room, "@test:localhost");
+    await expect.poll(() => da.d?.members.some((m) => m.userId === "@test:localhost"), { timeout: 10000 }).toBe(false);
+
+    // Mute is reflected in the details; removing a member takes the room away from them.
+    await b.rooms.setMuted(room, true);
+    await expect.poll(() => db.d?.muted, { timeout: 10000 }).toBe(true);
+    await b.rooms.setMuted(room, false);
+    await expect.poll(() => db.d?.muted, { timeout: 10000 }).toBe(false);
+    await a.roomAdmin.kick(room, "@bob:localhost");
+    await expect.poll(() => bRooms.some((r) => r.id === room), { timeout: 15000 }).toBe(false);
+    await a.sync.stop();
+    await b.sync.stop();
+  },
+  120000,
+);

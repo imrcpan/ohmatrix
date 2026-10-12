@@ -1,17 +1,37 @@
-import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import type { RoomDetails, RoomMember } from "@ohmatrix/core";
-import { Avatar, Dialog, fontFamily, IconButton, NavBar, PrimaryButton, Row, Section, TextButton, useTheme } from "@ohmatrix/ui";
-import { useController, useT } from "./context.js";
+import { useEffect, useMemo, useState } from "react";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type TimelineItem } from "@ohmatrix/core";
+import {
+  Avatar,
+  Dialog,
+  fontFamily,
+  Icon,
+  IconButton,
+  Menu,
+  NavBar,
+  PrimaryButton,
+  Row,
+  Section,
+  TextButton,
+  Toggle,
+  useTheme,
+  type Anchor,
+  type MenuItem,
+} from "@ohmatrix/ui";
+import { useAppState, useController, useServices, useT } from "./context.js";
+import { InviteDialog } from "./InviteDialog.js";
+import { PromptDialog } from "./PromptDialog.js";
 import { useMediaUrl } from "./useMedia.js";
 
-function MemberRow(props: { member: RoomMember; last: boolean }) {
+const RANK: Record<MemberRole, number> = { member: 0, moderator: 1, admin: 2 };
+
+function MemberRow(props: { member: RoomMember; last: boolean; onPress?: ((anchor: Anchor) => void) | undefined }) {
   const { colors } = useTheme();
   const t = useT();
   const m = props.member;
   const avatar = useMediaUrl(m.avatar, { width: 72, height: 72, fit: "crop" });
   const tag = m.invited ? t("invited") : m.role === "admin" ? t("role.admin") : m.role === "moderator" ? t("role.moderator") : null;
-  return (
+  const body = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: 14, minHeight: 54 }}>
       <Avatar id={m.userId} name={m.name} size={36} src={avatar} />
       <View
@@ -34,30 +54,109 @@ function MemberRow(props: { member: RoomMember; last: boolean }) {
           </Text>
         </View>
         {tag && <Text style={{ fontSize: 13, fontFamily, color: m.invited ? colors.textSecondary : colors.accent }}>{tag}</Text>}
+        {props.onPress && <Icon name="more" size={18} color={colors.textTertiary} />}
       </View>
+    </View>
+  );
+  if (!props.onPress) return body;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={m.name}
+      onPress={(e) => {
+        const n = e.nativeEvent as { pageX?: number; pageY?: number };
+        props.onPress!({ x: n.pageX ?? 0, y: n.pageY ?? 0, width: 0, height: 0 });
+      }}
+      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+      })}
+    >
+      {body}
+    </Pressable>
+  );
+}
+
+function Thumb(props: { item: TimelineItem; size: number }) {
+  const { colors } = useTheme();
+  const c = props.item.content;
+  const encryption = c.kind === "image" ? c.encryption : undefined;
+  const uri = useMediaUrl(c.kind === "image" ? c.url : undefined, {
+    width: 200,
+    height: 200,
+    fit: "crop",
+    ...(encryption ? { encryption, ...(c.kind === "image" && c.mimeType && { mimeType: c.mimeType }) } : {}),
+  });
+  return (
+    <View
+      accessibilityLabel={c.kind === "image" ? c.body : undefined}
+      style={{ width: props.size, height: props.size, borderRadius: 8, overflow: "hidden", backgroundColor: colors.bgSecondary }}
+    >
+      {uri ? <Image source={{ uri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} /> : null}
     </View>
   );
 }
 
-/** Chat info: avatar, name, topic, address, encryption, members, and leave/delete. */
+/** Chat info: avatar, name, topic, address, encryption, mute, members (with management), shared media, leave/delete. */
 export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" }) {
   const { colors } = useTheme();
   const t = useT();
   const controller = useController();
+  const services = useServices();
   const [d, setD] = useState<RoomDetails | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState<"name" | "topic" | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [menu, setMenu] = useState<{ member: RoomMember; anchor: Anchor } | null>(null);
+  const [removing, setRemoving] = useState<RoomMember | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [gridWidth, setGridWidth] = useState(300);
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
+  const items = useAppState((s) => s.timelines[props.roomId]);
 
   useEffect(() => {
     setD(null);
     return controller.subscribeRoomDetails(props.roomId, setD);
   }, [controller, props.roomId]);
 
+  const { images, files } = useMemo(
+    () => ({
+      images: (items ?? []).filter((i) => i.content.kind === "image").reverse(),
+      files: (items ?? []).filter((i) => i.content.kind === "file").reverse(),
+    }),
+    [items],
+  );
+
   const direct = d?.isDirect ?? false;
   const joined = d?.members.filter((m) => !m.invited).length ?? 0;
   const title = direct ? t("userInfo") : t("groupInfo");
   const close = () => controller.openRoomInfo(false);
+  const report = (e: unknown) => setProblem(e instanceof EngineError && e.code === "forbidden" ? t("notAllowed") : e instanceof Error ? e.message : String(e));
+
+  const manageable = (m: RoomMember) => !!d && m.userId !== d.me && RANK[m.role] < RANK[d.myRole];
+  const memberMenu = (m: RoomMember): MenuItem[] => {
+    if (!d) return [];
+    const out: MenuItem[] = [];
+    if (d.can.changeRoles && !m.invited) {
+      (["admin", "moderator", "member"] as const)
+        .filter((r) => r !== m.role && RANK[r] <= RANK[d.myRole])
+        .forEach((role) =>
+          out.push({
+            label: t(role === "admin" ? "makeAdmin" : role === "moderator" ? "makeModerator" : "makeMember"),
+            icon: "user",
+            onPress: () => void controller.roomAdmin.setRole(d.id, m.userId, role).catch(report),
+          }),
+        );
+    }
+    if (d.can.kick) out.push({ label: t(m.invited ? "withdrawInvite" : "removeMember"), icon: "close", danger: true, onPress: () => setRemoving(m) });
+    return out;
+  };
+
+  const changePhoto = async () => {
+    const [file] = (await services.pickFiles?.()) ?? [];
+    if (file && d) await controller.roomAdmin.setAvatar(d.id, file).catch(report);
+  };
+  const canEdit = !!d?.can.editInfo;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgSecondary }}>
@@ -71,7 +170,15 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         {d && (
           <>
             <View style={{ alignItems: "center", paddingTop: 24, paddingHorizontal: 20, gap: 4 }}>
-              <Avatar id={d.id} name={d.name} size={96} src={avatar} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("room.changePhoto")}
+                disabled={!canEdit || !services.pickFiles}
+                onPress={() => void changePhoto()}
+              >
+                <Avatar id={d.id} name={d.name} size={96} src={avatar} />
+              </Pressable>
+              {canEdit && !!services.pickFiles && <TextButton title={t("changePhoto")} onPress={() => void changePhoto()} />}
               <Text numberOfLines={2} style={{ marginTop: 8, fontSize: 22, fontWeight: "700", fontFamily, color: colors.text, textAlign: "center" }}>
                 {d.name}
               </Text>
@@ -79,8 +186,14 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 {direct ? t("directChat") : joined === 1 ? t("member.one") : t("members", { n: joined })}
               </Text>
             </View>
+            {!!problem && (
+              <Text style={{ marginTop: 12, marginHorizontal: 20, textAlign: "center", fontSize: 14, fontFamily, color: colors.danger }}>{problem}</Text>
+            )}
             <Section title={t("about")}>
-              {!!d.topic && <Row label={t("topic")} value={d.topic} />}
+              {!direct && <Row label={t("room.editName")} value={d.name} onPress={canEdit ? () => setEdit("name") : undefined} chevron={canEdit} />}
+              {(!!d.topic || canEdit) && !direct && (
+                <Row label={t("topic")} value={d.topic ?? t("room.noTopic")} onPress={canEdit ? () => setEdit("topic") : undefined} chevron={canEdit} />
+              )}
               <Row label={t("address")} value={d.alias ?? d.id} />
               <Row
                 label={t("encryption")}
@@ -90,9 +203,63 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 last
               />
             </Section>
+            <Section>
+              <Row
+                label={t("mute")}
+                icon={d.muted ? "bellOff" : "bell"}
+                iconColor={d.muted ? colors.textSecondary : colors.accent}
+                last
+                chevron={false}
+                right={<Toggle label={t("mute")} value={d.muted} onChange={(v) => void controller.setRoomMuted(d.id, v).catch(report)} />}
+              />
+            </Section>
+            {(images.length > 0 || files.length > 0) && (
+              <>
+                {images.length > 0 && (
+                  <Section title={`${t("sharedMedia")} · ${images.length}`}>
+                    <View onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, padding: 10 }}>
+                      {images.slice(0, 12).map((i) => (
+                        <Thumb key={i.id} item={i} size={Math.max(60, Math.floor((gridWidth - 20 - 12) / 3))} />
+                      ))}
+                    </View>
+                  </Section>
+                )}
+                {files.length > 0 && (
+                  <Section title={`${t("sharedFiles")} · ${files.length}`}>
+                    {files.slice(0, 20).map((i, n) => {
+                      const c = i.content as Extract<TimelineItem["content"], { kind: "file" }>;
+                      return (
+                        <Row
+                          key={i.id}
+                          label={c.name}
+                          icon="file"
+                          last={n === Math.min(files.length, 20) - 1}
+                          chevron={false}
+                          onPress={() =>
+                            void controller
+                              .resolveMedia(c.url, { ...(c.encryption ? { encryption: c.encryption } : {}), ...(c.mimeType && { mimeType: c.mimeType }) })
+                              .then((url) => services.saveFile?.({ url, name: c.name }))
+                              .catch(() => {})
+                          }
+                        />
+                      );
+                    })}
+                  </Section>
+                )}
+              </>
+            )}
+            <Section>
+              <Row label={t("loadOlder")} icon="image" last chevron={false} onPress={() => void controller.paginateRoom(d.id)} />
+            </Section>
             <Section title={direct ? t("participant") : `${t("membersTitle")} · ${d.members.length}`}>
+              {d.can.invite && <Row label={t("room.invite")} icon="userPlus" chevron={false} onPress={() => setInviting(true)} last={d.members.length === 0} />}
               {d.members.map((m, i) => (
-                <MemberRow key={m.userId} member={m} last={i === d.members.length - 1} />
+                <MemberRow
+                  key={m.userId}
+                  member={m}
+                  last={i === d.members.length - 1}
+                  onPress={manageable(m) && memberMenu(m).length ? (anchor) => setMenu({ member: m, anchor }) : undefined}
+                />
               ))}
             </Section>
             <Section>
@@ -101,6 +268,51 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
           </>
         )}
       </ScrollView>
+      <Menu visible={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} items={menu ? memberMenu(menu.member) : []} />
+      <PromptDialog
+        visible={edit === "name"}
+        title={t("room.editName")}
+        message=""
+        confirmLabel={t("save")}
+        initial={[d?.name ?? ""]}
+        fields={[{ label: t("room.editName") }]}
+        onClose={() => setEdit(null)}
+        onConfirm={([v]) => controller.roomAdmin.setName(props.roomId, v!)}
+      />
+      <PromptDialog
+        visible={edit === "topic"}
+        title={t("room.editTopic")}
+        message=""
+        confirmLabel={t("save")}
+        initial={[d?.topic ?? ""]}
+        fields={[{ label: t("room.editTopic"), optional: true, multiline: true }]}
+        onClose={() => setEdit(null)}
+        onConfirm={([v]) => controller.roomAdmin.setTopic(props.roomId, v ?? "")}
+      />
+      <InviteDialog visible={inviting} roomId={props.roomId} onClose={() => setInviting(false)} />
+      <Dialog
+        visible={!!removing}
+        title={removing ? t(removing.invited ? "withdrawInvite.title" : "removeMember.title", { name: removing.name }) : ""}
+        message={removing && !removing.invited ? t("removeMember.body") : ""}
+        onClose={() => setRemoving(null)}
+      >
+        <PrimaryButton
+          title={t(removing?.invited ? "withdrawInvite" : "removeMember")}
+          loading={busy}
+          onPress={() => {
+            if (!removing || !d) return;
+            setBusy(true);
+            controller.roomAdmin
+              .kick(d.id, removing.userId)
+              .catch(report)
+              .finally(() => {
+                setBusy(false);
+                setRemoving(null);
+              });
+          }}
+        />
+        <TextButton title={t("cancel")} onPress={() => setRemoving(null)} />
+      </Dialog>
       <Dialog
         visible={confirm}
         title={t(direct ? "deleteChat.title" : "leaveGroup.title")}

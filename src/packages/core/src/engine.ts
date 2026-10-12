@@ -2,6 +2,7 @@ import type { ListUpdate } from "./diff.js";
 import type {
   AttachmentSource,
   DeviceInfo,
+  MemberRole,
   IncomingNotification,
   RoomDetails,
   Profile,
@@ -97,6 +98,18 @@ export interface ProfileApi {
   setStatus(status: string): Promise<void>;
 }
 
+export interface RoomAdminApi {
+  setName(roomId: RoomId, name: string): Promise<void>;
+  /** Empty clears the topic. */
+  setTopic(roomId: RoomId, topic: string): Promise<void>;
+  setAvatar(roomId: RoomId, file: AttachmentSource): Promise<void>;
+  /** Invite people; fails as a whole with the server's reason if one of them cannot be invited. */
+  invite(roomId: RoomId, userIds: UserId[]): Promise<void>;
+  /** Remove a member, or withdraw a pending invitation. */
+  kick(roomId: RoomId, userId: UserId): Promise<void>;
+  setRole(roomId: RoomId, userId: UserId, role: MemberRole): Promise<void>;
+}
+
 export interface DevicesApi {
   /** My sessions, current one first, then most recently active. */
   list(): Promise<DeviceInfo[]>;
@@ -162,6 +175,7 @@ export interface MatrixEngine {
   readonly security: SecurityApi;
   readonly profile: ProfileApi;
   readonly devices: DevicesApi;
+  readonly roomAdmin: RoomAdminApi;
   readonly users: UserDirectoryApi;
   readonly notifications: NotificationsApi;
   openTimeline(roomId: RoomId): TimelineHandle;

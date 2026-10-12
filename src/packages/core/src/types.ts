@@ -137,11 +137,13 @@ export interface DeviceInfo {
   current: boolean;
 }
 
+export type MemberRole = "admin" | "moderator" | "member";
+
 export interface RoomMember {
   userId: UserId;
   name: string;
   avatar?: MxcUri;
-  role: "admin" | "moderator" | "member";
+  role: MemberRole;
   /** Invited people are listed but have not joined yet. */
   invited?: boolean;
 }
@@ -157,6 +159,12 @@ export interface RoomDetails {
   isDirect: boolean;
   isEncrypted: boolean;
   members: RoomMember[];
+  /** Notifications are muted for this room. */
+  muted: boolean;
+  me: UserId;
+  myRole: MemberRole;
+  /** What I am allowed to do here, according to the room's power levels. */
+  can: { editInfo: boolean; invite: boolean; kick: boolean; changeRoles: boolean };
 }
 
 /** A person found in the user directory (or looked up by full user id). */

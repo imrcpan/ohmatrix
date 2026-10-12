@@ -38,6 +38,7 @@ function RoomListItem(props: { room: RoomSummary; selected: boolean; now: number
       avatarUrl={avatar}
       pinned={room.pinned}
       markedUnread={room.markedUnread}
+      muted={room.muted}
       onContextMenu={room.invite ? undefined : (anchor) => props.onMenu(room, anchor)}
       onPress={() => {
         if (!room.invite) controller.selectRoom(room.id);
@@ -151,6 +152,11 @@ export function RoomListPane() {
                   label: roomMenu.room.pinned ? t("unpin") : t("pin"),
                   icon: "pin",
                   onPress: () => void controller.setPinned(roomMenu.room.id, !roomMenu.room.pinned),
+                },
+                {
+                  label: roomMenu.room.muted ? t("unmute") : t("mute"),
+                  icon: roomMenu.room.muted ? "bell" : "bellOff",
+                  onPress: () => void controller.setRoomMuted(roomMenu.room.id, !roomMenu.room.muted),
                 },
                 roomMenu.room.markedUnread || roomMenu.room.unreadCount > 0
                   ? { label: t("markRead"), icon: "mailUnread", onPress: () => void controller.markRoomRead(roomMenu.room.id) }
