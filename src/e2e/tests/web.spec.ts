@@ -1604,3 +1604,15 @@ test('sign-in failures stay on the sign-in page: server "1", any credentials', a
   await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
   expect(errors).toEqual([]);
 });
+
+test("a screen that fails to render shows a way out instead of a blank page", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.evaluate(() => {
+    (window as unknown as { __ohmatrix: { controller: { store: { setState(s: object): void } } } }).__ohmatrix.controller.store.setState({ prefs: null });
+  });
+  await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("The screen could not be shown. Your messages are safe.")).toBeVisible();
+  await page.getByRole("button", { name: "Reload" }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 }); // reload restores the session
+});

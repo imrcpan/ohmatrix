@@ -22,6 +22,10 @@ const en = {
   today: "Today",
   yesterday: "Yesterday",
   noMessages: "No messages yet",
+  "error.title": "Something went wrong",
+  "error.body": "The screen could not be shown. Your messages are safe.",
+  "error.retry": "Try again",
+  "error.reload": "Reload",
   "login.network": "Cannot reach {server}. Check how the address is spelled and your network connection.",
   "login.rejected": "Wrong username or password.",
   "viewer.close": "Close",
@@ -208,6 +212,10 @@ const zh: Record<MessageKey, string> = {
   today: "今天",
   yesterday: "昨天",
   noMessages: "暂无消息",
+  "error.title": "出了点问题",
+  "error.body": "界面无法显示，你的消息是安全的。",
+  "error.retry": "重试",
+  "error.reload": "重新加载",
   "login.network": "无法连接到 {server}。请检查服务器地址的拼写和网络连接。",
   "login.rejected": "用户名或密码错误。",
   "viewer.close": "关闭",
@@ -376,7 +384,8 @@ export function detectLocale(tag: string | undefined): Locale {
   return tag?.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
 }
 
+/** Translates `key`; a missing translation falls back to English and then to the key itself, never to an exception. */
 export function t(locale: Locale, key: MessageKey, params?: Record<string, string | number>): string {
-  const s = catalogs[locale][key] ?? en[key];
+  const s = catalogs[locale]?.[key] ?? en[key] ?? String(key);
   return params ? s.replace(/\{(\w+)\}/g, (_, k: string) => String(params[k] ?? "")) : s;
 }
