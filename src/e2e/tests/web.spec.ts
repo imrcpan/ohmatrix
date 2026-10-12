@@ -1336,3 +1336,27 @@ test("search: in-chat search is scoped to the chat; encrypted chats are searched
   await page.getByPlaceholder("Search", { exact: true }).fill(tag);
   await expect(page.getByRole("button", { name: new RegExp(`${name}: .*secret ${tag} plans`) })).toBeVisible({ timeout: 15000 });
 });
+
+test('top bar: fixed height; "Connecting..." replaces the name instead of adding a line', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  let release!: () => void;
+  const held = new Promise<void>((r) => {
+    release = r;
+  });
+  await page.route("**/_matrix/client/v3/sync**", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await loginAs(page, "test", "123456");
+  const bar = page.getByRole("button", { name: "Profile", exact: true }).first();
+  await expect(page.getByText("Connecting…")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("test", { exact: true })).toHaveCount(0); // the name is not shown at the same time
+  const connecting = (await bar.boundingBox())!.height;
+  const searchTop = (await page.getByPlaceholder("Search").boundingBox())!.y;
+  await shot(page, "43-connecting");
+  release();
+  await expect(page.getByText("Connecting…")).toHaveCount(0, { timeout: 30000 });
+  await expect(page.getByText("test", { exact: true }).first()).toBeVisible();
+  expect((await bar.boundingBox())!.height).toBe(connecting);
+  expect((await page.getByPlaceholder("Search").boundingBox())!.y).toBe(searchTop); // nothing below moved
+});
