@@ -6,6 +6,7 @@ import { App } from "@ohmatrix/app";
 import { createCryptoKeyProvider } from "./cryptoKeys.js";
 import { createSecureBox } from "./secureBox.js";
 import { createSecureSessionStore } from "./secureSession.js";
+import { createWebNotifications } from "./notifications.js";
 import { installRouter } from "./router.js";
 
 // The session (access token) is encrypted with a non-extractable WebCrypto key before it is stored.
@@ -27,6 +28,7 @@ const preferences = {
 const services: PlatformServices = {
   sessionStore,
   preferences,
+  notifications: createWebNotifications(),
   pickFiles: () =>
     new Promise<AttachmentSource[]>((resolve) => {
       const input = document.createElement("input");

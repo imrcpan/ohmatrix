@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import type { Session, SessionStore } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
-import { createAppController } from "./index.js";
+import { createAppController, totalUnread } from "./index.js";
 
 const memoryStore = (): SessionStore & { saved: Session | null } => {
   const s = {
@@ -55,9 +55,32 @@ test("preferences load on bootstrap and persist on change", async () => {
     },
   });
   await app.bootstrap();
-  expect(app.store.getState().prefs).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: null });
+  expect(app.store.getState().prefs).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: null, notifications: false, notificationPreview: true });
   app.setPreferences({ sidebarWidth: 400 });
   await Promise.resolve();
   await Promise.resolve();
-  expect(saved).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: 400 });
+  expect(saved).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: 400, notifications: false, notificationPreview: true });
+});
+
+test("totalUnread counts notifying chats, manual marks once, and skips muted chats and invites", () => {
+  const r = (o: Partial<import("@ohmatrix/core").RoomSummary>) => ({
+    id: "!x",
+    name: "x",
+    isDirect: false,
+    memberCount: 2,
+    unreadCount: 0,
+    highlightCount: 0,
+    lastActivityTs: 0,
+    ...o,
+  });
+  expect(totalUnread([])).toBe(0);
+  expect(
+    totalUnread([
+      r({ unreadCount: 3 }),
+      r({ unreadCount: 2, muted: true }),
+      r({ markedUnread: true }),
+      r({ unreadCount: 5, invite: { inviter: "a" } }),
+      r({ unreadCount: 4, markedUnread: true }),
+    ]),
+  ).toBe(3 + 1 + 4);
 });

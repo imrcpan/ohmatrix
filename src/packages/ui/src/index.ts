@@ -10,3 +10,4 @@ export { Section, Row, NavBar } from "./lists.js";
 export { Menu, type MenuItem, type Anchor } from "./Menu.js";
 export { EllipsisText } from "./EllipsisText.js";
 export { truncateWithDots } from "./truncate.js";
+export { Toggle } from "./Toggle.js";

@@ -410,3 +410,51 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   90000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "notifications: live messages from others only; muted rooms are silent; encrypted rooms are decrypted for the preview",
+  async () => {
+    const a = new JsSdkEngine({ cryptoStorage: "memory" });
+    const b = new JsSdkEngine({ cryptoStorage: "memory" });
+    await a.auth.loginWithPassword("http://localhost:8008", "alice", "123456");
+    await b.auth.loginWithPassword("http://localhost:8008", "bob", "123456");
+    const got: import("@ohmatrix/core").IncomingNotification[] = [];
+    b.notifications.subscribe((n) => got.push(n));
+    let bRooms: RoomSummary[] = [];
+    b.rooms.subscribe((u) => {
+      bRooms = applyUpdates(bRooms, u);
+    });
+    await a.sync.start();
+    await b.sync.start();
+    const plain = await a.rooms.createGroup({ name: `Notify ${Date.now()}`, invite: ["@bob:localhost"] });
+    await expect.poll(() => bRooms.some((r) => r.id === plain && r.invite), { timeout: 15000 }).toBe(true);
+    await b.rooms.acceptInvite(plain);
+    await expect.poll(() => bRooms.some((r) => r.id === plain && !r.invite), { timeout: 15000 }).toBe(true);
+    expect(got).toEqual([]); // joining and history are not notifications
+
+    const ta = a.openTimeline(plain);
+    const tb = b.openTimeline(plain);
+    await tb.sendText("my own message"); // never notifies me
+    await ta.sendText("hello bob");
+    await expect.poll(() => got.length, { timeout: 15000 }).toBe(1);
+    expect(got[0]).toMatchObject({ roomId: plain, senderName: "alice", isDirect: false, preview: "hello bob" });
+    expect(got.some((n) => n.preview === "my own message")).toBe(false);
+
+    // Muting the room silences it (and shows as muted in the list).
+    await b.rooms.setMuted(plain, true);
+    await expect.poll(() => bRooms.find((r) => r.id === plain)?.muted, { timeout: 10000 }).toBe(true);
+    await ta.sendText("are you there?");
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(got).toHaveLength(1);
+    await b.rooms.setMuted(plain, false);
+    await expect.poll(() => bRooms.find((r) => r.id === plain)?.muted, { timeout: 10000 }).toBeUndefined();
+    await ta.sendText("back again");
+    await expect.poll(() => got.length, { timeout: 15000 }).toBe(2);
+    expect(got[1]!.preview).toBe("back again");
+    ta.close();
+    tb.close();
+    await a.sync.stop();
+    await b.sync.stop();
+  },
+  90000,
+);

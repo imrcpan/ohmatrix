@@ -146,6 +146,22 @@ function readersOf(ev: MatrixEvent, markers: ReadMarkers): Reader[] | undefined 
   return out.length ? out : undefined;
 }
 
+/** Plain-text preview of a decrypted message for notifications; undefined when there is nothing readable. */
+export function notificationPreview(ev: MatrixEvent): string | undefined {
+  if (ev.isDecryptionFailure() || ev.getType() === EventType.RoomMessageEncrypted) return undefined;
+  const c = ev.getContent();
+  switch (c.msgtype) {
+    case MsgType.Image:
+      return "📷";
+    case MsgType.File:
+      return `📎 ${(c.filename as string | undefined) ?? c.body ?? ""}`.trim();
+    default: {
+      const t = typeof c.body === "string" ? stripReplyFallback(c.body).replace(/\s+/g, " ").trim() : "";
+      return t || undefined;
+    }
+  }
+}
+
 /** Display names of people typing in `room`, excluding me. */
 export function typingNames(client: MatrixClient, room: Room): string[] {
   const me = client.getUserId();
@@ -233,12 +249,15 @@ export function toRoomSummary(client: MatrixClient, room: Room): RoomSummary {
   const last = items[items.length - 1];
   const lastMessage = [...items].reverse().find((i) => i.content.kind !== "service") ?? last;
   const avatar = room.getMxcAvatarUrl() ?? (direct ? room.getAvatarFallbackMember()?.getMxcAvatarUrl() : undefined);
+  const rule = client.getRoomPushRule("global", room.roomId);
+  const muted = !!rule && rule.enabled !== false && !rule.actions?.some((a) => a === "notify");
   const pinned = !!room.tags?.["m.favourite"];
   const markedUnread = !!(room.getAccountData("m.marked_unread")?.getContent() as { unread?: boolean } | undefined)?.unread;
   return {
     id: room.roomId,
     name: room.name || room.roomId,
     ...(avatar && { avatar }),
+    ...(muted && { muted }),
     ...(pinned && { pinned }),
     ...(typingNames(client, room).length ? { typing: typingNames(client, room) } : {}),
     ...(markedUnread && { markedUnread }),

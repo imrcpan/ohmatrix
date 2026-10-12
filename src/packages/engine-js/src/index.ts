@@ -10,6 +10,8 @@ import {
   RoomEvent,
   SyncState as SdkSync,
   EventType,
+  PushRuleActionName,
+  PushRuleKind,
   RelationType,
   RoomMemberEvent,
   RoomStateEvent,
@@ -21,6 +23,7 @@ import {
   EngineError,
   type AttachmentSource,
   type EngineErrorCode,
+  type IncomingNotification,
   type MediaOptions,
   type Profile,
   type UserSuggestion,
@@ -36,7 +39,7 @@ import {
   type TimelineHandle,
   type TimelineItem,
 } from "@ohmatrix/core";
-import { nameOf, roomItems, toRoomSummary, typingNames } from "./convert.js";
+import { nameOf, notificationPreview, roomItems, toRoomSummary, typingNames } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { diffTimeline } from "./diff.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
@@ -169,7 +172,10 @@ export class JsSdkEngine implements MatrixEngine {
   private attach(client: MatrixClient) {
     this.client = client;
     const schedule = () => this.scheduleRoomEmit();
+    this.caughtUp = false;
+    this.startedAt = Date.now();
     client.on(ClientEvent.Sync, (state) => {
+      if (state === SdkSync.Prepared || state === SdkSync.Syncing) this.caughtUp = true;
       this.setSync(
         state === SdkSync.Error
           ? "error"
@@ -184,6 +190,19 @@ export class JsSdkEngine implements MatrixEngine {
         void this.security_.refresh();
         if (!this.lastProfile) void this.refreshProfile();
       }
+    });
+    client.on(RoomEvent.Timeline, (ev, room, toStart, removed, data) => {
+      if (!room || toStart || removed || !data?.liveEvent || !this.caughtUp) return; // initial-sync history is flagged live too
+      const id = ev.getId();
+      if (id) {
+        this.liveIds.push(id);
+        if (this.liveIds.length > 300) this.liveIds.shift();
+      }
+      this.considerNotification(client, ev);
+    });
+    // Late decryption of an old message (keys arriving afterwards) must not notify: only events first seen live.
+    client.on(MatrixEventEvent.Decrypted, (ev) => {
+      if (this.liveIds.includes(ev.getId() ?? "")) this.considerNotification(client, ev);
     });
     client.on(MatrixEventEvent.Decrypted, schedule);
     client.on(MatrixEventEvent.Replaced, schedule as never);
@@ -333,6 +352,68 @@ export class JsSdkEngine implements MatrixEngine {
     await keys?.remove(base);
     throw new EngineError("keys_lost", "The encryption keys of this device are unavailable. Please sign in again.");
   }
+
+  private notifyListeners = new Set<Listener<IncomingNotification>>();
+  private notified: string[] = [];
+  private liveIds: string[] = [];
+  private waitingForKeys = new Map<string, ReturnType<typeof setTimeout>>();
+  private caughtUp = false;
+  private startedAt = 0;
+
+  /** Emits a notification for a live message from someone else if the account's push rules say it notifies. */
+  private considerNotification(client: MatrixClient, ev: MatrixEvent, giveUpWaiting = false): void {
+    const id = ev.getId(),
+      roomId = ev.getRoomId();
+    if (!id || !roomId || this.notifyListeners.size === 0 || ev.getSender() === client.getUserId() || this.notified.includes(id)) return;
+    if (ev.isBeingDecrypted() || (ev.getType() === EventType.RoomMessageEncrypted && !ev.isDecryptionFailure())) return; // evaluated again when decryption finishes
+    if (id) {
+      const waiting = this.waitingForKeys.get(id);
+      if (!ev.isDecryptionFailure() && waiting) {
+        clearTimeout(waiting);
+        this.waitingForKeys.delete(id);
+      }
+      if (ev.isDecryptionFailure() && !giveUpWaiting) {
+        // The room key often arrives a moment after the message: wait briefly for a readable preview.
+        if (!waiting)
+          this.waitingForKeys.set(
+            id,
+            setTimeout(() => {
+              this.waitingForKeys.delete(id);
+              this.considerNotification(client, ev, true);
+            }, 4000),
+          );
+        return;
+      }
+    }
+    if (ev.getType() !== EventType.RoomMessage && ev.getType() !== EventType.RoomMessageEncrypted) return;
+    if (ev.isRelation("m.replace") || ev.isRedacted() || ev.getTs() < this.startedAt - 10_000) return; // not news: arrived before we were running
+    const room = client.getRoom(roomId);
+    if (!room) return;
+    const actions = client.getPushActionsForEvent(ev);
+    if (!actions?.notify) return;
+    this.notified.push(id);
+    if (this.notified.length > 300) this.notified.shift();
+    const preview = notificationPreview(ev);
+    const n: IncomingNotification = {
+      eventId: id,
+      roomId,
+      roomName: room.name || roomId,
+      isDirect: toRoomSummary(client, room).isDirect,
+      senderName: nameOf(ev.sender, ev.getSender() ?? ""),
+      highlight: !!actions.tweaks?.highlight,
+      ...(preview !== undefined && { preview }),
+    };
+    this.notifyListeners.forEach((cb) => cb(n));
+  }
+
+  readonly notifications = {
+    subscribe: (cb: Listener<IncomingNotification>) => {
+      this.notifyListeners.add(cb);
+      return () => {
+        this.notifyListeners.delete(cb);
+      };
+    },
+  };
 
   private setSync(s: SyncState) {
     this.lastSync = s;
@@ -573,6 +654,16 @@ export class JsSdkEngine implements MatrixEngine {
           await c.forget(roomId);
         } catch {
           /* already gone */
+        }
+      }),
+    setMuted: (roomId: RoomId, muted: boolean) =>
+      guard(async () => {
+        const c = this.requireClient();
+        if (muted) {
+          await c.addPushRule("global", PushRuleKind.RoomSpecific, roomId, { actions: [PushRuleActionName.DontNotify] });
+          await c.setPushRuleEnabled("global", PushRuleKind.RoomSpecific, roomId, true);
+        } else if (c.getRoomPushRule("global", roomId)) {
+          await c.deletePushRule("global", PushRuleKind.RoomSpecific, roomId);
         }
       }),
     createDirect: (userId: string) =>

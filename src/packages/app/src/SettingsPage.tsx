@@ -1,7 +1,7 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Dialog, fontFamily, Icon, Menu, NavBar, PrimaryButton, Row, Section, TextButton, useTheme, type Anchor } from "@ohmatrix/ui";
-import { useController, useLocale, useT } from "./context.js";
+import { Dialog, fontFamily, Icon, Menu, NavBar, PrimaryButton, Row, Section, TextButton, Toggle, useTheme, type Anchor } from "@ohmatrix/ui";
+import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { ThemeGrid } from "./ThemeGrid.js";
 
 /** Language names are shown in their own language on purpose and are not translated. */
@@ -15,6 +15,9 @@ export function SettingsPage() {
   const t = useT();
   const locale = useLocale();
   const controller = useController();
+  const services = useServices();
+  const prefs = useAppState((s) => s.prefs);
+  const [permission, setPermission] = useState(() => services.notifications?.permission() ?? "unsupported");
   const [confirm, setConfirm] = useState(false);
   const langRef = useRef<ComponentRef<typeof View>>(null);
   const [langAnchor, setLangAnchor] = useState<Anchor | null>(null);
@@ -44,6 +47,44 @@ export function SettingsPage() {
               }
             />
           </View>
+        </Section>
+        <Section
+          title={t("notifications")}
+          footer={t(permission === "denied" ? "notif.footer.denied" : permission === "unsupported" ? "notif.footer.unsupported" : "notif.footer.default")}
+        >
+          <Row
+            label={t("notif.desktop")}
+            last={!prefs.notifications}
+            chevron={false}
+            right={
+              <Toggle
+                label={t("notif.desktop")}
+                value={prefs.notifications && permission === "granted"}
+                disabled={permission === "unsupported"}
+                onChange={(on) => {
+                  if (!on) {
+                    controller.setPreferences({ notifications: false });
+                    return;
+                  }
+                  void (async () => {
+                    const result = permission === "granted" ? "granted" : await services.notifications?.request();
+                    setPermission(result ?? "unsupported");
+                    controller.setPreferences({ notifications: result === "granted" });
+                  })();
+                }}
+              />
+            }
+          />
+          {prefs.notifications && permission === "granted" && (
+            <Row
+              label={t("notif.preview")}
+              last
+              chevron={false}
+              right={
+                <Toggle label={t("notif.preview")} value={prefs.notificationPreview} onChange={(v) => controller.setPreferences({ notificationPreview: v })} />
+              }
+            />
+          )}
         </Section>
         <Section title={t("account")}>
           <Row label={t("signOut")} danger last onPress={() => setConfirm(true)} chevron={false} />

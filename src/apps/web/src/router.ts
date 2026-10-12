@@ -1,4 +1,4 @@
-import type { AppController } from "@ohmatrix/state";
+import { totalUnread, type AppController } from "@ohmatrix/state";
 
 /**
  * URL scheme (history API, no hash):
@@ -46,6 +46,7 @@ export function buildPath({ page, room, info }: Route): string {
 
 /** Keeps the address bar and the app navigation state in sync, in both directions. */
 export function installRouter(controller: AppController): void {
+  installTitle(controller);
   // Only on http(s): under file:// (the desktop shell) paths are file names and cannot be rewritten.
   if (!/^https?:$/.test(location.protocol)) return;
   const current = () => parseLocation(location.pathname, location.search, location.hash);
@@ -80,11 +81,17 @@ export function installRouter(controller: AppController): void {
   addEventListener("popstate", () => {
     if (controller.store.getState().auth === "signedIn") apply(current());
   });
+}
 
-  // Title: the open chat's name.
-  controller.store.subscribe((s) => {
+/** Title: unread total and the open chat's name, e.g. "(3) Alice · OhMatrix". Works under every protocol. */
+export function installTitle(controller: AppController): void {
+  const update = () => {
+    const s = controller.store.getState();
     const name = s.selectedRoomId ? s.rooms.find((r) => r.id === s.selectedRoomId)?.name : undefined;
-    const title = name ? `${name} · OhMatrix` : "OhMatrix";
+    const unread = s.auth === "signedIn" ? totalUnread(s.rooms) : 0;
+    const title = `${unread > 0 ? `(${unread > 99 ? "99+" : unread}) ` : ""}${name ? `${name} · ` : ""}OhMatrix`;
     if (document.title !== title) document.title = title;
-  });
+  };
+  controller.store.subscribe(update);
+  update();
 }
