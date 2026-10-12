@@ -712,7 +712,7 @@ test("typing indicator and read receipts between two people", async ({ browser }
 
   // Receipts: test's message shows a single check until alice has read it, then a double check.
   const text = `receipt ${Date.now()}`;
-  await alice.page.goto("/#/chats"); // alice leaves the chat view so she has not read it yet
+  await alice.page.goto("/"); // alice leaves the chat view so she has not read it yet
   await me.page.getByPlaceholder("Message").fill(text);
   await me.page.getByPlaceholder("Message").press("Enter");
   await expect(me.page.getByText(text, { exact: true }).last()).toBeVisible();
@@ -723,4 +723,97 @@ test("typing indicator and read receipts between two people", async ({ browser }
   await shot(me.page, "33-read-receipt");
   await me.ctx.close();
   await alice.ctx.close();
+});
+
+const roomPath = (page: Page) => new URL(page.url()).pathname;
+
+test("routing: clean chat URLs survive a reload (landscape)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  expect(roomPath(page)).toBe("/");
+  await openRoom(page, "Notes to self");
+  await expect.poll(() => roomPath(page)).toMatch(/^\/chat\/![^/]+$/);
+  expect(page.url()).not.toContain("#");
+  await expect.poll(() => page.title()).toBe("Notes to self · OhMatrix");
+  const url = page.url();
+  await page.reload();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("Notes to self").first()).toBeVisible();
+  expect(page.url()).toBe(url);
+
+  // The info panel is part of the URL too.
+  await page.getByRole("button", { name: "Chat info" }).click();
+  await expect.poll(() => roomPath(page)).toMatch(/\/info$/);
+  await page.reload();
+  await expect(page.getByText(/^(Group|User) info$/)).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect.poll(() => roomPath(page)).not.toMatch(/\/info$/);
+});
+
+test("routing: portrait reload on a chat; back returns to the list", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+  await page.reload();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
+  expect(roomPath(page)).toBe("/");
+});
+
+test("routing: /profile and /settings are real pages; browser history walks them", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await expect.poll(() => roomPath(page)).toBe("/profile");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect.poll(() => roomPath(page)).toBe("/settings");
+  await page.reload();
+  await expect(page.getByText("Appearance")).toBeVisible({ timeout: 20000 });
+  await page.goBack();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  expect(roomPath(page)).toBe("/profile");
+  await page.goForward();
+  await expect(page.getByText("Appearance")).toBeVisible();
+  // A chat can be open next to a left-pane page.
+  await page.getByRole("button", { name: "Profile", exact: true }).last().click();
+  await page.getByRole("button", { name: "Chats", exact: true }).click();
+  await expect.poll(() => roomPath(page)).toBe("/");
+});
+
+test("routing: unknown chat shows Chat not found with a way back", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.goto("/chat/!doesnotexist:localhost");
+  await expect(page.getByText("Chat not found")).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Back to chats" }).click();
+  await expect.poll(() => roomPath(page)).toBe("/");
+  await expect(page.getByText("Select a chat to start messaging")).toBeVisible();
+});
+
+test("routing: a deep link opens after signing in; old #/ links are upgraded", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await expect.poll(() => roomPath(page)).toMatch(/^\/chat\//);
+  const deep = new URL(page.url()).pathname;
+
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const fresh = await ctx.newPage();
+  await fresh.goto(deep);
+  await fresh.getByText("Sign in to your Matrix account").waitFor();
+  expect(roomPath(fresh)).toBe(deep); // the login screen does not clobber the link
+  const inputs = fresh.locator("input");
+  await inputs.nth(1).fill("test");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(fresh.getByPlaceholder("Message")).toBeVisible({ timeout: 25000 });
+  expect(roomPath(fresh)).toBe(deep);
+
+  await fresh.goto("/#/settings");
+  await expect(fresh.getByText("Appearance")).toBeVisible({ timeout: 20000 });
+  expect(roomPath(fresh)).toBe("/settings");
+  expect(fresh.url()).not.toContain("#");
+  await ctx.close();
 });
