@@ -1,0 +1,21 @@
+{
+  "name": "@ohmatrix/state",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ohmatrix/core": "workspace:*",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@ohmatrix/engine-mock": "workspace:*",
+    "vitest": "^5.0.3"
+  }
+}
