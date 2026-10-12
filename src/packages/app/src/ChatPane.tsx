@@ -3,6 +3,7 @@ import { Pressable } from "react-native";
 import { contentText, type TimelineItem } from "@ohmatrix/core";
 import { FlatList, ScrollView, Text, View } from "react-native";
 import {
+  ImageViewer,
   MessageMenu,
   Avatar,
   Bubble,
@@ -68,6 +69,12 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
         }
       : {},
   );
+  const [viewing, setViewing] = useState(false);
+  // The sharp original is only fetched once the photo is opened.
+  const original = useMediaUrl(
+    viewing && content?.kind === "image" ? content.url : undefined,
+    content?.kind === "image" && content.encryption ? { encryption: content.encryption, ...(content.mimeType && { mimeType: content.mimeType }) } : {},
+  );
   if (row.type === "unread") return <UnreadDivider label={t("newMessages")} />;
   if (row.type === "date") return <Chip text={row.label} />;
   if (row.type === "service") return <Chip text={row.text} />;
@@ -114,7 +121,7 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
             readLabel={m.readBy?.length ? t("readBy", { names: m.readBy.map((r) => r.name).join(", ") }) : undefined}
             senderName={showAvatar && row.first ? m.senderName : undefined}
             senderId={m.sender}
-            image={dims ? { uri: image, ...dims } : undefined}
+            image={dims ? { uri: image, ...dims, onPress: () => setViewing(true) } : undefined}
             file={content.kind === "file" ? { name: content.name, sizeLabel: formatBytes(content.size), onPress: () => actions.download(content) } : undefined}
             reply={
               m.replyTo && {
@@ -131,6 +138,18 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
         </Pressable>
         {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn} onToggle={(k) => actions.react(m.id, k)} />}
       </View>
+      {content.kind === "image" && (
+        <ImageViewer
+          visible={viewing}
+          onClose={() => setViewing(false)}
+          title={content.body}
+          uri={original}
+          previewUri={image}
+          width={content.width}
+          height={content.height}
+          labels={{ close: t("viewer.close"), zoomIn: t("viewer.zoomIn"), zoomOut: t("viewer.zoomOut"), fit: t("viewer.fit") }}
+        />
+      )}
       <MessageMenu
         visible={!!menu}
         anchor={menu}
