@@ -7,6 +7,7 @@ import {
   type Preferences,
   type EventId,
   type AttachmentSource,
+  type DeviceInfo,
   type IncomingNotification,
   type MatrixEngine,
   type MediaOptions,
@@ -22,7 +23,7 @@ import {
   type UserId,
 } from "@ohmatrix/core";
 
-export type SidebarPage = "chats" | "profile" | "settings";
+export type SidebarPage = "chats" | "profile" | "settings" | "sessions";
 
 export type AuthStatus = "booting" | "signedOut" | "signingIn" | "signedIn";
 
@@ -75,6 +76,10 @@ export interface AppController {
   /** Update and persist preferences (theme, language, sidebar width...). */
   setPreferences(patch: Partial<Preferences>): void;
   setDisplayName(name: string): Promise<void>;
+  setStatus(status: string): Promise<void>;
+  listDevices(): Promise<DeviceInfo[]>;
+  /** Sign out other sessions (needs the password). */
+  removeDevices(ids: string[], password: string): Promise<void>;
   setAvatar(file: AttachmentSource): Promise<void>;
   openSidebarPage(page: SidebarPage): void;
   /** One level up: settings → profile → chats. */
@@ -192,9 +197,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       void services.preferences?.save(store.getState().prefs).catch(() => {});
     },
     setDisplayName: (name) => engine.profile.setDisplayName(name.trim()),
+    setStatus: (status) => engine.profile.setStatus(status),
+    listDevices: () => engine.devices.list(),
+    removeDevices: (ids, password) => engine.devices.remove(ids, password),
     setAvatar: (file) => engine.profile.setAvatar(file),
     openSidebarPage: (sidebarPage) => set({ sidebarPage }),
-    sidebarBack: () => set((s) => ({ sidebarPage: s.sidebarPage === "settings" ? "profile" : "chats" })),
+    sidebarBack: () => set((s) => ({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" })),
     openRoomInfo: (roomInfoOpen) => set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null })),
     selectRoom: select,
     async acceptInvite(roomId) {

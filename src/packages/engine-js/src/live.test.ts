@@ -458,3 +458,68 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   90000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "profile status and sessions: set/clear status, list devices, sign out others with the password",
+  async () => {
+    const { createHmac } = await import("node:crypto");
+    const name = `sx${Date.now().toString(36)}`;
+    const { nonce } = (await (await fetch("http://localhost:8008/_synapse/admin/v1/register")).json()) as { nonce: string };
+    const mac = createHmac("sha1", "ohmatrix-dev-secret").update(`${nonce}\0${name}\0pw12345\0notadmin`).digest("hex");
+    await fetch("http://localhost:8008/_synapse/admin/v1/register", {
+      method: "POST",
+      body: JSON.stringify({ nonce, username: name, password: "pw12345", admin: false, mac }),
+    });
+    const e = new JsSdkEngine({ cryptoStorage: "memory" });
+    const session = await e.auth.loginWithPassword("http://localhost:8008", name, "pw12345");
+    let profile: import("@ohmatrix/core").Profile | null = null;
+    e.profile.subscribe((p) => {
+      profile = p;
+    });
+    await e.sync.start();
+    await expect.poll(() => (profile as { userId: string } | null)?.userId, { timeout: 15000 }).toBe(`@${name}:localhost`);
+
+    // Status line is a public profile field: set, read back (also by others), clear.
+    expect((profile as { status?: string } | null)?.status).toBeUndefined();
+    await e.profile.setStatus("  Busy building  ");
+    await expect.poll(() => (profile as { status?: string } | null)?.status, { timeout: 10000 }).toBe("Busy building");
+    const pub = (await (await fetch(`http://localhost:8008/_matrix/client/v3/profile/@${name}:localhost`)).json()) as Record<string, string>;
+    expect(pub["com.ohmatrix.status"]).toBe("Busy building");
+    await e.profile.setStatus("");
+    await expect.poll(() => (profile as { status?: string } | null)?.status, { timeout: 10000 }).toBeUndefined();
+
+    // Sessions: this one first and flagged; two more logins appear; wrong password is refused; the right one signs them out.
+    const login = async () =>
+      (await (
+        await fetch("http://localhost:8008/_matrix/client/v3/login", {
+          method: "POST",
+          body: JSON.stringify({
+            type: "m.login.password",
+            identifier: { type: "m.id.user", user: name },
+            password: "pw12345",
+            initial_device_display_name: "Phone",
+          }),
+        })
+      ).json()) as { device_id: string };
+    const [p1, p2] = [await login(), await login()];
+    const list = await e.devices.list();
+    expect(list[0]).toMatchObject({ id: session.deviceId, current: true });
+    expect(list.filter((d) => d.current)).toHaveLength(1);
+    expect(
+      list
+        .filter((d) => d.name === "Phone")
+        .map((d) => d.id)
+        .sort(),
+    ).toEqual([p1.device_id, p2.device_id].sort());
+    await expect(e.devices.remove([p1.device_id], "wrong-password")).rejects.toMatchObject({ code: "forbidden" });
+    expect((await e.devices.list()).map((d) => d.id)).toContain(p1.device_id);
+    await e.devices.remove([p1.device_id], "pw12345");
+    expect((await e.devices.list()).map((d) => d.id)).not.toContain(p1.device_id);
+    const others = (await e.devices.list()).filter((d) => !d.current).map((d) => d.id);
+    await e.devices.remove([session.deviceId, ...others], "pw12345"); // the running session is never removed here
+    const left = await e.devices.list();
+    expect(left.map((d) => d.id)).toEqual([session.deviceId]);
+    await e.sync.stop();
+  },
+  60000,
+);

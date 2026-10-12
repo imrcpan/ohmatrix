@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Avatar, Dialog, fontFamily, Icon, NavBar, PrimaryButton, Row, Section, TextButton, TextField, useTheme } from "@ohmatrix/ui";
+import { EngineError } from "@ohmatrix/core";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
@@ -14,6 +15,9 @@ export function ProfilePage(props: { homeserver: string }) {
   const security = useAppState((s) => s.security);
   const avatar = useMediaUrl(profile?.avatar, { width: 192, height: 192, fit: "crop" });
   const [editing, setEditing] = useState(false);
+  const [editingStatus, setEditingStatus] = useState(false);
+  const [statusText, setStatusText] = useState("");
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,6 +52,15 @@ export function ProfilePage(props: { homeserver: string }) {
             onPress={() => {
               setName(displayName);
               setEditing(true);
+            }}
+          />
+          <Row
+            label={t("status")}
+            value={profile?.status ?? t("status.empty")}
+            onPress={() => {
+              setStatusText(profile?.status ?? "");
+              setStatusError(null);
+              setEditingStatus(true);
             }}
           />
           <Row label={t("userId")} value={profile?.userId} />
@@ -108,6 +121,27 @@ export function ProfilePage(props: { homeserver: string }) {
           }}
         />
         <TextButton title={t("cancel")} onPress={() => setEditing(false)} />
+      </Dialog>
+      <Dialog visible={editingStatus} title={t("status.edit")} onClose={() => setEditingStatus(false)}>
+        <TextField label={t("status")} placeholder={t("status.placeholder")} value={statusText} onChangeText={(v) => setStatusText(v.slice(0, 100))} />
+        {!!statusError && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{statusError}</Text>}
+        <PrimaryButton
+          title={t("save")}
+          loading={busy}
+          onPress={() => {
+            setBusy(true);
+            setStatusError(null);
+            controller
+              .setStatus(statusText)
+              .then(
+                () => setEditingStatus(false),
+                (e: unknown) =>
+                  setStatusError(e instanceof EngineError && e.code === "unsupported" ? t("status.unsupported") : e instanceof Error ? e.message : String(e)),
+              )
+              .finally(() => setBusy(false));
+          }}
+        />
+        <TextButton title={t("cancel")} onPress={() => setEditingStatus(false)} />
       </Dialog>
       <SecuritySheet visible={sheet} onClose={() => setSheet(false)} />
     </View>

@@ -1123,3 +1123,61 @@ test("notifications: a blocked browser permission is explained and cannot be swi
   await page.getByRole("switch", { name: "Desktop notifications" }).click();
   await expect(page.getByRole("switch", { name: "Desktop notifications" })).not.toBeChecked();
 });
+
+test("profile status and sessions", async ({ page }) => {
+  const user = `ps${Date.now().toString(36)}`;
+  await registerUser(user, "pw12345");
+  const extraLogin = async (display: string) =>
+    (await (
+      await fetch("http://localhost:8008/_matrix/client/v3/login", {
+        method: "POST",
+        body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user }, password: "pw12345", initial_device_display_name: display }),
+      })
+    ).json()) as { device_id: string };
+  await extraLogin("Tablet");
+  await extraLogin("Laptop");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loginAs(page, user, "pw12345");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+
+  // Status: shown on the profile, survives a reload, can be cleared.
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  const statusRow = page.getByRole("button", { name: "Status", exact: true });
+  await expect(statusRow).toContainText("Set a status");
+  await statusRow.click();
+  await page.getByPlaceholder("What are you up to?").fill("Busy building");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(statusRow).toContainText("Busy building", { timeout: 10000 });
+  await shot(page, "36-profile-status");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Status", exact: true })).toContainText("Busy building", { timeout: 20000 });
+
+  // Sessions: this device first, the others below; a wrong password is refused, the right one signs a session out.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/sessions");
+  await expect(page.getByText("This device")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tablet", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Laptop", exact: true })).toBeVisible();
+  await page.waitForTimeout(500); // let the page finish sliding in
+  await shot(page, "37-sessions");
+  await page.getByRole("button", { name: "Tablet", exact: true }).click();
+  await page.locator("input[type=password]").fill("wrong");
+  await page.getByRole("button", { name: "Sign out", exact: true }).last().click();
+  await expect(page.getByText("Wrong password.")).toBeVisible({ timeout: 10000 });
+  await page.locator("input[type=password]").fill("pw12345");
+  await page.getByRole("button", { name: "Sign out", exact: true }).last().click();
+  await expect(page.getByRole("button", { name: "Tablet", exact: true })).toBeHidden({ timeout: 10000 });
+  await expect(page.getByRole("button", { name: "Laptop", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign out all other sessions" }).click();
+  await page.locator("input[type=password]").fill("pw12345");
+  await page.getByRole("button", { name: "Sign out", exact: true }).last().click();
+  await expect(page.getByText("No other sessions")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("This device")).toBeVisible();
+
+  // Browser history and reload keep the page.
+  await page.reload();
+  await expect(page.getByText("This device")).toBeVisible({ timeout: 20000 });
+  await page.goBack();
+  await expect(page.getByText("Appearance")).toBeVisible();
+});

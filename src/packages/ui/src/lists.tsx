@@ -5,7 +5,7 @@ import { IconButton } from "./controls.js";
 import { fontFamily, radius, useTheme } from "./theme.js";
 
 /** Inset grouped section (iOS Settings): rounded card on the secondary background with an optional caption. */
-export function Section(props: { title?: string; footer?: string; children: ReactNode }) {
+export function Section(props: { title?: string | undefined; footer?: string | undefined; children: ReactNode }) {
   const { colors } = useTheme();
   return (
     <View style={{ marginTop: 22, paddingHorizontal: 16 }}>
@@ -24,6 +24,7 @@ export function Section(props: { title?: string; footer?: string; children: Reac
 export function Row(props: {
   label: string;
   value?: string | undefined;
+  /** Second line under the label (small, secondary colour). */ subtitle?: string | undefined;
   icon?: IconName;
   iconColor?: string;
   danger?: boolean;
@@ -66,7 +67,16 @@ export function Row(props: {
           marginLeft: 0,
         }}
       >
-        <Text style={{ fontSize: 17, fontFamily, color: props.danger ? colors.danger : colors.text }}>{props.label}</Text>
+        <View style={{ flexShrink: 1, flexGrow: props.subtitle ? 1 : 0, paddingVertical: props.subtitle ? 7 : 0 }}>
+          <Text numberOfLines={1} style={{ fontSize: 17, fontFamily, color: props.danger ? colors.danger : colors.text }}>
+            {props.label}
+          </Text>
+          {!!props.subtitle && (
+            <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 17, fontFamily, color: colors.textSecondary, marginTop: 1 }}>
+              {props.subtitle}
+            </Text>
+          )}
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
           {!!props.value && (
             <Text numberOfLines={1} selectable style={{ fontSize: 16, fontFamily, color: colors.textSecondary, flexShrink: 1 }}>

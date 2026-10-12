@@ -26,6 +26,7 @@ const PATHS = {
   pin: "M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8",
   mailUnread: "M4 6h16v12H4zM4 7l8 6 8-6",
   info: "M12 16v-4M12 8h.01M12 21a9 9 0 100-18 9 9 0 000 18z",
+  device: "M4 6h16v10H4zM2 20h20M9 16v4M15 16v4",
   chat: "M20 12a8 8 0 01-11.7 7.1L4 20l.9-4.3A8 8 0 1120 12z",
 } as const;
 
