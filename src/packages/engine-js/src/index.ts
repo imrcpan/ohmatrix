@@ -46,6 +46,7 @@ import {
 } from "@ohmatrix/core";
 import { nameOf, notificationPreview, roomItems, stripReplyFallback, toRoomSummary, typingNames } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
+import { resolveHomeserver } from "./discovery.js";
 import { diffTimeline } from "./diff.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
 
@@ -140,8 +141,6 @@ async function deleteCryptoStores(prefix: string, keep?: string): Promise<void> 
     ),
   );
 }
-
-const normalize = (hs: string) => (/^https?:\/\//.test(hs) ? hs : `https://${hs}`).replace(/\/+$/, "");
 
 export interface JsSdkEngineOptions {
   /** Where the Rust crypto store lives. "memory" is for tests/Node; browsers should use IndexedDB. */
@@ -606,7 +605,7 @@ export class JsSdkEngine implements MatrixEngine {
   readonly auth = {
     loginWithPassword: (homeserver: string, username: string, password: string) =>
       guard(async (): Promise<Session> => {
-        const baseUrl = normalize(homeserver);
+        const baseUrl = await resolveHomeserver(homeserver);
         const res = await createClient({ baseUrl }).login("m.login.password", {
           identifier: { type: "m.id.user", user: username },
           password,

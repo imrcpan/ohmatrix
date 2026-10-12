@@ -23,7 +23,7 @@ void controller.bootstrap();
 export function App() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <SharedApp controller={controller} services={services} defaultHomeserver="http://localhost:8008" />
+      <SharedApp controller={controller} services={services} defaultHomeserver="matrix.org" />
     </SafeAreaView>
   );
 }
