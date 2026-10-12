@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ComponentRef } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor } from "@ohmatrix/ui";
+import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
@@ -157,24 +158,8 @@ export function RoomListPane() {
             : []
         }
       />
-      <PromptDialog
-        visible={dialog === "chat"}
-        title={t("newChat")}
-        message={t("newChat.body")}
-        confirmLabel={t("start")}
-        fields={[{ label: t("userId"), placeholder: t("userIdPlaceholder") }]}
-        onClose={() => setDialog(null)}
-        onConfirm={([id]) => controller.startDirectChat(id!)}
-      />
-      <PromptDialog
-        visible={dialog === "group"}
-        title={t("newGroup")}
-        message={t("newGroup.body")}
-        confirmLabel={t("create")}
-        fields={[{ label: t("groupName") }, { label: t("invitePeople"), placeholder: t("userIdPlaceholder"), optional: true }]}
-        onClose={() => setDialog(null)}
-        onConfirm={([name, invite]) => controller.createGroup(name!, (invite ?? "").split(/[\s,]+/).filter(Boolean))}
-      />
+      <NewChatDialog visible={dialog === "chat"} onClose={() => setDialog(null)} />
+      <NewGroupDialog visible={dialog === "group"} onClose={() => setDialog(null)} />
       <PromptDialog
         visible={dialog === "join"}
         title={t("joinRoom")}

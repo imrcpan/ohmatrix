@@ -11,6 +11,15 @@ async function openRoom(page: Page, name: string, row: RegExp = new RegExp(name)
   await search.fill("");
 }
 
+/** Searches the people picker in the open dialog and taps the result. */
+async function pickPerson(page: Page, query: string, name: string) {
+  await page
+    .getByPlaceholder(/^Name or user id/)
+    .last()
+    .fill(query);
+  await page.getByRole("button", { name, exact: true }).last().click();
+}
+
 async function login(page: Page) {
   await page.goto("/");
   await page.getByText("Sign in to your Matrix account").waitFor();
@@ -394,11 +403,11 @@ test("add menu: new chat, new group, join room", async ({ page }) => {
   await page.getByRole("button", { name: "New", exact: true }).click();
   await shot(page, "21-add-menu");
   await page.getByRole("menuitem", { name: "New chat" }).click();
-  await page.getByPlaceholder("@name:server").fill("@nobody-here:localhost");
-  await page.getByRole("button", { name: "Start", exact: true }).click();
-  await expect(page.getByText(/not found/i)).toBeVisible({ timeout: 10000 });
-  await page.getByPlaceholder("@name:server").fill("@bob:localhost");
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByPlaceholder(/^Name or user id/).fill("@nobody-here:localhost");
+  await expect(page.getByText("No people found")).toBeVisible({ timeout: 10000 });
+  await page.getByPlaceholder(/^Name or user id/).fill("bob");
+  await shot(page, "30-people-search");
+  await page.getByRole("button", { name: "bob", exact: true }).last().click();
   await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("Direct chat")).toBeVisible();
 
@@ -406,10 +415,19 @@ test("add menu: new chat, new group, join room", async ({ page }) => {
   await page.getByRole("menuitem", { name: "New group" }).click();
   const group = `Team ${Date.now().toString(36)}`;
   await page.getByText("Group name").locator("..").locator("input").last().fill(group);
-  await page.getByPlaceholder("@name:server").last().fill("@alice:localhost");
+  await pickPerson(page, "bob", "bob");
+  await pickPerson(page, "ali", "alice");
+  await expect(page.getByRole("button", { name: "Remove bob" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove alice" })).toBeVisible();
+  await page.getByRole("button", { name: "Remove bob" }).click(); // chips can be removed again
+  await expect(page.getByRole("button", { name: "Remove bob" })).toBeHidden();
+  await pickPerson(page, "bob", "bob");
+  await shot(page, "31-group-picker");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByText(group).first()).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(/\bmembers?\b/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Chat info" }).click();
+  await expect(page.getByText("Members · 3")).toBeVisible({ timeout: 10000 }); // me + two invited
+  await page.getByRole("button", { name: "Close" }).click();
 
   const alice = await apiLogin("alice");
   const pub = await api(alice, "POST", "/createRoom", { name: `Open ${Date.now().toString(36)}`, preset: "public_chat" });
@@ -562,7 +580,7 @@ test("chat info: slides in from the right, shows members, leave group", async ({
   await page.getByRole("menuitem", { name: "New group" }).click();
   const group = `Leave ${Date.now().toString(36)}`;
   await page.getByText("Group name").locator("..").locator("input").last().fill(group);
-  await page.getByPlaceholder("@name:server").last().fill("@bob:localhost");
+  await pickPerson(page, "bob", "bob");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
 
