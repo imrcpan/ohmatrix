@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { EngineError, type DeviceInfo } from "@ohmatrix/core";
-import { Dialog, fontFamily, NavBar, PrimaryButton, Row, Section, TextButton, TextField, useTheme } from "@ohmatrix/ui";
+import { Dialog, fontFamily, NavBar, PrimaryButton, Row, TextButton, TextField, useTheme } from "@ohmatrix/ui";
 import { useController, useLocale, useT } from "./context.js";
 import { formatRelative } from "./format.js";
 
@@ -53,6 +53,9 @@ export function SessionsPage() {
       ? `${t("sessions.lastActive", { when: formatRelative(d.lastSeenTs, now, locale) })}${d.lastSeenIp ? ` · ${d.lastSeenIp}` : ""}`
       : t("sessions.neverSeen");
 
+  const caption = (text: string) => <Text style={{ fontSize: 13, fontFamily, color: colors.textSecondary, marginLeft: 30, marginBottom: 6 }}>{text}</Text>;
+  const R = 16;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgSecondary }}>
       <NavBar title={t("sessions")} onBack={() => controller.sidebarBack()} backLabel={t("settings")} />
@@ -61,32 +64,69 @@ export function SessionsPage() {
           <ActivityIndicator color={colors.textSecondary} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-          {current && (
-            <Section title={t("sessions.thisDevice")}>
-              <Row label={current.name} subtitle={last(current)} icon="device" iconColor="#34C759" last />
-            </Section>
-          )}
-          <Section title={t("sessions.others")} footer={others.length ? t("sessions.footer") : undefined}>
-            {others.length === 0 && <Text style={{ padding: 16, fontSize: 15, fontFamily, color: colors.textSecondary }}>{t("sessions.empty")}</Text>}
-            {others.map((d, i) => (
+        // An account can have hundreds of sessions: the list is virtualised, so only the rows near the screen exist.
+        // The grouped-card look is drawn per row (rounded first and last row of the group).
+        <FlatList
+          data={others}
+          keyExtractor={(d) => d.id}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews
+          contentContainerStyle={{ paddingBottom: 32 }}
+          ListHeaderComponent={
+            <View>
+              {current && (
+                <View style={{ marginTop: 22 }}>
+                  {caption(t("sessions.thisDevice"))}
+                  <View style={{ marginHorizontal: 16, borderRadius: R, backgroundColor: colors.bg, overflow: "hidden" }}>
+                    <Row label={current.name} subtitle={last(current)} icon="device" iconColor="#34C759" last />
+                  </View>
+                </View>
+              )}
+              <View style={{ marginTop: 22 }}>{caption(t("sessions.others"))}</View>
+              {others.length === 0 && (
+                <View style={{ marginHorizontal: 16, borderRadius: R, backgroundColor: colors.bg }}>
+                  <Text style={{ padding: 16, fontSize: 15, fontFamily, color: colors.textSecondary }}>{t("sessions.empty")}</Text>
+                </View>
+              )}
+            </View>
+          }
+          renderItem={({ item: d, index }) => (
+            <View
+              style={{
+                marginHorizontal: 16,
+                backgroundColor: colors.bg,
+                overflow: "hidden",
+                ...(index === 0 ? { borderTopLeftRadius: R, borderTopRightRadius: R } : {}),
+                ...(index === others.length - 1 ? { borderBottomLeftRadius: R, borderBottomRightRadius: R } : {}),
+              }}
+            >
               <Row
-                key={d.id}
                 label={d.name}
                 subtitle={last(d)}
                 icon="device"
                 iconColor={colors.textSecondary}
-                last={i === others.length - 1}
+                last={index === others.length - 1}
                 onPress={() => setPending({ ids: [d.id], all: false })}
               />
-            ))}
-          </Section>
-          {others.length > 0 && (
-            <Section>
-              <Row label={t("sessions.signOutAll")} danger last chevron={false} onPress={() => setPending({ ids: others.map((d) => d.id), all: true })} />
-            </Section>
+            </View>
           )}
-        </ScrollView>
+          ListFooterComponent={
+            others.length > 0 ? (
+              <View>
+                <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 30, marginTop: 6 }}>
+                  {t("sessions.footer")}
+                </Text>
+                <View style={{ marginTop: 22, marginHorizontal: 16, borderRadius: R, backgroundColor: colors.bg, overflow: "hidden" }}>
+                  <Row label={t("sessions.signOutAll")} danger last chevron={false} onPress={() => setPending({ ids: others.map((d) => d.id), all: true })} />
+                </View>
+              </View>
+            ) : (
+              <View />
+            )
+          }
+        />
       )}
       <Dialog
         visible={!!pending}

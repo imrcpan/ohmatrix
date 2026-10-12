@@ -1434,3 +1434,46 @@ test("message menu: opens at the pointer in the incoming-bubble colours, borderl
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 });
+
+test("sessions: a very long list is virtualised (only nearby rows exist) and still scrolls and acts", async ({ page }) => {
+  const user = `sv${Date.now().toString(36)}`;
+  await registerUser(user, "pw12345");
+  const body = JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user }, password: "pw12345" });
+  const TOTAL = 150;
+  for (let i = 0; i < TOTAL; i += 25) {
+    await Promise.all(
+      Array.from({ length: 25 }, (_, k) =>
+        fetch("http://localhost:8008/_matrix/client/v3/login", {
+          method: "POST",
+          body: JSON.stringify({ ...JSON.parse(body), initial_device_display_name: `Device ${String(i + k).padStart(3, "0")}` }),
+        }).then((r) => r.json()),
+      ),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loginAs(page, user, "pw12345");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await expect(page.getByText("This device")).toBeVisible({ timeout: 20000 });
+  await page.waitForTimeout(600);
+  const rendered = () => page.getByRole("button", { name: /^Device \d{3}$/ }).count();
+  const first = await rendered();
+  expect(first).toBeGreaterThan(3);
+  expect(first).toBeLessThan(60); // 150 sessions exist, only a window of them is in the page
+  await shot(page, "45-sessions-virtualised");
+  // Scrolling reveals later rows (and drops earlier ones).
+  const list = page
+    .locator("div")
+    .filter({ has: page.getByText("Other sessions") })
+    .last();
+  await list.hover();
+  for (let i = 0; i < 40; i++) {
+    await page.mouse.wheel(0, 1200);
+    await page.waitForTimeout(40);
+  }
+  await expect(page.getByRole("button", { name: /^Device 1[34]\d$/ }).first()).toBeVisible({ timeout: 10000 });
+  expect(await rendered()).toBeLessThan(60);
+  await expect(page.getByRole("button", { name: "Sign out all other sessions" })).toBeVisible();
+});
