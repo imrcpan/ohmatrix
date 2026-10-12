@@ -3,6 +3,7 @@ import type { AttachmentSource, PlatformServices, Preferences, Session, SessionS
 import { JsSdkEngine } from "@ohmatrix/engine-js";
 import { createAppController } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
+import { installRouter } from "./router.js";
 
 const KEY = "ohmatrix.session.v1";
 // TODO: encrypt at rest (WebCrypto non-extractable key in IndexedDB) before shipping.
@@ -52,33 +53,8 @@ const services: PlatformServices = {
 };
 const controller = createAppController(new JsSdkEngine(), services);
 
-// Mirror navigation to the URL hash so browser back/forward works (essential in portrait layout):
-//   #/<page>[/room/<id>[/info]]   where page is chats | profile | settings
-type Page = "chats" | "profile" | "settings";
-interface Route {
-  page: Page;
-  room: string | null;
-  info: boolean;
-}
-const parseHash = (): Route => {
-  const m = location.hash.match(/^#\/(chats|profile|settings)?(?:\/?room\/([^/]+)(\/info)?)?$/);
-  return { page: (m?.[1] as Page | undefined) ?? "chats", room: m?.[2] ? decodeURIComponent(m[2]) : null, info: !!m?.[3] };
-};
-const hashFor = ({ page, room, info }: Route) => `#/${page}${room ? `/room/${encodeURIComponent(room)}${info ? "/info" : ""}` : ""}`;
-const applyRoute = ({ page, room, info }: Route) => {
-  controller.openSidebarPage(page);
-  controller.selectRoom(room);
-  controller.openRoomInfo(info);
-};
-controller.store.subscribe((s, prev) => {
-  if (s.selectedRoomId === prev.selectedRoomId && s.sidebarPage === prev.sidebarPage && s.roomInfoOpen === prev.roomInfoOpen) return;
-  const want = hashFor({ page: s.sidebarPage, room: s.selectedRoomId, info: s.roomInfoOpen });
-  if (location.hash !== want) history.pushState(null, "", want);
-});
-addEventListener("popstate", () => applyRoute(parseHash()));
-void controller.bootstrap().then(() => {
-  if (controller.store.getState().auth === "signedIn") applyRoute(parseHash());
-});
+installRouter(controller);
+void controller.bootstrap();
 
 createRoot(document.getElementById("root")!).render(
   <App controller={controller} services={services} defaultHomeserver={import.meta.env.VITE_DEFAULT_HOMESERVER ?? "http://localhost:8008"} />,
