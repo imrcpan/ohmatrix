@@ -46,6 +46,9 @@ const services: PlatformServices = {
     a.click();
   },
 };
+/** Prefilled on the sign-in screen. Override at build time with VITE_DEFAULT_HOMESERVER (e.g. a local test server). */
+const DEFAULT_HOMESERVER = "matrix.org";
+
 const controller = createAppController(new JsSdkEngine({ storageKey: createCryptoKeyProvider(secureBox) }), services);
 
 // Development only: lets tests and the console poke the running app.
@@ -55,5 +58,5 @@ installRouter(controller);
 void controller.bootstrap();
 
 createRoot(document.getElementById("root")!).render(
-  <App controller={controller} services={services} defaultHomeserver={import.meta.env.VITE_DEFAULT_HOMESERVER ?? "http://localhost:8008"} />,
+  <App controller={controller} services={services} defaultHomeserver={import.meta.env.VITE_DEFAULT_HOMESERVER ?? DEFAULT_HOMESERVER} />,
 );
