@@ -1,0 +1,63 @@
+import { expect, test } from "vitest";
+import type { Session, SessionStore } from "@ohmatrix/core";
+import { MockEngine } from "@ohmatrix/engine-mock";
+import { createAppController } from "./index.js";
+
+const memoryStore = (): SessionStore & { saved: Session | null } => {
+  const s = {
+    saved: null as Session | null,
+    load: async () => s.saved,
+    save: async (x: Session) => {
+      s.saved = x;
+    },
+    clear: async () => {
+      s.saved = null;
+    },
+  };
+  return s;
+};
+
+test("bootstrap without session → signedOut; login → signedIn and persists session", async () => {
+  const store = memoryStore();
+  const app = createAppController(new MockEngine(), { sessionStore: store });
+  await app.bootstrap();
+  expect(app.store.getState().auth).toBe("signedOut");
+  await app.login("http://localhost:8008", "test", "123456");
+  expect(app.store.getState().auth).toBe("signedIn");
+  expect(store.saved?.userId).toBe("@test:localhost:8008");
+  await app.logout();
+  expect(app.store.getState().auth).toBe("signedOut");
+  expect(store.saved).toBeNull();
+});
+
+test("sent message shows up in timeline and room list", async () => {
+  const engine = new MockEngine();
+  const app = createAppController(engine, { sessionStore: memoryStore() });
+  await engine.sync.start();
+  const room = app.openRoom("!dev:example.org");
+  await room.sendText("hi");
+  const s = app.store.getState();
+  expect(s.timelines["!dev:example.org"]).toHaveLength(1);
+  expect(s.rooms[0]?.id).toBe("!dev:example.org");
+  room.close();
+  app.dispose();
+});
+
+test("preferences load on bootstrap and persist on change", async () => {
+  let saved: unknown = { theme: "sakura", locale: "zh-CN" };
+  const app = createAppController(new MockEngine(), {
+    sessionStore: memoryStore(),
+    preferences: {
+      load: async () => saved as never,
+      save: async (p) => {
+        saved = p;
+      },
+    },
+  });
+  await app.bootstrap();
+  expect(app.store.getState().prefs).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: null });
+  app.setPreferences({ sidebarWidth: 400 });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(saved).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: 400 });
+});
