@@ -7,6 +7,19 @@ export interface SessionStore {
   clear(): Promise<void>;
 }
 
+export type NotificationPermission = "granted" | "denied" | "default" | "unsupported";
+
+/** System notifications (Web Notification API, Electron, APNs/FCM local display...). */
+export interface SystemNotifications {
+  permission(): NotificationPermission;
+  /** Ask the OS/browser for permission; must be called from a user gesture on the web. */
+  request(): Promise<NotificationPermission>;
+  /** True while the app window is visible and focused, i.e. the user is already looking at it. */
+  isActive(): boolean;
+  /** Same `tag` replaces an earlier notification (one per chat). `onClick` should bring the app to the front. */
+  show(n: { title: string; body: string; tag: string; onClick: () => void }): void;
+}
+
 /** Persists user preferences (localStorage / AsyncStorage / settings file). */
 export interface PreferencesStore {
   load(): Promise<Partial<Preferences>>;
@@ -19,6 +32,7 @@ export interface PreferencesStore {
  */
 export interface PlatformServices {
   sessionStore: SessionStore;
+  notifications?: SystemNotifications;
   /** Absent = preferences live only for this run. */
   preferences?: PreferencesStore;
   /** Let the user choose files to send. Absent = the attach button is hidden. */

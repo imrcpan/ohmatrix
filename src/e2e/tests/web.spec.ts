@@ -735,7 +735,7 @@ test("routing: clean chat URLs survive a reload (landscape)", async ({ page }) =
   await openRoom(page, "Notes to self");
   await expect.poll(() => roomPath(page)).toMatch(/^\/chat\/![^/]+$/);
   expect(page.url()).not.toContain("#");
-  await expect.poll(() => page.title()).toBe("Notes to self · OhMatrix");
+  await expect.poll(() => page.title()).toMatch(/^(\(\d+\) )?Notes to self · OhMatrix$/);
   const url = page.url();
   await page.reload();
   await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
@@ -1003,4 +1003,123 @@ test("sign-out deletes the sync cache", async ({ page }) => {
   await page.getByRole("button", { name: "Sign out" }).last().click();
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible({ timeout: 20000 });
   await expect.poll(async () => (await caches()).length, { timeout: 15000 }).toBe(0);
+});
+
+/** Replaces Notification with a recorder so tests can see what would be shown (and control permission). */
+async function fakeNotifications(page: Page, initial: "default" | "granted" | "denied" = "default") {
+  await page.addInitScript((perm) => {
+    const w = window as unknown as { __perm: string; __notes: { title: string; body: string; tag: string; onclick: (() => void) | null }[] };
+    w.__perm = perm;
+    w.__notes = [];
+    class FakeNotification {
+      static get permission() {
+        return w.__perm;
+      }
+      static async requestPermission() {
+        if (w.__perm === "default") w.__perm = "granted";
+        return w.__perm;
+      } // a blocked site stays blocked
+      onclick: (() => void) | null = null;
+      constructor(
+        public title: string,
+        opts: { body?: string; tag?: string } = {},
+      ) {
+        w.__notes.push(Object.assign(this, { body: opts.body ?? "", tag: opts.tag ?? "" }) as never);
+      }
+      close() {}
+    }
+    (window as unknown as { Notification: unknown }).Notification = FakeNotification;
+    document.hasFocus = () => true; // headless pages are never focused
+  }, initial);
+}
+const notes = (page: Page) =>
+  page.evaluate(() =>
+    (window as unknown as { __notes: { title: string; body: string; tag: string }[] }).__notes.map(({ title, body, tag }) => ({ title, body, tag })),
+  );
+
+async function dmWith(token: string, other: string): Promise<string> {
+  const rooms = ((await api(token, "GET", "/joined_rooms")) as unknown as { joined_rooms: string[] }).joined_rooms;
+  for (const id of rooms) {
+    const m = ((await api(token, "GET", `/rooms/${encodeURIComponent(id)}/joined_members`)) as unknown as { joined: Record<string, unknown> }).joined;
+    const ids = Object.keys(m);
+    const named = (await api(token, "GET", `/rooms/${encodeURIComponent(id)}/state/m.room.name`)).name; // direct chats have no name
+    if (ids.length === 2 && ids.includes(`@${other}:localhost`) && !named) return id;
+  }
+  throw new Error("no direct room");
+}
+
+test("notifications: opt in from Settings; system notification for other chats; title shows unread; respects text preview setting", async ({ page }) => {
+  await fakeNotifications(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  // Off by default and nothing is requested until the user asks.
+  expect(await page.evaluate(() => (window as unknown as { __perm: string }).__perm)).toBe("default");
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Desktop notifications" })).not.toBeChecked();
+  await page.getByRole("switch", { name: "Desktop notifications" }).click();
+  await expect(page.getByRole("switch", { name: "Desktop notifications" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Show message text" })).toBeChecked();
+  await shot(page, "35-notification-settings");
+  await page.getByRole("button", { name: "Profile", exact: true }).last().click();
+  await page.getByRole("button", { name: "Chats", exact: true }).click();
+
+  const [alice, me] = [await apiLogin("alice"), await apiLogin("test")];
+  const dm = await dmWith(alice, "test");
+  const say = (body: string) =>
+    api(alice, "PUT", `/rooms/${encodeURIComponent(dm)}/send/m.room.message/n${Date.now()}${Math.random().toString(36).slice(2)}`, { msgtype: "m.text", body });
+  void me;
+
+  // A message in a chat that is not open → a notification with the sender as title and the text as body.
+  const first = `ping ${Date.now()}`;
+  await say(first);
+  await expect.poll(async () => (await notes(page)).length, { timeout: 15000 }).toBe(1);
+  expect((await notes(page))[0]).toMatchObject({ title: "alice", body: first, tag: dm });
+  await expect.poll(() => page.title(), { timeout: 10000 }).toMatch(/^\(\d+\) OhMatrix$/);
+
+  // Clicking the notification opens that chat.
+  await page.evaluate(() => (window as unknown as { __notes: { onclick: () => void }[] }).__notes[0]!.onclick());
+  await expect.poll(() => new URL(page.url()).pathname).toBe(`/chat/${dm}`);
+
+  // The chat is open and the window active: no notification for what the user is already reading.
+  await say(`seen ${Date.now()}`);
+  await page.waitForTimeout(2500);
+  expect(await notes(page)).toHaveLength(1);
+  await expect.poll(() => page.title()).toMatch(/^(\(\d+\) )?alice · OhMatrix$/); // other chats may still have unread messages
+
+  // Back on the list, with message text turned off: a generic body.
+  await page.goBack(); // history pop: closes the chat without reloading (a reload would reset the fake Notification)
+  await expect(page.getByText("Select a chat to start messaging")).toBeVisible();
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("switch", { name: "Show message text" }).click();
+  await expect(page.getByRole("switch", { name: "Show message text" })).not.toBeChecked();
+  await page.getByRole("button", { name: "Profile", exact: true }).last().click();
+  await page.getByRole("button", { name: "Chats", exact: true }).click();
+  const before = (await notes(page)).length;
+  await say("secret text");
+  await expect.poll(async () => (await notes(page)).length, { timeout: 15000 }).toBe(before + 1);
+  expect((await notes(page)).at(-1)).toMatchObject({ title: "alice", body: "New message" });
+
+  // Turning the switch off stops notifications.
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("switch", { name: "Desktop notifications" }).click();
+  await page.getByRole("button", { name: "Profile", exact: true }).last().click();
+  await page.getByRole("button", { name: "Chats", exact: true }).click();
+  const after = (await notes(page)).length;
+  await say("nobody hears this");
+  await page.waitForTimeout(2500);
+  expect(await notes(page)).toHaveLength(after);
+});
+
+test("notifications: a blocked browser permission is explained and cannot be switched on", async ({ page }) => {
+  await fakeNotifications(page, "denied");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText(/Notifications are blocked/)).toBeVisible();
+  await page.getByRole("switch", { name: "Desktop notifications" }).click();
+  await expect(page.getByRole("switch", { name: "Desktop notifications" })).not.toBeChecked();
 });

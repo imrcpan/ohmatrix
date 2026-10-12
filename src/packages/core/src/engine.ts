@@ -1,6 +1,7 @@
 import type { ListUpdate } from "./diff.js";
 import type {
   AttachmentSource,
+  IncomingNotification,
   RoomDetails,
   Profile,
   UserSuggestion,
@@ -48,6 +49,8 @@ export interface RoomListApi {
    * removes my copy; the other person keeps theirs (Matrix has no remote delete).
    */
   leave(roomId: RoomId): Promise<void>;
+  /** Mute or unmute a room (no notifications, no unread badge counted as notifying). */
+  setMuted(roomId: RoomId, muted: boolean): Promise<void>;
   /** Open (or reuse) a one-to-one chat with `userId`. Resolves with the room id. */
   createDirect(userId: UserId): Promise<RoomId>;
   /** Create a private group (end-to-end encrypted) and invite `invite`. */
@@ -99,6 +102,14 @@ export interface UserDirectoryApi {
   search(term: string): Promise<UserSuggestion[]>;
 }
 
+export interface NotificationsApi {
+  /**
+   * Fires for each new message that arrives while synced (never for history, my own messages, or rooms the
+   * push rules mute). The consumer decides whether to show it (window focus, user settings).
+   */
+  subscribe(cb: Listener<IncomingNotification>): Unsubscribe;
+}
+
 /** A live view of one room. Must be closed to release engine resources. */
 export interface TimelineHandle {
   /** First message from someone else that I had not read when the timeline was opened (for the "New messages" divider). */
@@ -141,5 +152,6 @@ export interface MatrixEngine {
   readonly security: SecurityApi;
   readonly profile: ProfileApi;
   readonly users: UserDirectoryApi;
+  readonly notifications: NotificationsApi;
   openTimeline(roomId: RoomId): TimelineHandle;
 }

@@ -21,6 +21,8 @@ export interface RoomSummary {
   invite?: { inviter: string };
   /** Names of people currently typing in this room (never includes me). */
   typing?: string[];
+  /** Notifications are muted for this room. */
+  muted?: boolean;
   /** Pinned chats float to the top of the list. */
   pinned?: boolean;
   /** Manually marked unread (shows a badge even with no unread messages). */
@@ -107,9 +109,13 @@ export interface Preferences {
   locale: "en" | "zh-CN" | null;
   /** Landscape chat-list width in px; null = automatic. */
   sidebarWidth: number | null;
+  /** Show system notifications for new messages (opt-in; needs the OS permission). */
+  notifications: boolean;
+  /** Include the message text in notifications (off = just "New message"). */
+  notificationPreview: boolean;
 }
 
-export const DEFAULT_PREFERENCES: Preferences = { theme: "system", locale: null, sidebarWidth: null };
+export const DEFAULT_PREFERENCES: Preferences = { theme: "system", locale: null, sidebarWidth: null, notifications: false, notificationPreview: true };
 
 /** The signed-in user's own profile. */
 export interface Profile {
@@ -145,4 +151,17 @@ export interface UserSuggestion {
   userId: UserId;
   displayName: string;
   avatar?: MxcUri;
+}
+
+/** A live incoming message that the account's push rules say should notify. */
+export interface IncomingNotification {
+  eventId: EventId;
+  roomId: RoomId;
+  roomName: string;
+  isDirect: boolean;
+  senderName: string;
+  /** Plain-text preview; absent when the message could not be decrypted. */
+  preview?: string;
+  /** Mentions me or matches a keyword rule. */
+  highlight: boolean;
 }

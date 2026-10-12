@@ -7,6 +7,7 @@ import {
   type Preferences,
   type EventId,
   type AttachmentSource,
+  type IncomingNotification,
   type MatrixEngine,
   type MediaOptions,
   type Profile,
@@ -85,6 +86,10 @@ export interface AppController {
   setPinned(roomId: RoomId, pinned: boolean): Promise<void>;
   setMarkedUnread(roomId: RoomId, unread: boolean): Promise<void>;
   markRoomRead(roomId: RoomId): Promise<void>;
+  /** Fires for each new message that should notify (see `NotificationsApi`). */
+  subscribeNotifications(cb: (n: IncomingNotification) => void): () => void;
+  /** Mute or unmute a room. */
+  setRoomMuted(roomId: RoomId, muted: boolean): Promise<void>;
   /** Search the user directory (also resolves a full user id). */
   searchUsers(term: string): Promise<UserSuggestion[]>;
   /** Subscribe to the chat-info data of a room. */
@@ -199,6 +204,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     setPinned: (roomId, pinned) => engine.rooms.setPinned(roomId, pinned),
     setMarkedUnread: (roomId, unread) => engine.rooms.setMarkedUnread(roomId, unread),
     markRoomRead: (roomId) => engine.rooms.markRead(roomId),
+    subscribeNotifications: (cb) => engine.notifications.subscribe(cb),
+    setRoomMuted: (roomId, muted) => engine.rooms.setMuted(roomId, muted),
     searchUsers: (term) => engine.users.search(term),
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
     async leaveRoom(roomId) {
@@ -242,4 +249,14 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     },
     dispose: () => offs.forEach((off) => off()),
   };
+}
+
+/** Unread badge total across chats: counts of notifying chats, a manual "unread" mark counts as one; muted chats and invites are skipped. */
+export function totalUnread(rooms: readonly RoomSummary[]): number {
+  let n = 0;
+  for (const r of rooms) {
+    if (r.invite || r.muted) continue;
+    n += r.unreadCount > 0 ? r.unreadCount : r.markedUnread ? 1 : 0;
+  }
+  return n;
 }

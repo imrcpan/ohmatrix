@@ -59,6 +59,8 @@ export class MockEngine implements MatrixEngine {
     },
   };
 
+  readonly notifications = { subscribe: (_cb: Listener<import("@ohmatrix/core").IncomingNotification>) => () => {} };
+
   readonly security = {
     state: async () => "unavailable" as const,
     onState: (cb: Listener<"unavailable">) => {
@@ -101,6 +103,7 @@ export class MockEngine implements MatrixEngine {
       this.roomData.delete(roomId);
       this.emitRooms();
     },
+    setMuted: async () => {},
     createDirect: async (userId: string) => `!dm-${userId}`,
     createGroup: async (o: { name: string }) => `!group-${o.name}`,
     joinRoom: async (idOrAlias: string) => idOrAlias,

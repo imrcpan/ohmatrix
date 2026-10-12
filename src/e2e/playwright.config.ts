@@ -5,6 +5,6 @@ export default defineConfig({
   testDir: "tests",
   outputDir: ".out",
   workers: 1,
-  use: { baseURL: "http://localhost:5173", screenshot: "off" },
+  use: { baseURL: "http://localhost:5173", screenshot: "only-on-failure" },
   webServer: { command: "pnpm --filter @ohmatrix/web dev --port 5173 --strictPort", url: "http://localhost:5173", reuseExistingServer: true, cwd: ".." },
 });
