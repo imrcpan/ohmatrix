@@ -83,7 +83,7 @@ export function RoomListPane() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 44 }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("profile")}
@@ -100,12 +100,10 @@ export function RoomListPane() {
             })}
           >
             <Avatar id={profile?.userId ?? "?"} name={profile?.displayName ?? "?"} size={34} src={myAvatar} />
-            <View style={{ flexShrink: 1 }}>
-              <Text numberOfLines={1} style={{ fontSize: 17, fontWeight: "700", fontFamily, color: colors.text }}>
-                {profile?.displayName ?? ""}
-              </Text>
-              {!syncing && <Text style={{ fontSize: 12, fontFamily, color: colors.textSecondary }}>{t("connecting")}</Text>}
-            </View>
+            {/* One line, fixed bar height: while connecting the status takes the name's place, styled like the name. */}
+            <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", fontFamily, color: colors.text }}>
+              {syncing ? (profile?.displayName ?? "") : t("connecting")}
+            </Text>
           </Pressable>
           <View ref={plusRef}>
             <IconButton
