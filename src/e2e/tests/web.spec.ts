@@ -644,3 +644,28 @@ test("chat list rows have a fixed height and truncate previews with three dots",
   expect(new Set(heights).size).toBe(1);
   await shot(page, "28-fixed-rows");
 });
+
+test("signing in again after sign-out (new device) works and old crypto stores are removed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const stores = () => page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name ?? "").filter((n) => n.startsWith("ohmatrix-")));
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await login(page);
+  await expect.poll(async () => (await stores()).length).toBeGreaterThan(0);
+  const first = await stores();
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out" }).last().click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  await expect.poll(async () => (await stores()).filter((n) => first.includes(n)).length, { timeout: 10000 }).toBe(0);
+  // A second login is a new device; it must come up cleanly, with its own store.
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill("test");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("button", { name: "Profile", exact: true })).toBeVisible();
+  await expect.poll(async () => (await stores()).length).toBeGreaterThan(0);
+  expect(errors.filter((m) => /account in the store/.test(m))).toEqual([]);
+});
