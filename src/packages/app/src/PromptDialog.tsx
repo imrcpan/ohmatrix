@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text } from "react-native";
 import { Dialog, fontFamily, PrimaryButton, TextButton, TextField, useTheme } from "@ohmatrix/ui";
 import { useT } from "./context.js";
@@ -17,17 +17,22 @@ export function PromptDialog(props: {
   message: string;
   fields: PromptField[];
   confirmLabel: string;
+  /** Starting values, one per field (e.g. the current name when editing). */
+  initial?: string[] | undefined;
   onConfirm: (values: string[]) => Promise<void>;
   onClose: () => void;
 }) {
   const { colors } = useTheme();
   const t = useT();
-  const [values, setValues] = useState<string[]>(() => props.fields.map(() => ""));
+  const start = () => props.fields.map((_, i) => props.initial?.[i] ?? "");
+  const [values, setValues] = useState<string[]>(start);
+  useEffect(() => {
+    if (props.visible) setValues(start());
+  }, [props.visible]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ready = props.fields.every((f, i) => f.optional || (values[i] ?? "").trim());
   const close = () => {
-    setValues(props.fields.map(() => ""));
     setError(null);
     props.onClose();
   };
@@ -41,6 +46,7 @@ export function PromptDialog(props: {
           placeholder={f.placeholder}
           autoCapitalize="none"
           autoCorrect={false}
+          multiline={!!f.multiline}
           value={values[i] ?? ""}
           onChangeText={(v) => setValues((cur) => cur.map((x, j) => (j === i ? v : x)))}
         />

@@ -20,6 +20,7 @@ export function RoomRow(props: {
   onPress: () => void;
   pinned?: boolean | undefined;
   markedUnread?: boolean | undefined;
+  muted?: boolean | undefined;
   /** Long-press (touch) or right-click (desktop): receives where to anchor the menu. */
   onContextMenu?: ((anchor: Anchor) => void) | undefined;
   /** Pending invitation: shows Accept / Decline pills under the preview. */
@@ -61,6 +62,7 @@ export function RoomRow(props: {
           <EllipsisText style={{ flex: 1, fontSize: 16, fontWeight: "600", fontFamily, color: sel ? colors.onSelected : colors.text }}>
             {props.title}
           </EllipsisText>
+          {props.muted && <Icon name="bellOff" size={13} color={secondary} />}
           {props.pinned && <Icon name="pin" size={13} color={secondary} />}
           <Text style={{ fontSize: 13, fontFamily, color: secondary }}>{props.time}</Text>
         </View>
@@ -81,7 +83,7 @@ export function RoomRow(props: {
                 paddingHorizontal: 7,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: sel ? colors.onSelected : props.highlight ? colors.badge : colors.badge,
+                backgroundColor: sel ? colors.onSelected : props.muted ? colors.badgeMuted : colors.badge,
               }}
             >
               <Text style={{ fontSize: 13, fontWeight: "600", fontFamily, color: sel ? colors.selected : colors.onAccent }}>

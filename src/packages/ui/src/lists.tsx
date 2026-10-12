@@ -67,7 +67,7 @@ export function Row(props: {
           marginLeft: 0,
         }}
       >
-        <View style={{ flexShrink: 1, flexGrow: props.subtitle ? 1 : 0, paddingVertical: props.subtitle ? 7 : 0 }}>
+        <View style={{ flexShrink: props.subtitle ? 1 : 0, flexGrow: props.subtitle ? 1 : 0, paddingVertical: props.subtitle ? 7 : 0 }}>
           <Text numberOfLines={1} style={{ fontSize: 17, fontFamily, color: props.danger ? colors.danger : colors.text }}>
             {props.label}
           </Text>
@@ -79,7 +79,7 @@ export function Row(props: {
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
           {!!props.value && (
-            <Text numberOfLines={1} selectable style={{ fontSize: 16, fontFamily, color: colors.textSecondary, flexShrink: 1 }}>
+            <Text numberOfLines={1} selectable style={{ fontSize: 16, fontFamily, color: colors.textSecondary, flexShrink: 1, textAlign: "right" }}>
               {props.value}
             </Text>
           )}
