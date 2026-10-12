@@ -9,6 +9,7 @@ import {
   type AttachmentSource,
   type DeviceInfo,
   type IncomingNotification,
+  type SearchPage,
   type MatrixEngine,
   type RoomAdminApi,
   type MediaOptions,
@@ -45,6 +46,8 @@ export interface AppState {
   sidebarPage: SidebarPage;
   /** Chat-info panel of the selected room is open (slides in from the right). */
   roomInfoOpen: boolean;
+  /** A message to scroll to once its chat is open (set by search results). */
+  focusEvent: { roomId: RoomId; eventId: string } | null;
 }
 
 /** Handle for an open room; `close()` releases the engine timeline. */
@@ -92,6 +95,11 @@ export interface AppController {
   setPinned(roomId: RoomId, pinned: boolean): Promise<void>;
   setMarkedUnread(roomId: RoomId, unread: boolean): Promise<void>;
   markRoomRead(roomId: RoomId): Promise<void>;
+  /** Search messages (see `SearchApi`). */
+  searchMessages(opts: { term: string; roomId?: RoomId; from?: string }): Promise<SearchPage>;
+  /** Open a chat and scroll to one of its messages (loading older history if needed). */
+  openMessage(roomId: RoomId, eventId: string): void;
+  clearFocusEvent(): void;
   /** Room administration (name, topic, avatar, invitations, removal, roles). */
   roomAdmin: RoomAdminApi;
   /** Load older messages of an open room (e.g. to find more shared media). */
@@ -137,6 +145,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     prefs: DEFAULT_PREFERENCES,
     sidebarPage: "chats",
     roomInfoOpen: false,
+    focusEvent: null,
   }));
   const set = store.setState;
   const offs = [
@@ -219,6 +228,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     setPinned: (roomId, pinned) => engine.rooms.setPinned(roomId, pinned),
     setMarkedUnread: (roomId, unread) => engine.rooms.setMarkedUnread(roomId, unread),
     markRoomRead: (roomId) => engine.rooms.markRead(roomId),
+    searchMessages: (opts) => engine.search.messages(opts),
+    openMessage(roomId, eventId) {
+      select(roomId);
+      set({ focusEvent: { roomId, eventId } });
+    },
+    clearFocusEvent: () => set({ focusEvent: null }),
     roomAdmin: engine.roomAdmin,
     paginateRoom: async (roomId) => {
       await handles.get(roomId)?.paginateBackwards();

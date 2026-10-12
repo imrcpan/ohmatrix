@@ -90,7 +90,7 @@ export function IconButton(props: { icon: IconName; onPress: () => void; label: 
 }
 
 /** Rounded search field (Telegram / iOS): secondary fill, no border, magnifier + placeholder. */
-export function SearchField(props: { value: string; onChangeText: (v: string) => void; placeholder: string }) {
+export function SearchField(props: { value: string; onChangeText: (v: string) => void; placeholder: string; autoFocus?: boolean }) {
   const { colors } = useTheme();
   return (
     <View
@@ -112,6 +112,7 @@ export function SearchField(props: { value: string; onChangeText: (v: string) =>
         placeholderTextColor={colors.textSecondary}
         autoCapitalize="none"
         autoCorrect={false}
+        autoFocus={!!props.autoFocus}
         style={[{ flex: 1, fontSize: 16, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
       />
     </View>

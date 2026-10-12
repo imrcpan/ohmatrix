@@ -48,6 +48,9 @@ const services: PlatformServices = {
 };
 const controller = createAppController(new JsSdkEngine({ storageKey: createCryptoKeyProvider(secureBox) }), services);
 
+// Development only: lets tests and the console poke the running app.
+if (import.meta.env.DEV) (window as unknown as { __ohmatrix: unknown }).__ohmatrix = { controller };
+
 installRouter(controller);
 void controller.bootstrap();
 

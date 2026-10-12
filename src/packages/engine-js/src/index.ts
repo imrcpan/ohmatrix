@@ -26,6 +26,8 @@ import {
   type EngineErrorCode,
   type DeviceInfo,
   type IncomingNotification,
+  type SearchPage,
+  type SearchResult,
   type MemberRole,
   type MediaOptions,
   type Profile,
@@ -42,7 +44,7 @@ import {
   type TimelineHandle,
   type TimelineItem,
 } from "@ohmatrix/core";
-import { nameOf, notificationPreview, roomItems, toRoomSummary, typingNames } from "./convert.js";
+import { nameOf, notificationPreview, roomItems, stripReplyFallback, toRoomSummary, typingNames } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { diffTimeline } from "./diff.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
@@ -298,6 +300,80 @@ export class JsSdkEngine implements MatrixEngine {
         const up = await c.uploadContent(file.data as Blob, { name: file.name, type: file.mimeType });
         await c.setAvatarUrl(up.content_uri);
         await this.refreshProfile();
+      }),
+  };
+
+  readonly search = {
+    messages: (o: { term: string; roomId?: RoomId; from?: string }) =>
+      guard(async (): Promise<SearchPage> => {
+        const c = this.requireClient();
+        const term = o.term.trim();
+        if (term.length < 2) return { results: [], localRooms: 0 };
+        const name = (roomId: string) => c.getRoom(roomId)?.name || roomId;
+        const results: SearchResult[] = [];
+
+        // The server finds messages in rooms it can read.
+        const res = await c.search({
+          ...(o.from && { next_batch: o.from }),
+          body: {
+            search_categories: {
+              room_events: {
+                search_term: term,
+                keys: ["content.body"],
+                order_by: "recent" as never,
+                filter: { limit: 20, types: ["m.room.message"], ...(o.roomId && { rooms: [o.roomId] }) },
+              },
+            },
+          },
+        });
+        const cat = res.search_categories.room_events;
+        for (const hit of cat?.results ?? []) {
+          const ev = hit.result;
+          const body = typeof ev.content?.body === "string" ? ev.content.body : "";
+          if (!body) continue;
+          const member = c.getRoom(ev.room_id)?.getMember(ev.sender);
+          results.push({
+            eventId: ev.event_id,
+            roomId: ev.room_id,
+            roomName: name(ev.room_id),
+            sender: ev.sender,
+            senderName: nameOf(member, ev.sender),
+            ts: ev.origin_server_ts,
+            text: stripReplyFallback(body),
+            local: false,
+          });
+        }
+
+        // Encrypted rooms are opaque to the server: look through what this device has (first page only).
+        let localRooms = 0;
+        if (!o.from) {
+          const needle = term.toLowerCase();
+          const rooms = o.roomId ? [c.getRoom(o.roomId)] : c.getRooms();
+          for (const room of rooms) {
+            if (!room || room.getMyMembership() !== "join" || !c.isRoomEncrypted(room.roomId)) continue;
+            localRooms++;
+            for (const ev of room.getLiveTimeline().getEvents()) {
+              await c.decryptEventIfNeeded(ev).catch(() => {});
+              if (ev.getType() !== EventType.RoomMessage || ev.isRedacted() || ev.isRelation("m.replace")) continue;
+              const body = ev.getContent().body;
+              if (typeof body !== "string" || !body.toLowerCase().includes(needle)) continue;
+              const id = ev.getId();
+              if (!id) continue;
+              results.push({
+                eventId: id,
+                roomId: room.roomId,
+                roomName: name(room.roomId),
+                sender: ev.getSender() ?? "",
+                senderName: nameOf(ev.sender, ev.getSender() ?? ""),
+                ts: ev.getTs(),
+                text: stripReplyFallback(body),
+                local: true,
+              });
+            }
+          }
+        }
+        results.sort((x, y) => y.ts - x.ts);
+        return { results, localRooms, ...(cat?.next_batch && { next: cat.next_batch }) };
       }),
   };
 

@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable } from "react-native";
 import { contentText, type TimelineItem } from "@ohmatrix/core";
-import { FlatList, Text, View } from "react-native";
-import { ActionSheet, Avatar, Bubble, Chip, Dialog, PrimaryButton, ReactionChips, TextButton, Composer, fontFamily, IconButton, useTheme } from "@ohmatrix/ui";
+import { FlatList, ScrollView, Text, View } from "react-native";
+import {
+  ActionSheet,
+  Avatar,
+  Bubble,
+  Chip,
+  Dialog,
+  PrimaryButton,
+  ReactionChips,
+  SearchField,
+  TextButton,
+  Composer,
+  fontFamily,
+  IconButton,
+  useTheme,
+} from "@ohmatrix/ui";
+import { MessageResults } from "./MessageResults.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useServices, useAppState, useController, useLocale, useT } from "./context.js";
 import { formatBytes, formatClock, typingLabel } from "./format.js";
@@ -31,7 +46,7 @@ interface RowActions {
   download(file: { url: string; name: string; encryption?: unknown; mimeType?: string }): void;
 }
 
-function TimelineRow({ row, isGroup, actions }: { row: Row; isGroup: boolean; actions: RowActions }) {
+function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup: boolean; actions: RowActions; highlighted?: boolean }) {
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const locale = useLocale();
@@ -61,13 +76,16 @@ function TimelineRow({ row, isGroup, actions }: { row: Row; isGroup: boolean; ac
   const mineKeys = (m.reactions ?? []).filter((r) => r.mine).map((r) => r.key);
   return (
     <View
+      accessibilityLabel={highlighted ? "Found message" : undefined}
       style={{
         flexDirection: "row",
         alignItems: "flex-end",
         gap: 6,
         paddingHorizontal: 10,
+        paddingVertical: highlighted ? 4 : 0,
         marginTop: row.first ? 6 : 2,
         justifyContent: m.isOwn ? "flex-end" : "flex-start",
+        backgroundColor: highlighted ? "rgba(51,144,236,0.22)" : "transparent",
       }}
     >
       {showAvatar && (row.last ? <Avatar id={m.sender} name={m.senderName} size={AVATAR} src={avatar} /> : <View style={{ width: AVATAR }} />)}
@@ -209,7 +227,42 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
     }),
     [],
   );
-  const renderRow = ({ item }: { item: Row }) => <TimelineRow row={item} isGroup={isGroup} actions={actions} />;
+  const renderRow = ({ item }: { item: Row }) => (
+    <TimelineRow row={item} isGroup={isGroup} actions={actions} highlighted={item.type === "message" && item.item.id === highlightId} />
+  );
+
+  // Search: a header button opens a results list for this chat; picking a result scrolls to the message.
+  const [searching, setSearching] = useState(false);
+  const [term, setTerm] = useState("");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const focus = useAppState((s) => s.focusEvent);
+  const paginations = useRef(0);
+  useEffect(() => {
+    paginations.current = 0;
+    setSearching(false);
+    setTerm("");
+  }, [props.roomId]);
+  useEffect(() => {
+    if (!focus || focus.roomId !== props.roomId || !items) return;
+    const index = rows.findIndex((r) => r.type === "message" && r.item.id === focus.eventId);
+    if (index < 0) {
+      // Not loaded yet: fetch older history a page at a time (bounded), the effect runs again as it arrives.
+      if (paginations.current++ < 12) void handle.current?.paginateBackwards().catch(() => {});
+      else controller.clearFocusEvent();
+      return;
+    }
+    controller.clearFocusEvent();
+    setHighlightId(focus.eventId);
+    const scroll = (tries: number) => {
+      try {
+        listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+      } catch {
+        if (tries > 0) setTimeout(() => scroll(tries - 1), 250);
+      }
+    };
+    setTimeout(() => scroll(4), 50);
+    setTimeout(() => setHighlightId((cur) => (cur === focus.eventId ? null : cur)), 3000);
+  }, [focus, items, rows, props.roomId]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.chatBg }}>
@@ -243,8 +296,52 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
             </Text>
           )}
         </View>
+        <IconButton
+          icon="search"
+          label={t("search.inChat")}
+          size={22}
+          color={searching ? colors.accent : colors.textSecondary}
+          onPress={() => {
+            setSearching((v) => !v);
+            setTerm("");
+          }}
+        />
         {props.onInfo && <IconButton icon="info" label={t("chatInfo")} size={24} onPress={props.onInfo} />}
       </View>
+      {searching && (
+        <View
+          accessibilityLabel={t("search.inChat")}
+          style={{ position: "absolute", top: 56, left: 0, right: 0, bottom: 0, zIndex: 4, backgroundColor: colors.bg }}
+        >
+          <View style={{ padding: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <SearchField value={term} onChangeText={setTerm} placeholder={t("search.inChat")} autoFocus />
+            </View>
+            <IconButton
+              icon="close"
+              label={t("search.close")}
+              size={20}
+              color={colors.textSecondary}
+              onPress={() => {
+                setSearching(false);
+                setTerm("");
+              }}
+            />
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            <MessageResults
+              term={term}
+              roomId={props.roomId}
+              showRoom={false}
+              onPick={(r) => {
+                setSearching(false);
+                setTerm("");
+                controller.openMessage(r.roomId, r.eventId);
+              }}
+            />
+          </ScrollView>
+        </View>
+      )}
       <FlatList
         ref={listRef}
         inverted
