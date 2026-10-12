@@ -52,7 +52,12 @@ const DEFAULT_HOMESERVER = "matrix.org";
 const controller = createAppController(new JsSdkEngine({ storageKey: createCryptoKeyProvider(secureBox) }), services);
 
 // Development only: lets tests and the console poke the running app.
-if (import.meta.env.DEV) (window as unknown as { __ohmatrix: unknown }).__ohmatrix = { controller };
+if (import.meta.env.DEV) (window as unknown as { __ohmatrix: unknown; __ohmatrix_root: string }).__ohmatrix = { controller };
+if (import.meta.env.DEV)
+  (window as unknown as { __ohmatrix_root: string }).__ohmatrix_root = new URL("../../../../", import.meta.url).pathname.replace(
+    /\/$/,
+    "",
+  ); /* e.g. /@fs/home/.../repo in dev */
 
 installRouter(controller);
 void controller.bootstrap();
