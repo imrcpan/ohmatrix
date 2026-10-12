@@ -52,6 +52,13 @@ export class MockEngine implements MatrixEngine {
     setAvatar: async () => {},
   };
 
+  readonly users = {
+    search: async (term: string) => {
+      const t = term.trim().toLowerCase();
+      return ["alice", "bob"].filter((n) => t && n.includes(t)).map((n) => ({ userId: `@${n}:example.org`, displayName: n }));
+    },
+  };
+
   readonly security = {
     state: async () => "unavailable" as const,
     onState: (cb: Listener<"unavailable">) => {

@@ -130,3 +130,10 @@ export interface RoomDetails {
   isEncrypted: boolean;
   members: RoomMember[];
 }
+
+/** A person found in the user directory (or looked up by full user id). */
+export interface UserSuggestion {
+  userId: UserId;
+  displayName: string;
+  avatar?: MxcUri;
+}

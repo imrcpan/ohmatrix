@@ -10,6 +10,7 @@ import {
   type MatrixEngine,
   type MediaOptions,
   type Profile,
+  type UserSuggestion,
   type MxcUri,
   type PlatformServices,
   type RoomId,
@@ -82,6 +83,8 @@ export interface AppController {
   setPinned(roomId: RoomId, pinned: boolean): Promise<void>;
   setMarkedUnread(roomId: RoomId, unread: boolean): Promise<void>;
   markRoomRead(roomId: RoomId): Promise<void>;
+  /** Search the user directory (also resolves a full user id). */
+  searchUsers(term: string): Promise<UserSuggestion[]>;
   /** Subscribe to the chat-info data of a room. */
   subscribeRoomDetails(roomId: RoomId, cb: (d: RoomDetails) => void): () => void;
   /** Leave (or delete, for one-to-one chats) a room and deselect it. */
@@ -193,6 +196,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     setPinned: (roomId, pinned) => engine.rooms.setPinned(roomId, pinned),
     setMarkedUnread: (roomId, unread) => engine.rooms.setMarkedUnread(roomId, unread),
     markRoomRead: (roomId) => engine.rooms.markRead(roomId),
+    searchUsers: (term) => engine.users.search(term),
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);

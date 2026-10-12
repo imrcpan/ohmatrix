@@ -3,6 +3,7 @@ import type {
   AttachmentSource,
   RoomDetails,
   Profile,
+  UserSuggestion,
   EventId,
   MxcUri,
   RoomId,
@@ -90,6 +91,14 @@ export interface ProfileApi {
   setAvatar(file: AttachmentSource): Promise<void>;
 }
 
+export interface UserDirectoryApi {
+  /**
+   * Find people by name or user id, excluding me. A complete user id (`@name:server`) that the
+   * directory does not list is looked up directly, so anyone on the network can be reached.
+   */
+  search(term: string): Promise<UserSuggestion[]>;
+}
+
 /** A live view of one room. Must be closed to release engine resources. */
 export interface TimelineHandle {
   /** First message from someone else that I had not read when the timeline was opened (for the "New messages" divider). */
@@ -127,5 +136,6 @@ export interface MatrixEngine {
   readonly media: MediaApi;
   readonly security: SecurityApi;
   readonly profile: ProfileApi;
+  readonly users: UserDirectoryApi;
   openTimeline(roomId: RoomId): TimelineHandle;
 }

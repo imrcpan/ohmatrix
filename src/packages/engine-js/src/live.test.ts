@@ -334,3 +334,22 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   60000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "user directory search",
+  async () => {
+    const e = new JsSdkEngine({ cryptoStorage: "memory" });
+    await e.auth.loginWithPassword("http://localhost:8008", "test", "123456");
+    await e.sync.start();
+    expect(await e.users.search("   ")).toEqual([]);
+    const ali = await e.users.search("ali");
+    expect(ali.map((u) => u.userId)).toContain("@alice:localhost");
+    expect(ali.map((u) => u.userId)).not.toContain("@test:localhost"); // never myself
+    expect((await e.users.search("test")).map((u) => u.userId)).not.toContain("@test:localhost");
+    // A full id is resolved by profile lookup even if the directory would not list it.
+    expect((await e.users.search("@bob:localhost")).map((u) => u.userId)).toContain("@bob:localhost");
+    expect(await e.users.search("@nobody-here:localhost")).toEqual([]);
+    await e.sync.stop();
+  },
+  40000,
+);
