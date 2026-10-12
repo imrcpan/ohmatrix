@@ -53,6 +53,8 @@ export class MockEngine implements MatrixEngine {
     setStatus: async () => {},
   };
 
+  readonly search = { messages: async () => ({ results: [], localRooms: 0 }) };
+
   readonly roomAdmin = {
     setName: async () => {},
     setTopic: async () => {},

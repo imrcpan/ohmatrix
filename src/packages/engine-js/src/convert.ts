@@ -91,7 +91,7 @@ export function reactionsOf(client: MatrixClient, room: Room | null, eventId: st
 }
 
 /** Body without the legacy "> <@user> quoted" reply fallback that older clients prepend. */
-function stripReplyFallback(body: string): string {
+export function stripReplyFallback(body: string): string {
   if (!body.startsWith("> ")) return body;
   const i = body.indexOf("\n\n");
   return i === -1 ? body : body.slice(i + 2);

@@ -597,3 +597,51 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   120000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "message search: server for open rooms, this device for encrypted rooms, per room and global",
+  async () => {
+    const e = new JsSdkEngine({ cryptoStorage: "memory" });
+    const s = await e.auth.loginWithPassword("http://localhost:8008", "test", "123456");
+    let rooms: RoomSummary[] = [];
+    e.rooms.subscribe((u) => {
+      rooms = applyUpdates(rooms, u);
+    });
+    await e.sync.start();
+    const tag = `zebra${Date.now().toString(36)}`;
+    const api = (path: string, body: unknown, method = "POST") =>
+      fetch(`http://localhost:8008/_matrix/client/v3${path}`, {
+        method,
+        headers: { authorization: `Bearer ${s.accessToken}` },
+        body: JSON.stringify(body),
+      }).then((r) => r.json()) as Promise<Record<string, string>>;
+    const open = (await api("/createRoom", { name: `Open ${tag}`, preset: "private_chat" })).room_id!;
+    const secret = await e.rooms.createGroup({ name: `Secret ${tag}`, invite: [] });
+    await expect.poll(() => rooms.filter((r) => [open, secret].includes(r.id)).length, { timeout: 15000 }).toBe(2);
+    await api(`/rooms/${encodeURIComponent(open)}/send/m.room.message/o1`, { msgtype: "m.text", body: `the ${tag} is in the open room` }, "PUT");
+    await api(`/rooms/${encodeURIComponent(open)}/send/m.room.message/o2`, { msgtype: "m.text", body: "something unrelated" }, "PUT");
+    const tl = e.openTimeline(secret);
+    await tl.sendText(`The ${tag.toUpperCase()} is in the secret room`);
+    await expect.poll(async () => (await e.search.messages({ term: tag })).results.length, { timeout: 20000 }).toBe(2);
+
+    const all = await e.search.messages({ term: tag });
+    expect(all.results.map((r) => [r.roomName, r.local]).sort()).toEqual([
+      [`Open ${tag}`, false],
+      [`Secret ${tag}`, true],
+    ]);
+    expect(all.results[0]!.ts).toBeGreaterThanOrEqual(all.results[1]!.ts); // newest first
+    expect(all.localRooms).toBeGreaterThanOrEqual(1);
+    const secretHit = all.results.find((r) => r.local)!;
+    expect(secretHit).toMatchObject({ roomId: secret, senderName: "test", text: `The ${tag.toUpperCase()} is in the secret room` });
+    expect(secretHit.eventId).toMatch(/^\$/);
+
+    // One room only; case does not matter; short or unknown terms find nothing.
+    expect((await e.search.messages({ term: tag, roomId: open })).results.map((r) => r.roomId)).toEqual([open]);
+    expect((await e.search.messages({ term: tag.toUpperCase(), roomId: secret })).results.map((r) => r.roomId)).toEqual([secret]);
+    expect((await e.search.messages({ term: "x" })).results).toEqual([]);
+    expect((await e.search.messages({ term: `${tag}-nothing-like-this` })).results).toEqual([]);
+    tl.close();
+    await e.sync.stop();
+  },
+  90000,
+);

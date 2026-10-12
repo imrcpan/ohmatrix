@@ -186,3 +186,25 @@ export interface IncomingNotification {
   /** Mentions me or matches a keyword rule. */
   highlight: boolean;
 }
+
+/** One message found by a search. */
+export interface SearchResult {
+  eventId: EventId;
+  roomId: RoomId;
+  roomName: string;
+  sender: UserId;
+  senderName: string;
+  ts: number;
+  /** Plain text of the message. */
+  text: string;
+  /** Found on this device (an encrypted room) rather than by the server. */
+  local: boolean;
+}
+
+export interface SearchPage {
+  results: SearchResult[];
+  /** Pass back as `from` to get more server results; absent when there are no more. */
+  next?: string;
+  /** Number of encrypted rooms that were searched only among the messages loaded on this device. */
+  localRooms: number;
+}

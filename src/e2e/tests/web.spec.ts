@@ -1270,3 +1270,69 @@ test("room administration UI: members without rights see no editing; shared medi
   await page.getByRole("button", { name: "Load older messages" }).click();
   await expect(page.getByText(/^Photos · \d+/)).toBeVisible();
 });
+
+test("search: global message search finds a message beyond the loaded history and jumps to it", async ({ page }) => {
+  const [alice, me] = [await apiLogin("alice"), await apiLogin("test")];
+  const tag = `quokka${Date.now().toString(36)}`;
+  const { room_id } = await api(alice, "POST", "/createRoom", { name: `Search ${tag}`, preset: "private_chat", invite: ["@test:localhost"] });
+  await api(me, "POST", `/join/${encodeURIComponent(room_id!)}`, {});
+  const send = (body: string, n: number) =>
+    api(alice, "PUT", `/rooms/${encodeURIComponent(room_id!)}/send/m.room.message/s${Date.now()}${n}`, { msgtype: "m.text", body });
+  await send(`the ${tag} was here first`, 0);
+  for (let i = 1; i <= 45; i++) await send(`filler message number ${i}`, i); // pushes the needle out of the initially loaded history
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByPlaceholder("Search").fill(tag);
+  await expect(page.getByText("Messages", { exact: true })).toBeVisible({ timeout: 15000 });
+  const hit = page.getByRole("button", { name: new RegExp(`Search ${tag}: the ${tag} was here first`) });
+  await expect(hit).toBeVisible({ timeout: 20000 });
+  await shot(page, "40-global-search");
+  await hit.click();
+  // The chat opens, older history is loaded until the message is found, and it is highlighted.
+  await expect(page.getByLabel("Found message")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(`the ${tag} was here first`, { exact: true })).toBeVisible();
+  await shot(page, "41-jumped-to-message");
+});
+
+test("search: in-chat search is scoped to the chat; encrypted chats are searched on this device", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const name = `Vault ${Date.now().toString(36)}`;
+  await newGroup(page, name, ["bob"]); // groups are end-to-end encrypted
+  const tag = `ocelot${Date.now().toString(36)}`;
+  await page.waitForTimeout(1500);
+  await page.getByPlaceholder("Message").fill(`secret ${tag} plans`);
+  await page.getByPlaceholder("Message").press("Enter");
+  await page.getByPlaceholder("Message").fill("nothing to see here");
+  await page.getByPlaceholder("Message").press("Enter");
+  await expect(page.getByText("nothing to see here", { exact: true }).last()).toBeVisible({ timeout: 15000 });
+  // Local echoes are not searchable yet: wait until the server has both (encrypted) messages.
+  const vault = decodeURIComponent(new URL(page.url()).pathname.replace("/chat/", ""));
+  const mine = await apiLogin("test");
+  await expect
+    .poll(
+      async () => {
+        const r = (await api(mine, "GET", `/rooms/${encodeURIComponent(vault)}/messages?dir=b&limit=10`)) as unknown as { chunk: { type: string }[] };
+        return r.chunk.filter((e) => e.type === "m.room.encrypted").length;
+      },
+      { timeout: 15000 },
+    )
+    .toBe(2);
+
+  // In this chat: only this chat's matches, no chat names in the rows, and the note about encrypted chats.
+  await page.getByRole("button", { name: "Search in this chat" }).click();
+  await page.getByPlaceholder("Search in this chat").fill(tag);
+  const inChat = page.getByRole("button", { name: new RegExp(`secret ${tag} plans`) });
+  await expect(inChat).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/Encrypted chats are searched only among the messages loaded on this device/)).toBeVisible();
+  await expect(page.locator('div[aria-label="Search in this chat"]').getByRole("button", { name: /nothing to see here/ })).toHaveCount(0); // only matches of this search
+  await shot(page, "42-in-chat-search");
+  await inChat.click();
+  await expect(page.getByLabel("Found message")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByPlaceholder("Search in this chat")).toHaveCount(0); // the search closed
+
+  // The same message is found from the chat list.
+  await page.getByPlaceholder("Search", { exact: true }).fill(tag);
+  await expect(page.getByRole("button", { name: new RegExp(`${name}: .*secret ${tag} plans`) })).toBeVisible({ timeout: 15000 });
+});

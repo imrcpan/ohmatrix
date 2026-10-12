@@ -3,6 +3,7 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
+import { MessageResults } from "./MessageResults.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
@@ -180,6 +181,16 @@ export function RoomListPane() {
         data={data}
         keyExtractor={(r) => r.id}
         contentContainerStyle={{ paddingVertical: 4 }}
+        ListFooterComponent={
+          query.trim().length >= 2 ? (
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 13, fontFamily, color: colors.textSecondary, marginLeft: 18, marginBottom: 4 }}>{t("search.messages")}</Text>
+              <MessageResults term={query} showRoom onPick={(r) => controller.openMessage(r.roomId, r.eventId)} />
+            </View>
+          ) : (
+            <View />
+          )
+        }
         ListEmptyComponent={
           <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
             {query ? t("noResults") : t("noChats")}

@@ -2,6 +2,7 @@ import type { ListUpdate } from "./diff.js";
 import type {
   AttachmentSource,
   DeviceInfo,
+  SearchPage,
   MemberRole,
   IncomingNotification,
   RoomDetails,
@@ -110,6 +111,14 @@ export interface RoomAdminApi {
   setRole(roomId: RoomId, userId: UserId, role: MemberRole): Promise<void>;
 }
 
+export interface SearchApi {
+  /**
+   * Search message text, in one room or in all of them, newest first. The server searches the rooms it can
+   * read; encrypted rooms are searched on this device, among the messages it has loaded.
+   */
+  messages(opts: { term: string; roomId?: RoomId; from?: string }): Promise<SearchPage>;
+}
+
 export interface DevicesApi {
   /** My sessions, current one first, then most recently active. */
   list(): Promise<DeviceInfo[]>;
@@ -176,6 +185,7 @@ export interface MatrixEngine {
   readonly profile: ProfileApi;
   readonly devices: DevicesApi;
   readonly roomAdmin: RoomAdminApi;
+  readonly search: SearchApi;
   readonly users: UserDirectoryApi;
   readonly notifications: NotificationsApi;
   openTimeline(roomId: RoomId): TimelineHandle;
