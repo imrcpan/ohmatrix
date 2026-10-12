@@ -1,0 +1,21 @@
+{
+  "name": "@ohmatrix/engine-js",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ohmatrix/core": "workspace:*",
+    "matrix-js-sdk": "^43.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "vitest": "^5.0.3"
+  }
+}
