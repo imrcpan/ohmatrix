@@ -3,7 +3,7 @@ import { Pressable } from "react-native";
 import { contentText, type TimelineItem } from "@ohmatrix/core";
 import { FlatList, ScrollView, Text, View } from "react-native";
 import {
-  ActionSheet,
+  MessageMenu,
   Avatar,
   Bubble,
   Chip,
@@ -17,6 +17,7 @@ import {
   IconButton,
   useTheme,
 } from "@ohmatrix/ui";
+import type { MenuPoint } from "@ohmatrix/ui";
 import { MessageResults } from "./MessageResults.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useServices, useAppState, useController, useLocale, useT } from "./context.js";
@@ -47,7 +48,7 @@ interface RowActions {
 }
 
 function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup: boolean; actions: RowActions; highlighted?: boolean }) {
-  const [menu, setMenu] = useState(false);
+  const [menu, setMenu] = useState<MenuPoint | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const locale = useLocale();
   const t = useT();
@@ -72,7 +73,7 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
   if (row.type === "service") return <Chip text={row.text} />;
   if (!m || !content) return null;
   const showAvatar = isGroup && !m.isOwn;
-  const open = () => setMenu(true);
+  const open = (x: number, y: number) => setMenu({ x, y });
   const mineKeys = (m.reactions ?? []).filter((r) => r.mine).map((r) => r.key);
   return (
     <View
@@ -90,15 +91,20 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
     >
       {showAvatar && (row.last ? <Avatar id={m.sender} name={m.senderName} size={AVATAR} src={avatar} /> : <View style={{ width: AVATAR }} />)}
       <View style={{ maxWidth: "78%", alignItems: m.isOwn ? "flex-end" : "flex-start" }}>
+        {/* The bubble opens the context menu but is read, not clicked: show the text cursor, not the hand (nested buttons such as quotes and files keep theirs). */}
         <Pressable
-          onLongPress={open}
+          style={{ cursor: "text" } as object}
+          onLongPress={(e) => {
+            const n = e.nativeEvent as { pageX?: number; pageY?: number };
+            open(n.pageX ?? 0, n.pageY ?? 0);
+          }}
+          delayLongPress={350}
           {...({
-            onContextMenu: (e: { preventDefault(): void }) => {
+            onContextMenu: (e: { preventDefault(): void; clientX: number; clientY: number }) => {
               e.preventDefault();
-              open();
+              open(e.clientX, e.clientY);
             },
           } as object)}
-          delayLongPress={350}
         >
           <Bubble
             own={m.isOwn}
@@ -123,18 +129,19 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
             muted={content.kind === "unsupported" || content.kind === "undecryptable"}
           />
         </Pressable>
-        {!!m.reactions?.length && <ReactionChips items={m.reactions} onToggle={(k) => actions.react(m.id, k)} />}
+        {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn} onToggle={(k) => actions.react(m.id, k)} />}
       </View>
-      <ActionSheet
-        visible={menu}
-        onClose={() => setMenu(false)}
+      <MessageMenu
+        visible={!!menu}
+        anchor={menu}
+        onClose={() => setMenu(null)}
         emojis={QUICK_REACTIONS}
         activeEmojis={mineKeys}
         onEmoji={(k) => actions.react(m.id, k)}
         actions={[
-          { label: t("reply"), onPress: () => actions.reply(m) },
-          ...(m.isOwn && content.kind === "text" ? [{ label: t("edit"), onPress: () => actions.edit(m) }] : []),
-          ...(m.isOwn ? [{ label: t("delete"), danger: true, onPress: () => setConfirmDelete(true) }] : []),
+          { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
+          ...(m.isOwn && content.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
+          ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
         ]}
       />
       <Dialog visible={confirmDelete} title={t("delete.title")} message={t("delete.body")} onClose={() => setConfirmDelete(false)}>
