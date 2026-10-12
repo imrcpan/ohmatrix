@@ -158,7 +158,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         set({ auth: "signedIn", userId: session.userId, homeserver: session.homeserver });
         await engine.sync.start();
       } catch (e) {
-        if (e instanceof EngineError && e.code === "unauthorized") await services.sessionStore.clear();
+        const forced = e instanceof EngineError && (e.code === "unauthorized" || e.code === "keys_lost");
+        if (forced) await services.sessionStore.clear();
         signedOut(e instanceof EngineError && e.code === "unauthorized" ? null : messageOf(e));
       }
     },

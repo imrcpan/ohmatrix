@@ -3,12 +3,14 @@ import type { AttachmentSource, PlatformServices, Preferences } from "@ohmatrix/
 import { JsSdkEngine } from "@ohmatrix/engine-js";
 import { createAppController } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
+import { createCryptoKeyProvider } from "./cryptoKeys.js";
 import { createSecureBox } from "./secureBox.js";
 import { createSecureSessionStore } from "./secureSession.js";
 import { installRouter } from "./router.js";
 
 // The session (access token) is encrypted with a non-extractable WebCrypto key before it is stored.
-const sessionStore = createSecureSessionStore(createSecureBox());
+const secureBox = createSecureBox();
+const sessionStore = createSecureSessionStore(secureBox);
 
 const PREFS_KEY = "ohmatrix.prefs.v1";
 const preferences = {
@@ -42,7 +44,7 @@ const services: PlatformServices = {
     a.click();
   },
 };
-const controller = createAppController(new JsSdkEngine(), services);
+const controller = createAppController(new JsSdkEngine({ storageKey: createCryptoKeyProvider(secureBox) }), services);
 
 installRouter(controller);
 void controller.bootstrap();

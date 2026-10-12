@@ -4,6 +4,7 @@ export type EngineErrorCode =
   | "forbidden"
   | "not_found"
   | "rate_limited"
+  | "keys_lost" // this device's encryption keys are gone: it cannot be used any more, sign in again
   | "unsupported" // engine/homeserver lacks the capability
   | "unknown";
 

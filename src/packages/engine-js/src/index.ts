@@ -88,13 +88,22 @@ function waitForJoinedRoom(c: MatrixClient, roomId: string, timeoutMs = 20000): 
   });
 }
 
-/** One crypto store per user *and device*, so a new login can never collide with an old device's keys. */
-const cryptoPrefix = (s: Session) => `ohmatrix-${s.userId}-${s.deviceId}`;
+/** Short stable id of a key, used in store names (never reveals the key). */
+async function keyFingerprint(key: Uint8Array<ArrayBuffer>): Promise<string> {
+  const d = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", key));
+  return [...d.slice(0, 4)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
-async function deleteCryptoStores(prefix: string): Promise<void> {
+/** One crypto store per user *and device*, so a new login can never collide with an old device's keys. */
+const cryptoBase = (s: Session) => `ohmatrix-${s.userId}-${s.deviceId}`;
+
+async function deleteCryptoStores(prefix: string, keep?: string): Promise<void> {
   const idb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
   if (!idb) return;
-  const names = (await idb.databases?.())?.map((d) => d.name).filter((n): n is string => !!n && n.startsWith(`${prefix}::`)) ?? [];
+  const names =
+    (await idb.databases?.())
+      ?.map((d) => d.name)
+      .filter((n): n is string => !!n && (n.startsWith(`${prefix}::`) || n.startsWith(`${prefix}-`)) && !(keep && n.startsWith(`${keep}::`))) ?? [];
   await Promise.all(
     names.map(
       (n) =>
@@ -111,6 +120,17 @@ const normalize = (hs: string) => (/^https?:\/\//.test(hs) ? hs : `https://${hs}
 export interface JsSdkEngineOptions {
   /** Where the Rust crypto store lives. "memory" is for tests/Node; browsers should use IndexedDB. */
   cryptoStorage?: "indexeddb" | "memory";
+  /**
+   * Encrypts the IndexedDB crypto store at rest. `get` returns the 32-byte key for a store (creating
+   * it on first use); `remove` forgets it when the store is deleted. Without a provider the store is
+   * written unencrypted.
+   */
+  storageKey?: StorageKeyProvider;
+}
+
+export interface StorageKeyProvider {
+  get(storeId: string): Promise<Uint8Array<ArrayBuffer>>;
+  remove(storeId: string): Promise<void>;
 }
 
 /** matrix-js-sdk engine for web/desktop with Rust (WASM) end-to-end encryption. */
@@ -252,6 +272,25 @@ export class JsSdkEngine implements MatrixEngine {
       }),
   };
 
+  /**
+   * Stores of this device left under another name belong to a key we no longer have (or to the unencrypted
+   * format of earlier versions). If the current store does not exist either, the device's encryption identity
+   * is gone: it cannot be reused, so the user must sign in again (a new device). Otherwise just tidy up.
+   */
+  private async checkDeviceStores(base: string, prefix: string, keys: StorageKeyProvider | undefined): Promise<void> {
+    const idb = (globalThis as { indexedDB?: IDBFactory }).indexedDB;
+    const names = ((await idb?.databases?.()) ?? []).map((d) => d.name ?? "").filter((n) => n.startsWith(`${base}::`) || n.startsWith(`${base}-`));
+    const stale = names.filter((n) => !n.startsWith(`${prefix}::`));
+    if (stale.length === 0) return;
+    if (names.some((n) => n.startsWith(`${prefix}::`))) {
+      void deleteCryptoStores(base, prefix);
+      return;
+    }
+    void deleteCryptoStores(base);
+    await keys?.remove(base);
+    throw new EngineError("keys_lost", "The encryption keys of this device are unavailable. Please sign in again.");
+  }
+
   private setSync(s: SyncState) {
     this.lastSync = s;
     this.syncListeners.forEach((cb) => cb(s));
@@ -308,19 +347,24 @@ export class JsSdkEngine implements MatrixEngine {
           store: new MemoryStore({ localStorage: globalThis.localStorage }),
           cryptoCallbacks: this.secretKeys.callbacks,
         });
-        const prefix = cryptoPrefix(s);
+        const base = cryptoBase(s);
         const useIndexedDB = this.options.cryptoStorage !== "memory";
+        const keyProvider = useIndexedDB ? this.options.storageKey : undefined;
+        const key = keyProvider ? await keyProvider.get(base) : undefined;
+        // The store is named after its key, so a different (or lost) key can never collide with an old store.
+        const prefix = key ? `${base}-${await keyFingerprint(key)}` : base;
+        if (useIndexedDB) await this.checkDeviceStores(base, prefix, keyProvider);
         try {
-          await client.initRustCrypto({ useIndexedDB, cryptoDatabasePrefix: prefix });
+          await client.initRustCrypto({ useIndexedDB, cryptoDatabasePrefix: prefix, ...(key && { storageKey: key }) });
         } catch (e) {
-          // A leftover store from another login of the same device id must never block signing in: drop it and start fresh.
-          if (!useIndexedDB || !/account in the store doesn't match/i.test(String((e as Error)?.message))) throw e;
-          await deleteCryptoStores(prefix);
-          await client.initRustCrypto({ useIndexedDB, cryptoDatabasePrefix: prefix });
+          if (useIndexedDB && /account in the store doesn't match|store cipher|decrypt|MAC/i.test(String((e as Error)?.message))) {
+            void deleteCryptoStores(base);
+            await keyProvider?.remove(base);
+            throw new EngineError("keys_lost", "The encryption keys of this device are unreadable. Please sign in again.", e);
+          }
+          throw e;
         }
-        this.cryptoPrefix = prefix;
-        // Stores written before per-device prefixes existed (`ohmatrix-<user>::…`) can never be reused.
-        if (useIndexedDB) void deleteCryptoStores(`ohmatrix-${s.userId}`);
+        this.cryptoPrefix = base;
         this.attach(client);
       }),
     logout: () =>
@@ -338,7 +382,10 @@ export class JsSdkEngine implements MatrixEngine {
         // The device is gone from the server, so its local encryption keys are useless: remove them.
         const prefix = this.cryptoPrefix;
         this.cryptoPrefix = null;
-        if (prefix && this.options.cryptoStorage !== "memory") await deleteCryptoStores(prefix);
+        if (prefix && this.options.cryptoStorage !== "memory") {
+          await deleteCryptoStores(prefix);
+          await this.options.storageKey?.remove(prefix);
+        }
         this.releaseMedia();
         this.security_.reset();
         this.emitProfile(null);
