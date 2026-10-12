@@ -1,0 +1,14 @@
+{
+  "name": "@ohmatrix/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^44.7.0"
+  },
+  "main": "src/main.cjs"
+}
