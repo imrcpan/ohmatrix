@@ -107,6 +107,10 @@ export interface TimelineHandle {
   subscribe(cb: Listener<ListUpdate<TimelineItem>[]>): Unsubscribe;
   paginateBackwards(): Promise<void>;
   sendText(body: string): Promise<void>;
+  /** Tell the room I am (or am no longer) typing. Safe to call on every keystroke: the engine throttles. */
+  setTyping(typing: boolean): void;
+  /** Names of the people typing right now; emits immediately and on every change. */
+  onTyping(cb: Listener<string[]>): Unsubscribe;
   /** Replace the text of one of my messages. */
   edit(eventId: EventId, body: string): Promise<void>;
   /** Delete (redact) one of my messages. */

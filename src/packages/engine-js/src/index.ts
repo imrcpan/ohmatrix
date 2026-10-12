@@ -10,6 +10,7 @@ import {
   SyncState as SdkSync,
   EventType,
   RelationType,
+  RoomMemberEvent,
   RoomStateEvent,
   type MatrixClient,
   type MatrixEvent,
@@ -34,7 +35,7 @@ import {
   type TimelineHandle,
   type TimelineItem,
 } from "@ohmatrix/core";
-import { nameOf, roomItems, toRoomSummary } from "./convert.js";
+import { nameOf, roomItems, toRoomSummary, typingNames } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { diffTimeline } from "./diff.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
@@ -161,6 +162,7 @@ export class JsSdkEngine implements MatrixEngine {
     client.on(RoomEvent.Timeline, schedule);
     client.on(RoomEvent.Name, schedule);
     client.on(RoomEvent.Receipt, schedule);
+    client.on(RoomMemberEvent.Typing as never, schedule as never);
     client.on(RoomEvent.Tags, schedule);
     client.on(RoomEvent.AccountData, schedule);
     client.on(RoomEvent.UnreadNotifications as never, schedule as never);
@@ -571,14 +573,36 @@ export class JsSdkEngine implements MatrixEngine {
     const onEvent = (_ev: MatrixEvent, r?: Room | undefined) => {
       if (!r || r.roomId === roomId) refresh();
     };
+    const onReceipt = (_ev: MatrixEvent, r?: Room) => {
+      if (r?.roomId === roomId) refresh();
+    };
     const onDecrypted = (ev: MatrixEvent) => {
       if (ev.getRoomId() === roomId) refresh();
     };
     client.on(MatrixEventEvent.Decrypted, onDecrypted);
+    client.on(RoomEvent.Receipt, onReceipt as never);
     client.on(MatrixEventEvent.Replaced, refresh as never);
     client.on(RoomEvent.Timeline, onEvent as never);
     client.on(RoomEvent.LocalEchoUpdated, onEvent as never);
     client.on(RoomEvent.Redaction, onEvent as never);
+
+    let typingOn = false,
+      typingSentAt = 0;
+    let typingTimer: ReturnType<typeof setTimeout> | undefined;
+    const typingListeners = new Set<Listener<string[]>>();
+    const stopTyping = () => {
+      clearTimeout(typingTimer);
+      if (typingOn) {
+        typingOn = false;
+        void client.sendTyping(roomId, false, 0).catch(() => {});
+      }
+    };
+    const onTypingEvent = (_e: unknown, m?: { roomId?: string }) => {
+      if (m?.roomId && m.roomId !== roomId) return;
+      const names = typingNames(client, room);
+      typingListeners.forEach((cb) => cb(names));
+    };
+    client.on(RoomMemberEvent.Typing as never, onTypingEvent as never);
 
     // Computed once, before the caller marks the room read.
     const me = client.getUserId() ?? "";
@@ -592,6 +616,27 @@ export class JsSdkEngine implements MatrixEngine {
 
     return {
       firstUnreadEventId: firstUnread,
+      setTyping: (typing: boolean) => {
+        if (!typing) {
+          stopTyping();
+          return;
+        }
+        const now = Date.now();
+        if (!typingOn || now - typingSentAt > 3000) {
+          typingOn = true;
+          typingSentAt = now;
+          void client.sendTyping(roomId, true, 6000).catch(() => {});
+        }
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(stopTyping, 5000); // stopped typing without sending
+      },
+      onTyping: (cb: Listener<string[]>) => {
+        typingListeners.add(cb);
+        cb(typingNames(client, room));
+        return () => {
+          typingListeners.delete(cb);
+        };
+      },
       subscribe: (cb) => {
         listeners.add(cb);
         cb([{ op: "reset", items: current }]);
@@ -682,6 +727,9 @@ export class JsSdkEngine implements MatrixEngine {
         client.off(RoomEvent.LocalEchoUpdated, onEvent as never);
         client.off(RoomEvent.Redaction, onEvent as never);
         client.off(MatrixEventEvent.Decrypted, onDecrypted);
+        client.off(RoomEvent.Receipt, onReceipt as never);
+        stopTyping();
+        client.off(RoomMemberEvent.Typing as never, onTypingEvent as never);
         client.off(MatrixEventEvent.Replaced, refresh as never);
         listeners.clear();
       },

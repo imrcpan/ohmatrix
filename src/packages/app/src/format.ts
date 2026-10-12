@@ -42,3 +42,14 @@ export function formatBytes(n?: number): string {
   }
   return `${v >= 10 || i === 0 ? Math.round(v) : v.toFixed(1)} ${u[i]}`;
 }
+
+type Translate = (key: "typing.one" | "typing.two" | "typing.many" | "typing.short", params?: Record<string, string | number>) => string;
+
+/** "Ann is typing...", "Ann and Bob are typing...", "Ann and 2 others are typing..." ("typing..." alone in direct chats). */
+export function typingLabel(names: readonly string[], t: Translate, direct: boolean): string {
+  if (names.length === 0) return "";
+  if (direct) return t("typing.short");
+  if (names.length === 1) return t("typing.one", { a: names[0]! });
+  if (names.length === 2) return t("typing.two", { a: names[0]!, b: names[1]! });
+  return t("typing.many", { a: names[0]!, n: names.length - 1 });
+}

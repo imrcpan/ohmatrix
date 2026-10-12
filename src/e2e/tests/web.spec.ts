@@ -77,8 +77,8 @@ test("dark theme", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
-  await openRoom(page, "alice", /Perfect, talk then/);
-  await expect(page.getByText("Perfect, talk then.").last()).toBeVisible();
+  await openRoom(page, "alice", /^alice/);
+  await expect(page.getByText("Direct chat")).toBeVisible();
   await shot(page, "07-dark-landscape");
 });
 
@@ -620,7 +620,7 @@ test("chat info: slides in from the right, shows members, leave group", async ({
 test("chat info: one-to-one chat shows Delete chat; portrait uses a full-screen overlay with back", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
-  await openRoom(page, "alice", /Perfect, talk then/);
+  await openRoom(page, "alice", /^alice/);
   await page.getByRole("button", { name: "Chat info" }).click();
   await expect(page.getByText("User info", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete chat" })).toBeVisible();
@@ -686,4 +686,41 @@ test("signing in again after sign-out (new device) works and old crypto stores a
   await expect(page.getByRole("button", { name: "Profile", exact: true })).toBeVisible();
   await expect.poll(async () => (await stores()).length).toBeGreaterThan(0);
   expect(errors.filter((m) => /account in the store/.test(m))).toEqual([]);
+});
+
+test("typing indicator and read receipts between two people", async ({ browser }) => {
+  const mk = async (user: string) => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    await loginAs(page, user, "123456");
+    await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+    return { ctx, page };
+  };
+  const me = await mk("test");
+  const alice = await mk("alice");
+  await openRoom(me.page, "alice"); // the seeded one-to-one chat, from test's side (search keeps only rooms named alice)
+  await openRoom(alice.page, "test");
+
+  // alice starts typing: test sees "typing..." in the header and in the chat list preview.
+  await alice.page.getByPlaceholder("Message").pressSequentially("hel", { delay: 60 });
+  await expect(me.page.getByText("typing...").first()).toBeVisible({ timeout: 10000 });
+  await shot(me.page, "32-typing");
+  // ...and it disappears when alice stops (clears the field → blur/stop).
+  await alice.page.getByPlaceholder("Message").fill("");
+  await alice.page.getByPlaceholder("Message").blur();
+  await expect(me.page.getByText("typing...")).toHaveCount(0, { timeout: 10000 });
+
+  // Receipts: test's message shows a single check until alice has read it, then a double check.
+  const text = `receipt ${Date.now()}`;
+  await alice.page.goto("/#/chats"); // alice leaves the chat view so she has not read it yet
+  await me.page.getByPlaceholder("Message").fill(text);
+  await me.page.getByPlaceholder("Message").press("Enter");
+  await expect(me.page.getByText(text, { exact: true }).last()).toBeVisible();
+  const readBefore = await me.page.getByLabel("Read").count(); // earlier messages may already be read
+  await openRoom(alice.page, "test");
+  await expect(alice.page.getByText(text, { exact: true }).last()).toBeVisible({ timeout: 15000 });
+  await expect(me.page.getByLabel("Read")).toHaveCount(readBefore + 1, { timeout: 15000 });
+  await shot(me.page, "33-read-receipt");
+  await me.ctx.close();
+  await alice.ctx.close();
 });

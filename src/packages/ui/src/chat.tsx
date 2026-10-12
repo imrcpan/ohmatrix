@@ -21,7 +21,8 @@ export function Bubble(props: {
   /** Localised "edited" marker shown before the time. */
   editedLabel?: string | undefined;
   position: BubblePosition;
-  status?: "sending" | "sent" | "failed" | undefined;
+  status?: "sending" | "sent" | "read" | "failed" | undefined;
+  readLabel?: string | undefined;
   muted?: boolean;
 }) {
   const { colors } = useTheme();
@@ -35,20 +36,29 @@ export function Bubble(props: {
   const imageOnly = !!props.image && !props.text;
   const fg = props.own ? colors.bubbleOutText : colors.bubbleInText;
   const meta = imageOnly ? "#FFFFFF" : props.own ? colors.bubbleOutMeta : colors.textSecondary;
-  const statusIcon = props.status === "sending" ? "clock" : props.status === "failed" ? "alert" : "check";
+  const statusIcon = props.status === "sending" ? "clock" : props.status === "failed" ? "alert" : props.status === "read" ? "checks" : "check";
   const failed = props.status === "failed";
   const metaRow = (
     <View
       style={[
-        { position: "absolute", flexShrink: 0, right: imageOnly ? 8 : 10, bottom: imageOnly ? 8 : 5, flexDirection: "row", alignItems: "center", gap: 3 },
-        imageOnly && { backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+        { position: "absolute", flexShrink: 0, right: imageOnly ? 8 : 12, bottom: imageOnly ? 8 : 6, flexDirection: "row", alignItems: "center", gap: 6 },
+        imageOnly && { backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3 },
       ]}
     >
-      <Text numberOfLines={1} style={{ fontSize: 12, fontFamily, color: failed ? colors.danger : meta }}>
+      <Text numberOfLines={1} style={{ fontSize: 14, fontFamily, color: failed ? colors.danger : meta }}>
         {props.editedLabel ? `${props.editedLabel} ` : ""}
         {props.time}
       </Text>
-      {props.own && <Icon name={statusIcon} size={13} strokeWidth={2.4} color={failed ? colors.danger : meta} />}
+      {props.own && (
+        <View accessibilityLabel={props.status === "read" ? (props.readLabel ?? "Read") : undefined}>
+          <Icon
+            name={statusIcon}
+            size={props.status === "read" ? 20 : 18}
+            strokeWidth={2.4}
+            color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
+          />
+        </View>
+      )}
     </View>
   );
   return (
@@ -142,8 +152,8 @@ export function Bubble(props: {
         // Time floats at the end of the last text line, like Telegram.
         <Text selectable style={{ fontSize: 16, lineHeight: 21, fontFamily, color: props.muted ? meta : fg, fontStyle: props.muted ? "italic" : "normal" }}>
           {props.text}
-          <Text style={{ fontSize: 12, color: "transparent" }} selectable={false}>
-            {"\u00A0".repeat(Math.ceil((props.time.length + (props.editedLabel ? props.editedLabel.length + 1 : 0)) * 1.9) + (props.own ? 5 : 1))}
+          <Text style={{ fontSize: 14, color: "transparent" }} selectable={false}>
+            {"\u00A0".repeat(Math.ceil((props.time.length + (props.editedLabel ? props.editedLabel.length + 1 : 0)) * 2.3) + (props.own ? 8 : 0) + 4)}
           </Text>
         </Text>
       )}
@@ -183,6 +193,8 @@ export function Composer(props: {
   prefill?: { text: string; nonce: number } | undefined;
   /** Shows a paperclip button when provided. */
   onAttach?: (() => void) | undefined;
+  /** Called while the user types (true) and when they stop or send (false). */
+  onTyping?: ((typing: boolean) => void) | undefined;
 }) {
   const { colors } = useTheme();
   const [text, setText] = useState("");
@@ -194,10 +206,15 @@ export function Composer(props: {
   const canSend = text.trim().length > 0;
   const send = () => {
     if (canSend) {
+      props.onTyping?.(false);
       props.onSend(text.trim());
       setText("");
       setHeight(22);
     }
+  };
+  const change = (v: string) => {
+    setText(v);
+    props.onTyping?.(v.trim().length > 0);
   };
   return (
     <View style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator }}>
@@ -252,7 +269,8 @@ export function Composer(props: {
           <TextInput
             multiline
             value={text}
-            onChangeText={setText}
+            onChangeText={change}
+            onBlur={() => props.onTyping?.(false)}
             placeholder={props.placeholder}
             placeholderTextColor={colors.textSecondary}
             onContentSizeChange={(e) => setHeight(Math.min(120, Math.max(22, e.nativeEvent.contentSize.height)))}

@@ -1,5 +1,5 @@
 import { EventType, MsgType, NotificationCountType, RelationType, type MatrixClient, type MatrixEvent, type Room } from "matrix-js-sdk";
-import type { MessageContent, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
+import type { MessageContent, Reader, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
 
 const localpart = (id: string) => id.replace(/^@/, "").replace(/:.*$/, "");
 /** Member display name; matrix-js-sdk falls back to the full MXID when none is set, which we shorten. */
@@ -111,7 +111,51 @@ function replyOf(client: MatrixClient, room: Room | null, ev: MatrixEvent): Time
   return { id, sender, senderName, preview };
 }
 
-export function toTimelineItem(client: MatrixClient, ev: MatrixEvent): TimelineItem | null {
+/** Where each other member has read up to, as positions in the live timeline. */
+interface ReadMarkers {
+  positions: Map<string, number>;
+  readers: { userId: string; name: string; at: number }[];
+}
+
+function readMarkers(client: MatrixClient, room: Room): ReadMarkers {
+  const positions = new Map<string, number>();
+  room
+    .getLiveTimeline()
+    .getEvents()
+    .forEach((e, i) => {
+      const id = e.getId();
+      if (id) positions.set(id, i);
+    });
+  const me = client.getUserId();
+  const readers = room
+    .getJoinedMembers()
+    .filter((m) => m.userId !== me)
+    .flatMap((m) => {
+      const id = room.getEventReadUpTo(m.userId);
+      const at = id ? positions.get(id) : undefined;
+      return at === undefined ? [] : [{ userId: m.userId, name: nameOf(m, m.userId), at }];
+    });
+  return { positions, readers };
+}
+
+/** Everyone whose read marker is at or after `ev` (a receipt covers all earlier messages too). */
+function readersOf(ev: MatrixEvent, markers: ReadMarkers): Reader[] | undefined {
+  const at = ev.getId() ? markers.positions.get(ev.getId()!) : undefined;
+  if (ev.status || at === undefined) return undefined; // still sending, or not in the live timeline
+  const out = markers.readers.filter((r) => r.at >= at).map(({ userId, name }) => ({ userId, name }));
+  return out.length ? out : undefined;
+}
+
+/** Display names of people typing in `room`, excluding me. */
+export function typingNames(client: MatrixClient, room: Room): string[] {
+  const me = client.getUserId();
+  return room.currentState
+    .getMembers()
+    .filter((m) => m.typing && m.userId !== me)
+    .map((m) => nameOf(m, m.userId));
+}
+
+export function toTimelineItem(client: MatrixClient, ev: MatrixEvent, markers?: ReadMarkers): TimelineItem | null {
   const id = ev.getId();
   const roomId = ev.getRoomId();
   if (!id || !roomId || ev.isRedacted() || ev.isRelation("m.replace")) return null;
@@ -139,6 +183,7 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent): TimelineI
   const txn = ev.getTxnId();
   const room = client.getRoom(roomId);
   const reactions = reactionsOf(client, room, id);
+  const readBy = markers && sender === client.getUserId() ? readersOf(ev, markers) : undefined;
   const replyTo = ev.getType() === EventType.RoomMessage ? replyOf(client, room, ev) : undefined;
   const avatar = ev.sender?.getMxcAvatarUrl();
   return {
@@ -153,6 +198,7 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent): TimelineI
     status,
     ...(txn && { transactionId: txn }),
     ...(reactions && { reactions }),
+    ...(readBy && { readBy }),
     ...(replyTo && { replyTo }),
     ...(ev.replacingEventId() && { edited: true }),
   };
@@ -160,8 +206,9 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent): TimelineI
 
 export function roomItems(client: MatrixClient, room: Room): TimelineItem[] {
   const out: TimelineItem[] = [];
+  const markers = readMarkers(client, room);
   for (const ev of room.getLiveTimeline().getEvents()) {
-    const item = toTimelineItem(client, ev);
+    const item = toTimelineItem(client, ev, markers);
     if (item) out.push(item);
   }
   // Pending local echoes are not in the live timeline until sent in older SDKs; include them.
@@ -193,6 +240,7 @@ export function toRoomSummary(client: MatrixClient, room: Room): RoomSummary {
     name: room.name || room.roomId,
     ...(avatar && { avatar }),
     ...(pinned && { pinned }),
+    ...(typingNames(client, room).length ? { typing: typingNames(client, room) } : {}),
     ...(markedUnread && { markedUnread }),
     isDirect: direct,
     memberCount: room.getJoinedMemberCount(),

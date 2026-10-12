@@ -7,10 +7,11 @@ import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useAppState, useController, useLocale, useT } from "./context.js";
-import { formatListTime } from "./format.js";
+import { formatListTime, typingLabel } from "./format.js";
 
 function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
   if (room.invite) return t("invite.from", { name: room.invite.inviter });
+  if (room.typing?.length) return typingLabel(room.typing, t, room.isDirect);
   const m = room.lastMessage;
   if (!m) return t("noMessages");
   const body = (m.content.kind === "image" ? `📷 ${t("photo")}` : contentText(m.content)).replace(/\s+/g, " ").trim();
