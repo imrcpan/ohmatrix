@@ -196,14 +196,24 @@ test("reactions: right-click a message, react, toggle off via the chip", async (
   await page.getByPlaceholder("Message").press("Enter");
   const msg = page.getByText(text, { exact: true });
   await expect(msg).toBeVisible();
+  // Older messages in this chat may carry the same reaction, and the list only renders a window of rows, so do not
+  // count chips: ours is the one sitting directly under our bubble.
+  const chipUnderMessage = async () => {
+    const m = await msg.boundingBox();
+    const chips = await page.getByRole("button", { name: "😂 1" }).all();
+    for (const c of chips) {
+      const box = await c.boundingBox();
+      if (m && box && box.y - (m.y + m.height) >= 0 && box.y - (m.y + m.height) < 40 && Math.abs(box.x + box.width - (m.x + m.width)) < 80) return c;
+    }
+    return null;
+  };
   await msg.click({ button: "right" });
   await shot(page, "12-menu");
   await page.getByRole("button", { name: "React 😂" }).click();
-  const chip = page.getByRole("button", { name: "😂 1" });
-  await expect(chip).toBeVisible({ timeout: 10000 });
+  await expect.poll(async () => !!(await chipUnderMessage()), { timeout: 10000 }).toBe(true);
   await shot(page, "13-reaction");
-  await chip.click();
-  await expect(chip).toBeHidden({ timeout: 10000 });
+  await (await chipUnderMessage())!.click();
+  await expect.poll(async () => !!(await chipUnderMessage()), { timeout: 10000 }).toBe(false);
 });
 
 test("replies: reply from the context menu shows a quote in the bubble", async ({ page }) => {
@@ -219,7 +229,7 @@ test("replies: reply from the context menu shows a quote in the bubble", async (
   const qMsg = page.getByText(q, { exact: true });
   await expect(qMsg).toBeVisible();
   await qMsg.click({ button: "right" });
-  await page.getByRole("button", { name: "Reply", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Reply", exact: true }).click();
   await expect(page.getByRole("button", { name: "Cancel reply" })).toBeVisible();
   await box.fill(a);
   await box.press("Enter");
@@ -241,7 +251,7 @@ test("edit and delete own messages", async ({ page }) => {
   await box.fill(before);
   await box.press("Enter");
   await page.getByText(before, { exact: true }).click({ button: "right" });
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(box).toHaveValue(before);
   await box.fill(after);
   await box.press("Enter");
@@ -250,7 +260,7 @@ test("edit and delete own messages", async ({ page }) => {
   await expect(page.getByText(/^edited /).last()).toBeVisible();
   await shot(page, "15-edited");
   await page.getByText(after, { exact: true }).click({ button: "right" });
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).last().click();
   await expect(page.getByText(after, { exact: true })).toBeHidden({ timeout: 10000 });
 });
@@ -1359,4 +1369,63 @@ test('top bar: fixed height; "Connecting..." replaces the name instead of adding
   await expect(page.getByText("test", { exact: true }).first()).toBeVisible();
   expect((await bar.boundingBox())!.height).toBe(connecting);
   expect((await page.getByPlaceholder("Search").boundingBox())!.y).toBe(searchTop); // nothing below moved
+});
+
+test("message menu: opens at the pointer in the incoming-bubble colours, borderless with a shadow, and fades out in place", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const text = `menu probe ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  const bubble = page.getByText(text, { exact: true }).last();
+  await expect(bubble).toBeVisible();
+  const b = (await bubble.boundingBox())!;
+  const click = { x: b.x + 12, y: b.y + 6 };
+  await bubble.click({ button: "right", position: { x: 12, y: 6 } });
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  const m = (await menu.boundingBox())!;
+  // It opens at the mouse pointer (a corner of the menu is at the click; it flips when there is no room), not at the bubble.
+  const nearX = Math.abs(m.x - click.x) < 6 || Math.abs(m.x + m.width - click.x) < 6;
+  const nearY = Math.abs(m.y - click.y) < 6 || Math.abs(m.y + m.height - click.y) < 6;
+  expect(nearX && nearY).toBe(true);
+  expect(m.width).toBeLessThan(400);
+  // Colours of the other person's bubble (white in the light theme), no border, a soft shadow.
+  const item = page.getByRole("menuitem", { name: "Reply", exact: true });
+  const panel = await item.evaluate((el) => {
+    const p = getComputedStyle(el.parentElement!);
+    return { bg: p.backgroundColor, border: p.borderTopWidth, shadow: p.boxShadow };
+  });
+  expect(panel.bg).toBe("rgb(255, 255, 255)");
+  expect(panel.border).toBe("0px");
+  expect(panel.shadow).not.toBe("none");
+  await shot(page, "44-message-menu");
+  await page.getByRole("button", { name: "React 👍" }).waitFor();
+
+  // Clicking elsewhere closes it, and while it fades out it stays where it was (it must not jump to the corner).
+  const watch = page.evaluate(
+    () =>
+      new Promise<{ x: number; y: number }[]>((resolve) => {
+        const seen: { x: number; y: number }[] = [];
+        const tick = () => {
+          const el = document.querySelector('[role="menu"]');
+          if (el) {
+            const r = el.getBoundingClientRect();
+            seen.push({ x: Math.round(r.x), y: Math.round(r.y) });
+            requestAnimationFrame(tick);
+          } else resolve(seen);
+        };
+        tick();
+      }),
+  );
+  await page.mouse.click(700, 150);
+  const seen = await watch;
+  await expect(menu).toBeHidden();
+  expect(seen.length).toBeGreaterThan(0);
+  for (const p of seen) expect(p).toEqual({ x: Math.round(m.x), y: Math.round(m.y) });
+  await bubble.click({ button: "right" });
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 });
