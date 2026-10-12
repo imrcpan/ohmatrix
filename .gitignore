@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.expo/
+.turbo/
+*.log
+.DS_Store
+ios/Pods/
+android/.gradle/
+src/dev/synapse/data/
