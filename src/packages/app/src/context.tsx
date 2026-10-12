@@ -1,12 +1,22 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import type React from "react";
 import { useStore } from "zustand";
 import { detectLocale, t, type Locale, type MessageKey } from "@ohmatrix/i18n";
 import type { PlatformServices } from "@ohmatrix/core";
 import type { AppController, AppState } from "@ohmatrix/state";
 
-const Ctx = createContext<AppController | null>(null);
-const LocaleCtx = createContext<Locale>("en");
-const ServicesCtx = createContext<PlatformServices | null>(null);
+/**
+ * One context object per page, however many times this module is evaluated. A development server that hot-reloads
+ * can briefly run two copies of this file (new provider, old consumer); with copy-local contexts the consumer then
+ * finds no provider ("useController outside AppProviders"). Keeping them on globalThis makes the copies agree.
+ */
+const shared = <T,>(name: string, make: () => React.Context<T>): React.Context<T> => {
+  const g = globalThis as unknown as Record<string, React.Context<T> | undefined>;
+  return (g[`__ohmatrix_ctx_${name}`] ??= make());
+};
+const Ctx = shared<AppController | null>("controller", () => createContext<AppController | null>(null));
+const LocaleCtx = shared<Locale>("locale", () => createContext<Locale>("en"));
+const ServicesCtx = shared<PlatformServices | null>("services", () => createContext<PlatformServices | null>(null));
 
 export function AppProviders(props: { controller: AppController; services: PlatformServices; children: ReactNode }) {
   const preferred = useStore(props.controller.store, (s) => s.prefs.locale);

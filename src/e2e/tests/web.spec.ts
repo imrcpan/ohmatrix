@@ -253,6 +253,7 @@ test("edit and delete own messages", async ({ page }) => {
   await page.getByText(before, { exact: true }).click({ button: "right" });
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(box).toHaveValue(before);
+  await expect(page.getByRole("menu")).toBeHidden(); // the menu is still fading out; typing into the page under it can lose the keypress
   await box.fill(after);
   await box.press("Enter");
   await expect(page.getByText(after, { exact: true })).toBeVisible({ timeout: 10000 });
@@ -1605,14 +1606,55 @@ test('sign-in failures stay on the sign-in page: server "1", any credentials', a
   expect(errors).toEqual([]);
 });
 
-test("a screen that fails to render shows a way out instead of a blank page", async ({ page }) => {
+test("a screen that fails to render shows a way out (light or dark with the system); Try again rebuilds the app", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
-  await page.evaluate(() => {
-    (window as unknown as { __ohmatrix: { controller: { store: { setState(s: object): void } } } }).__ohmatrix.controller.store.setState({ prefs: null });
+  const state = (js: string) => page.evaluate(js);
+  // A second evaluation of the context module (what a hot reload does) must join the same contexts, not create new ones.
+  const sameContexts = await page.evaluate(async () => {
+    const g = globalThis as unknown as Record<string, unknown>;
+    const before = ["controller", "locale", "services"].map((n) => g[`__ohmatrix_ctx_${n}`]);
+    const root = (window as unknown as { __ohmatrix_root: string }).__ohmatrix_root;
+    await import(/* @vite-ignore */ `${root}/src/packages/app/src/context.tsx?duplicate=${Date.now()}`);
+    return before.every((c, i) => !!c && c === g[`__ohmatrix_ctx_${["controller", "locale", "services"][i]}`]);
   });
+  expect(sameContexts).toBe(true);
+  const breakIt = () => state("window.__ohmatrix.controller.store.setState({ prefs: null })");
+  const fixIt = () =>
+    state(
+      "window.__ohmatrix.controller.store.setState({ prefs: { theme: 'system', locale: null, sidebarWidth: null, notifications: false, notificationPreview: true } })",
+    );
+  const background = () =>
+    page.getByText("Something went wrong").evaluate((el) => {
+      let n: HTMLElement | null = el as HTMLElement;
+      while (n && getComputedStyle(n).backgroundColor === "rgba(0, 0, 0, 0)") n = n.parentElement;
+      return getComputedStyle(n!).backgroundColor;
+    });
+
+  await page.emulateMedia({ colorScheme: "light" });
+  await breakIt();
   await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("The screen could not be shown. Your messages are safe.")).toBeVisible();
+  expect(await background()).toBe("rgb(255, 255, 255)");
+  await shot(page, "47-error-light");
+  await page.emulateMedia({ colorScheme: "dark" }); // follows the system
+  await expect.poll(background).toBe("rgb(28, 28, 30)");
+  await shot(page, "48-error-dark");
+
+  // Try again while the cause is still there: the page stays on the message (no blank, no new error).
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 10000 });
+  // Once the cause is gone, Try again brings the whole app back.
+  await fixIt();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Something went wrong")).toHaveCount(0);
+
+  // Reload also recovers (the session is restored).
+  await breakIt();
+  await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 10000 });
   await page.getByRole("button", { name: "Reload" }).click();
-  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 }); // reload restores the session
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
 });
