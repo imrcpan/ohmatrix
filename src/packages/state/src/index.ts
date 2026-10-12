@@ -4,6 +4,7 @@ import {
   DEFAULT_PREFERENCES,
   type RoomDetails,
   EngineError,
+  type EngineErrorCode,
   type Preferences,
   type EventId,
   type AttachmentSource,
@@ -32,6 +33,8 @@ export type AuthStatus = "booting" | "signedOut" | "signingIn" | "signedIn";
 export interface AppState {
   auth: AuthStatus;
   authError: string | null;
+  /** Why sign-in failed, so the screen can word it in the user's language. */
+  authErrorCode: EngineErrorCode | null;
   userId: UserId | null;
   homeserver: string | null;
   syncState: SyncState;
@@ -134,6 +137,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
   const store = createStore<AppState>(() => ({
     auth: "booting",
     authError: null,
+    authErrorCode: null,
     userId: null,
     homeserver: null,
     syncState: "stopped",
@@ -159,10 +163,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
 
   const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
 
-  const signedOut = (authError: string | null = null) =>
+  const signedOut = (authError: string | null = null, authErrorCode: EngineErrorCode | null = null) =>
     set({
       auth: "signedOut",
       authError,
+      authErrorCode,
       userId: null,
       homeserver: null,
       rooms: [],
@@ -190,14 +195,14 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       }
     },
     async login(homeserver, username, password) {
-      set({ auth: "signingIn", authError: null });
+      set({ auth: "signingIn", authError: null, authErrorCode: null });
       try {
         const session = await engine.auth.loginWithPassword(homeserver, username, password);
         await services.sessionStore.save(session);
         set({ auth: "signedIn", userId: session.userId, homeserver: session.homeserver });
         await engine.sync.start();
       } catch (e) {
-        signedOut(messageOf(e));
+        signedOut(messageOf(e), e instanceof EngineError ? e.code : null);
       }
     },
     async logout() {
