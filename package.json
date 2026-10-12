@@ -1,0 +1,43 @@
+{
+  "name": "oh-matrix",
+  "private": true,
+  "version": "0.0.0",
+  "license": "GPL-3.0-only",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r test",
+    "dev:web": "pnpm --filter @ohmatrix/web dev",
+    "dev:mobile": "pnpm --filter @ohmatrix/mobile start",
+    "dev:desktop": "pnpm --filter @ohmatrix/desktop dev",
+    "synapse:up": "src/dev/synapse/up.sh && node src/dev/synapse/seed.mjs",
+    "synapse:down": "src/dev/synapse/up.sh down",
+    "test:e2e": "pnpm --filter @ohmatrix/e2e e2e",
+    "test:live": "OHMATRIX_LIVE=1 pnpm --filter @ohmatrix/engine-js test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "prepare": "simple-git-hooks"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@eslint/js": "^10.0.1",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "simple-git-hooks": "^2.14.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.71.2"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm -s format:check && pnpm -s lint --quiet"
+  }
+}
