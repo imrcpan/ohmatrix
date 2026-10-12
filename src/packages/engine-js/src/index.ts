@@ -606,7 +606,7 @@ export class JsSdkEngine implements MatrixEngine {
     loginWithPassword: (homeserver: string, username: string, password: string) =>
       guard(async (): Promise<Session> => {
         const baseUrl = await resolveHomeserver(homeserver);
-        const res = await createClient({ baseUrl }).login("m.login.password", {
+        const res = await createClient({ baseUrl, localTimeoutMs: 20_000 }).login("m.login.password", {
           identifier: { type: "m.id.user", user: username },
           password,
           initial_device_display_name: "OhMatrix Web",

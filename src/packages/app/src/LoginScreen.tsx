@@ -8,10 +8,20 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
   const t = useT();
   const controller = useController();
   const busy = useAppState((s) => s.auth === "signingIn");
-  const error = useAppState((s) => s.authError);
+  const rawError = useAppState((s) => s.authError);
+  const errorCode = useAppState((s) => s.authErrorCode);
   const [homeserver, setHomeserver] = useState(props.defaultHomeserver);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  // Technical messages from the network stack ("NetworkError when attempting to fetch resource", a blocked CORS request for a
+  // host that does not exist...) all mean the same to the user: the address cannot be reached.
+  const error = !rawError
+    ? null
+    : errorCode === "network"
+      ? t("login.network", { server: homeserver.trim() })
+      : errorCode === "forbidden" || errorCode === "unauthorized"
+        ? t("login.rejected")
+        : rawError;
   const ready = !!homeserver.trim() && !!username.trim() && !!password;
   const submit = () => {
     if (ready && !busy) void controller.login(homeserver.trim(), username.trim(), password);

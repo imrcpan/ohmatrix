@@ -1542,3 +1542,65 @@ test("photo viewer: hand cursor and click to open; translucent mask over the who
   await page.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(viewer).toBeHidden();
 });
+
+test("sign-in: an unreachable or mistyped server gets a clear message; a bare local address means http", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill("test");
+  await inputs.nth(2).fill("123456");
+
+  // A misspelt host (the browser reports a CORS failure) is explained plainly, with the address shown.
+  await inputs.nth(0).fill("http://loaclhost:8008");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByText("Cannot reach http://loaclhost:8008. Check how the address is spelled and your network connection.")).toBeVisible({
+    timeout: 20000,
+  });
+  await expect(page.getByText(/NetworkError|CORS|fetch failed/i)).toHaveCount(0);
+
+  // A bare local address works without typing http://, and wrong credentials say so.
+  await inputs.nth(0).fill("localhost:8008");
+  await inputs.nth(2).fill("not-the-password");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByText("Wrong username or password.")).toBeVisible({ timeout: 20000 });
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
+});
+
+test('sign-in failures stay on the sign-in page: server "1", any credentials', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  // "1" is not a server: make every request to it fail the way an unreachable host does.
+  await page.route(/https?:\/\/1(:\d+)?\//, (route) => route.abort("failed"));
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const inputs = page.locator("input");
+  await inputs.nth(0).fill("1");
+  await inputs.nth(1).fill("whoever");
+  await inputs.nth(2).fill("whatever");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByText("Cannot reach 1. Check how the address is spelled and your network connection.")).toBeVisible({ timeout: 30000 });
+  // Still the sign-in page, nothing blank, nothing thrown, fields kept so it can be corrected.
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  await expect(inputs.nth(0)).toHaveValue("1");
+  await expect(inputs.nth(1)).toHaveValue("whoever");
+  await page.waitForTimeout(3000);
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  expect(errors).toEqual([]);
+
+  // A reachable server with the wrong password: the same.
+  await inputs.nth(0).fill("localhost:8008");
+  await inputs.nth(2).fill("nope");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByText("Wrong username or password.")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  // Only a correct sign-in leaves the page.
+  await inputs.nth(1).fill("test");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
+  expect(errors).toEqual([]);
+});
