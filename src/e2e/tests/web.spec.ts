@@ -175,7 +175,7 @@ test("invitations: accept joins the room, decline removes it", async ({ page }) 
   await inviteTest("bob", no);
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
-  const rowYes = page.getByRole("button", { name: new RegExp(yes) });
+  const rowYes = page.getByRole("button", { name: new RegExp(yes) }).first(); // the list row (the open chat's header block has the same name)
   const rowNo = page.getByRole("button", { name: new RegExp(no) });
   await expect(rowYes).toBeVisible({ timeout: 15000 });
   await expect(rowYes).toContainText("Invitation from alice");
@@ -634,6 +634,11 @@ test("chat info: one-to-one chat shows Delete chat; portrait uses a full-screen 
   await page.getByRole("button", { name: "Chat info" }).click();
   await expect(page.getByText("User info", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete chat" })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByText("User info", { exact: true })).toBeHidden({ timeout: 5000 });
+  // The avatar / name / member count block in the header opens the same panel as the info button.
+  await page.getByRole("button", { name: /Direct chat/ }).click();
+  await expect(page.getByText("User info", { exact: true })).toBeVisible();
   await page.waitForTimeout(400);
   await shot(page, "27-chat-info-portrait");
   await page.goBack();

@@ -286,23 +286,37 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
         }}
       >
         {props.onBack && <IconButton icon="back" label="Back" size={26} onPress={props.onBack} />}
-        {room && <Avatar id={room.id} name={room.name} size={38} src={headerAvatar} />}
-        <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>
-            {room?.name ?? ""}
-          </Text>
-          {room && (
-            <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: typing.length ? colors.accent : colors.textSecondary }}>
-              {typing.length
-                ? typingLabel(typing, t, room.isDirect)
-                : room.isDirect
-                  ? t("directChat")
-                  : room.memberCount === 1
-                    ? t("member.one")
-                    : t("members", { n: room.memberCount })}
-            </Text>
+        {/* Avatar, name and member count open the chat info, exactly like the info button. Only that small block is
+            clickable (not the whole title bar), with no background feedback: the name just dims while pressed. */}
+        <Pressable
+          accessibilityRole={props.onInfo ? "button" : undefined}
+          disabled={!props.onInfo}
+          onPress={props.onInfo}
+          style={{ flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 }}
+        >
+          {({ pressed }: { pressed: boolean }) => (
+            <>
+              {room && <Avatar id={room.id} name={room.name} size={38} src={headerAvatar} />}
+              <View style={{ flexShrink: 1 }}>
+                <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text, opacity: props.onInfo && pressed ? 0.5 : 1 }}>
+                  {room?.name ?? ""}
+                </Text>
+                {room && (
+                  <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: typing.length ? colors.accent : colors.textSecondary }}>
+                    {typing.length
+                      ? typingLabel(typing, t, room.isDirect)
+                      : room.isDirect
+                        ? t("directChat")
+                        : room.memberCount === 1
+                          ? t("member.one")
+                          : t("members", { n: room.memberCount })}
+                  </Text>
+                )}
+              </View>
+            </>
           )}
-        </View>
+        </Pressable>
+        <View style={{ flex: 1 }} />
         <IconButton
           icon="search"
           label={t("search.inChat")}
