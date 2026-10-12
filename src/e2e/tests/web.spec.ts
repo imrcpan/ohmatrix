@@ -1,0 +1,646 @@
+import { createHmac } from "node:crypto";
+import { expect, test, type Page } from "@playwright/test";
+
+const shot = (page: Page, name: string) => page.screenshot({ path: `.out/${name}.png` });
+
+/** Opens a chat by name through the search box (the list is virtualised and grows with every run). */
+async function openRoom(page: Page, name: string, row: RegExp = new RegExp(name)) {
+  const search = page.getByPlaceholder("Search");
+  await search.fill(name);
+  await page.getByRole("button", { name: row }).first().click();
+  await search.fill("");
+}
+
+async function login(page: Page) {
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill("test");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+}
+
+test("landscape: login, two-pane, send message", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await shot(page, "01-login-landscape");
+  await login(page);
+  await shot(page, "02-list-landscape");
+  await openRoom(page, "OhMatrix Dev");
+  await expect(page.getByText(/Backlog message #30/)).toBeVisible();
+  await shot(page, "03-chat-landscape");
+  // Writes go to a scratch room so the seeded dev room stays stable for scroll/pagination tests.
+  await openRoom(page, "Notes to self");
+  const msg = `hello from e2e ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(msg);
+  await page.getByPlaceholder("Message").press("Enter");
+  await expect(page.getByText(msg, { exact: true })).toBeVisible();
+});
+
+test("portrait: list → chat → back via UI and browser history", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await shot(page, "04-list-portrait");
+  await openRoom(page, "OhMatrix Dev");
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+  await page.waitForTimeout(500);
+  await shot(page, "05-chat-portrait");
+  await page.goBack();
+  await expect(page.getByPlaceholder("Message")).toBeHidden();
+});
+
+test("scrolling up paginates older history (wheel direction is natural)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "OhMatrix Dev");
+  await expect(page.getByText(/Backlog message #30/)).toBeVisible();
+  await page.mouse.move(850, 400);
+  for (let i = 0; i < 25; i++) {
+    await page.mouse.wheel(0, -800);
+    await page.waitForTimeout(120);
+  }
+  await expect(page.getByText(/Welcome to the OhMatrix dev room/)).toBeVisible({ timeout: 10000 });
+  await shot(page, "06-scrolled-up");
+});
+
+test("dark theme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "alice", /Perfect, talk then/);
+  await expect(page.getByText("Perfect, talk then.").last()).toBeVisible();
+  await shot(page, "07-dark-landscape");
+});
+
+test("avatars and image messages load through authenticated media", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "OhMatrix Dev");
+  await expect(page.getByText("Nice shot!").last()).toBeVisible();
+  // Room avatar, sender avatars and the photo are blob: URLs fetched with the access token.
+  await expect.poll(() => page.locator('img[src^="blob:"]').count(), { timeout: 10000 }).toBeGreaterThanOrEqual(3);
+  const loaded = await page.locator('img[src^="blob:"]').evaluateAll((els) => els.every((e) => (e as HTMLImageElement).naturalWidth > 0));
+  expect(loaded).toBe(true);
+  await shot(page, "08-media");
+});
+
+async function registerUser(name: string, password: string) {
+  const { nonce } = (await (await fetch("http://localhost:8008/_synapse/admin/v1/register")).json()) as { nonce: string };
+  const mac = createHmac("sha1", "ohmatrix-dev-secret").update(`${nonce}\0${name}\0${password}\0notadmin`).digest("hex");
+  const r = await fetch("http://localhost:8008/_synapse/admin/v1/register", {
+    method: "POST",
+    body: JSON.stringify({ nonce, username: name, password, admin: false, mac }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+async function loginAs(page: Page, user: string, password: string) {
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill(user);
+  await inputs.nth(2).fill(password);
+  await inputs.nth(2).press("Enter");
+}
+
+test("encryption: set up on device 1, verify device 2 with the recovery key", async ({ browser }) => {
+  const user = `ui${Date.now().toString(36)}`;
+  await registerUser(user, "pw12345");
+
+  const ctx1 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p1 = await ctx1.newPage();
+  await loginAs(p1, user, "pw12345");
+  await expect(p1.getByText("Set up encryption to read and send secure messages")).toBeVisible({ timeout: 30000 });
+  await p1.getByRole("button", { name: "Set up", exact: true }).click();
+  await p1.locator("input[type=password]").fill("pw12345");
+  await p1.getByRole("button", { name: "Set up", exact: true }).last().click();
+  await expect(p1.getByText("Save your recovery key")).toBeVisible({ timeout: 30000 });
+  const key = (
+    await p1
+      .getByText(/^EsT?[A-Za-z0-9]{2}( [A-Za-z0-9]{4}){10,}/)
+      .first()
+      .innerText()
+  ).trim();
+  expect(key.length).toBeGreaterThan(40);
+  await shot(p1, "09-recovery-key");
+  await p1.getByRole("button", { name: "I have saved it" }).click();
+  await expect(p1.getByText("Set up encryption to read and send secure messages")).toBeHidden();
+  await ctx1.close();
+
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p2 = await ctx2.newPage();
+  await loginAs(p2, user, "pw12345");
+  await expect(p2.getByText("Verify this device to read your encrypted history")).toBeVisible({ timeout: 30000 });
+  await p2.getByRole("button", { name: "Verify", exact: true }).click();
+  await p2.locator("input").last().fill("EsTc 1234 5678");
+  await p2.getByRole("button", { name: "Verify", exact: true }).last().click();
+  await expect(p2.getByText("Invalid recovery key")).toBeVisible();
+  await shot(p2, "10-verify-error");
+  await p2.locator("input").last().fill(key);
+  await p2.getByRole("button", { name: "Verify", exact: true }).last().click();
+  await expect(p2.getByText("Verify this device to read your encrypted history")).toBeHidden({ timeout: 30000 });
+  await ctx2.close();
+});
+
+async function inviteTest(inviter: string, roomName: string) {
+  const login = (await (
+    await fetch("http://localhost:8008/_matrix/client/v3/login", {
+      method: "POST",
+      body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user: inviter }, password: "123456" }),
+    })
+  ).json()) as { access_token: string };
+  const r = await fetch("http://localhost:8008/_matrix/client/v3/createRoom", {
+    method: "POST",
+    headers: { authorization: `Bearer ${login.access_token}` },
+    body: JSON.stringify({ name: roomName, preset: "private_chat", invite: ["@test:localhost"] }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+test("invitations: accept joins the room, decline removes it", async ({ page }) => {
+  const stamp = Date.now().toString(36);
+  const yes = `Join me ${stamp}`,
+    no = `Spam ${stamp}`;
+  await inviteTest("alice", yes);
+  await inviteTest("bob", no);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const rowYes = page.getByRole("button", { name: new RegExp(yes) });
+  const rowNo = page.getByRole("button", { name: new RegExp(no) });
+  await expect(rowYes).toBeVisible({ timeout: 15000 });
+  await expect(rowYes).toContainText("Invitation from alice");
+  await shot(page, "11-invites");
+  await rowNo.getByRole("button", { name: "Decline" }).click();
+  await expect(rowNo).toBeHidden();
+  await rowYes.getByRole("button", { name: "Accept" }).click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
+  await expect(rowYes).not.toContainText("Invitation from");
+});
+
+test("reactions: right-click a message, react, toggle off via the chip", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const text = `react to me ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  const msg = page.getByText(text, { exact: true });
+  await expect(msg).toBeVisible();
+  await msg.click({ button: "right" });
+  await shot(page, "12-menu");
+  await page.getByRole("button", { name: "React 😂" }).click();
+  const chip = page.getByRole("button", { name: "😂 1" });
+  await expect(chip).toBeVisible({ timeout: 10000 });
+  await shot(page, "13-reaction");
+  await chip.click();
+  await expect(chip).toBeHidden({ timeout: 10000 });
+});
+
+test("replies: reply from the context menu shows a quote in the bubble", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const stamp = Date.now();
+  const q = `question ${stamp}`,
+    a = `answer ${stamp}`;
+  const box = page.getByPlaceholder("Message");
+  await box.fill(q);
+  await box.press("Enter");
+  const qMsg = page.getByText(q, { exact: true });
+  await expect(qMsg).toBeVisible();
+  await qMsg.click({ button: "right" });
+  await page.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Cancel reply" })).toBeVisible();
+  await box.fill(a);
+  await box.press("Enter");
+  await expect(page.getByText(a, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel reply" })).toBeHidden();
+  // The quoted original is rendered inside the reply bubble (a second occurrence of `q`).
+  await expect(page.getByText(q, { exact: true })).toHaveCount(2, { timeout: 10000 });
+  await shot(page, "14-reply");
+});
+
+test("edit and delete own messages", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const stamp = Date.now();
+  const before = `typo ${stamp}`,
+    after = `fixed ${stamp}`;
+  const box = page.getByPlaceholder("Message");
+  await box.fill(before);
+  await box.press("Enter");
+  await page.getByText(before, { exact: true }).click({ button: "right" });
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(box).toHaveValue(before);
+  await box.fill(after);
+  await box.press("Enter");
+  await expect(page.getByText(after, { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(before, { exact: true })).toBeHidden({ timeout: 20000 });
+  await expect(page.getByText(/^edited /).last()).toBeVisible();
+  await shot(page, "15-edited");
+  await page.getByText(after, { exact: true }).click({ button: "right" });
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).last().click();
+  await expect(page.getByText(after, { exact: true })).toBeHidden({ timeout: 10000 });
+});
+
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
+async function attach(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Attach" }).click();
+  await (await chooser).setFiles(file);
+}
+
+test("attachments: send an image and a file, download the file", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const name = `notes-${Date.now()}.txt`;
+  await attach(page, { name: "dot.png", mimeType: "image/png", buffer: PNG });
+  await attach(page, { name, mimeType: "text/plain", buffer: Buffer.from("hello file") });
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible({ timeout: 15000 });
+  await expect
+    .poll(() => page.locator('img[src^="blob:"]').evaluateAll((els) => els.some((e) => (e as HTMLImageElement).naturalWidth > 0)), { timeout: 15000 })
+    .toBe(true);
+  await shot(page, "16-attachments");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name, exact: true }).click();
+  const d = await download;
+  expect(d.suggestedFilename()).toBe(name);
+  expect((await (await import("node:fs/promises")).readFile(await d.path()!)).toString()).toBe("hello file");
+});
+
+test("attachments in an encrypted room are encrypted end to end", async ({ page }) => {
+  const user = `ue${Date.now().toString(36)}`;
+  await registerUser(user, "pw12345");
+  const login = (await (
+    await fetch("http://localhost:8008/_matrix/client/v3/login", {
+      method: "POST",
+      body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user }, password: "pw12345" }),
+    })
+  ).json()) as { access_token: string };
+  await fetch("http://localhost:8008/_matrix/client/v3/createRoom", {
+    method: "POST",
+    headers: { authorization: `Bearer ${login.access_token}` },
+    body: JSON.stringify({
+      name: "Secret files",
+      preset: "private_chat",
+      initial_state: [{ type: "m.room.encryption", state_key: "", content: { algorithm: "m.megolm.v1.aes-sha2" } }],
+    }),
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loginAs(page, user, "pw12345");
+  await openRoom(page, "Secret files");
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+  await page.waitForTimeout(1500);
+  const uploads: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/media/v3/upload")) uploads.push(r.postDataBuffer()?.subarray(0, 8).toString("hex") ?? "");
+  });
+  await attach(page, { name: "dot.png", mimeType: "image/png", buffer: PNG });
+  await expect
+    .poll(() => page.locator('img[src^="blob:"]').evaluateAll((els) => els.some((e) => (e as HTMLImageElement).naturalWidth > 0)), { timeout: 20000 })
+    .toBe(true);
+  expect(uploads.length).toBeGreaterThan(0);
+  expect(uploads[0]).not.toBe("89504e470d0a1a0a"); // the uploaded bytes must not be a plain PNG
+  await shot(page, "17-encrypted-attachment");
+});
+
+async function apiLogin(user: string) {
+  const r = (await (
+    await fetch("http://localhost:8008/_matrix/client/v3/login", {
+      method: "POST",
+      body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user }, password: "123456" }),
+    })
+  ).json()) as { access_token: string };
+  return r.access_token;
+}
+const api = (token: string, method: string, path: string, body?: unknown) =>
+  fetch(`http://localhost:8008/_matrix/client/v3${path}`, {
+    method,
+    headers: { authorization: `Bearer ${token}` },
+    body: body ? JSON.stringify(body) : null,
+  }).then((r) => r.json()) as Promise<Record<string, string>>;
+
+test("unread: badge, then a New messages divider above the first unread", async ({ page }) => {
+  const [alice, me] = [await apiLogin("alice"), await apiLogin("test")];
+  const name = `Unread ${Date.now().toString(36)}`;
+  const { room_id } = await api(alice, "POST", "/createRoom", { name, preset: "private_chat", invite: ["@test:localhost"] });
+  await api(me, "POST", `/join/${encodeURIComponent(room_id)}`, {});
+  for (const body of ["old one", "old two"])
+    await api(alice, "PUT", `/rooms/${encodeURIComponent(room_id)}/send/m.room.message/o${body.length}${Date.now()}`, { msgtype: "m.text", body });
+  await api(
+    me,
+    "POST",
+    `/rooms/${encodeURIComponent(room_id)}/receipt/m.read/${encodeURIComponent(((await api(me, "GET", `/rooms/${encodeURIComponent(room_id)}/messages?dir=b&limit=1`)) as unknown as { chunk: { event_id: string }[] }).chunk[0]!.event_id)}`,
+    {},
+  );
+  for (const body of ["fresh one", "fresh two", "fresh three"])
+    await api(alice, "PUT", `/rooms/${encodeURIComponent(room_id)}/send/m.room.message/n${body.length}${Date.now()}`, { msgtype: "m.text", body });
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const row = page.getByRole("button", { name: new RegExp(name) });
+  await expect(row).toContainText("3", { timeout: 15000 });
+  await row.click();
+  await expect(page.getByText("New messages", { exact: true })).toBeVisible({ timeout: 10000 });
+  await shot(page, "18-unread-divider");
+  const divY = (await page.getByText("New messages", { exact: true }).boundingBox())!.y;
+  expect((await page.getByText("fresh one", { exact: true }).last().boundingBox())!.y).toBeGreaterThan(divY);
+  expect((await page.getByText("old two", { exact: true }).last().boundingBox())!.y).toBeLessThan(divY);
+});
+
+test("profile and settings: navigation, theme, language, sign out", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await expect(page.getByText("@test:localhost").first()).toBeVisible();
+  await expect(page.getByText("http://localhost:8008")).toBeVisible();
+  await shot(page, "19-profile");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText("Appearance")).toBeVisible();
+  await page.getByRole("button", { name: "Sakura" }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}").theme)).toBe("sakura");
+  await shot(page, "20-settings-sakura");
+  // Language is a dropdown: one row showing the current language, options in a menu (native names, never translated).
+  await expect(page.getByRole("button", { name: "简体中文" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Language", exact: true }).click();
+  await shot(page, "29-language-menu");
+  await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "简体中文" }).click();
+  await expect(page.getByText("外观")).toBeVisible();
+  await expect(page.getByRole("button", { name: "语言", exact: true })).toContainText("简体中文"); // the row shows the current language in its own language
+  await page.reload();
+  await page
+    .getByText("外观")
+    .waitFor({ timeout: 15000 })
+    .catch(() => {});
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}"))).toMatchObject({ theme: "sakura", locale: "zh-CN" });
+  await expect(page.getByText("设置").first()).toBeVisible();
+  await page.getByRole("button", { name: "语言", exact: true }).click();
+  await page.getByRole("menuitem", { name: "English" }).click();
+  await page.getByRole("button", { name: "Light" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out" }).last().click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+});
+
+test("add menu: new chat, new group, join room", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await shot(page, "21-add-menu");
+  await page.getByRole("menuitem", { name: "New chat" }).click();
+  await page.getByPlaceholder("@name:server").fill("@nobody-here:localhost");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(page.getByText(/not found/i)).toBeVisible({ timeout: 10000 });
+  await page.getByPlaceholder("@name:server").fill("@bob:localhost");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("Direct chat")).toBeVisible();
+
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New group" }).click();
+  const group = `Team ${Date.now().toString(36)}`;
+  await page.getByText("Group name").locator("..").locator("input").last().fill(group);
+  await page.getByPlaceholder("@name:server").last().fill("@alice:localhost");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByText(group).first()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/\bmembers?\b/).first()).toBeVisible();
+
+  const alice = await apiLogin("alice");
+  const pub = await api(alice, "POST", "/createRoom", { name: `Open ${Date.now().toString(36)}`, preset: "public_chat" });
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Join room" }).click();
+  await page.getByPlaceholder("#room:server").fill(pub.room_id!);
+  await page.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
+});
+
+test("room context menu: pin and mark as unread (right-click)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const row = page.getByRole("button", { name: /^NT Notes to self|Notes to self/ }).first();
+  await row.click({ button: "right" });
+  await shot(page, "22-room-menu");
+  await page.getByRole("menuitem", { name: "Pin" }).click();
+  // Pinned chats lead the list (after invitations) and show a pin glyph.
+  // Invitations always sort above pinned chats, so skip them.
+  const firstRowName = () =>
+    page
+      .getByRole("button")
+      .filter({ hasText: /Notes to self|OhMatrix Dev|alice|bob|scratch|Join me|Team|Unread/ })
+      .filter({ hasNotText: /Invitation from/ })
+      .first()
+      .innerText();
+  await expect.poll(firstRowName, { timeout: 10000 }).toContain("Notes to self");
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Unpin" }).click();
+
+  // Mark as unread shows a dot; opening the chat clears it.
+  await page.getByPlaceholder("Search").fill("OhMatrix Dev"); // the list is virtualised; filter to keep the row rendered
+  await page
+    .getByRole("button", { name: /OhMatrix Dev/ })
+    .first()
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect(page.getByLabel("Marked unread")).toBeVisible({ timeout: 10000 });
+  await page
+    .getByRole("button", { name: /OhMatrix Dev/ })
+    .first()
+    .click();
+  await expect(page.getByLabel("Marked unread")).toBeHidden({ timeout: 10000 });
+});
+
+test("landscape: drag the chat list border to resize; width persists; double-click resets", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const sidebarRight = async () => {
+    const b = (await page.getByLabel("Resize chat list").boundingBox())!;
+    return b.x + b.width / 2;
+  };
+  const prefs = () => page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}") as { sidebarWidth?: number | null });
+  const initial = await sidebarRight();
+  expect(Math.abs(initial - 384)).toBeLessThan(6); // 30% of 1280
+
+  await page.mouse.move(initial, 400);
+  await page.mouse.down();
+  await page.mouse.move(initial + 60, 400, { steps: 5 });
+  await page.mouse.move(initial + 110, 400, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(sidebarRight).toBeGreaterThan(initial + 90);
+  await expect.poll(async () => (await prefs()).sidebarWidth).toBeGreaterThan(initial + 90);
+  await shot(page, "23-resized");
+
+  await page.reload();
+  await page.getByPlaceholder("Search").waitFor({ timeout: 20000 });
+  expect(await sidebarRight()).toBeGreaterThan(initial + 90);
+
+  // Limits: cannot be dragged beyond the maximum (520px) or below the minimum (260px).
+  const x = await sidebarRight();
+  await page.mouse.move(x, 400);
+  await page.mouse.down();
+  await page.mouse.move(1000, 400, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await prefs()).sidebarWidth).toBe(520);
+  const x2 = await sidebarRight();
+  await page.mouse.move(x2, 400);
+  await page.mouse.down();
+  await page.mouse.move(50, 400, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await prefs()).sidebarWidth).toBe(260);
+
+  await page.mouse.dblclick(await sidebarRight(), 400);
+  await expect.poll(async () => (await prefs()).sidebarWidth).toBeNull();
+  await expect.poll(sidebarRight).toBeGreaterThan(378);
+});
+
+test("portrait: profile and settings push full screen; browser back pops them", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await expect(page.getByText("@test:localhost").first()).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText("Appearance")).toBeVisible();
+  await page.waitForTimeout(450);
+  await shot(page, "24-settings-portrait");
+  await page.goBack();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
+});
+
+/** Records the x of the element with the given aria-label on every animation frame for `ms`. */
+function trackX(page: Page, label: string, ms: number): Promise<number[]> {
+  return page.evaluate(
+    ([l, duration]) =>
+      new Promise<number[]>((resolve) => {
+        const xs: number[] = [];
+        const t0 = performance.now();
+        const tick = () => {
+          const el = document.querySelector(`[aria-label="${l}"]`);
+          if (el) xs.push(el.getBoundingClientRect().x);
+          if (performance.now() - t0 < (duration as number)) requestAnimationFrame(tick);
+          else resolve(xs);
+        };
+        tick();
+      }),
+    [label, ms] as const,
+  );
+}
+
+test("profile opens like a drawer: slides in from left to right", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const click = page.getByRole("button", { name: "Profile", exact: true }).click();
+  const xs = await trackX(page, "Settings", 700);
+  await click;
+  expect(xs.length).toBeGreaterThan(4);
+  const final = xs[xs.length - 1]!;
+  expect(Math.min(...xs)).toBeLessThan(final - 40); // starts well to the left of its resting place
+  for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeGreaterThanOrEqual(xs[i - 1]! - 1); // moves rightwards only
+
+  // Settings pushes in from the right, over the profile page.
+  const settings = page.getByRole("button", { name: "Settings", exact: true }).click();
+  const sx = await trackX(page, "Sign out", 700);
+  await settings;
+  expect(sx.length).toBeGreaterThan(4);
+  const sfinal = sx[sx.length - 1]!;
+  expect(Math.max(...sx)).toBeGreaterThan(sfinal + 40);
+  for (let i = 1; i < sx.length; i++) expect(sx[i]!).toBeLessThanOrEqual(sx[i - 1]! + 1);
+  await page.getByRole("button", { name: "Profile", exact: true }).last().click();
+});
+
+test("chat info: slides in from the right, shows members, leave group", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  // A fresh group so leaving it does not disturb other tests.
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New group" }).click();
+  const group = `Leave ${Date.now().toString(36)}`;
+  await page.getByText("Group name").locator("..").locator("input").last().fill(group);
+  await page.getByPlaceholder("@name:server").last().fill("@bob:localhost");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
+
+  const info = page.getByRole("button", { name: "Chat info" });
+  const marker = () => page.getByText("Group info", { exact: true });
+  await expect(marker()).toBeHidden();
+  await info.click();
+  // Slides in from the right: the panel's left edge moves leftwards to its resting place.
+  const xs: number[] = [];
+  const t0 = Date.now();
+  while (Date.now() - t0 < 600) {
+    const b = await marker()
+      .boundingBox()
+      .catch(() => null);
+    if (b) xs.push(b.x);
+    await page.waitForTimeout(25);
+  }
+  expect(xs.length).toBeGreaterThan(3);
+  expect(xs[0]!).toBeGreaterThan(xs[xs.length - 1]! + 40);
+  for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeLessThanOrEqual(xs[i - 1]! + 1);
+  await expect(page.getByText("Members · 2")).toBeVisible();
+  await expect(page.getByText("@bob:localhost")).toBeVisible();
+  await expect(page.getByText("Invited", { exact: true })).toBeVisible();
+  await expect(page.getByText("Admin", { exact: true })).toBeVisible();
+  await shot(page, "25-chat-info");
+
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(marker()).toBeHidden({ timeout: 5000 });
+  await info.click();
+  await page.getByRole("button", { name: "Leave group" }).click();
+  await shot(page, "26-leave-confirm");
+  await page.getByRole("button", { name: "Leave group" }).last().click();
+  await expect(page.getByPlaceholder("Message")).toBeHidden({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: new RegExp(group) })).toBeHidden({ timeout: 15000 });
+});
+
+test("chat info: one-to-one chat shows Delete chat; portrait uses a full-screen overlay with back", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await openRoom(page, "alice", /Perfect, talk then/);
+  await page.getByRole("button", { name: "Chat info" }).click();
+  await expect(page.getByText("User info", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete chat" })).toBeVisible();
+  await page.waitForTimeout(400);
+  await shot(page, "27-chat-info-portrait");
+  await page.goBack();
+  await expect(page.getByText("User info", { exact: true })).toBeHidden({ timeout: 5000 });
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+});
+
+test("chat list rows have a fixed height and truncate previews with three dots", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const long = `This is a very long preview message that cannot possibly fit on a single line of the chat list ${Date.now()}`;
+  const box = page.getByPlaceholder("Message");
+  await box.fill(long);
+  await box.press("Enter");
+  await expect(page.getByText(long, { exact: true })).toBeVisible();
+  const row = page.getByRole("button", { name: /^Notes to self|^NT Notes to self/ }).first();
+  await expect(row).toContainText("...", { timeout: 10000 });
+  const text = await row.innerText();
+  expect(text).not.toContain("…");
+  expect(text).toMatch(/You: This is a very long.*\.\.\./s);
+  // Every ordinary row (non-invitation) is exactly the same height, however long its text is.
+  const heights = await page
+    .getByRole("button")
+    .evaluateAll((els) =>
+      els
+        .filter(
+          (e) =>
+            /\d{1,2}:\d{2}|\bAM\b|\bPM\b/.test((e as HTMLElement).innerText) &&
+            !/Invitation from/.test((e as HTMLElement).innerText) &&
+            (e as HTMLElement).getBoundingClientRect().x < 100,
+        )
+        .map((e) => Math.round((e as HTMLElement).getBoundingClientRect().height)),
+    );
+  expect(heights.length).toBeGreaterThan(3);
+  expect(new Set(heights).size).toBe(1);
+  await shot(page, "28-fixed-rows");
+});
