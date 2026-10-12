@@ -13,7 +13,7 @@ export function Bubble(props: {
   senderName?: string | undefined;
   senderId?: string | undefined;
   /** Image message; with no `text` the image fills the bubble and the time sits on it (Telegram style). */
-  image?: { uri: string | undefined; width: number; height: number } | undefined;
+  image?: { uri: string | undefined; width: number; height: number; onPress?: (() => void) | undefined } | undefined;
   /** File attachment row (icon, name, size); press downloads it. */
   file?: { name: string; sizeLabel: string; onPress: () => void } | undefined;
   /** Quoted message shown at the top; press jumps to the original. */
@@ -109,17 +109,25 @@ export function Bubble(props: {
         </Pressable>
       )}
       {props.image && (
-        <View
-          style={{
-            width: props.image.width,
-            height: props.image.height,
-            maxWidth: "100%",
-            backgroundColor: colors.bgSecondary,
-            ...(imageOnly ? {} : { marginHorizontal: -12, marginBottom: 6, marginTop: props.senderName ? 0 : -7, width: props.image.width + 24 }),
-          }}
+        // Photos are looked at, so the hand cursor and a tap opens the viewer (the rest of the bubble is text and keeps the text cursor).
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open photo"
+          disabled={!props.image.onPress}
+          onPress={props.image.onPress}
+          style={[
+            {
+              width: props.image.width,
+              height: props.image.height,
+              maxWidth: "100%",
+              backgroundColor: colors.bgSecondary,
+              ...(imageOnly ? {} : { marginHorizontal: -12, marginBottom: 6, marginTop: props.senderName ? 0 : -7, width: props.image.width + 24 }),
+            },
+            props.image.onPress ? ({ cursor: "pointer" } as object) : {},
+          ]}
         >
           {props.image.uri && <Image source={{ uri: props.image.uri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} />}
-        </View>
+        </Pressable>
       )}
       {props.file && (
         <Pressable

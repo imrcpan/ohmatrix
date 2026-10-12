@@ -1477,3 +1477,68 @@ test("sessions: a very long list is virtualised (only nearby rows exist) and sti
   expect(await rendered()).toBeLessThan(60);
   await expect(page.getByRole("button", { name: "Sign out all other sessions" })).toBeVisible();
 });
+
+test("photo viewer: hand cursor and click to open; translucent mask over the whole window; zoom; closes", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "OhMatrix Dev");
+  const photo = page.getByRole("button", { name: "Open photo" }).last();
+  await expect(photo).toBeVisible({ timeout: 15000 });
+  expect(await photo.evaluate((el) => getComputedStyle(el).cursor)).toBe("pointer");
+  expect(
+    await page
+      .getByText(/Nice shot!/)
+      .last()
+      .evaluate((el) => getComputedStyle(el).cursor),
+  ).toBe("text"); // the rest of the chat is text
+
+  await photo.click();
+  const viewer = page.getByRole("button", { name: /^Photo: / });
+  await expect(viewer).toBeVisible();
+  await page.waitForTimeout(500);
+  // A translucent mask covers the entire window and the chat is still faintly visible behind it.
+  const mask = page.getByLabel("Viewer backdrop");
+  const maskBox = (await mask.boundingBox())!;
+  expect(maskBox.width).toBeGreaterThanOrEqual(1279);
+  expect(maskBox.height).toBeGreaterThanOrEqual(799);
+  const maskBg = await mask.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(maskBg).toMatch(/rgba\(0, 0, 0, 0\.\d+\)/);
+  // The picture is shown at a comfortable size, not maximised.
+  const v = (await viewer.boundingBox())!;
+  expect(v.width).toBeLessThanOrEqual(1280 * 0.8 + 1);
+  expect(v.height).toBeLessThanOrEqual(800 * 0.8 + 1);
+  await shot(page, "46-photo-viewer");
+
+  // Zoom with the buttons, the wheel and a double click; fit resets.
+  const zoomText = () => page.getByLabel("Zoom level").innerText();
+  expect(await zoomText()).toBe("100%");
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  expect(await zoomText()).toBe("125%");
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  expect(await zoomText()).toBe("80%");
+  await page.mouse.move(640, 400);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => parseInt(await zoomText())).toBeGreaterThan(80);
+  await page.getByRole("button", { name: "Fit to window" }).click();
+  expect(await zoomText()).toBe("100%");
+  await viewer.dblclick();
+  expect(await zoomText()).toBe("200%");
+  const zoomed = (await viewer.boundingBox())!;
+  expect(zoomed.width).toBeGreaterThan(v.width * 1.9);
+  await viewer.dblclick();
+  expect(await zoomText()).toBe("100%");
+
+  // Clicking the picture does not close it; clicking the mask, Esc, or the close button does.
+  await viewer.click();
+  await expect(viewer).toBeVisible();
+  await page.mouse.click(40, 400);
+  await expect(viewer).toBeHidden();
+  await photo.click();
+  await expect(viewer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await photo.click();
+  await page.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(viewer).toBeHidden();
+});
