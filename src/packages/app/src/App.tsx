@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { PlatformServices } from "@ohmatrix/core";
 import type { AppController } from "@ohmatrix/state";
 import { AppProviders, useAppState } from "./context.js";
+import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LoginScreen } from "./LoginScreen.js";
 import { MainScreen } from "./MainScreen.js";
 import { NotificationsBridge } from "./NotificationsBridge.js";
@@ -32,13 +33,15 @@ function Root(props: { defaultHomeserver: string }) {
  * Shared application shell (screens, navigation, wiring). Platform apps only choose the engine,
  * build `PlatformServices`, call `controller.bootstrap()`, and render this.
  */
-export function App(props: { controller: AppController; services: PlatformServices; defaultHomeserver?: string }) {
+export function App(props: { controller: AppController; services: PlatformServices; defaultHomeserver?: string; onReload?: () => void }) {
   return (
-    <AppProviders controller={props.controller} services={props.services}>
-      <Themed>
-        <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
-      </Themed>
-    </AppProviders>
+    <ErrorBoundary onReload={props.onReload}>
+      <AppProviders controller={props.controller} services={props.services}>
+        <Themed>
+          <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
+        </Themed>
+      </AppProviders>
+    </ErrorBoundary>
   );
 }
 

@@ -7,3 +7,9 @@ test("t", () => {
   expect(detectLocale("zh-Hans-CN")).toBe("zh-CN");
   expect(detectLocale("fr")).toBe("en");
 });
+
+test("a missing translation never throws", () => {
+  expect(t("en", "nope.nothing" as never)).toBe("nope.nothing");
+  expect(t("zh-CN", "nope.nothing" as never, { n: 1 })).toBe("nope.nothing");
+  expect(t("xx" as never, "chats")).toBe("Chats");
+});

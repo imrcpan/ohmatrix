@@ -58,5 +58,10 @@ installRouter(controller);
 void controller.bootstrap();
 
 createRoot(document.getElementById("root")!).render(
-  <App controller={controller} services={services} defaultHomeserver={import.meta.env.VITE_DEFAULT_HOMESERVER ?? DEFAULT_HOMESERVER} />,
+  <App
+    controller={controller}
+    services={services}
+    onReload={() => location.reload()}
+    defaultHomeserver={import.meta.env.VITE_DEFAULT_HOMESERVER ?? DEFAULT_HOMESERVER}
+  />,
 );
