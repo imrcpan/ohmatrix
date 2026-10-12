@@ -874,3 +874,82 @@ test("session is stored encrypted: no plaintext token; reload restores it; old p
   expect(after.v2).toBeTruthy();
   await ctx.close();
 });
+
+test("crypto store is keyed: key sealed in storage, survives reload, a lost key sends the user back to sign in, sign-out removes it", async ({ page }) => {
+  const user = `uk${Date.now().toString(36)}`;
+  await registerUser(user, "pw12345");
+  const tok = (await (
+    await fetch("http://localhost:8008/_matrix/client/v3/login", {
+      method: "POST",
+      body: JSON.stringify({ type: "m.login.password", identifier: { type: "m.id.user", user }, password: "pw12345" }),
+    })
+  ).json()) as { access_token: string };
+  await fetch("http://localhost:8008/_matrix/client/v3/createRoom", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tok.access_token}` },
+    body: JSON.stringify({
+      name: "Keyed",
+      preset: "private_chat",
+      initial_state: [{ type: "m.room.encryption", state_key: "", content: { algorithm: "m.megolm.v1.aes-sha2" } }],
+    }),
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loginAs(page, user, "pw12345");
+  await openRoom(page, "Keyed");
+  await page.waitForTimeout(1500);
+  const secret = `sealed ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(secret);
+  await page.getByPlaceholder("Message").press("Enter");
+  await expect(page.getByText(secret, { exact: true }).last()).toBeVisible({ timeout: 15000 });
+  // The local echo shows at once; only reload after the server really has the (encrypted) event.
+  const rooms = (await (
+    await fetch("http://localhost:8008/_matrix/client/v3/joined_rooms", { headers: { authorization: `Bearer ${tok.access_token}` } })
+  ).json()) as { joined_rooms: string[] };
+  await expect
+    .poll(
+      async () => {
+        const r = (await (
+          await fetch(`http://localhost:8008/_matrix/client/v3/rooms/${encodeURIComponent(rooms.joined_rooms[0]!)}/messages?dir=b&limit=5`, {
+            headers: { authorization: `Bearer ${tok.access_token}` },
+          })
+        ).json()) as { chunk: { type: string }[] };
+        return r.chunk.some((e) => e.type === "m.room.encrypted");
+      },
+      { timeout: 15000 },
+    )
+    .toBe(true);
+
+  const keys = () => page.evaluate(() => Object.entries(localStorage).filter(([k]) => k.startsWith("ohmatrix.cryptokey.v1.")));
+  const entries = await keys();
+  expect(entries).toHaveLength(1);
+  expect(entries[0]![1].length).toBeGreaterThan(60); // sealed (iv + ciphertext + tag), not a bare 32-byte key
+
+  // The store reopens with its key after a reload and the encrypted history is still readable.
+  await page.reload();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 25000 });
+  await expect(page.getByText(secret, { exact: true }).last()).toBeVisible({ timeout: 20000 });
+  expect(await keys()).toEqual(entries);
+
+  // Lose the key: this device's encryption identity is gone, so the app sends the user back to sign in
+  // (a new device) with an explanation, instead of hanging or silently running without encryption.
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith("ohmatrix.cryptokey.v1.")) localStorage.removeItem(k);
+  });
+  await page.reload();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/encryption keys of this device are unavailable/i)).toBeVisible();
+  const again = page.locator("input");
+  await again.nth(1).fill(user);
+  await again.nth(2).fill("pw12345");
+  await again.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
+  await expect.poll(async () => (await keys()).length, { timeout: 15000 }).toBe(1);
+
+  // Signing out removes the key together with the store.
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out" }).last().click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible({ timeout: 20000 });
+  await expect.poll(async () => (await keys()).length, { timeout: 10000 }).toBe(0);
+});
