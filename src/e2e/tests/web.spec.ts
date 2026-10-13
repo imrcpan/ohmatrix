@@ -1890,3 +1890,79 @@ test("zoom: the setting scales the whole interface, menus still open at the poin
     localStorage.setItem("ohmatrix.prefs.v1", JSON.stringify({ ...JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}"), uiScale: 1 })),
   );
 });
+
+test("drag and drop, and paste: files are sent; plain text paste is untouched", async ({ page }) => {
+  const stamp = Date.now();
+  await openNotes(page);
+  const hint = page.getByText("Drop files to send");
+  const dt = () => page.evaluateHandle(() => new DataTransfer());
+  const fire = (type: string, handle: Awaited<ReturnType<typeof dt>>) =>
+    page.evaluate(([t, d]) => document.dispatchEvent(new DragEvent(t as string, { dataTransfer: d as DataTransfer, bubbles: true, cancelable: true })), [
+      type,
+      handle,
+    ] as const);
+
+  // Dragging a file over the window shows the drop hint; leaving hides it.
+  const hover = await dt();
+  await hover.evaluate((d) => d.items.add(new File(["x"], "x.txt")));
+  await fire("dragenter", hover);
+  await expect(hint).toBeVisible();
+  await shot(page, "56-drop-hint");
+  await fire("dragleave", hover);
+  await expect(hint).toHaveCount(0);
+
+  // Dropping several files sends them all: a picture, a video and a document.
+  const drop = await dt();
+  await drop.evaluate(async (d, n) => {
+    const png = await (
+      await fetch("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    ).blob();
+    d.items.add(new File([png], `dropped-${n}.png`, { type: "image/png" }));
+    d.items.add(new File(["hello"], `notes-${n}.txt`, { type: "text/plain" }));
+  }, stamp);
+  await fire("dragenter", drop);
+  await fire("drop", drop);
+  await expect(hint).toHaveCount(0);
+  // Nothing is uploaded until confirmed; the dialog describes the files.
+  const dialog = page.getByText("Send 2 files?");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByText("5 B", { exact: false }).first()).toBeVisible();
+  await expect(page.getByLabel(`notes-${stamp}.txt`)).toContainText("File · 5 B");
+  await expect(page.getByLabel(`dropped-${stamp}.png`)).toContainText("Photo");
+  await shot(page, "57-send-files-dialog");
+  await page.waitForTimeout(1000);
+  const photos = await page.getByLabel("Open photo").count();
+  await page.waitForTimeout(1000);
+  await expect(page.getByLabel("Open photo")).toHaveCount(photos);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText(`notes-${stamp}.txt`, { exact: true })).toHaveCount(0);
+  await fire("dragenter", drop);
+  await fire("drop", drop);
+  await expect(dialog).toBeVisible();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText(`notes-${stamp}.txt`, { exact: true })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByLabel("Open photo")).toHaveCount(photos + 1, { timeout: 20000 });
+
+  // Pasting a clipboard file (a screenshot) sends it; the composer stays empty.
+  const paste = await dt();
+  await paste.evaluate((d, n) => d.items.add(new File(["pasted"], `pasted-${n}.txt`, { type: "text/plain" })), stamp);
+  await page.getByPlaceholder("Message").focus();
+  await page.evaluate(
+    (d) => document.activeElement!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: d as DataTransfer, bubbles: true, cancelable: true })),
+    paste,
+  );
+  await expect(page.getByText("Send this file?")).toBeVisible();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText(`pasted-${stamp}.txt`, { exact: true })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByPlaceholder("Message")).toHaveValue("");
+
+  // A text-only paste is not intercepted.
+  const text = await dt();
+  await text.evaluate((d) => d.setData("text/plain", "just text"));
+  const prevented = await page.evaluate(
+    (d) => !document.activeElement!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: d as DataTransfer, bubbles: true, cancelable: true })),
+    text,
+  );
+  expect(prevented).toBe(false);
+});

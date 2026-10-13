@@ -73,6 +73,11 @@ export interface PlatformServices {
   preferences?: PreferencesStore;
   /** Let the user choose files to send. Absent = the attach button is hidden. */
   pickFiles?(): Promise<AttachmentSource[]>;
+  /**
+   * Receive files dropped onto the window or pasted from the clipboard. `onHover(true)` while files
+   * are dragged over the window. Returns the unsubscribe function. Absent = no drop/paste.
+   */
+  receiveFiles?(onFiles: (files: AttachmentSource[]) => void, onHover: (over: boolean) => void): () => void;
   /** Save/open a resolved file URL (e.g. trigger a browser download). */
   saveFile?(file: { url: string; name: string }): Promise<void>;
 }
