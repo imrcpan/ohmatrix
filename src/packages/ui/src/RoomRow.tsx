@@ -21,6 +21,10 @@ export function RoomRow(props: {
   pinned?: boolean | undefined;
   markedUnread?: boolean | undefined;
   muted?: boolean | undefined;
+  /** A space: rounded-square logo instead of a circle. */
+  isSpace?: boolean | undefined;
+  /** Nested under a space: slightly indented, like a thread in Telegram's folder view. */
+  nested?: boolean | undefined;
   /** Long-press (touch) or right-click (desktop): receives where to anchor the menu. */
   onContextMenu?: ((anchor: Anchor) => void) | undefined;
   /** Pending invitation: shows Accept / Decline pills under the preview. */
@@ -56,7 +60,8 @@ export function RoomRow(props: {
         backgroundColor: sel ? colors.selected : pressed ? colors.separator : hovered ? colors.hover : "transparent",
       })}
     >
-      <Avatar id={props.id} name={props.title} size={44} src={props.avatarUrl} />
+      {props.nested && <View style={{ width: 10 }} />}
+      <Avatar id={props.id} name={props.title} size={44} src={props.avatarUrl} shape={props.isSpace ? "square" : "circle"} />
       <View style={{ flex: 1, gap: 3 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <EllipsisText style={{ flex: 1, fontSize: 16, fontWeight: "600", fontFamily, color: sel ? colors.onSelected : colors.text }}>

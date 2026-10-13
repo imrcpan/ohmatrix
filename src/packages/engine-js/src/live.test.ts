@@ -861,3 +861,54 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   180000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "spaces: create, add and remove children, order, candidates",
+  async () => {
+    const e = new JsSdkEngine({ cryptoStorage: "memory" });
+    await e.auth.loginWithPassword("http://localhost:8008", "alice", "123456");
+    let rooms: RoomSummary[] = [];
+    e.rooms.subscribe((u) => {
+      rooms = applyUpdates(rooms, u);
+    });
+    await e.sync.start();
+    const space = await e.rooms.createSpace({ name: `Space ${Date.now()}` });
+    await expect.poll(() => rooms.find((r) => r.id === space)?.isSpace, { timeout: 15000 }).toBe(true);
+    // A chat is not a space, and a fresh space is empty.
+    const a = await e.rooms.createGroup({ name: "Child A", invite: [] });
+    const b = await e.rooms.createGroup({ name: "Child B", invite: [] });
+    // Right after creation the room's state may not have arrived, so wait until both are classified as groups.
+    await expect.poll(() => [a, b].every((id) => rooms.find((r) => r.id === id)?.isDirect === false), { timeout: 15000 }).toBe(true);
+    expect(rooms.find((r) => r.id === a)?.isSpace).toBeFalsy();
+    expect(await e.spaces.children(space)).toEqual([]);
+
+    // Candidates are my rooms that are not in the space; spaces themselves are never candidates.
+    const ids = (await e.spaces.candidates(space)).map((c) => c.roomId);
+    expect(ids).toEqual(expect.arrayContaining([a, b]));
+    expect(ids).not.toContain(space);
+
+    await e.spaces.addChild(space, a);
+    await e.spaces.addChild(space, b);
+    await expect.poll(async () => (await e.spaces.children(space)).map((c) => c.roomId), { timeout: 10000 }).toEqual([a, b]);
+    expect((await e.spaces.candidates(space)).map((c) => c.roomId)).not.toContain(a);
+    expect((await e.spaces.children(space))[0]).toMatchObject({ name: "Child A", isSpace: false });
+
+    // Reordering writes the child's `order`.
+    await e.spaces.moveChild(space, b, "first");
+    await expect.poll(async () => (await e.spaces.children(space)).map((c) => c.roomId), { timeout: 10000 }).toEqual([b, a]);
+    await e.spaces.moveChild(space, b, "last");
+    await expect.poll(async () => (await e.spaces.children(space)).map((c) => c.roomId), { timeout: 10000 }).toEqual([a, b]);
+
+    // A subspace is listed as a space.
+    const sub = await e.rooms.createSpace({ name: "Sub" });
+    await e.spaces.addChild(space, sub);
+    await expect.poll(async () => (await e.spaces.children(space)).find((c) => c.roomId === sub)?.isSpace, { timeout: 10000 }).toBe(true);
+
+    // Removing a child only unlists it; the room is still mine.
+    await e.spaces.removeChild(space, a);
+    await expect.poll(async () => (await e.spaces.children(space)).map((c) => c.roomId), { timeout: 10000 }).toEqual([b, sub]);
+    expect(rooms.some((r) => r.id === a)).toBe(true);
+    await e.sync.stop();
+  },
+  120000,
+);

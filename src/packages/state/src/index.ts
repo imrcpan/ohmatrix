@@ -20,6 +20,7 @@ import {
   type PlatformServices,
   type RoomId,
   type RoomSummary,
+  type SpaceChild,
   type SecurityState,
   type SyncState,
   type TimelineItem,
@@ -44,6 +45,8 @@ export interface AppState {
   timelines: Record<RoomId, TimelineItem[]>;
   /** Navigation state shared by all layouts; platform shells may mirror it to the URL/back stack. */
   selectedRoomId: RoomId | null;
+  /** The space whose room list is open over the chat list; null = the main list. */
+  spaceId: RoomId | null;
   prefs: Preferences;
   /** What the left pane shows: the chat list, my profile, or settings (settings sits above profile). */
   sidebarPage: SidebarPage;
@@ -92,6 +95,8 @@ export interface AppController {
   removeDevices(ids: string[], password: string): Promise<void>;
   setAvatar(file: AttachmentSource): Promise<void>;
   openSidebarPage(page: SidebarPage): void;
+  /** Open a space's room list (slides over the chat list); null closes it. */
+  openSpace(spaceId: RoomId | null): void;
   /** One level up: settings → profile → chats. */
   sidebarBack(): void;
   openRoomInfo(open: boolean): void;
@@ -122,7 +127,17 @@ export interface AppController {
   leaveRoom(roomId: RoomId): Promise<void>;
   /** Start (or reopen) a chat with a user, then select it. */
   startDirectChat(userId: string): Promise<void>;
-  createGroup(name: string, invite: string[]): Promise<void>;
+  /** `inSpace`: also list the new room in that space (and do not leave the space's list). */
+  createGroup(name: string, invite: string[], inSpace?: RoomId | null): Promise<void>;
+  /** Create a space and open its room list. */
+  createSpace(name: string, invite?: string[]): Promise<void>;
+  /** Rooms listed in a space, in the space's own order. Emits once and on every change. */
+  subscribeSpace(spaceId: RoomId, cb: (children: SpaceChild[]) => void): () => void;
+  /** Rooms I could add to this space. */
+  spaceCandidates(spaceId: RoomId): Promise<SpaceChild[]>;
+  addSpaceChild(spaceId: RoomId, roomId: RoomId): Promise<void>;
+  removeSpaceChild(spaceId: RoomId, roomId: RoomId): Promise<void>;
+  moveSpaceChild(spaceId: RoomId, roomId: RoomId, to: "first" | "last"): Promise<void>;
   /** Join a room by id or alias, then select it. */
   joinRoom(idOrAlias: string): Promise<void>;
   /** Create encryption keys; resolves with the recovery key to show the user exactly once. */
@@ -155,6 +170,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     sidebarPage: "chats",
     roomInfoOpen: false,
     focusEvent: null,
+    spaceId: null,
   }));
   const set = store.setState;
   const offs = [
@@ -228,6 +244,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     removeDevices: (ids, password) => engine.devices.remove(ids, password),
     setAvatar: (file) => engine.profile.setAvatar(file),
     openSidebarPage: (sidebarPage) => set({ sidebarPage }),
+    openSpace: (spaceId) => set({ spaceId }),
     sidebarBack: () => set((s) => ({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" })),
     openRoomInfo: (roomInfoOpen) => set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null })),
     selectRoom: select,
@@ -260,9 +277,21 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     async startDirectChat(userId) {
       select(await engine.rooms.createDirect(userId.trim()));
     },
-    async createGroup(name, invite) {
-      select(await engine.rooms.createGroup({ name: name.trim(), invite }));
+    async createGroup(name, invite, inSpace) {
+      const id = await engine.rooms.createGroup({ name: name.trim(), invite });
+      // Created from inside a space: list it there too, and stay on the space's list instead of jumping to the chat.
+      if (inSpace) await engine.spaces.addChild(inSpace, id);
+      else select(id);
     },
+    async createSpace(name, invite) {
+      const id = await engine.rooms.createSpace({ name: name.trim(), ...(invite?.length ? { invite } : {}) });
+      set({ spaceId: id });
+    },
+    subscribeSpace: (spaceId, cb) => engine.spaces.subscribe(spaceId, cb),
+    spaceCandidates: (spaceId) => engine.spaces.candidates(spaceId),
+    addSpaceChild: (spaceId, roomId) => engine.spaces.addChild(spaceId, roomId),
+    removeSpaceChild: (spaceId, roomId) => engine.spaces.removeChild(spaceId, roomId),
+    moveSpaceChild: (spaceId, roomId, to) => engine.spaces.moveChild(spaceId, roomId, to),
     async joinRoom(idOrAlias) {
       select(await engine.rooms.joinRoom(idOrAlias));
     },

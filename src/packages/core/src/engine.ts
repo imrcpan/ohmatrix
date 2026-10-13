@@ -8,6 +8,7 @@ import type {
   MemberRole,
   IncomingNotification,
   RoomDetails,
+  SpaceChild,
   Profile,
   UserSuggestion,
   EventId,
@@ -60,6 +61,8 @@ export interface RoomListApi {
   createDirect(userId: UserId): Promise<RoomId>;
   /** Create a private group (end-to-end encrypted) and invite `invite`. */
   createGroup(opts: { name: string; invite: UserId[] }): Promise<RoomId>;
+  /** Create a space: an unencrypted container that holds other rooms. */
+  createSpace(opts: { name: string; topic?: string; invite?: UserId[] }): Promise<RoomId>;
   /** Join by room id (`!x:server`) or alias (`#x:server`). */
   joinRoom(idOrAlias: string): Promise<RoomId>;
 }
@@ -80,6 +83,22 @@ export interface MediaApi {
    * authenticated media; on web this is a cached blob: URL). Rejects with EngineError on failure.
    */
   resolve(mxc: MxcUri, opts?: MediaOptions): Promise<string>;
+}
+
+/** Spaces: containers that hold other rooms (MSC1772). */
+export interface SpacesApi {
+  /** Rooms listed in `spaceId`, in the order the space gives them. */
+  children(spaceId: RoomId): Promise<SpaceChild[]>;
+  /** Emits the children now, and again whenever the space's child list or a child's name or unread count changes. */
+  subscribe(spaceId: RoomId, cb: Listener<SpaceChild[]>): Unsubscribe;
+  /** List `roomId` in the space. */
+  addChild(spaceId: RoomId, roomId: RoomId, via?: string): Promise<void>;
+  /** Remove `roomId` from the space (the room itself is untouched). */
+  removeChild(spaceId: RoomId, roomId: RoomId): Promise<void>;
+  /** Move `roomId` to the start (`to: "first"`) or the end of the space's list. */
+  moveChild(spaceId: RoomId, roomId: RoomId, to: "first" | "last"): Promise<void>;
+  /** Rooms I am in that are not in this space yet, for "add existing room". */
+  candidates(spaceId: RoomId): Promise<SpaceChild[]>;
 }
 
 /** Actions that span rooms rather than one timeline. */
@@ -217,6 +236,7 @@ export interface MatrixEngine {
   readonly rooms: RoomListApi;
   readonly media: MediaApi;
   readonly messages: MessagesApi;
+  readonly spaces: SpacesApi;
   readonly security: SecurityApi;
   readonly profile: ProfileApi;
   readonly devices: DevicesApi;
