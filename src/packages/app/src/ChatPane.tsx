@@ -16,10 +16,12 @@ import {
   TextButton,
   Composer,
   fontFamily,
+  Icon,
   IconButton,
   useTheme,
 } from "@ohmatrix/ui";
 import type { MenuPoint } from "@ohmatrix/ui";
+import { SendFilesDialog } from "./SendFilesDialog.js";
 import { MessageResults } from "./MessageResults.js";
 import { formatDuration, useAudioPlayer } from "./useAudio.js";
 import { useVoiceRecording, VideoRecorderDialog } from "./Recording.js";
@@ -310,6 +312,10 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
   const [prefill, setPrefill] = useState<{ text: string; nonce: number }>();
   const [recordingVideo, setRecordingVideo] = useState(false);
   const sendFile = useCallback((f: AttachmentSource) => handle.current?.sendAttachment(f).catch(() => {}) ?? Promise.resolve(), []);
+  const [dropping, setDropping] = useState(false);
+  const [pending, setPending] = useState<AttachmentSource[]>([]);
+  useEffect(() => services.receiveFiles?.((files) => setPending((p) => [...p, ...files]), setDropping), [services]);
+  useEffect(() => setPending([]), [props.roomId]);
   const voice = useVoiceRecording(sendFile, services, t);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -516,6 +522,38 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
           else void handle.current?.sendText(body);
           setReplying(null);
           setEditing(null);
+        }}
+      />
+      {dropping && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 6,
+            margin: 10,
+            borderRadius: 16,
+            borderWidth: 2,
+            borderStyle: "dashed",
+            borderColor: colors.accent,
+            backgroundColor: colors.overlay,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="attach" size={40} color={colors.accent} />
+          <Text style={{ marginTop: 10, fontSize: 17, fontWeight: "600", fontFamily, color: colors.text }}>{t("drop.hint")}</Text>
+        </View>
+      )}
+      <SendFilesDialog
+        files={pending}
+        onCancel={() => setPending([])}
+        onSend={() => {
+          pending.forEach((f) => void sendFile(f));
+          setPending([]);
         }}
       />
       <VideoRecorderDialog visible={recordingVideo} onClose={() => setRecordingVideo(false)} send={sendFile} />

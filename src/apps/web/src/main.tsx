@@ -7,6 +7,7 @@ import { createCryptoKeyProvider } from "./cryptoKeys.js";
 import { createSecureBox } from "./secureBox.js";
 import { createSecureSessionStore } from "./secureSession.js";
 import { createWebNotifications } from "./notifications.js";
+import { receiveFiles } from "./receiveFiles.js";
 import { openRecorder } from "./recorder.js";
 import { installRouter } from "./router.js";
 
@@ -31,6 +32,7 @@ const services: PlatformServices = {
   preferences,
   notifications: createWebNotifications(),
   recordMedia: openRecorder,
+  receiveFiles,
   pickFiles: () =>
     new Promise<AttachmentSource[]>((resolve) => {
       const input = document.createElement("input");
