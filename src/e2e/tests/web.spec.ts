@@ -1390,6 +1390,19 @@ test("message menu: opens at the pointer in the incoming-bubble colours, borderl
   await page.getByPlaceholder("Message").press("Enter");
   const bubble = page.getByText(text, { exact: true }).last();
   await expect(bubble).toBeVisible();
+  // The list follows the new message down to the bottom: wait for the bubble to stop moving before using its position.
+  let last = "";
+  await expect
+    .poll(
+      async () => {
+        const now = JSON.stringify(await bubble.boundingBox());
+        const same = now === last;
+        last = now;
+        return same;
+      },
+      { intervals: [250] },
+    )
+    .toBe(true);
   const b = (await bubble.boundingBox())!;
   const click = { x: b.x + 12, y: b.y + 6 };
   await bubble.click({ button: "right", position: { x: 12, y: 6 } });
@@ -1700,11 +1713,8 @@ function makeFixtures() {
   writeFileSync(big, Buffer.alloc(700 * 1024, 7));
   return (fixtures = { tone, clip, big });
 }
-/** The match lowest on screen = the newest message (DOM order of the inverted list is not chronological). */
-const lowest = async (loc: Locator) => {
-  const tops = await loc.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
-  return loc.nth(tops.indexOf(Math.max(...tops)));
-};
+/** The newest match: the chat list is in reading order (oldest first), so it is the last one in the DOM. */
+const lowest = async (loc: Locator) => loc.last();
 const attachFile = async (page: Page, path: string) => {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Attach" }).click();
@@ -1723,13 +1733,18 @@ test("audio file and video file: bubbles, playing the audio, the video viewer", 
   await attachFile(page, fx.tone);
   await expect(page.getByRole("button", { name: "Play" }).last()).toBeVisible({ timeout: 20000 });
   await expect(page.getByText("tone.ogg").last()).toBeVisible();
-  const audioPlay = await lowest(page.getByRole("button", { name: "Play" }));
-  await expect(page.getByText("tone.ogg").last()).toBeVisible();
-  await expect(page.getByText("0:04", { exact: true }).last()).toBeVisible();
+  // The file just attached is the newest audio message: the last "tone.ogg" and, with it, the last Play button
+  // (the list is in reading order, so the newest bubble is last in the document).
+  await expect(page.getByText("tone.ogg", { exact: true }).last()).toBeVisible();
+  const audioPlay = page.getByRole("button", { name: "Play" }).last();
+  await expect(audioPlay).toBeVisible();
 
   await audioPlay.click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText(/^0:0[1-4] \/ 0:04$/).last()).toBeVisible({ timeout: 10000 }); // the position moves while it plays
+  // The bubble being played shows "position / length"; the length is that of the file we attached (4 s). Read it
+  // from that bubble, whichever others in the list have a length of their own.
+  // Poll for it rather than wait for one visible instant: the label is only there while the audio is playing.
+  await expect.poll(() => page.getByText(/^0:0[0-4] \/ 0:04$/).count(), { timeout: 10000, intervals: [100] }).toBeGreaterThan(0); // the position moves while it plays
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Play" }).last()).toBeVisible();
 
@@ -2420,4 +2435,112 @@ test("spaces: list rows, new space, contents slide over the list, more menu, add
   await expect(page.getByText("Leave this space?")).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Leave space" }).click();
   await expect(page.getByRole("button", { name: new RegExp(`^.*${name}`) })).toHaveCount(0, { timeout: 20000 });
+});
+
+test("chat scrolling is native: wheel events are not cancelled, it opens at the newest message, follows new ones, and keeps its place when history loads", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const scroller = () =>
+    page.evaluate(() => {
+      const el = [...document.querySelectorAll<HTMLElement>("*")].find(
+        (e) => e.scrollHeight > e.clientHeight + 20 && ["auto", "scroll"].includes(getComputedStyle(e).overflowY) && e.getBoundingClientRect().x > 300,
+      )!;
+      (window as unknown as { __chatScroller: HTMLElement }).__chatScroller = el;
+      return { top: el.scrollTop, height: el.scrollHeight, view: el.clientHeight, transform: getComputedStyle(el).transform };
+    });
+  const pos = () => page.evaluate(() => (window as unknown as { __chatScroller: HTMLElement }).__chatScroller.scrollTop);
+
+  // It is a plain scroller (no upside-down transform), opened at the newest message.
+  await expect.poll(async () => (await scroller()).height, { timeout: 15000 }).toBeGreaterThan(900);
+  const s = await scroller();
+  expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(s.transform); // not flipped upside down
+  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 10000 }).toBeLessThan(4);
+  // Rows are still being measured for a moment after the first jump to the bottom: take the reference once it is still.
+  let stable = "";
+  await expect
+    .poll(
+      async () => {
+        const n = JSON.stringify(await scroller());
+        const same = n === stable;
+        stable = n;
+        return same;
+      },
+      { intervals: [300], timeout: 10000 },
+    )
+    .toBe(true);
+  const settled = await scroller();
+
+  // The wheel is left to the browser: nothing cancels it (that cancelling is what removed momentum scrolling).
+  await page.evaluate(() => {
+    const w = window as unknown as { __wheelPrevented: boolean[] };
+    w.__wheelPrevented = [];
+    document.addEventListener("wheel", (e) => setTimeout(() => w.__wheelPrevented.push(e.defaultPrevented)), { passive: true });
+  });
+  await page.mouse.move(800, 400);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(pos, { timeout: 5000 }).toBeLessThan(settled.top - 100);
+  expect(await page.evaluate(() => (window as unknown as { __wheelPrevented: boolean[] }).__wheelPrevented)).toEqual([false]);
+
+  // Down is down and up is up, a wheel step moves by the wheel's distance.
+  const before = await pos();
+  await page.mouse.wheel(0, 120);
+  await expect.poll(pos, { timeout: 5000 }).toBeGreaterThan(before + 60);
+
+  // Following new messages: at the bottom, a new message keeps the view at the bottom.
+  await page.mouse.wheel(0, 5000);
+  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 5000 }).toBeLessThan(4);
+  const text = `follow ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  await expect(page.getByText(text, { exact: true }).last()).toBeVisible({ timeout: 20000 });
+  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 5000 }).toBeLessThan(4);
+  await expect(page.getByText(text, { exact: true }).last()).toBeInViewport();
+
+  // Scrolled away from the bottom, a new message does not drag the view down.
+  await page.mouse.wheel(0, -600);
+  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 5000 }).toBeGreaterThan(300);
+  const away = await pos();
+  await page.getByPlaceholder("Message").fill(`stay ${Date.now()}`);
+  await page.getByPlaceholder("Message").press("Enter");
+  await page.waitForTimeout(1500);
+  expect(Math.abs((await pos()) - away)).toBeLessThan(4);
+});
+
+test("chat scrolling: scrolling up loads older history without moving the view, and a search result jumps to its message", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "OhMatrix Dev");
+  await expect(page.getByText(/Backlog message #30/)).toBeVisible();
+  const welcome = page.getByText(/Welcome to the OhMatrix dev room/);
+
+  // Scroll to the top with the wheel. The oldest message comes into view and stays there: the list does not jump
+  // away from it when rows or history arrive.
+  await page.mouse.move(850, 400);
+  for (let i = 0; i < 40; i++) {
+    await page.mouse.wheel(0, -800);
+    await page.waitForTimeout(80);
+  }
+  await expect(welcome).toBeInViewport({ timeout: 10000 });
+  const first = (await welcome.boundingBox())!.y;
+  await page.waitForTimeout(1200);
+  expect(Math.abs((await welcome.boundingBox())!.y - first)).toBeLessThan(4);
+
+  // Back down: the newest message is reachable by scrolling down alone.
+  for (let i = 0; i < 40; i++) {
+    await page.mouse.wheel(0, 800);
+    await page.waitForTimeout(60);
+  }
+  await expect(page.getByText(/Backlog message #30/)).toBeInViewport({ timeout: 10000 });
+
+  // A search result jumps to its message in the middle of history and highlights it.
+  await page.getByRole("button", { name: "Search in this chat" }).click();
+  await page.getByPlaceholder("Search in this chat").fill("Backlog message #12");
+  await page
+    .getByRole("button", { name: /Backlog message #12/ })
+    .first()
+    .click();
+  await expect(page.getByLabel("Found message")).toBeInViewport({ timeout: 10000 });
 });
