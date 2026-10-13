@@ -332,12 +332,30 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
     if (unread > 0) void handle.current?.markRead().catch(() => {});
   }, [unread, lastItemId]);
 
-  // Newest first: the list is inverted so the latest message sits at the bottom and history loads upward.
-  const rows = useMemo(() => buildRows(items ?? [], Date.now(), locale, unreadFrom).reverse(), [items, locale, lastItemId, unreadFrom]);
+  // Oldest first, the way the page reads. (An `inverted` list flips the whole scroller upside down, and the web
+  // implementation then cancels every wheel event to turn it back: that loses the browser's own smooth and
+  // momentum scrolling. Staying at the bottom is done by hand below instead.)
+  const rows = useMemo(() => buildRows(items ?? [], Date.now(), locale, unreadFrom), [items, locale, lastItemId, unreadFrom]);
   const isGroup = !!room && !room.isDirect;
 
   const services = useServices();
   const listRef = useRef<FlatList<Row>>(null);
+  // Scroll bookkeeping. `pinned`: the view is at the bottom, so it follows new messages and late layout.
+  const scroll = useRef({ offset: 0, content: 0, view: 0, pinned: true, firstKey: "" as string, own: 0 });
+  const [shown, setShown] = useState(false); // hidden until the first jump to the newest message, so the oldest rows never flash
+  const BOTTOM_SLACK = 48;
+  // The list's scrollToEnd only knows an estimate for rows it has not measured yet, so it can stop well short of the
+  // end. On the web the scroller node has the exact height; elsewhere fall back to the list's own method.
+  const toBottom = () => {
+    const node = (listRef.current as unknown as { getScrollableNode?: () => { scrollTop: number; scrollHeight: number } } | null)?.getScrollableNode?.();
+    scroll.current.own = Date.now();
+    if (node && typeof node.scrollHeight === "number") node.scrollTop = node.scrollHeight;
+    else listRef.current?.scrollToEnd({ animated: false });
+  };
+  useEffect(() => {
+    // A chat with nothing in it never changes size, so there is no first jump to wait for.
+    if (!shown && items && rows.length === 0) setShown(true);
+  }, [items, rows.length, shown]);
   const [replying, setReplying] = useState<TimelineItem | null>(null);
   const [editing, setEditing] = useState<TimelineItem | null>(null);
   const [prefill, setPrefill] = useState<{ text: string; nonce: number; caret?: number }>();
@@ -394,6 +412,8 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
   const focus = useAppState((s) => s.focusEvent);
   const paginations = useRef(0);
   useEffect(() => {
+    scroll.current = { offset: 0, content: 0, view: 0, pinned: true, firstKey: "", own: 0 };
+    setShown(false);
     paginations.current = 0;
     setSearching(false);
     setTerm("");
@@ -408,15 +428,16 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
       return;
     }
     controller.clearFocusEvent();
+    scroll.current.pinned = false;
     setHighlightId(focus.eventId);
-    const scroll = (tries: number) => {
+    const jumpTo = (tries: number) => {
       try {
         listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
       } catch {
-        if (tries > 0) setTimeout(() => scroll(tries - 1), 250);
+        if (tries > 0) setTimeout(() => jumpTo(tries - 1), 250);
       }
     };
-    setTimeout(() => scroll(4), 50);
+    setTimeout(() => jumpTo(4), 50);
     setTimeout(() => setHighlightId((cur) => (cur === focus.eventId ? null : cur)), 3000);
   }, [focus, items, rows, props.roomId]);
 
@@ -514,17 +535,50 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
       )}
       <FlatList
         ref={listRef}
-        inverted
         onScrollToIndexFailed={({ index, averageItemLength }) => listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: true })}
         data={rows}
         keyExtractor={(r) => r.key}
         renderItem={renderRow}
-        style={{ flex: 1 }}
+        style={{ flex: 1, opacity: shown ? 1 : 0 }}
         contentContainerStyle={{ paddingVertical: 8 }}
-        onEndReachedThreshold={0.6}
-        onEndReached={() => void handle.current?.paginateBackwards().catch(() => {})}
+        // Older history is fetched as the top comes into view.
+        onStartReachedThreshold={0.6}
+        onStartReached={() => void handle.current?.paginateBackwards().catch(() => {})}
         keyboardShouldPersistTaps="handled"
         initialNumToRender={24}
+        scrollEventThrottle={16}
+        onLayout={(e) => {
+          scroll.current.view = e.nativeEvent.layout.height;
+        }}
+        onScroll={(e) => {
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+          const sc = scroll.current;
+          sc.offset = contentOffset.y;
+          sc.content = contentSize.height;
+          sc.view = layoutMeasurement.height;
+          const atBottom = contentSize.height - layoutMeasurement.height - contentOffset.y < BOTTOM_SLACK;
+          // The content grows in steps as rows are measured, and a step can arrive before our own jump to the new
+          // end has settled: that is not the reader leaving the bottom. Only a scroll we did not cause unpins.
+          if (atBottom) sc.pinned = true;
+          else if (Date.now() - sc.own > 250) sc.pinned = false;
+        }}
+        onContentSizeChange={(_w, h) => {
+          const sc = scroll.current;
+          const grew = h - sc.content;
+          const first = rowsRef.current[0]?.key ?? "";
+          const prepended = !!sc.firstKey && first !== sc.firstKey && grew > 0;
+          sc.content = h;
+          sc.firstKey = first;
+          if (sc.pinned) {
+            // At the bottom: stay there as messages arrive and rows settle to their real height.
+            toBottom();
+            if (!shown && rowsRef.current.length > 0) requestAnimationFrame(() => setShown(true));
+          } else if (prepended) {
+            // Older rows appeared above the viewport: move down by exactly what was added, so nothing jumps.
+            listRef.current?.scrollToOffset({ offset: sc.offset + grew, animated: false });
+            sc.offset += grew;
+          }
+        }}
       />
       <Composer
         placeholder={t("message")}
