@@ -29,6 +29,9 @@ import {
   type SearchPage,
   type SearchResult,
   type MemberRole,
+  type HistoryVisibility,
+  type PowerThresholds,
+  type JoinRule,
   type MediaOptions,
   type Profile,
   type UserSuggestion,
@@ -49,6 +52,7 @@ import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./atta
 import { probeMedia, type Probe } from "./probe.js";
 import { resolveHomeserver } from "./discovery.js";
 import { diffTimeline } from "./diff.js";
+import { aliasLocalpart, thresholdsOf } from "./roomSettings.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
 
 function wrap(e: unknown): EngineError {
@@ -58,13 +62,15 @@ function wrap(e: unknown): EngineError {
     code =
       e.errcode === "M_UNKNOWN_TOKEN"
         ? "unauthorized"
-        : e.errcode === "M_FORBIDDEN"
+        : e.errcode === "M_FORBIDDEN" || e.httpStatus === 403
           ? "forbidden"
           : e.errcode === "M_LIMIT_EXCEEDED"
             ? "rate_limited"
             : e.errcode === "M_NOT_FOUND"
               ? "not_found"
-              : "unknown";
+              : e.errcode === "M_ROOM_IN_USE" || e.httpStatus === 409
+                ? "conflict"
+                : "unknown";
   } else if (e instanceof TypeError || (e as Error)?.name === "ConnectionError") code = "network";
   return new EngineError(code, e instanceof Error ? e.message : String(e), e);
 }
@@ -196,6 +202,14 @@ async function linkPreviews(client: MatrixClient, body: string): Promise<Record<
   );
   const kept = previews.filter(Boolean);
   return kept.length ? { "com.beeper.linkpreviews": kept } : {};
+}
+
+/** Published addresses of a room: the main one first, then the alternatives. */
+function aliasState(room: Room | null): { main?: string; aliases: string[] } {
+  const c = (room?.currentState.getStateEvents(EventType.RoomCanonicalAlias, "")?.getContent() ?? {}) as { alias?: unknown; alt_aliases?: unknown };
+  const main = typeof c.alias === "string" && c.alias ? c.alias : undefined;
+  const alts = Array.isArray(c.alt_aliases) ? c.alt_aliases.filter((a): a is string => typeof a === "string") : [];
+  return { ...(main ? { main } : {}), aliases: [...(main ? [main] : []), ...alts.filter((a) => a !== main)] };
 }
 
 /** `m.mentions` block, only when there is something to mention. */
@@ -447,6 +461,81 @@ export class JsSdkEngine implements MatrixEngine {
     setRole: (roomId: RoomId, userId: string, role: MemberRole) =>
       guard(async () => {
         await this.requireClient().setPowerLevel(roomId, userId, ROLE_LEVEL[role]);
+      }),
+    setPower: (roomId: RoomId, userId: string, level: number) =>
+      guard(async () => {
+        if (!Number.isInteger(level) || level < -1000 || level > 1000) throw new EngineError("unknown", "invalid power level");
+        await this.requireClient().setPowerLevel(roomId, userId, level);
+      }),
+    setThresholds: (roomId: RoomId, patch: Partial<PowerThresholds>) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const room = c.getRoom(roomId);
+        const now = (room?.currentState.getStateEvents(EventType.RoomPowerLevels, "")?.getContent() ?? {}) as Record<string, unknown>;
+        const next: Record<string, unknown> = { ...now, events: { ...((now.events as object | undefined) ?? {}) } };
+        const set = (k: string, v: number | undefined) => v !== undefined && (next[k] = v);
+        set("invite", patch.invite);
+        set("kick", patch.kick);
+        set("ban", patch.ban);
+        set("redact", patch.redact);
+        set("events_default", patch.sendMessages);
+        set("state_default", patch.changeSettings);
+        if (patch.changeLevels !== undefined) (next.events as Record<string, number>)["m.room.power_levels"] = patch.changeLevels;
+        await c.sendStateEvent(roomId, EventType.RoomPowerLevels as never, next as never, "");
+      }),
+    ban: (roomId: RoomId, userId: string, reason?: string) =>
+      guard(async () => {
+        await this.requireClient().ban(roomId, userId, reason?.trim() || undefined);
+      }),
+    unban: (roomId: RoomId, userId: string) =>
+      guard(async () => {
+        await this.requireClient().unban(roomId, userId);
+      }),
+    setHistoryVisibility: (roomId: RoomId, visibility: HistoryVisibility) =>
+      guard(async () => {
+        await this.requireClient().sendStateEvent(roomId, EventType.RoomHistoryVisibility as never, { history_visibility: visibility } as never, "");
+      }),
+    setJoinRule: (roomId: RoomId, rule: "public" | "invite") =>
+      guard(async () => {
+        await this.requireClient().sendStateEvent(roomId, EventType.RoomJoinRules as never, { join_rule: rule } as never, "");
+      }),
+    addAlias: (roomId: RoomId, localpart: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const local = aliasLocalpart(localpart);
+        if (!/^[a-z0-9._=\-/+]+$/.test(local)) throw new EngineError("unknown", "invalid address");
+        const alias = `#${local}:${c.getDomain() ?? (c.getUserId() ?? "").split(":").slice(1).join(":")}`;
+        await c.createAlias(alias, roomId);
+        const cur = aliasState(c.getRoom(roomId));
+        const aliases = [...cur.aliases, alias];
+        await c.sendStateEvent(
+          roomId,
+          EventType.RoomCanonicalAlias as never,
+          { ...(cur.main ? { alias: cur.main } : { alias }), alt_aliases: aliases.filter((a) => a !== (cur.main ?? alias)) } as never,
+          "",
+        );
+        return alias;
+      }),
+    removeAlias: (roomId: RoomId, alias: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const cur = aliasState(c.getRoom(roomId));
+        const rest = cur.aliases.filter((a) => a !== alias);
+        const main = cur.main === alias ? rest[0] : cur.main;
+        await c.sendStateEvent(
+          roomId,
+          EventType.RoomCanonicalAlias as never,
+          { ...(main ? { alias: main } : {}), alt_aliases: rest.filter((a) => a !== main) } as never,
+          "",
+        );
+        await c.deleteAlias(alias).catch(() => {}); // only aliases created through the directory can be deleted; the rest are just unpublished
+      }),
+    setMainAlias: (roomId: RoomId, alias: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const cur = aliasState(c.getRoom(roomId));
+        if (!cur.aliases.includes(alias)) throw new EngineError("not_found", "unknown address");
+        await c.sendStateEvent(roomId, EventType.RoomCanonicalAlias as never, { alias, alt_aliases: cur.aliases.filter((a) => a !== alias) } as never, "");
       }),
   };
 
@@ -858,13 +947,24 @@ export class JsSdkEngine implements MatrixEngine {
               name: nameOf(m, m.userId),
               ...(avatar && { avatar }),
               role: roleOf(m.powerLevel),
+              power: m.powerLevel,
               ...(m.membership === "invite" && { invited: true }),
             } as RoomMember;
           })
           .sort((a, b) => Number(a.invited ?? false) - Number(b.invited ?? false) || a.name.localeCompare(b.name));
         const topic = room.currentState.getStateEvents("m.room.topic" as never, "")?.getContent().topic as string | undefined;
         const avatar = room.getMxcAvatarUrl() ?? undefined;
-        const alias = room.getCanonicalAlias() ?? undefined;
+        const { main, aliases } = aliasState(room);
+        const alias = main ?? room.getCanonicalAlias() ?? undefined;
+        const pl = thresholdsOf(room.currentState.getStateEvents(EventType.RoomPowerLevels, "")?.getContent());
+        const rule = (room.currentState.getStateEvents(EventType.RoomJoinRules, "")?.getContent().join_rule as string | undefined) ?? "invite";
+        const joinRule: JoinRule = rule === "public" || rule === "invite" || rule === "knock" || rule === "restricted" ? rule : "other";
+        const hv = room.currentState.getStateEvents(EventType.RoomHistoryVisibility, "")?.getContent().history_visibility as string | undefined;
+        const historyVisibility: HistoryVisibility = hv === "invited" || hv === "joined" || hv === "world_readable" ? hv : "shared";
+        const banned = room.getMembersWithMembership("ban").map((m) => {
+          const reason = m.events.member?.getContent().reason as string | undefined;
+          return { userId: m.userId, name: nameOf(m, m.userId), ...(reason && { reason }) };
+        });
         const summary = toRoomSummary(c, room);
         const me = c.getUserId() ?? "";
         const myPower = room.getMember(me)?.powerLevel ?? 0;
@@ -880,10 +980,17 @@ export class JsSdkEngine implements MatrixEngine {
           me,
           myRole: roleOf(myPower),
           pinnedEventIds: pinnedIds(room),
+          aliases: aliases.length ? aliases : alias ? [alias] : [],
+          joinRule,
+          historyVisibility,
+          levels: pl,
+          banned,
           can: {
             editInfo: manage && st.maySendStateEvent(EventType.RoomName, me) && st.maySendStateEvent(EventType.RoomTopic, me),
             invite: manage && st.hasSufficientPowerLevelFor("invite", myPower),
             kick: manage && st.hasSufficientPowerLevelFor("kick", myPower),
+            ban: manage && st.hasSufficientPowerLevelFor("ban", myPower),
+            changeSettings: manage && st.maySendStateEvent(EventType.RoomJoinRules, me) && st.maySendStateEvent(EventType.RoomHistoryVisibility, me),
             changeRoles: manage && st.maySendStateEvent(EventType.RoomPowerLevels, me),
             pin: manage && st.maySendStateEvent(EventType.RoomPinnedEvents, me),
           },

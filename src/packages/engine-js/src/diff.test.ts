@@ -27,3 +27,8 @@ test("prepend → reset", () => {
 test("no change → nothing", () => {
   expect(diffTimeline([it("1")], [it("1")])).toEqual([]);
 });
+test("pinning a message updates it in place", () => {
+  const pinned = { ...it("1"), pinned: true };
+  expect(diffTimeline([it("1")], [pinned])).toEqual([{ op: "set", index: 0, item: pinned }]);
+  expect(diffTimeline([pinned], [it("1")])).toEqual([{ op: "set", index: 0, item: it("1") }]);
+});

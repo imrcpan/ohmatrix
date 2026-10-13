@@ -2,6 +2,7 @@ export type EngineErrorCode =
   | "network" // transient, retry later
   | "unauthorized" // token invalid/expired or logged out remotely: force re-login
   | "forbidden"
+  | "conflict" // already exists (e.g. a room address that is taken)
   | "not_found"
   | "rate_limited"
   | "keys_lost" // this device's encryption keys are gone: it cannot be used any more, sign in again

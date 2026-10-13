@@ -760,3 +760,104 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   60000,
 );
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "room settings: ban and unban, custom power levels, thresholds, join rule, history visibility and addresses",
+  async () => {
+    const a = new JsSdkEngine({ cryptoStorage: "memory" });
+    const b = new JsSdkEngine({ cryptoStorage: "memory" });
+    await a.auth.loginWithPassword("http://localhost:8008", "alice", "123456");
+    await b.auth.loginWithPassword("http://localhost:8008", "bob", "123456");
+    let aRooms: RoomSummary[] = [],
+      bRooms: RoomSummary[] = [];
+    a.rooms.subscribe((u) => {
+      aRooms = applyUpdates(aRooms, u);
+    });
+    b.rooms.subscribe((u) => {
+      bRooms = applyUpdates(bRooms, u);
+    });
+    await a.sync.start();
+    await b.sync.start();
+    const room = await a.rooms.createGroup({ name: `Settings ${Date.now()}`, invite: ["@bob:localhost"] });
+    await expect.poll(() => bRooms.some((r) => r.id === room && r.invite), { timeout: 15000 }).toBe(true);
+    await b.rooms.acceptInvite(room);
+    await expect.poll(() => bRooms.some((r) => r.id === room && !r.invite), { timeout: 15000 }).toBe(true);
+    type Details = import("@ohmatrix/core").RoomDetails;
+    const da = { v: null as Details | null },
+      dbb = { v: null as Details | null };
+    a.rooms.subscribeDetails(room, (x) => {
+      da.v = x;
+    });
+    b.rooms.subscribeDetails(room, (x) => {
+      dbb.v = x;
+    });
+    await expect.poll(() => da.v?.members.filter((m) => !m.invited).length, { timeout: 15000 }).toBe(2);
+    await expect.poll(() => dbb.v?.members.length, { timeout: 15000 }).toBeGreaterThan(0);
+
+    // Defaults of a private group, and what a plain member may do.
+    expect(da.v).toMatchObject({
+      joinRule: "invite",
+      levels: { invite: 0, kick: 50, ban: 50, redact: 50, sendMessages: 0, changeSettings: 50 },
+      banned: [],
+      can: { ban: true, changeSettings: true },
+    });
+    expect(dbb.v).toMatchObject({ can: { ban: false, changeSettings: false } });
+    await expect(b.roomAdmin.setJoinRule(room, "public")).rejects.toMatchObject({ code: "forbidden" });
+
+    // Custom power level: shown as the raw number, role is the nearest named one at or below it.
+    await a.roomAdmin.setPower(room, "@bob:localhost", 25);
+    await expect.poll(() => da.v?.members.find((m) => m.userId === "@bob:localhost")?.power, { timeout: 10000 }).toBe(25);
+    expect(da.v?.members.find((m) => m.userId === "@bob:localhost")?.role).toBe("member");
+    await expect(a.roomAdmin.setPower(room, "@bob:localhost", 1.5)).rejects.toThrow();
+
+    // Thresholds: lower "kick" to 25 and bob (25) may now kick; raise it back and he may not.
+    await a.roomAdmin.setThresholds(room, { kick: 25, sendMessages: 10, redact: 75 });
+    await expect.poll(() => da.v?.levels.kick, { timeout: 10000 }).toBe(25);
+    expect(da.v?.levels).toMatchObject({ sendMessages: 10, redact: 75, ban: 50, invite: 0 });
+    await expect.poll(() => dbb.v?.can.kick, { timeout: 10000 }).toBe(true);
+    await a.roomAdmin.setThresholds(room, { kick: 100, sendMessages: 0, redact: 50 });
+    await expect.poll(() => dbb.v?.can.kick, { timeout: 10000 }).toBe(false);
+
+    // Join rule and history visibility.
+    await a.roomAdmin.setJoinRule(room, "public");
+    await expect.poll(() => da.v?.joinRule, { timeout: 10000 }).toBe("public");
+    await a.roomAdmin.setJoinRule(room, "invite");
+    await expect.poll(() => da.v?.joinRule, { timeout: 10000 }).toBe("invite");
+    await a.roomAdmin.setHistoryVisibility(room, "joined");
+    await expect.poll(() => da.v?.historyVisibility, { timeout: 10000 }).toBe("joined");
+
+    // Addresses: the first becomes the main one; a second is an alternative; taken addresses conflict.
+    const local = `settings-${Date.now().toString(36)}`;
+    const alias = await a.roomAdmin.addAlias(room, ` #${local.toUpperCase()} `);
+    expect(alias).toBe(`#${local}:localhost`);
+    await expect.poll(() => da.v?.alias, { timeout: 10000 }).toBe(alias);
+    const second = await a.roomAdmin.addAlias(room, `${local}-two`);
+    await expect.poll(() => da.v?.aliases, { timeout: 10000 }).toEqual([alias, second]);
+    await expect(a.roomAdmin.addAlias(room, local)).rejects.toMatchObject({ code: "conflict" });
+    await expect(a.roomAdmin.addAlias(room, "bad name!")).rejects.toThrow();
+    await a.roomAdmin.setMainAlias(room, second);
+    await expect.poll(() => da.v?.aliases[0], { timeout: 10000 }).toBe(second);
+    await a.roomAdmin.removeAlias(room, second);
+    await expect.poll(() => da.v?.aliases, { timeout: 10000 }).toEqual([alias]);
+    expect(da.v?.alias).toBe(alias);
+    await a.roomAdmin.removeAlias(room, alias);
+    await expect.poll(() => da.v?.aliases, { timeout: 10000 }).toEqual([]);
+
+    // Ban: bob is removed, listed as banned with the reason, and cannot rejoin until unbanned.
+    await a.roomAdmin.ban(room, "@bob:localhost", " spam ");
+    await expect.poll(() => da.v?.banned.map((x) => [x.userId, x.reason]), { timeout: 10000 }).toEqual([["@bob:localhost", "spam"]]);
+    expect(da.v?.members.some((m) => m.userId === "@bob:localhost")).toBe(false);
+    await expect.poll(() => bRooms.some((r) => r.id === room), { timeout: 15000 }).toBe(false);
+    await a.roomAdmin.setJoinRule(room, "public");
+    await expect(b.rooms.joinRoom(room)).rejects.toMatchObject({ code: "forbidden" });
+    await a.roomAdmin.unban(room, "@bob:localhost");
+    await expect.poll(() => da.v?.banned.length, { timeout: 10000 }).toBe(0);
+    await b.rooms.joinRoom(room);
+    await expect.poll(() => da.v?.members.some((m) => m.userId === "@bob:localhost"), { timeout: 15000 }).toBe(true);
+
+    await a.roomAdmin.kick(room, "@bob:localhost");
+    await a.sync.stop();
+    await b.sync.stop();
+  },
+  180000,
+);

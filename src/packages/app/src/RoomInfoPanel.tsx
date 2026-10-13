@@ -21,16 +21,27 @@ import {
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
+import { levelLabel, RoomSettingsSections } from "./RoomSettings.js";
 import { useMediaUrl } from "./useMedia.js";
 
-const RANK: Record<MemberRole, number> = { member: 0, moderator: 1, admin: 2 };
+const ROLE_POWER: Record<MemberRole, number> = { member: 0, moderator: 50, admin: 100 };
 
 function MemberRow(props: { member: RoomMember; last: boolean; onPress?: ((anchor: Anchor) => void) | undefined }) {
   const { colors } = useTheme();
   const t = useT();
   const m = props.member;
   const avatar = useMediaUrl(m.avatar, { width: 72, height: 72, fit: "crop" });
-  const tag = m.invited ? t("invited") : m.role === "admin" ? t("role.admin") : m.role === "moderator" ? t("role.moderator") : null;
+  const tag = m.invited
+    ? t("invited")
+    : m.power === 100 || !Number.isFinite(m.power)
+      ? t("role.admin")
+      : m.power === 50
+        ? t("role.moderator")
+        : m.power > 100
+          ? levelLabel(m.power, t)
+          : m.power > 0
+            ? t("level.custom", { n: m.power })
+            : null;
   const body = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: 14, minHeight: 54 }}>
       <Avatar id={m.userId} name={m.name} size={36} src={avatar} />
@@ -109,6 +120,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [inviting, setInviting] = useState(false);
   const [menu, setMenu] = useState<{ member: RoomMember; anchor: Anchor } | null>(null);
   const [removing, setRemoving] = useState<RoomMember | null>(null);
+  const [leveling, setLeveling] = useState<RoomMember | null>(null);
+  const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [gridWidth, setGridWidth] = useState(300);
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
@@ -138,13 +151,16 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const close = () => controller.openRoomInfo(false);
   const report = (e: unknown) => setProblem(e instanceof EngineError && e.code === "forbidden" ? t("notAllowed") : e instanceof Error ? e.message : String(e));
 
-  const manageable = (m: RoomMember) => !!d && m.userId !== d.me && RANK[m.role] < RANK[d.myRole];
+  const myPower = d?.members.find((m) => m.userId === d.me)?.power ?? 0;
+  const maxLevel = Number.isFinite(myPower) ? myPower : 1000;
+  // You can only manage people below your own level (the server enforces the same rule).
+  const manageable = (m: RoomMember) => !!d && m.userId !== d.me && m.power < myPower;
   const memberMenu = (m: RoomMember): MenuItem[] => {
     if (!d) return [];
     const out: MenuItem[] = [];
     if (d.can.changeRoles && !m.invited) {
       (["admin", "moderator", "member"] as const)
-        .filter((r) => r !== m.role && RANK[r] <= RANK[d.myRole])
+        .filter((r) => ROLE_POWER[r] !== m.power && ROLE_POWER[r] <= myPower)
         .forEach((role) =>
           out.push({
             label: t(role === "admin" ? "makeAdmin" : role === "moderator" ? "makeModerator" : "makeMember"),
@@ -153,7 +169,9 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
           }),
         );
     }
+    if (d.can.changeRoles && !m.invited) out.push({ label: t("setLevel"), icon: "edit", onPress: () => setLeveling(m) });
     if (d.can.kick) out.push({ label: t(m.invited ? "withdrawInvite" : "removeMember"), icon: "close", danger: true, onPress: () => setRemoving(m) });
+    if (d.can.ban) out.push({ label: t("ban"), icon: "trash", danger: true, onPress: () => setBanning(m) });
     return out;
   };
 
@@ -208,6 +226,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 last
               />
             </Section>
+            {!direct && <RoomSettingsSections d={d} report={report} />}
             <Section>
               <Row
                 label={t("mute")}
@@ -307,6 +326,31 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         fields={[{ label: t("room.editTopic"), optional: true, multiline: true }]}
         onClose={() => setEdit(null)}
         onConfirm={([v]) => controller.roomAdmin.setTopic(props.roomId, v ?? "")}
+      />
+      <PromptDialog
+        visible={!!leveling}
+        title={t("setLevel")}
+        message={t("level.custom.body", { max: maxLevel })}
+        confirmLabel={t("save")}
+        initial={[String(leveling?.power ?? 0)]}
+        fields={[{ label: t("level.field") }]}
+        onClose={() => setLeveling(null)}
+        onConfirm={async ([v]) => {
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 0 || n > maxLevel) throw new Error(t("level.invalid", { max: maxLevel }));
+          if (leveling && d) await controller.roomAdmin.setPower(d.id, leveling.userId, n);
+        }}
+      />
+      <PromptDialog
+        visible={!!banning}
+        title={banning ? t("ban.title", { name: banning.name }) : ""}
+        message={t("ban.body")}
+        confirmLabel={t("ban")}
+        fields={[{ label: t("ban.reason"), optional: true }]}
+        onClose={() => setBanning(null)}
+        onConfirm={async ([v]) => {
+          if (banning && d) await controller.roomAdmin.ban(d.id, banning.userId, v);
+        }}
       />
       <InviteDialog visible={inviting} roomId={props.roomId} onClose={() => setInviting(false)} />
       <Dialog
