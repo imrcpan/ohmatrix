@@ -2177,3 +2177,103 @@ test("mention autocomplete: opens at any @ not glued to a letter or digit, inclu
   await field.pressSequentially("X");
   await expect(field).toHaveValue(/^hello @\S+ X {1}world$/);
 });
+
+test("room settings: access, history, addresses, permission levels, custom power level, ban and unban", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await login(page);
+  const name = `Perm ${Date.now().toString(36)}`;
+  await page.evaluate(async (name) => {
+    const c = (window as unknown as { __ohmatrix: { controller: { createGroup(n: string, i: string[]): Promise<void> } } }).__ohmatrix.controller;
+    await c.createGroup(name, ["@bob:localhost"]);
+  }, name);
+  await expect(page.getByRole("button", { name: "Chat info" })).toBeVisible({ timeout: 20000 });
+  // bob accepts the invitation from his own session, so he is a real member whose level can be changed.
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const bob = await ctx.newPage();
+  await loginAs(bob, "bob", "123456");
+  await expect(bob.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await bob.evaluate(async (name) => {
+    const c = (
+      window as unknown as {
+        __ohmatrix: {
+          controller: { store: { getState(): { rooms: { id: string; name: string; invite?: unknown }[] } }; acceptInvite(id: string): Promise<void> };
+        };
+      }
+    ).__ohmatrix.controller;
+    const deadline = Date.now() + 20000;
+    for (;;) {
+      const r = c.store.getState().rooms.find((x) => x.name === name && x.invite);
+      if (r) return c.acceptInvite(r.id);
+      if (Date.now() > deadline) throw new Error("invite never arrived");
+      await new Promise((res) => setTimeout(res, 300));
+    }
+  }, name);
+  await page.getByRole("button", { name: "Chat info", exact: true }).click();
+  await expect(page.getByText("2 members").first()).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("Access", { exact: true })).toBeVisible({ timeout: 10000 });
+
+  // Join rule and history visibility: dropdowns that apply at once.
+  const row = (label: string) => page.getByRole("button", { name: new RegExp(`^${label}`) });
+  await expect(row("Who can join")).toContainText("Invited people only");
+  await row("Who can join").click();
+  await page.getByRole("menuitem", { name: "Anyone", exact: true }).click();
+  await expect(row("Who can join")).toContainText("Anyone", { timeout: 10000 });
+  await expect(page.getByText("Anyone who finds the room can join it.")).toBeVisible();
+  await row("History visible to").click();
+  await page.getByRole("menuitem", { name: "Members, from joining" }).click();
+  await expect(row("History visible to")).toContainText("from joining", { timeout: 10000 });
+  await shot(page, "63-room-access");
+
+  // Addresses: the first is the main one; a taken address is explained.
+  const local = `perm-${Date.now().toString(36)}`;
+  await page.getByRole("button", { name: "Add address" }).click();
+  await page.getByRole("dialog").locator("input").fill(local);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText(`#${local}:localhost`).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Main", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add address" }).click();
+  await page.getByRole("dialog").locator("input").fill(local);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText("That address is already taken.")).toBeVisible({ timeout: 10000 });
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await shot(page, "64-room-addresses");
+
+  // Permission levels: pick a preset, then a custom number.
+  await expect(row("Who can remove people")).toContainText("Moderator · 50");
+  await row("Who can remove people").click();
+  await page.getByRole("menuitem", { name: "Custom level…" }).click();
+  await expect(page.getByRole("dialog").locator("input")).toHaveValue("50");
+  await page.getByRole("dialog").locator("input").fill("25");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(row("Who can remove people")).toContainText("Level 25", { timeout: 10000 });
+  await row("Who can send messages").click();
+  await page.getByRole("menuitem", { name: "Moderator · 50" }).click();
+  await expect(row("Who can send messages")).toContainText("Moderator · 50", { timeout: 10000 });
+  await row("Who can send messages").click();
+  await page.getByRole("menuitem", { name: "Member · 0" }).click();
+  await expect(row("Who can send messages")).toContainText("Member · 0", { timeout: 10000 });
+  await shot(page, "65-room-permissions");
+
+  // A custom power level for a person, then ban and unban.
+  await page.getByRole("button", { name: "bob", exact: true }).first().click();
+  await page.getByRole("menuitem", { name: "Make moderator" }).click();
+  await expect(page.getByText("Moderator", { exact: true }).first()).toBeVisible({ timeout: 10000 });
+  await page.getByRole("button", { name: "bob", exact: true }).first().click();
+  await page.getByRole("menuitem", { name: "Set power level…" }).click();
+  await expect(page.getByRole("dialog").locator("input")).toHaveValue("50");
+  await page.getByRole("dialog").locator("input").fill("30");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Level 30")).toBeVisible({ timeout: 10000 });
+  await page.getByRole("button", { name: "bob", exact: true }).first().click();
+  await page.getByRole("menuitem", { name: "Ban", exact: true }).click();
+  await expect(page.getByRole("dialog").locator("input")).toHaveValue("");
+  await page.getByRole("dialog").locator("input").fill("spam");
+  await page.getByRole("button", { name: "Ban", exact: true }).click();
+  await expect(page.getByText(/^Banned · 1$/)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("@bob:localhost · spam")).toBeVisible();
+  await shot(page, "66-room-banned");
+  await page.getByRole("button", { name: /^bob/ }).filter({ hasText: "spam" }).click();
+  await page.getByRole("menuitem", { name: "Unban" }).click();
+  await expect(page.getByText(/^Banned/)).toHaveCount(0, { timeout: 10000 });
+  await ctx.close();
+});

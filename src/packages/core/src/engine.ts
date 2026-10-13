@@ -1,6 +1,8 @@
 import type { ListUpdate } from "./diff.js";
 import type {
   AttachmentSource,
+  HistoryVisibility,
+  PowerThresholds,
   DeviceInfo,
   SearchPage,
   MemberRole,
@@ -115,6 +117,24 @@ export interface RoomAdminApi {
   /** Remove a member, or withdraw a pending invitation. */
   kick(roomId: RoomId, userId: UserId): Promise<void>;
   setRole(roomId: RoomId, userId: UserId, role: MemberRole): Promise<void>;
+  /** Give someone any power level (0..100 are the usual range; a custom level such as 25 is allowed). */
+  setPower(roomId: RoomId, userId: UserId, level: number): Promise<void>;
+  /** Change what each action requires. Only the given fields change. */
+  setThresholds(roomId: RoomId, patch: Partial<PowerThresholds>): Promise<void>;
+  /** Ban someone: they are removed and cannot rejoin until unbanned. Works on people who already left. */
+  ban(roomId: RoomId, userId: UserId, reason?: string): Promise<void>;
+  unban(roomId: RoomId, userId: UserId): Promise<void>;
+  setHistoryVisibility(roomId: RoomId, visibility: HistoryVisibility): Promise<void>;
+  /** Make the room public (anyone can join) or invite-only. */
+  setJoinRule(roomId: RoomId, rule: "public" | "invite"): Promise<void>;
+  /**
+   * Publish `#localpart:server` for the room (and make it the main address when there is none). Rejects with
+   * "conflict" when the address is taken and "forbidden" when the server disallows it.
+   */
+  addAlias(roomId: RoomId, localpart: string): Promise<string>;
+  removeAlias(roomId: RoomId, alias: string): Promise<void>;
+  /** Choose which published address is the main one. */
+  setMainAlias(roomId: RoomId, alias: string): Promise<void>;
 }
 
 export interface SearchApi {

@@ -62,6 +62,15 @@ export class MockEngine implements MatrixEngine {
     invite: async () => {},
     kick: async () => {},
     setRole: async () => {},
+    setPower: async () => {},
+    setThresholds: async () => {},
+    ban: async () => {},
+    unban: async () => {},
+    setHistoryVisibility: async () => {},
+    setJoinRule: async () => {},
+    addAlias: async (_r: string, localpart: string) => `#${localpart}:mock`,
+    removeAlias: async () => {},
+    setMainAlias: async () => {},
   };
 
   readonly devices = {
@@ -128,9 +137,14 @@ export class MockEngine implements MatrixEngine {
           members: [],
           muted: false,
           pinnedEventIds: [],
+          aliases: [],
+          joinRule: "invite" as const,
+          historyVisibility: "shared" as const,
+          levels: { invite: 0, kick: 50, ban: 50, redact: 50, sendMessages: 0, changeSettings: 50, changeLevels: 100 },
+          banned: [],
           me: this.me,
           myRole: "admin",
-          can: { editInfo: false, invite: false, kick: false, changeRoles: false, pin: false },
+          can: { editInfo: false, invite: false, kick: false, ban: false, changeRoles: false, pin: false, changeSettings: false },
         });
       return () => {};
     },

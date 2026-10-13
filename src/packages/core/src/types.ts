@@ -224,8 +224,37 @@ export interface RoomMember {
   name: string;
   avatar?: MxcUri;
   role: MemberRole;
+  /** The raw power level; `role` is the nearest named level at or below it. Custom levels (e.g. 25) show as the number. */
+  power: number;
   /** Invited people are listed but have not joined yet. */
   invited?: boolean;
+}
+
+/** Who can read the room's history: from now on for new members (`joined`), from their invite, all of it, or anyone. */
+export type HistoryVisibility = "shared" | "invited" | "joined" | "world_readable";
+
+/** How people get in. `knock` and `restricted` exist on servers but are only shown, not offered. */
+export type JoinRule = "public" | "invite" | "knock" | "restricted" | "other";
+
+/** The power level an action needs (m.room.power_levels). Anyone at or above it may do the action. */
+export interface PowerThresholds {
+  invite: number;
+  kick: number;
+  ban: number;
+  /** Delete other people's messages. */
+  redact: number;
+  /** Send messages and reactions. */
+  sendMessages: number;
+  /** Change room settings: name, topic, avatar, history, join rule, addresses. */
+  changeSettings: number;
+  /** Change the levels themselves. */
+  changeLevels: number;
+}
+
+export interface BannedMember {
+  userId: UserId;
+  name: string;
+  reason?: string;
 }
 
 /** Everything the chat-info panel shows. */
@@ -234,8 +263,14 @@ export interface RoomDetails {
   name: string;
   topic?: string;
   avatar?: MxcUri;
-  /** Canonical alias like #room:server, when the room has one. */
+  /** Canonical (main) alias like #room:server, when the room has one. */
   alias?: string;
+  /** All published addresses of the room, the main one first. */
+  aliases: string[];
+  joinRule: JoinRule;
+  historyVisibility: HistoryVisibility;
+  levels: PowerThresholds;
+  banned: BannedMember[];
   isDirect: boolean;
   isEncrypted: boolean;
   members: RoomMember[];
@@ -246,7 +281,16 @@ export interface RoomDetails {
   /** Event ids pinned in the room, newest last. */
   pinnedEventIds: EventId[];
   /** What I am allowed to do here, according to the room's power levels. */
-  can: { editInfo: boolean; invite: boolean; kick: boolean; changeRoles: boolean; pin: boolean };
+  can: {
+    editInfo: boolean;
+    invite: boolean;
+    kick: boolean;
+    ban: boolean;
+    changeRoles: boolean;
+    pin: boolean;
+    /** Join rule, history visibility and addresses. */
+    changeSettings: boolean;
+  };
 }
 
 /** A person found in the user directory (or looked up by full user id). */
