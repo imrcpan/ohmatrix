@@ -1,5 +1,8 @@
 import { useRef } from "react";
-import { Modal, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
+import { ScaleRoot } from "./Scale.js";
+import { useScale } from "./viewport.js";
+import { useUnzoom, useViewport } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
 import { fontFamily, popoverShadow, useTheme } from "./theme.js";
 
@@ -27,11 +30,14 @@ const ROW = 36;
  */
 export function Menu(props: { visible: boolean; anchor: Anchor | null; items: MenuItem[]; onClose: () => void; alignRight?: boolean }) {
   const { colors, dark } = useTheme();
-  const win = useWindowDimensions();
+  const win = useViewport();
+  const scale = useScale();
+  const un = useUnzoom();
   // Keep the last position while the fade-out runs (closing clears the anchor).
   const last = useRef<Anchor | null>(props.anchor);
   if (props.anchor) last.current = props.anchor;
-  const a = props.anchor ?? last.current ?? { x: 0, y: 0, width: 0, height: 0 };
+  const raw = props.anchor ?? last.current ?? { x: 0, y: 0, width: 0, height: 0 };
+  const a = { x: un(raw.x), y: un(raw.y), width: un(raw.width), height: un(raw.height) };
   const h = props.items.length * ROW + 4;
   const rawLeft = props.alignRight ? a.x + a.width - MENU_WIDTH : a.x;
   const left = Math.max(8, Math.min(rawLeft, win.width - MENU_WIDTH - 8));
@@ -39,44 +45,46 @@ export function Menu(props: { visible: boolean; anchor: Anchor | null; items: Me
   const top = below + h > win.height - 8 ? Math.max(8, a.y - h - 6) : below;
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
-      <Pressable
-        style={{ flex: 1 }}
-        onPress={props.onClose}
-        {...({
-          onContextMenu: (e: { preventDefault(): void }) => {
-            e.preventDefault();
-            props.onClose();
-          },
-        } as object)}
-      >
-        <View style={[{ position: "absolute", left, top, width: MENU_WIDTH, padding: 2, borderRadius: 12, backgroundColor: colors.bg }, popoverShadow(dark)]}>
-          {props.items.map((it) => (
-            <Pressable
-              key={it.label}
-              accessibilityRole="menuitem"
-              accessibilityLabel={it.label}
-              accessibilityState={{ checked: !!it.checked }}
-              onPress={() => {
-                props.onClose();
-                it.onPress();
-              }}
-              style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                height: ROW,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                paddingHorizontal: 14,
-                borderRadius: 10,
-                backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-              })}
-            >
-              {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
-              <Text style={{ flex: 1, fontSize: 15, fontFamily, color: it.danger ? colors.danger : colors.text }}>{it.label}</Text>
-              {it.checked && <Icon name="check" size={18} color={colors.accent} />}
-            </Pressable>
-          ))}
-        </View>
-      </Pressable>
+      <ScaleRoot scale={scale}>
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={props.onClose}
+          {...({
+            onContextMenu: (e: { preventDefault(): void }) => {
+              e.preventDefault();
+              props.onClose();
+            },
+          } as object)}
+        >
+          <View style={[{ position: "absolute", left, top, width: MENU_WIDTH, padding: 2, borderRadius: 12, backgroundColor: colors.bg }, popoverShadow(dark)]}>
+            {props.items.map((it) => (
+              <Pressable
+                key={it.label}
+                accessibilityRole="menuitem"
+                accessibilityLabel={it.label}
+                accessibilityState={{ checked: !!it.checked }}
+                onPress={() => {
+                  props.onClose();
+                  it.onPress();
+                }}
+                style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                  height: ROW,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                })}
+              >
+                {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
+                <Text style={{ flex: 1, fontSize: 15, fontFamily, color: it.danger ? colors.danger : colors.text }}>{it.label}</Text>
+                {it.checked && <Icon name="check" size={18} color={colors.accent} />}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </ScaleRoot>
     </Modal>
   );
 }

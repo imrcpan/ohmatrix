@@ -1,5 +1,5 @@
 import { ActivityIndicator, View } from "react-native";
-import { ThemeProvider, useTheme } from "@ohmatrix/ui";
+import { ScaleProvider, ThemeProvider, useTheme } from "@ohmatrix/ui";
 import type { ReactNode } from "react";
 import type { PlatformServices } from "@ohmatrix/core";
 import type { AppController } from "@ohmatrix/state";
@@ -47,5 +47,10 @@ export function App(props: { controller: AppController; services: PlatformServic
 
 function Themed({ children }: { children: ReactNode }) {
   const themeId = useAppState((s) => s.prefs.theme);
-  return <ThemeProvider themeId={themeId}>{children}</ThemeProvider>;
+  const scale = useAppState((s) => s.prefs.uiScale);
+  return (
+    <ThemeProvider themeId={themeId}>
+      <ScaleProvider scale={scale}>{children}</ScaleProvider>
+    </ThemeProvider>
+  );
 }

@@ -5,6 +5,8 @@ import { useAppState, useController, useLocale, useServices, useT } from "./cont
 import { ThemeGrid } from "./ThemeGrid.js";
 
 /** Language names are shown in their own language on purpose and are not translated. */
+const SCALES = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
+
 const LANGUAGES = [
   { id: "en", label: "English" },
   { id: "zh-CN", label: "简体中文" },
@@ -22,6 +24,9 @@ export function SettingsPage() {
   const langRef = useRef<ComponentRef<typeof View>>(null);
   const [langAnchor, setLangAnchor] = useState<Anchor | null>(null);
   const [langMenu, setLangMenu] = useState(false);
+  const scaleRef = useRef<ComponentRef<typeof View>>(null);
+  const [scaleAnchor, setScaleAnchor] = useState<Anchor | null>(null);
+  const [scaleMenu, setScaleMenu] = useState(false);
   const current = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
 
   return (
@@ -43,6 +48,23 @@ export function SettingsPage() {
                 langRef.current?.measureInWindow((x, y, width, height) => {
                   setLangAnchor({ x, y, width, height });
                   setLangMenu(true);
+                })
+              }
+            />
+          </View>
+        </Section>
+        <Section footer={t("zoom.footer")}>
+          <View ref={scaleRef}>
+            <Row
+              label={t("zoom")}
+              value={`${Math.round(prefs.uiScale * 100)}%`}
+              last
+              chevron={false}
+              right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
+              onPress={() =>
+                scaleRef.current?.measureInWindow((x, y, width, height) => {
+                  setScaleAnchor({ x, y, width, height });
+                  setScaleMenu(true);
                 })
               }
             />
@@ -103,6 +125,17 @@ export function SettingsPage() {
         alignRight
         onClose={() => setLangMenu(false)}
         items={LANGUAGES.map((l) => ({ label: l.label, checked: l.id === locale, onPress: () => controller.setPreferences({ locale: l.id }) }))}
+      />
+      <Menu
+        visible={scaleMenu}
+        anchor={scaleAnchor}
+        alignRight
+        onClose={() => setScaleMenu(false)}
+        items={SCALES.map((v) => ({
+          label: `${Math.round(v * 100)}%`,
+          checked: v === prefs.uiScale,
+          onPress: () => controller.setPreferences({ uiScale: v }),
+        }))}
       />
       <Dialog visible={confirm} title={t("signOut.title")} message={t("signOut.body")} onClose={() => setConfirm(false)}>
         <PrimaryButton

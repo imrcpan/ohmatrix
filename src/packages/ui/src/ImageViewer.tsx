@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Modal, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Image, Modal, PanResponder, Pressable, Text, View } from "react-native";
+import { ScaleRoot } from "./Scale.js";
+import { useScale } from "./viewport.js";
+import { useViewport } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
 import { fontFamily } from "./theme.js";
 
@@ -53,7 +56,8 @@ export function ImageViewer(props: {
   height?: number | undefined;
   labels?: { close: string; zoomIn: string; zoomOut: string; fit: string };
 }) {
-  const win = useWindowDimensions();
+  const win = useViewport();
+  const uiScale = useScale();
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(
@@ -132,82 +136,84 @@ export function ImageViewer(props: {
 
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
-      {/* The mask: dims what is behind instead of covering it with a flat colour. */}
-      <Pressable
-        accessibilityLabel="Viewer backdrop"
-        onPress={props.onClose}
-        {...({ onWheel: (e: { deltaY: number; preventDefault?: () => void }) => zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1) } as object)}
-        style={[
-          { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-          { cursor: "default" } as object,
-        ]}
-      >
+      <ScaleRoot scale={uiScale}>
+        {/* The mask: dims what is behind instead of covering it with a flat colour. */}
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Photo: ${props.title ?? ""}`}
-          onPress={onImagePress}
-          {...responder.panHandlers}
+          accessibilityLabel="Viewer backdrop"
+          onPress={props.onClose}
+          {...({ onWheel: (e: { deltaY: number; preventDefault?: () => void }) => zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1) } as object)}
           style={[
-            { width: base.width, height: base.height, transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] },
-            { cursor: scale > 1 ? "grab" : "zoom-in" } as object,
+            { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+            { cursor: "default" } as object,
           ]}
         >
-          {props.previewUri && !ready && (
-            <Image source={{ uri: props.previewUri }} resizeMode="contain" style={{ position: "absolute", width: "100%", height: "100%" }} />
-          )}
-          {props.uri && (
-            <Image
-              source={{ uri: props.uri }}
-              resizeMode="contain"
-              style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
-              onLoad={(e) => {
-                const s = e.nativeEvent.source as { width?: number; height?: number } | undefined;
-                if (!natural && s?.width && s?.height) setNatural({ width: s.width, height: s.height });
-                setReady(true);
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Photo: ${props.title ?? ""}`}
+            onPress={onImagePress}
+            {...responder.panHandlers}
+            style={[
+              { width: base.width, height: base.height, transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] },
+              { cursor: scale > 1 ? "grab" : "zoom-in" } as object,
+            ]}
+          >
+            {props.previewUri && !ready && (
+              <Image source={{ uri: props.previewUri }} resizeMode="contain" style={{ position: "absolute", width: "100%", height: "100%" }} />
+            )}
+            {props.uri && (
+              <Image
+                source={{ uri: props.uri }}
+                resizeMode="contain"
+                style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
+                onLoad={(e) => {
+                  const s = e.nativeEvent.source as { width?: number; height?: number } | undefined;
+                  if (!natural && s?.width && s?.height) setNatural({ width: s.width, height: s.height });
+                  setReady(true);
+                }}
+              />
+            )}
+            {!ready && !props.previewUri && (
+              <View style={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" } as object}>
+                <ActivityIndicator color="#FFFFFF" />
+              </View>
+            )}
+          </Pressable>
+
+          <View style={{ position: "absolute", top: 16, right: 16 }}>
+            <View style={{ borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
+              <Control icon="close" label={labels.close} onPress={props.onClose} />
+            </View>
+          </View>
+          <Pressable
+            onPress={() => {}}
+            style={{
+              position: "absolute",
+              bottom: 22,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 2,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 26,
+              backgroundColor: "rgba(0,0,0,0.5)",
+            }}
+          >
+            <Control icon="zoomOut" label={labels.zoomOut} onPress={() => zoom(1 / STEP)} />
+            <Text accessibilityLabel="Zoom level" style={{ minWidth: 52, textAlign: "center", fontSize: 14, fontFamily, color: "#FFFFFF" }}>
+              {Math.round(scale * 100)}%
+            </Text>
+            <Control icon="zoomIn" label={labels.zoomIn} onPress={() => zoom(STEP)} />
+            <Control
+              icon="fit"
+              label={labels.fit}
+              onPress={() => {
+                setScale(1);
+                setPan({ x: 0, y: 0 });
               }}
             />
-          )}
-          {!ready && !props.previewUri && (
-            <View style={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" } as object}>
-              <ActivityIndicator color="#FFFFFF" />
-            </View>
-          )}
+          </Pressable>
         </Pressable>
-
-        <View style={{ position: "absolute", top: 16, right: 16 }}>
-          <View style={{ borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
-            <Control icon="close" label={labels.close} onPress={props.onClose} />
-          </View>
-        </View>
-        <Pressable
-          onPress={() => {}}
-          style={{
-            position: "absolute",
-            bottom: 22,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 2,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 26,
-            backgroundColor: "rgba(0,0,0,0.5)",
-          }}
-        >
-          <Control icon="zoomOut" label={labels.zoomOut} onPress={() => zoom(1 / STEP)} />
-          <Text accessibilityLabel="Zoom level" style={{ minWidth: 52, textAlign: "center", fontSize: 14, fontFamily, color: "#FFFFFF" }}>
-            {Math.round(scale * 100)}%
-          </Text>
-          <Control icon="zoomIn" label={labels.zoomIn} onPress={() => zoom(STEP)} />
-          <Control
-            icon="fit"
-            label={labels.fit}
-            onPress={() => {
-              setScale(1);
-              setPan({ x: 0, y: 0 });
-            }}
-          />
-        </Pressable>
-      </Pressable>
+      </ScaleRoot>
     </Modal>
   );
 }

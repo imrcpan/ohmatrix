@@ -155,13 +155,22 @@ export interface Preferences {
   locale: "en" | "zh-CN" | null;
   /** Landscape chat-list width in px; null = automatic. */
   sidebarWidth: number | null;
+  /** Whole-interface zoom factor (1 = 100%). */
+  uiScale: number;
   /** Show system notifications for new messages (opt-in; needs the OS permission). */
   notifications: boolean;
   /** Include the message text in notifications (off = just "New message"). */
   notificationPreview: boolean;
 }
 
-export const DEFAULT_PREFERENCES: Preferences = { theme: "system", locale: null, sidebarWidth: null, notifications: false, notificationPreview: true };
+export const DEFAULT_PREFERENCES: Preferences = {
+  theme: "system",
+  locale: null,
+  sidebarWidth: null,
+  uiScale: 1,
+  notifications: false,
+  notificationPreview: true,
+};
 
 /** The signed-in user's own profile. */
 export interface Profile {

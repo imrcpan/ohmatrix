@@ -55,11 +55,18 @@ test("preferences load on bootstrap and persist on change", async () => {
     },
   });
   await app.bootstrap();
-  expect(app.store.getState().prefs).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: null, notifications: false, notificationPreview: true });
+  expect(app.store.getState().prefs).toEqual({
+    theme: "sakura",
+    locale: "zh-CN",
+    sidebarWidth: null,
+    uiScale: 1,
+    notifications: false,
+    notificationPreview: true,
+  });
   app.setPreferences({ sidebarWidth: 400 });
   await Promise.resolve();
   await Promise.resolve();
-  expect(saved).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: 400, notifications: false, notificationPreview: true });
+  expect(saved).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: 400, uiScale: 1, notifications: false, notificationPreview: true });
 });
 
 test("totalUnread counts notifying chats, manual marks once, and skips muted chats and invites", () => {
