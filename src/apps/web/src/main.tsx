@@ -33,6 +33,7 @@ const services: PlatformServices = {
   notifications: createWebNotifications(),
   recordMedia: openRecorder,
   receiveFiles,
+  copyText: (text) => navigator.clipboard.writeText(text),
   pickFiles: () =>
     new Promise<AttachmentSource[]>((resolve) => {
       const input = document.createElement("input");

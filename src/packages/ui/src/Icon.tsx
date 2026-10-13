@@ -49,11 +49,20 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS;
 
+/** Line weight per icon. The three dots of "more" are drawn as round-capped points, so their stroke is their diameter: 2 reads as specks next to outlined icons. */
+const WEIGHT: Partial<Record<IconName, number>> = { more: 4.2 };
+
 export function Icon(props: { name: IconName; size?: number; color: string; strokeWidth?: number }) {
   const s = props.size ?? 22;
   return (
     <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-      <Path d={PATHS[props.name]} stroke={props.color} strokeWidth={props.strokeWidth ?? 2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d={PATHS[props.name]}
+        stroke={props.color}
+        strokeWidth={props.strokeWidth ?? WEIGHT[props.name] ?? 2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }

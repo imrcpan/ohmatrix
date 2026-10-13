@@ -9,9 +9,13 @@ function initials(name: string): string {
   return chars.join("").toUpperCase() || "?";
 }
 
-/** Circular avatar with deterministic colour + initials (no remote images yet). */
-export function Avatar(props: { id: string; name: string; size?: number; src?: string | undefined }) {
+/**
+ * Avatar for a person or a room. `shape` is a circle for chats and people, and a rounded square for spaces
+ * (Telegram uses the same distinction between a chat and a folder-like container).
+ */
+export function Avatar(props: { id: string; name: string; size?: number; src?: string | undefined; shape?: "circle" | "square" }) {
   const size = props.size ?? 52;
+  const radius = props.shape === "square" ? Math.round(size * 0.28) : size / 2;
   const [failed, setFailed] = useState<string | null>(null);
   if (props.src && failed !== props.src) {
     return (
@@ -19,12 +23,12 @@ export function Avatar(props: { id: string; name: string; size?: number; src?: s
         source={{ uri: props.src }}
         onError={() => setFailed(props.src ?? null)}
         accessibilityLabel={props.name}
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: peerColor(props.id) }}
+        style={{ width: size, height: size, borderRadius: radius, backgroundColor: peerColor(props.id) }}
       />
     );
   }
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: peerColor(props.id), alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: peerColor(props.id), alignItems: "center", justifyContent: "center" }}>
       <Text style={{ color: "#fff", fontFamily, fontWeight: "600", fontSize: size * 0.38 }} selectable={false}>
         {initials(props.name)}
       </Text>

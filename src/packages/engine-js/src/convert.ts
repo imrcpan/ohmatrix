@@ -352,7 +352,7 @@ export function pinnedIds(room: Room | null): string[] {
 
 const isPinned = (room: Room | null, eventId: string) => pinnedIds(room).includes(eventId);
 
-function isDirect(client: MatrixClient, room: Room): boolean {
+export function isDirect(client: MatrixClient, room: Room): boolean {
   const direct = client.getAccountData("m.direct" as never)?.getContent<Record<string, string[]>>() ?? {};
   if (Object.values(direct).some((ids) => ids.includes(room.roomId))) return true;
   const named = room.currentState.getStateEvents(EventType.RoomName, "");
@@ -374,6 +374,7 @@ export function toRoomSummary(client: MatrixClient, room: Room): RoomSummary {
     id: room.roomId,
     name: room.name || room.roomId,
     ...(avatar && { avatar }),
+    isSpace: room.getType() === "m.space",
     ...(muted && { muted }),
     ...(pinned && { pinned }),
     ...(typingNames(client, room).length ? { typing: typingNames(client, room) } : {}),

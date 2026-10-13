@@ -8,7 +8,7 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5174",
     screenshot: "only-on-failure",
-    permissions: ["microphone", "camera"],
+    permissions: ["microphone", "camera", "clipboard-read", "clipboard-write"],
     // A synthetic microphone and camera, and playback without a prior click, so recording and playing can be tested.
     launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required"] },
   },

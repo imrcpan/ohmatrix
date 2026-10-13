@@ -14,6 +14,7 @@ import {
   PushRuleActionName,
   PushRuleKind,
   RelationType,
+  RoomType,
   RoomMemberEvent,
   RoomStateEvent,
   type MatrixClient,
@@ -42,6 +43,7 @@ import {
   type MatrixEngine,
   type RoomId,
   type RoomSummary,
+  type SpaceChild,
   type Session,
   type SyncState,
   type TimelineHandle,
@@ -53,6 +55,7 @@ import { probeMedia, type Probe } from "./probe.js";
 import { resolveHomeserver } from "./discovery.js";
 import { diffTimeline } from "./diff.js";
 import { aliasLocalpart, thresholdsOf } from "./roomSettings.js";
+import { childRooms, isDirectRoom } from "./spaces.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
 
 function wrap(e: unknown): EngineError {
@@ -879,6 +882,113 @@ export class JsSdkEngine implements MatrixEngine {
       }),
   };
 
+  /** Spaces (MSC1772): a space is a room with type m.space whose children are other rooms. */
+  readonly spaces = {
+    children: (spaceId: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const room = c.getRoom(spaceId);
+        if (!room) throw new EngineError("not_found", `unknown space ${spaceId}`);
+        return childRooms(c, room).map(({ id, via }) => {
+          const child = c.getRoom(id);
+          const summary = child && child.getMyMembership() === "join" ? toRoomSummary(c, child) : null;
+          const name = summary?.name ?? (child?.name || id);
+          const avatar = summary?.avatar ?? child?.getMxcAvatarUrl() ?? undefined;
+          return {
+            roomId: id,
+            name,
+            ...(avatar && { avatar }),
+            isSpace: child?.getType() === RoomType.Space,
+            ...(via.length && !summary ? { via } : {}),
+            unreadCount: summary?.unreadCount ?? 0,
+            highlightCount: summary?.highlightCount ?? 0,
+          } satisfies SpaceChild;
+        });
+      }),
+    subscribe: (spaceId: string, cb: Listener<SpaceChild[]>) => {
+      const c = this.requireClient();
+      let live = true,
+        pending = false;
+      const emit = () => {
+        if (pending) return;
+        pending = true;
+        queueMicrotask(() => {
+          pending = false;
+          void this.spaces.children(spaceId).then(
+            (kids) => live && cb(kids),
+            () => {},
+          );
+        });
+      };
+      // The child list lives in the space's state; names and unread counts live in the children.
+      c.on(RoomStateEvent.Events, emit as never);
+      c.on(RoomEvent.Name, emit as never);
+      c.on(RoomEvent.Timeline, emit as never);
+      c.on(RoomEvent.UnreadNotifications as never, emit as never);
+      c.on(RoomEvent.MyMembership, emit as never);
+      emit();
+      return () => {
+        live = false;
+        c.off(RoomStateEvent.Events, emit as never);
+        c.off(RoomEvent.Name, emit as never);
+        c.off(RoomEvent.Timeline, emit as never);
+        c.off(RoomEvent.UnreadNotifications as never, emit as never);
+        c.off(RoomEvent.MyMembership, emit as never);
+      };
+    },
+    addChild: (spaceId: string, roomId: string, via?: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const space = c.getRoom(spaceId);
+        let order = 0;
+        const kids = space ? childRooms(c, space) : [];
+        if (kids.length) order = Math.max(...kids.map((k) => Number(k.order) || 0)) + 1;
+        await c.sendStateEvent(spaceId, EventType.SpaceChild as never, { order: String(order), ...(via ? { via: [via] } : {}) } as never, roomId);
+        // The child records its parent too, so clients can nest it in a tree without reading the space.
+        const domain = via ?? c.getDomain() ?? undefined;
+        await c.sendStateEvent(roomId, EventType.SpaceParent as never, { ...(domain ? { via: [domain] } : {}) } as never, spaceId);
+      }),
+    removeChild: (spaceId: string, roomId: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        await c.sendStateEvent(spaceId, EventType.SpaceChild as never, {} as never, roomId);
+        await c.sendStateEvent(roomId, EventType.SpaceParent as never, {} as never, spaceId);
+      }),
+    moveChild: (spaceId: string, roomId: string, to: "first" | "last") =>
+      guard(async () => {
+        const c = this.requireClient();
+        const space = c.getRoom(spaceId);
+        const kids = space ? childRooms(c, space) : [];
+        const others = kids.filter((k) => k.id !== roomId);
+        const order =
+          to === "first" ? (Math.min(...kids.map((k) => Number(k.order) || 0), 0) || 0) - 1 : Math.max(0, ...others.map((k) => Number(k.order) || 0)) + 1;
+        const cur = kids.find((k) => k.id === roomId);
+        await c.sendStateEvent(spaceId, EventType.SpaceChild as never, { order: String(order), ...(cur?.via.length ? { via: cur.via } : {}) } as never, roomId);
+      }),
+    candidates: (spaceId: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const space = c.getRoom(spaceId);
+        if (!space) throw new EngineError("not_found", `unknown space ${spaceId}`);
+        const inSpace = new Set(childRooms(c, space).map((k) => k.id));
+        return c
+          .getRooms()
+          .filter((r) => r.getMyMembership() === "join" && r.getType() !== RoomType.Space && !inSpace.has(r.roomId) && !isDirectRoom(c, r))
+          .map((r) => {
+            const s = toRoomSummary(c, r);
+            return {
+              roomId: r.roomId,
+              name: s.name,
+              ...(s.avatar && { avatar: s.avatar }),
+              isSpace: false,
+              unreadCount: s.unreadCount,
+              highlightCount: s.highlightCount,
+            } satisfies SpaceChild;
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }),
+  };
+
   readonly media = {
     resolve: (mxc: string, o: MediaOptions = {}) => {
       const client = this.requireClient();
@@ -1061,6 +1171,24 @@ export class JsSdkEngine implements MatrixEngine {
           initial_state: [{ type: "m.room.encryption", state_key: "", content: { algorithm: "m.megolm.v1.aes-sha2" } }],
         });
         await c.setAccountData("m.direct" as never, { ...direct, [userId]: [...(direct[userId] ?? []), room_id] } as never);
+        await waitForJoinedRoom(c, room_id);
+        return room_id;
+      }),
+    createSpace: (o: { name: string; topic?: string; invite?: string[] }) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const { room_id } = await c.createRoom({
+          name: o.name,
+          ...(o.topic ? { topic: o.topic } : {}),
+          ...(o.invite?.length ? { invite: o.invite } : {}),
+          // A space is a container, not a chat: public join rule, no encryption, no history for newcomers.
+          preset: "public_chat" as never,
+          creation_content: { type: RoomType.Space } as never,
+          initial_state: [
+            { type: "m.room.history_visibility", state_key: "", content: { history_visibility: "shared" } },
+            { type: "m.room.guest_access", state_key: "", content: { guest_access: "can_join" } },
+          ] as never,
+        });
         await waitForJoinedRoom(c, room_id);
         return room_id;
       }),

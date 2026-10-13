@@ -2277,3 +2277,147 @@ test("room settings: access, history, addresses, permission levels, custom power
   await expect(page.getByText(/^Banned/)).toHaveCount(0, { timeout: 10000 });
   await ctx.close();
 });
+
+test("spaces: list rows, new space, contents slide over the list, more menu, add/manage/leave", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const stamp = Date.now().toString(36);
+  const name = `Space ${stamp}`;
+
+  // New space from the "+" menu.
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New space" }).click();
+  await page.getByRole("dialog").locator("input").fill(name);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+
+  // A new space opens at once, so rooms can be added; go back to the main list to look at its row.
+  const back = page.getByRole("button", { name: "Back", exact: true });
+  const more = page.getByRole("button", { name: "More", exact: true });
+  // The main list stays mounted under the space; look at rows through the space pane only.
+  const inSpace = (re: RegExp) => page.getByRole("button", { name: re }).filter({ hasNot: page.getByRole("button", { name: "Profile" }) });
+  await expect(back).toBeVisible({ timeout: 20000 });
+  await back.click();
+  await expect(back).toHaveCount(0, { timeout: 10000 });
+
+  // It sits in the main list like any chat (same fixed height), with a rounded-square logo.
+  const row = page.getByRole("button", { name: new RegExp(`^.*${name}`) }).first();
+  await expect(row).toBeVisible({ timeout: 20000 });
+  const chat = page.getByRole("button", { name: /Notes to self/ }).first();
+  expect((await row.boundingBox())!.height).toBe((await chat.boundingBox())!.height);
+  const logo = row
+    .locator("div")
+    .filter({ hasText: /^[A-Z0-9]{1,2}$/ })
+    .first();
+  const radius = await logo.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+  const side = (await logo.boundingBox())!.width;
+  expect(radius).toBeLessThan(side / 2 - 4); // a rounded square, not a circle
+  const chatLogo = chat
+    .locator("div")
+    .filter({ hasText: /^[A-Z0-9]{1,2}$/ })
+    .first();
+  expect(parseFloat(await chatLogo.evaluate((el) => getComputedStyle(el).borderTopLeftRadius))).toBeGreaterThanOrEqual(side / 2 - 1);
+  await shot(page, "67-space-row");
+
+  // Opening it slides its contents over the main list: back on the left, "more" on the right.
+  await row.click();
+  await expect(back).toBeVisible({ timeout: 10000 });
+  await expect(more).toBeVisible();
+  await expect(page.getByText("No rooms in this space yet")).toBeVisible({ timeout: 10000 });
+  // The search field has breathing room under the header, as the main list's does.
+  const header = (await back.boundingBox())!;
+  const searchBox = (await page.getByPlaceholder("Search").and(page.locator(":visible")).last().boundingBox())!;
+  expect(searchBox.y - (header.y + header.height)).toBeGreaterThanOrEqual(8);
+  const bb = (await back.boundingBox())!,
+    mb = (await more.boundingBox())!;
+  expect(bb.x).toBeLessThan(mb.x);
+  await shot(page, "68-space-contents");
+
+  // The more menu, in order.
+  await more.click();
+  const labels = ["Create room", "Add existing room", "Manage rooms", "View members", "Invite", "Share", "Settings", "Leave space"];
+  await expect(page.getByRole("menuitem")).toHaveCount(labels.length);
+  expect(await page.getByRole("menuitem").allInnerTexts()).toEqual(labels);
+  await shot(page, "69-space-menu");
+
+  // Members and settings open the space's info panel (members, access, addresses, permissions).
+  await page.getByRole("menuitem", { name: "View members" }).click();
+  await expect(page.getByText(/^Members · \d+$/)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Access", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await more.click();
+
+  // Share shows the link in a dialog: Cancel copies nothing, Copy puts the link on the clipboard and closes.
+  await page.evaluate(() => navigator.clipboard.writeText("untouched"));
+  await page.getByRole("menuitem", { name: "Share" }).click();
+  await expect(page.getByText("Share space", { exact: true })).toBeVisible();
+  const link = page.getByLabel("Space link");
+  await expect(link).toContainText(/^https:\/\/matrix\.to\/#\/[!#]/);
+  const shown = (await link.innerText()).trim();
+  await shot(page, "70-space-share");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByText("Share space", { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("untouched");
+  await more.click();
+  await page.getByRole("menuitem", { name: "Share" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Copy", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(page.getByText("Share space", { exact: true })).toHaveCount(0, { timeout: 5000 });
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(shown);
+  await more.click();
+
+  // Create a room inside the space: it is listed there, and we stay on the space.
+  await page.getByRole("menuitem", { name: "Create room" }).click();
+  const roomName = `Inside ${stamp}`;
+  await page.getByRole("dialog").locator("input").first().fill(roomName);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByRole("button", { name: new RegExp(roomName) }).first()).toBeVisible({ timeout: 20000 });
+  await expect(back).toBeVisible();
+  // Rows of the space pane only: the main list stays mounted underneath it, so walk up from "Back" to the pane root
+  // (the first ancestor that also holds a search field) and read the room buttons below that header.
+  const spaceRows = async () =>
+    await page.evaluate(() => {
+      let pane: HTMLElement | null = document.querySelector('[aria-label="Back"]');
+      while (pane && !pane.querySelector("input")) pane = pane.parentElement;
+      return [...(pane?.querySelectorAll('[role="button"]') ?? [])]
+        .filter((b) => !b.matches('[aria-label="Back"], [aria-label="More"]'))
+        .map((b) => b.textContent ?? "");
+    });
+  void inSpace;
+
+  // Add an existing room.
+  await more.click();
+  await page.getByRole("menuitem", { name: "Add existing room" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Notes to self" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Notes to self" })).toHaveCount(0, { timeout: 10000 });
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await expect.poll(async () => (await spaceRows()).some((t) => /Notes to self/.test(t)), { timeout: 10000 }).toBe(true);
+
+  // Manage: select and remove.
+  await more.click();
+  await page.getByRole("menuitem", { name: "Manage rooms" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Notes to self" }).click();
+  await page.getByRole("button", { name: "Remove 1" }).click();
+  await expect.poll(async () => (await spaceRows()).some((t) => /Notes to self/.test(t)), { timeout: 10000 }).toBe(false);
+  expect((await spaceRows()).some((t) => new RegExp(roomName).test(t))).toBe(true);
+
+  // Opening a child opens its chat; back returns to the main list.
+  // (The main list keeps a row for the same room under the pane; the visible one is the one that can be clicked.)
+  await page
+    .getByRole("button", { name: new RegExp(roomName) })
+    .and(page.locator(":visible"))
+    .last()
+    .click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 10000 });
+  await back.click();
+  await expect(back).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
+
+  // Leave from the menu, with a confirmation.
+  await row.click();
+  await more.click();
+  await page.getByRole("menuitem", { name: "Leave space" }).click();
+  await expect(page.getByText("Leave this space?")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Leave space" }).click();
+  await expect(page.getByRole("button", { name: new RegExp(`^.*${name}`) })).toHaveCount(0, { timeout: 20000 });
+});

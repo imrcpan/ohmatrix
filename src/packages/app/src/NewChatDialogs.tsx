@@ -36,7 +36,8 @@ export function NewChatDialog(props: { visible: boolean; onClose: () => void }) 
 }
 
 /** New group: a name plus any number of people picked from the directory (shown as removable chips). */
-export function NewGroupDialog(props: { visible: boolean; onClose: () => void }) {
+/** `inSpace`: also list the new room in that space once it exists. */
+export function NewGroupDialog(props: { visible: boolean; onClose: () => void; inSpace?: string | null | undefined }) {
   const { colors } = useTheme();
   const t = useT();
   const controller = useController();
@@ -95,6 +96,7 @@ export function NewGroupDialog(props: { visible: boolean; onClose: () => void })
             .createGroup(
               name,
               people.map((p) => p.userId),
+              props.inSpace,
             )
             .then(close, (e: unknown) => setError(e instanceof Error ? e.message : String(e)))
             .finally(() => setBusy(false));

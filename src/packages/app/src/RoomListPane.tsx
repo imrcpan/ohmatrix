@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState, type ComponentRef } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
+import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
+import { NewSpaceDialog, SpaceScreen } from "./SpaceScreen.js";
 import { MessageResults } from "./MessageResults.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
@@ -33,7 +34,14 @@ function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
   return room.isDirect ? body : `${m.senderName}: ${body}`;
 }
 
-function RoomListItem(props: { room: RoomSummary; selected: boolean; now: number; onMenu: (room: RoomSummary, anchor: Anchor) => void }) {
+export function RoomListItem(props: {
+  room: RoomSummary;
+  selected: boolean;
+  now: number;
+  onMenu: (room: RoomSummary, anchor: Anchor) => void;
+  /** Tapping a space opens its contents instead of a timeline. */
+  onOpenSpace?: ((id: string) => void) | undefined;
+}) {
   const t = useT();
   const locale = useLocale();
   const controller = useController();
@@ -53,8 +61,11 @@ function RoomListItem(props: { room: RoomSummary; selected: boolean; now: number
       markedUnread={room.markedUnread}
       muted={room.muted}
       onContextMenu={room.invite ? undefined : (anchor) => props.onMenu(room, anchor)}
+      isSpace={!!room.isSpace}
       onPress={() => {
-        if (!room.invite) controller.selectRoom(room.id);
+        if (room.invite) return;
+        if (room.isSpace && props.onOpenSpace) props.onOpenSpace(room.id);
+        else controller.selectRoom(room.id);
       }}
       invite={
         room.invite && {
@@ -82,9 +93,10 @@ export function RoomListPane() {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [addMenu, setAddMenu] = useState(false);
   const [roomMenu, setRoomMenu] = useState<{ room: RoomSummary; anchor: Anchor } | null>(null);
-  const [dialog, setDialog] = useState<"chat" | "group" | "join" | null>(null);
+  const [dialog, setDialog] = useState<"chat" | "group" | "join" | "space" | null>(null);
   const [sheet, setSheet] = useState(false);
   const [query, setQuery] = useState("");
+  const space = useAppState((s) => s.spaceId);
   const now = Date.now();
 
   const data = useMemo(() => {
@@ -150,6 +162,7 @@ export function RoomListPane() {
           { label: t("newChat"), icon: "user", onPress: () => setDialog("chat") },
           { label: t("newGroup"), icon: "users", onPress: () => setDialog("group") },
           { label: t("joinRoom"), icon: "hash", onPress: () => setDialog("join") },
+          { label: t("newSpace"), icon: "users", onPress: () => setDialog("space") },
         ]}
       />
       <Menu
@@ -177,6 +190,7 @@ export function RoomListPane() {
         }
       />
       <NewChatDialog visible={dialog === "chat"} onClose={() => setDialog(null)} />
+      <NewSpaceDialog visible={dialog === "space"} onClose={() => setDialog(null)} />
       <NewGroupDialog visible={dialog === "group"} onClose={() => setDialog(null)} />
       <PromptDialog
         visible={dialog === "join"}
@@ -211,12 +225,55 @@ export function RoomListPane() {
             room={item}
             selected={selected === item.id}
             now={now}
+            onOpenSpace={(id) => controller.openSpace(id)}
             onMenu={(room, a) => {
               setRoomMenu({ room, anchor: a });
             }}
           />
         )}
       />
+      <SlideOverSpace open={space !== null} id={space} />
     </View>
+  );
+}
+
+/** The space's contents, sliding in from the right over the chat list (and back out when closed). */
+function SlideOverSpace(props: { open: boolean; id: string | null }) {
+  const { colors } = useTheme();
+  const controller = useController();
+  const [width, setWidth] = useState(0);
+  const progress = useRef(new Animated.Value(props.open ? 1 : 0)).current;
+  const [mounted, setMounted] = useState(props.open);
+  // Keep showing the last space while the slide-out runs (closing clears the id).
+  const [shown, setShown] = useState<string | null>(props.id);
+  useEffect(() => {
+    if (props.open && props.id) {
+      setShown(props.id);
+      setMounted(true);
+    }
+    Animated.timing(progress, { toValue: props.open ? 1 : 0, duration: 280, easing: Easing.bezier(0.22, 1, 0.36, 1), useNativeDriver: false }).start(
+      ({ finished }) => {
+        if (finished && !props.open) setMounted(false);
+      },
+    );
+  }, [props.open, props.id, progress]);
+  if (!mounted || !shown) return null;
+  return (
+    <Animated.View
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      pointerEvents={props.open ? "auto" : "none"}
+      style={{
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 3,
+        backgroundColor: colors.bg,
+        transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [width || 400, 0] }) }],
+      }}
+    >
+      <SpaceScreen id={shown} onClose={() => controller.openSpace(null)} />
+    </Animated.View>
   );
 }

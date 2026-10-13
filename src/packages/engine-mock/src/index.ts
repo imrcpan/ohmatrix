@@ -107,6 +107,18 @@ export class MockEngine implements MatrixEngine {
     },
   };
 
+  readonly spaces = {
+    children: async (): Promise<never[]> => [],
+    subscribe: (_id: string, cb: (c: never[]) => void) => {
+      cb([]);
+      return () => {};
+    },
+    addChild: async () => {},
+    removeChild: async () => {},
+    moveChild: async () => {},
+    candidates: async (): Promise<never[]> => [],
+  };
+
   readonly messages = {
     forward: async (): Promise<void> => {
       throw new EngineError("unsupported", "mock cannot forward");
@@ -154,6 +166,7 @@ export class MockEngine implements MatrixEngine {
     },
     setMuted: async () => {},
     createDirect: async (userId: string) => `!dm-${userId}`,
+    createSpace: async () => "!space:mock",
     createGroup: async (o: { name: string }) => `!group-${o.name}`,
     joinRoom: async (idOrAlias: string) => idOrAlias,
   };

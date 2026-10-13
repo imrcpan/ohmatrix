@@ -28,6 +28,10 @@ export interface RoomSummary {
   /** Manually marked unread (shows a badge even with no unread messages). */
   markedUnread?: boolean;
   isDirect: boolean;
+  /** A space (m.space), not a chat: it holds other rooms and is shown with a rounded-square logo. */
+  isSpace?: boolean;
+  /** Rooms that are children of this space, most recently active first (only for a space I am in). */
+  spaceChildren?: SpaceChild[];
   /** Joined member count (including me); 0 if unknown. */
   memberCount: number;
   unreadCount: number;
@@ -215,6 +219,19 @@ export interface DeviceInfo {
   lastSeenIp?: string;
   /** This is the session the app is running as. */
   current: boolean;
+}
+
+/** A room listed inside a space. */
+export interface SpaceChild {
+  roomId: RoomId;
+  name: string;
+  avatar?: MxcUri;
+  /** It is a space itself, so it can be opened to show what it holds. */
+  isSpace: boolean;
+  /** Set before the room is joined; the server's view of a space we only partly know. */
+  via?: string[];
+  unreadCount: number;
+  highlightCount: number;
 }
 
 export type MemberRole = "admin" | "moderator" | "member";
