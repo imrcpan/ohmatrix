@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type TimelineItem } from "@ohmatrix/core";
+import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type TimelineItem, contentText } from "@ohmatrix/core";
 import {
   Avatar,
   Dialog,
@@ -126,6 +126,11 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     }),
     [items],
   );
+  // Pinned messages: only the ones already loaded can be shown (the list is state, the bodies are events).
+  const pinned = useMemo(() => {
+    const ids = d?.pinnedEventIds ?? [];
+    return ids.map((id) => (items ?? []).find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i);
+  }, [d?.pinnedEventIds, items]);
 
   const direct = d?.isDirect ?? false;
   const joined = d?.members.filter((m) => !m.invited).length ?? 0;
@@ -251,6 +256,20 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
             <Section>
               <Row label={t("loadOlder")} icon="image" last chevron={false} onPress={() => void controller.paginateRoom(d.id)} />
             </Section>
+            {pinned.length > 0 && (
+              <Section title={t("pinned.title")}>
+                {pinned.map((m, i) => (
+                  <Row
+                    key={m.id}
+                    label={m.senderName}
+                    value={m.content.kind === "image" ? t("photo") : contentText(m.content).slice(0, 60)}
+                    icon="pin"
+                    last={i === pinned.length - 1}
+                    onPress={() => controller.openMessage(d.id, m.id)}
+                  />
+                ))}
+              </Section>
+            )}
             <Section title={direct ? t("participant") : `${t("membersTitle")} · ${d.members.length}`}>
               {d.can.invite && <Row label={t("room.invite")} icon="userPlus" chevron={false} onPress={() => setInviting(true)} last={d.members.length === 0} />}
               {d.members.map((m, i) => (

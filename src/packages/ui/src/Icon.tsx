@@ -43,6 +43,8 @@ const PATHS = {
   music: "M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM21 16a3 3 0 11-6 0 3 3 0 016 0z",
   camera: "M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 17a4 4 0 100-8 4 4 0 000 8z",
   chat: "M20 12a8 8 0 01-11.7 7.1L4 20l.9-4.3A8 8 0 1120 12z",
+  forward: "M14 9V5l7 7-7 7v-4H4V9z",
+  smile: "M12 21a9 9 0 100-18 9 9 0 000 18zM8.5 14a4 4 0 007 0M9 9h.01M15 9h.01",
 } as const;
 
 export type IconName = keyof typeof PATHS;

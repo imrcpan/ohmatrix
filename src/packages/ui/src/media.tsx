@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Icon } from "./Icon.js";
 import { fontFamily, useTheme } from "./theme.js";
@@ -166,5 +166,74 @@ export function AudioRow(props: {
         <Text style={{ fontSize: 13, fontFamily, color: meta, marginTop: 2 }}>{props.upload ? props.upload.label : props.timeLabel}</Text>
       </View>
     </View>
+  );
+}
+
+/**
+ * A link preview card (Telegram-style): a thumbnail on the left, the site name, title and
+ * description on the right. The server fetched the open-graph data; we only render it.
+ */
+export function LinkPreviewCard(props: {
+  title?: string | undefined;
+  description?: string | undefined;
+  siteName?: string | undefined;
+  /** Resolved thumbnail URL. */
+  image?: string | undefined;
+  imageWidth?: number | undefined;
+  imageHeight?: number | undefined;
+  /** The URL the card points at, shown when there is no title. */
+  url: string;
+  own: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const text = props.own ? colors.bubbleOutText : colors.bubbleInText;
+  const meta = props.own ? colors.bubbleOutMeta : colors.textSecondary;
+  const host = (() => {
+    try {
+      return new URL(props.url).host.replace(/^www\./, "");
+    } catch {
+      return props.url;
+    }
+  })();
+  const shown = props.title ?? props.description ?? host;
+  // A small square thumb next to the text, or a wide banner above it when the image is large.
+  const wide = !!props.image && !!props.imageWidth && !!props.imageHeight && props.imageWidth >= props.imageHeight * 1.6;
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`Preview of ${shown}`}
+      onPress={props.onPress}
+      style={({ pressed }: { pressed: boolean }) => ({
+        marginTop: 6,
+        marginBottom: 2,
+        borderRadius: 10,
+        overflow: "hidden",
+        backgroundColor: props.own ? "rgba(255,255,255,0.14)" : colors.bgSecondary,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      {wide && <Image source={{ uri: props.image }} style={{ width: "100%", height: 140, backgroundColor: colors.bgSecondary }} resizeMode="cover" />}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        {!!props.image && !wide && (
+          <Image source={{ uri: props.image }} style={{ width: 56, height: 56, backgroundColor: colors.bgSecondary }} resizeMode="cover" />
+        )}
+        <View style={{ flex: 1, paddingHorizontal: wide ? 10 : 0, paddingVertical: 8, paddingRight: 10, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: meta }}>
+            {props.siteName ?? host}
+          </Text>
+          {!!props.title && (
+            <Text numberOfLines={2} style={{ fontSize: 15, fontWeight: "600", fontFamily, color: text }}>
+              {props.title}
+            </Text>
+          )}
+          {!!props.description && (
+            <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 17, fontFamily, color: meta }}>
+              {props.description}
+            </Text>
+          )}
+        </View>
+      </View>
+    </Pressable>
   );
 }

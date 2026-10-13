@@ -3,6 +3,9 @@ import { Pressable } from "react-native";
 import { contentText, type AttachmentSource, type TimelineItem } from "@ohmatrix/core";
 import { FlatList, ScrollView, Text, View } from "react-native";
 import {
+  parseFormatted,
+  plainRuns,
+  useRecentEmoji,
   ImageViewer,
   VideoViewer,
   MessageMenu,
@@ -20,11 +23,13 @@ import {
   IconButton,
   useTheme,
 } from "@ohmatrix/ui";
-import type { MenuPoint } from "@ohmatrix/ui";
+import type { MenuPoint, Run } from "@ohmatrix/ui";
 import { SendFilesDialog } from "./SendFilesDialog.js";
+import { ForwardDialog } from "./ForwardDialog.js";
 import { MessageResults } from "./MessageResults.js";
 import { formatDuration, useAudioPlayer } from "./useAudio.js";
 import { useVoiceRecording, VideoRecorderDialog } from "./Recording.js";
+import { useMentionSuggest } from "./useMentions.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useServices, useAppState, useController, useLocale, useT } from "./context.js";
 import { formatBytes, formatClock, typingLabel } from "./format.js";
@@ -46,6 +51,8 @@ const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as co
 
 interface RowActions {
   react(eventId: string, key: string): void;
+  pin(item: TimelineItem, pinned: boolean): void;
+  forward(item: TimelineItem): void;
   reply(item: TimelineItem): void;
   edit(item: TimelineItem): void;
   remove(eventId: string): void;
@@ -78,6 +85,13 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
   );
   const [viewing, setViewing] = useState(false);
   const [viewingVideo, setViewingVideo] = useState(false);
+  // Link previews: at most two, with their thumbnails resolved (and decrypted in encrypted rooms).
+  const previewList = content?.kind === "text" ? (content.previews ?? []).slice(0, 2) : [];
+  const previewImage = useMediaUrl(previewList.find((p) => p.image)?.image, { width: 400, height: 400, fit: "crop" });
+  const services = useServices();
+  // Rich text: a formatted_body is parsed into safe runs; a plain body still gets links and mention pills.
+  const runs: readonly Run[] | undefined =
+    content?.kind === "text" ? (content.formattedBody ? parseFormatted(content.formattedBody) : plainRuns(content.body, content.mentions)) : undefined;
   const encOf = (c: typeof content) =>
     c && "encryption" in c && c.encryption ? { encryption: c.encryption, ...("mimeType" in c && c.mimeType ? { mimeType: c.mimeType } : {}) } : {};
   // Audio is fetched when play is pressed; video when its player is opened; posters are small and load at once.
@@ -204,6 +218,21 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
                 onPress: () => actions.jump(m.replyTo!.id),
               }
             }
+            runs={runs}
+            previews={previewList.map((p, i) => ({
+              key: `${p.url}-${i}`,
+              url: p.url,
+              title: p.title,
+              description: p.description,
+              siteName: p.siteName,
+              image: p.image === previewList.find((q) => q.image)?.image ? previewImage : undefined,
+              imageWidth: p.imageWidth,
+              imageHeight: p.imageHeight,
+            }))}
+            onOpenLink={(url) => services.openLink?.(url)}
+            onLink={(href) => services.openLink?.(href)}
+            mentionsMe={content.kind === "text" && content.mentionsMe}
+            pinned={m.pinned}
             editedLabel={m.edited ? t("edited") : undefined}
             position={{ first: row.first, last: row.last }}
             muted={content.kind === "unsupported" || content.kind === "undecryptable"}
@@ -243,6 +272,8 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
         onEmoji={(k) => actions.react(m.id, k)}
         actions={[
           { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
+          { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
+          { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
           ...(m.isOwn && content.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
           ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
         ]}
@@ -309,8 +340,13 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
   const listRef = useRef<FlatList<Row>>(null);
   const [replying, setReplying] = useState<TimelineItem | null>(null);
   const [editing, setEditing] = useState<TimelineItem | null>(null);
-  const [prefill, setPrefill] = useState<{ text: string; nonce: number }>();
+  const [prefill, setPrefill] = useState<{ text: string; nonce: number; caret?: number }>();
   const [recordingVideo, setRecordingVideo] = useState(false);
+  const [forwarding, setForwarding] = useState<TimelineItem | null>(null);
+  const [draft, setDraft] = useState("");
+  const [caret, setCaret] = useState(0);
+  const mention = useMentionSuggest(controller, props.roomId, draft, caret);
+  const { recent, remember } = useRecentEmoji();
   const sendFile = useCallback((f: AttachmentSource) => handle.current?.sendAttachment(f).catch(() => {}) ?? Promise.resolve(), []);
   const [dropping, setDropping] = useState(false);
   const [pending, setPending] = useState<AttachmentSource[]>([]);
@@ -331,6 +367,8 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
         setEditing(item);
         setPrefill({ text: contentText(item.content), nonce: Date.now() });
       },
+      pin: (item, pinned) => void handle.current?.pin(item.id, pinned).catch(() => {}),
+      forward: (item) => setForwarding(item),
       download: (f) =>
         void controller
           .resolveMedia(f.url, { ...(f.encryption ? { encryption: f.encryption } : {}), ...(f.mimeType && { mimeType: f.mimeType }) })
@@ -343,7 +381,7 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
         if (index >= 0) listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
       },
     }),
-    [],
+    [setForwarding],
   );
   const renderRow = ({ item }: { item: Row }) => (
     <TimelineRow row={item} isGroup={isGroup} actions={actions} highlighted={item.type === "message" && item.item.id === highlightId} />
@@ -499,6 +537,25 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
             : undefined
         }
         onTyping={(on) => handle.current?.setTyping(on)}
+        onChangeText={setDraft}
+        onCaretChange={setCaret}
+        suggestionAt={mention.token?.start}
+        suggestions={mention.suggestions}
+        onPickSuggestion={(s) => {
+          const next = mention.apply(s, draft, caret);
+          const at = mention.token ? mention.token.start + 1 + s.name.length + 1 : next.length; // just after "@name "
+          setDraft(next);
+          setCaret(at);
+          setPrefill({ text: next, nonce: Date.now(), caret: at });
+        }}
+        onEmoji={remember}
+        emojiLabel={t("emoji")}
+        emojiSearchLabel={t("emoji.search")}
+        mentionLabel={t("mention.suggest")}
+        mentionTitle={t("mention.title")}
+        menuTopLimit={56}
+        onDismissSuggestions={mention.dismiss}
+        recentEmoji={recent}
         onAttach={
           services.pickFiles
             ? () => void services.pickFiles!().then((files) => files.forEach((f) => handle.current?.sendAttachment(f).catch(() => {})))
@@ -517,9 +574,13 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
           setPrefill({ text: "", nonce: Date.now() });
         }}
         onSend={(body) => {
+          const ids = mention.resolve(body);
           if (editing) void handle.current?.edit(editing.id, body);
-          else if (replying) void handle.current?.reply(replying.id, body);
-          else void handle.current?.sendText(body);
+          else if (replying) void handle.current?.reply(replying.id, body, ids);
+          else void handle.current?.sendText(body, ids);
+          setDraft("");
+          setCaret(0);
+          mention.reset();
           setReplying(null);
           setEditing(null);
         }}
@@ -548,6 +609,7 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
           <Text style={{ marginTop: 10, fontSize: 17, fontWeight: "600", fontFamily, color: colors.text }}>{t("drop.hint")}</Text>
         </View>
       )}
+      {forwarding && <ForwardDialog visible fromRoomId={props.roomId} eventId={forwarding.id} onClose={() => setForwarding(null)} />}
       <SendFilesDialog
         files={pending}
         onCancel={() => setPending([])}

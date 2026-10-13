@@ -30,6 +30,10 @@ export interface ColorTokens {
   serviceChip: string;
   serviceChipText: string;
   overlay: string;
+  /** Background of an @mention pill. */
+  mentionBg: string;
+  /** Background of a highlighted message that mentions me. */
+  mentionHighlight: string;
 }
 
 export interface ThemeDefinition {
@@ -118,6 +122,8 @@ export function defineTheme(seed: ThemeSeed): ThemeDefinition {
     serviceChip: dark ? "rgba(20,30,45,0.6)" : "rgba(60,80,100,0.38)",
     serviceChipText: dark ? "#E6EAF0" : "#FFFFFF",
     overlay: dark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.3)",
+    mentionBg: dark ? "rgba(51,144,236,0.28)" : "rgba(51,144,236,0.16)",
+    mentionHighlight: dark ? "rgba(51,144,236,0.16)" : "rgba(51,144,236,0.1)",
     ...seed.overrides,
   };
   return { id: seed.id, label: seed.label, dark, colors };

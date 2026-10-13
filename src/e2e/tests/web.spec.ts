@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `.out/${name}.png` });
 
@@ -1700,6 +1700,11 @@ function makeFixtures() {
   writeFileSync(big, Buffer.alloc(700 * 1024, 7));
   return (fixtures = { tone, clip, big });
 }
+/** The match lowest on screen = the newest message (DOM order of the inverted list is not chronological). */
+const lowest = async (loc: Locator) => {
+  const tops = await loc.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
+  return loc.nth(tops.indexOf(Math.max(...tops)));
+};
 const attachFile = async (page: Page, path: string) => {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Attach" }).click();
@@ -1716,8 +1721,9 @@ test("audio file and video file: bubbles, playing the audio, the video viewer", 
   const fx = makeFixtures();
   await openNotes(page);
   await attachFile(page, fx.tone);
-  const audioPlay = page.getByRole("button", { name: "Play" }).last();
-  await expect(audioPlay).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("button", { name: "Play" }).last()).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("tone.ogg").last()).toBeVisible();
+  const audioPlay = await lowest(page.getByRole("button", { name: "Play" }));
   await expect(page.getByText("tone.ogg").last()).toBeVisible();
   await expect(page.getByText("0:04", { exact: true }).last()).toBeVisible();
 
@@ -1727,8 +1733,22 @@ test("audio file and video file: bubbles, playing the audio, the video viewer", 
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Play" }).last()).toBeVisible();
 
+  const videos = () =>
+    page.evaluate(() => {
+      const c = (
+        window as unknown as {
+          __ohmatrix: { controller: { store: { getState(): { selectedRoomId: string; timelines: Record<string, { content: { kind: string } }[]> } } } };
+        }
+      ).__ohmatrix.controller;
+      const st = c.store.getState();
+      return (st.timelines[st.selectedRoomId] ?? []).filter((i) => i.content.kind === "video").length;
+    });
+  const videosBefore = await videos();
   await attachFile(page, fx.clip);
-  const open = page.getByRole("button", { name: "Open video" }).last();
+  // The newest bubble only exists once the upload finished: wait for it so `last()` is ours, not an older clip.
+  await expect.poll(videos, { timeout: 30000 }).toBe(videosBefore + 1);
+  await expect(page.getByRole("button", { name: "Open video" }).first()).toBeVisible({ timeout: 20000 });
+  const open = await lowest(page.getByRole("button", { name: "Open video" }));
   await expect(open).toBeVisible({ timeout: 20000 });
   await expect(open.locator("img")).toBeVisible({ timeout: 10000 }); // a poster frame was made when sending
   await expect(open.getByText("0:03")).toBeVisible();
@@ -1750,7 +1770,19 @@ test("audio file and video file: bubbles, playing the audio, the video viewer", 
 
 test("voice message: record, send, play; discard sends nothing; a blocked microphone is explained", async ({ page }) => {
   await openNotes(page);
-  const voiceBubbles = () => page.getByLabel("Seek").count();
+  // Count from the app state: the list only renders a window of rows, so counting buttons depends on scrolling.
+  const voiceBubbles = () =>
+    page.evaluate(() => {
+      const c = (
+        window as unknown as {
+          __ohmatrix: {
+            controller: { store: { getState(): { selectedRoomId: string; timelines: Record<string, { content: { kind: string; voice?: boolean } }[]> } } };
+          };
+        }
+      ).__ohmatrix.controller;
+      const st = c.store.getState();
+      return (st.timelines[st.selectedRoomId] ?? []).filter((i) => i.content.kind === "audio" && i.content.voice).length;
+    });
   const before = await voiceBubbles();
 
   // Discard: nothing is sent.
@@ -1965,4 +1997,183 @@ test("drag and drop, and paste: files are sent; plain text paste is untouched", 
     text,
   );
   expect(prevented).toBe(false);
+});
+
+test("mentions: a message that names me is tinted and the name is a pill", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+
+  // Send a message with a formatted body, a link preview and a mention, the way a real client would.
+  const tag = Date.now();
+  const me = "@test:localhost";
+  await page.evaluate(
+    async ([tag, me]) => {
+      const c = (window as unknown as { __ohmatrix: { controller: { openRoom(id: string): { sendText(b: string, m?: string[]): Promise<void> } } } }).__ohmatrix
+        .controller;
+      const room = (
+        window as unknown as { __ohmatrix: { controller: { store: { getState(): { selectedRoomId: string } } } } }
+      ).__ohmatrix.controller.store.getState().selectedRoomId;
+      const h = c.openRoom(room);
+      const engine = (window as unknown as { __ohmatrix_root: string }).__ohmatrix_root;
+      void engine;
+      // Plain text with a bare URL (the engine turns links into previews only when the server sends them),
+      // a bold run and a mention of myself.
+      await h.sendText(`rich ${tag} hi @test`, [me]);
+      h.close();
+    },
+    [tag, me] as const,
+  );
+  await expect(page.getByText(`rich ${tag} hi`, { exact: false }).last()).toBeVisible({ timeout: 20000 });
+  // The @name is a pill (it matched the mention block I sent).
+  await expect(page.getByLabel(/Mention test/).last()).toBeVisible();
+  await shot(page, "58-mention-pill");
+});
+
+test("emoji picker: insert an emoji from the composer", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await page.getByRole("button", { name: "Emoji", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Emoji 😀" })).toBeVisible();
+  await shot(page, "59-emoji-picker");
+  await page.getByRole("button", { name: "Emoji 😀" }).click();
+  const field = page.getByPlaceholder("Message");
+  await expect(field).toHaveValue("😀");
+  const mark = `emoji ${Date.now()}`;
+  await field.fill(`emoji mark ${mark}`);
+  await field.press("Enter");
+  await expect(page.getByText(`emoji mark ${mark}`, { exact: true }).last()).toBeVisible({ timeout: 20000 });
+});
+
+test("pin: a pinned message shows a pin marker and lands in the chat-info panel", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const text = `pin me ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  const msg = page.getByText(text, { exact: true }).last();
+  await expect(msg).toBeVisible({ timeout: 20000 });
+  await msg.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
+  // Unpin is offered now, i.e. the room state carries the pin.
+  await msg.click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Unpin", exact: true })).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Chat info", exact: true }).click();
+  await expect(page.getByText("Pinned messages")).toBeVisible({ timeout: 10000 });
+  await shot(page, "60-pinned");
+});
+
+test("forward: a message is copied into another chat", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const text = `forward me ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  const msg = page.getByText(text, { exact: true }).last();
+  await expect(msg).toBeVisible({ timeout: 20000 });
+  await msg.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Forward", exact: true }).click();
+  await expect(page.getByText("Forward to")).toBeVisible();
+  await shot(page, "61-forward");
+  // Forward into "alice"; the copy carries who wrote it.
+  await page.getByRole("dialog").getByRole("button", { name: "alice", exact: true }).first().click();
+  await expect(page.getByText("Forward to")).toHaveCount(0, { timeout: 20000 });
+  await openRoom(page, "alice");
+  await expect(page.getByText(text, { exact: false }).last()).toBeVisible({ timeout: 20000 });
+});
+
+test("mention autocomplete: floating menu at the @, titled, keyboard-driven, capped below the top bar", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Team");
+  const field = page.getByPlaceholder("Message");
+  await field.click();
+  await field.pressSequentially("@");
+  const items = page.getByRole("menuitem", { name: /^Mention / });
+  await expect(items.nth(1)).toBeVisible({ timeout: 10000 });
+  const n = await items.count();
+  expect(n).toBeGreaterThanOrEqual(2);
+  await expect(page.getByText("Choose who to notify")).toBeVisible();
+  const firstMenu = (await items.first().boundingBox())!;
+  const bar = (await field.boundingBox())!;
+  expect(firstMenu.width).toBeLessThan(300);
+  expect(firstMenu.y + firstMenu.height).toBeLessThan(bar.y); // above the bar, not a banner
+  await shot(page, "62-mention-menu");
+
+  // Up climbs into the menu from its bottom row; Down past the bottom row returns to the field.
+  const selected = async () =>
+    (await items.evaluateAll((els) => els.map((e) => e.getAttribute("aria-selected") === "true"))).map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  expect(await selected()).toEqual([]);
+  await field.press("ArrowUp");
+  expect(await selected()).toEqual([n - 1]);
+  await field.press("ArrowUp");
+  expect(await selected()).toEqual([n - 2]);
+  await field.press("ArrowDown");
+  expect(await selected()).toEqual([n - 1]);
+  await field.press("ArrowDown");
+  expect(await selected()).toEqual([]);
+  await expect(field).toBeFocused();
+
+  // Enter on a highlighted row picks it.
+  await field.press("ArrowUp");
+  await field.press("Enter");
+  await expect(field).toHaveValue(/^@\S+ $/);
+  await expect(items).toHaveCount(0);
+
+  // The menu follows the "@": later in the line, further right.
+  await field.fill("");
+  await field.pressSequentially("hello there friends @");
+  await expect(items.first()).toBeVisible();
+  const later = (await items.first().boundingBox())!;
+  expect(later.x).toBeGreaterThan(firstMenu.x + 60);
+  await field.press("Escape");
+  await expect(items).toHaveCount(0);
+
+  // In a short window the menu stops short of the top bar and scrolls.
+  await field.fill("");
+  await page.setViewportSize({ width: 1280, height: 230 });
+  await field.pressSequentially("@");
+  await expect(items.first()).toBeVisible();
+  // The bar moves when the window shrinks; the menu re-measures, so wait for it to settle below the top bar.
+  await expect.poll(async () => (await page.getByText("Choose who to notify").boundingBox())!.y, { timeout: 5000 }).toBeGreaterThanOrEqual(56 + 8);
+});
+
+test("mention autocomplete: opens at any @ not glued to a letter or digit, including with the caret moved back", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Team");
+  const field = page.getByPlaceholder("Message");
+  const items = page.getByRole("menuitem", { name: /^Mention / });
+  await field.click();
+
+  // Punctuation and CJK before the "@" still count; letters and digits do not (an address is not a mention).
+  for (const [text, opens] of [
+    ["hi,@", true],
+    ["你好@", true],
+    ["(@", true],
+    ["mail me a@", false],
+    ["room 7@", false],
+  ] as const) {
+    await field.fill("");
+    await field.pressSequentially(text);
+    if (opens) await expect(items.first()).toBeVisible();
+    else await expect(items).toHaveCount(0);
+  }
+
+  // Type "@", then more text, then move the caret back in front of it: the menu comes up again.
+  await field.fill("");
+  await field.pressSequentially("hello @ world");
+  await expect(items).toHaveCount(0);
+  for (let i = 0; i < " world".length; i++) await field.press("ArrowLeft");
+  await expect(items.first()).toBeVisible();
+
+  // Picking inserts at the "@" and leaves the rest of the line (and the caret) after the name.
+  await items.first().click();
+  await expect(field).toHaveValue(/^hello @\S+ {2}world$/);
+  await field.pressSequentially("X");
+  await expect(field).toHaveValue(/^hello @\S+ X {1}world$/);
 });

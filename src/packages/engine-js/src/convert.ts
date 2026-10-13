@@ -1,5 +1,5 @@
 import { EventType, MsgType, NotificationCountType, RelationType, type MatrixClient, type MatrixEvent, type Room } from "matrix-js-sdk";
-import type { MessageContent, Reader, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
+import type { LinkPreview, MessageContent, Reader, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
 
 const localpart = (id: string) => id.replace(/^@/, "").replace(/:.*$/, "");
 /** Member display name; matrix-js-sdk falls back to the full MXID when none is set, which we shorten. */
@@ -33,17 +33,64 @@ function serviceText(ev: MatrixEvent, name: string): string | null {
   }
 }
 
-function messageContent(ev: MatrixEvent): MessageContent {
+/** The first `limit` distinct http(s) URLs in a body, in order. */
+export function firstUrls(body: string, limit = 2): string[] {
+  const out: string[] = [];
+  for (const m of body.matchAll(/https?:\/\/[^\s<>()[\]]+/g)) {
+    // Trim trailing punctuation that is usually sentence punctuation, not part of the URL.
+    const url = m[0].replace(/[.,;:!?'"”’)\]]+$/, "");
+    if (!out.includes(url)) out.push(url);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * Link previews as sent by Synapse's URL previews (`com.beeper.linkpreviews`, the shape Element and
+ * Beeper use) plus the newer `org.matrix.msc4095.previews`. Never fetched by us: only rendered.
+ */
+function previewsOf(c: Record<string, unknown>): LinkPreview[] | undefined {
+  const raw = (c["com.beeper.linkpreviews"] ?? c["org.matrix.msc4095.previews"]) as unknown;
+  if (!Array.isArray(raw)) return undefined;
+  const out: LinkPreview[] = [];
+  for (const p of raw) {
+    if (!p || typeof p !== "object") continue;
+    const o = p as Record<string, unknown>;
+    const url = (o.matched_url ?? o["og:url"] ?? o.url) as string | undefined;
+    if (!url) continue;
+    const str = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : undefined);
+    const num = (k: string) => (typeof o[k] === "number" ? (o[k] as number) : undefined);
+    out.push({
+      url,
+      ...(str("og:title") ? { title: str("og:title")! } : {}),
+      ...(str("og:description") ? { description: str("og:description")! } : {}),
+      ...(str("og:image") ? { image: str("og:image")! } : {}),
+      ...(num("og:image:width") ? { imageWidth: num("og:image:width")! } : {}),
+      ...(num("og:image:height") ? { imageHeight: num("og:image:height")! } : {}),
+      ...(str("og:site_name") ? { siteName: str("og:site_name")! } : {}),
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+function messageContent(ev: MatrixEvent, myUserId?: string): MessageContent {
   const c = ev.getContent();
   const body = typeof c.body === "string" ? c.body : "";
   switch (c.msgtype) {
     case MsgType.Text:
-    case MsgType.Notice:
+    case MsgType.Notice: {
+      const ids = (c["m.mentions"] as { user_ids?: unknown } | undefined)?.user_ids;
+      const mentions = Array.isArray(ids) ? ids.filter((u): u is string => typeof u === "string") : undefined;
+      const previews = previewsOf(c);
       return {
         kind: "text",
         body: c["m.relates_to"]?.["m.in_reply_to"] ? stripReplyFallback(body) : body,
         ...(typeof c.formatted_body === "string" && { formattedBody: c.formatted_body }),
+        ...(mentions?.length && { mentions }),
+        ...(mentions && myUserId && mentions.includes(myUserId) && { mentionsMe: true }),
+        ...(previews && { previews }),
       };
+    }
     case MsgType.Emote:
       return { kind: "text", body: `* ${body}` };
     case MsgType.Image: {
@@ -150,7 +197,8 @@ export function reactionsOf(client: MatrixClient, room: Room | null, eventId: st
 export function stripReplyFallback(body: string): string {
   if (!body.startsWith("> ")) return body;
   const i = body.indexOf("\n\n");
-  return i === -1 ? body : body.slice(i + 2);
+  // Whatever separated the quote from the reply, the reply itself never starts with blank lines.
+  return i === -1 ? body : body.slice(i + 2).replace(/^\n+/, "");
 }
 
 function replyOf(client: MatrixClient, room: Room | null, ev: MatrixEvent): TimelineItem["replyTo"] | undefined {
@@ -240,7 +288,7 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent, markers?: 
   let content: MessageContent | null = null;
   switch (ev.getType()) {
     case EventType.RoomMessage:
-      content = messageContent(ev);
+      content = messageContent(ev, client.getUserId() ?? undefined);
       break;
     case EventType.RoomMessageEncrypted:
       content = { kind: "undecryptable" };
@@ -272,6 +320,7 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent, markers?: 
     ts: ev.getTs(),
     content,
     status,
+    ...(isPinned(room, id) && { pinned: true }),
     ...(txn && { transactionId: txn }),
     ...(reactions && { reactions }),
     ...(readBy && { readBy }),
@@ -294,6 +343,14 @@ export function roomItems(client: MatrixClient, room: Room): TimelineItem[] {
   }
   return out;
 }
+
+/** Event ids pinned in `room` (m.room.pinned_events). */
+export function pinnedIds(room: Room | null): string[] {
+  const c = room?.currentState.getStateEvents(EventType.RoomPinnedEvents, "")?.getContent() as { events?: unknown } | undefined;
+  return Array.isArray(c?.events) ? c!.events!.filter((e): e is string => typeof e === "string") : [];
+}
+
+const isPinned = (room: Room | null, eventId: string) => pinnedIds(room).includes(eventId);
 
 function isDirect(client: MatrixClient, room: Room): boolean {
   const direct = client.getAccountData("m.direct" as never)?.getContent<Record<string, string[]>>() ?? {};
