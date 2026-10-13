@@ -1,4 +1,8 @@
+import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `.out/${name}.png` });
@@ -1657,4 +1661,184 @@ test("a screen that fails to render shows a way out (light or dark with the syst
   await expect(page.getByText("Something went wrong")).toBeVisible({ timeout: 10000 });
   await page.getByRole("button", { name: "Reload" }).click();
   await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
+});
+
+// ---- audio, video, recording, upload progress ----------------------------------------------------------------------
+
+let fixtures: { tone: string; clip: string; big: string } | null = null;
+function makeFixtures() {
+  if (fixtures) return fixtures;
+  const dir = mkdtempSync(join(tmpdir(), "ohmatrix-media-"));
+  const tone = join(dir, "tone.ogg"),
+    clip = join(dir, "clip.webm"),
+    big = join(dir, "big.bin");
+  try {
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-c:a", "libopus", tone]);
+    execFileSync("ffmpeg", [
+      "-v",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=duration=3:size=320x240:rate=15",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=330:duration=3",
+      "-c:v",
+      "libvpx",
+      "-b:v",
+      "200k",
+      "-c:a",
+      "libvorbis",
+      clip,
+    ]);
+  } catch {
+    throw new Error("these tests generate their media with ffmpeg (libopus, libvpx, libvorbis)");
+  }
+  writeFileSync(big, Buffer.alloc(700 * 1024, 7));
+  return (fixtures = { tone, clip, big });
+}
+const attachFile = async (page: Page, path: string) => {
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Attach" }).click();
+  await (await chooser).setFiles(path);
+};
+async function openNotes(page: Page) {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+}
+
+test("audio file and video file: bubbles, playing the audio, the video viewer", async ({ page }) => {
+  const fx = makeFixtures();
+  await openNotes(page);
+  await attachFile(page, fx.tone);
+  const audioPlay = page.getByRole("button", { name: "Play" }).last();
+  await expect(audioPlay).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("tone.ogg").last()).toBeVisible();
+  await expect(page.getByText("0:04", { exact: true }).last()).toBeVisible();
+
+  await audioPlay.click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/^0:0[1-4] \/ 0:04$/).last()).toBeVisible({ timeout: 10000 }); // the position moves while it plays
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByRole("button", { name: "Play" }).last()).toBeVisible();
+
+  await attachFile(page, fx.clip);
+  const open = page.getByRole("button", { name: "Open video" }).last();
+  await expect(open).toBeVisible({ timeout: 20000 });
+  await expect(open.locator("img")).toBeVisible({ timeout: 10000 }); // a poster frame was made when sending
+  await expect(open.getByText("0:03")).toBeVisible();
+  expect(await open.evaluate((el) => getComputedStyle(el).cursor)).toBe("pointer");
+  await shot(page, "49-audio-video-bubbles");
+  await expect(page.getByRole("button", { name: /Notes to self/ }).first()).toContainText("Video");
+
+  await open.click();
+  const video = page.locator("video");
+  await expect(video).toBeVisible({ timeout: 15000 });
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused && v.currentTime > 0.3), { timeout: 10000 }).toBe(true);
+  expect(await video.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(320);
+  const box = (await video.boundingBox())!;
+  expect(box.width).toBeLessThanOrEqual(1280 * 0.8 + 1); // not maximised
+  await shot(page, "50-video-viewer");
+  await page.keyboard.press("Escape");
+  await expect(video).toBeHidden();
+});
+
+test("voice message: record, send, play; discard sends nothing; a blocked microphone is explained", async ({ page }) => {
+  await openNotes(page);
+  const voiceBubbles = () => page.getByLabel("Seek").count();
+  const before = await voiceBubbles();
+
+  // Discard: nothing is sent.
+  await page.getByRole("button", { name: "Record a voice message" }).click();
+  await expect(page.getByLabel("Recording time")).toBeVisible({ timeout: 10000 });
+  await page.waitForTimeout(1300);
+  await page.getByRole("button", { name: "Discard recording" }).click();
+  await expect(page.getByLabel("Recording time")).toHaveCount(0);
+  await page.waitForTimeout(1000);
+  expect(await voiceBubbles()).toBe(before);
+
+  // Record two seconds and send.
+  await page.getByRole("button", { name: "Record a voice message" }).click();
+  const clock = page.getByLabel("Recording time");
+  await expect(clock).toBeVisible({ timeout: 10000 });
+  await expect.poll(() => clock.innerText(), { timeout: 10000 }).toMatch(/^0:0[2-9]$/);
+  await shot(page, "51-recording");
+  await page.getByRole("button", { name: "Send recording" }).click();
+  await expect(page.getByLabel("Recording time")).toHaveCount(0);
+  await expect.poll(voiceBubbles, { timeout: 20000 }).toBe(before + 1);
+  const play = page.getByRole("button", { name: "Play" }).last();
+  await expect(play).toBeVisible();
+  await expect(page.getByText(/^0:0[2-5]$/).last()).toBeVisible(); // its length
+  await shot(page, "52-voice-message");
+  await play.click();
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible({ timeout: 10000 });
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByRole("button", { name: "Record a voice message" })).toBeVisible();
+});
+
+test("voice message: a blocked microphone is explained and nothing starts", async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(Object.assign(new Error("Permission denied"), { name: "NotAllowedError" }));
+  });
+  await openNotes(page);
+  await page.getByRole("button", { name: "Record a voice message" }).click();
+  await expect(page.getByRole("alert")).toContainText("Access to the microphone or camera was blocked");
+  await expect(page.getByLabel("Recording time")).toHaveCount(0);
+});
+
+test("video message: camera preview, record, stop and send", async ({ page }) => {
+  await openNotes(page);
+  await page.getByRole("button", { name: "Record a video" }).click();
+  const preview = page.locator("video");
+  await expect(preview).toBeVisible({ timeout: 10000 });
+  await expect.poll(() => preview.evaluate((v: HTMLVideoElement) => v.videoWidth > 0), { timeout: 10000 }).toBe(true); // live camera
+  await page.getByRole("button", { name: "Start recording" }).click();
+  await expect.poll(() => page.getByLabel("Recording time").innerText(), { timeout: 10000 }).toMatch(/0:0[1-9]/);
+  await shot(page, "53-video-recording");
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.getByText("Record a video", { exact: true })).toBeHidden({ timeout: 10000 }); // the dialog closed
+  await expect(page.getByRole("button", { name: "Open video" }).last()).toBeVisible({ timeout: 30000 });
+});
+
+test("upload progress and cancel; a failed upload can be dismissed", async ({ page }) => {
+  const fx = makeFixtures();
+  await openNotes(page);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Network.enable");
+  await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 50, downloadThroughput: -1, uploadThroughput: 60 * 1024 });
+
+  const sentBefore = await page.getByText("big.bin", { exact: true }).count(); // earlier runs may have left one
+  await attachFile(page, fx.big);
+  const ring = page.getByRole("button", { name: "Cancel upload" });
+  await expect(ring).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/\d+(\.\d)? (KB|B) \/ 700 KB/)).toBeVisible({ timeout: 15000 }); // loaded / total
+  const loaded = async () => {
+    const m = (
+      await page
+        .getByText(/[\d.]+ (B|KB|MB) \/ 700 KB/)
+        .last()
+        .innerText()
+    ).match(/^([\d.]+) (B|KB|MB)/)!;
+    return Number(m[1]) * ({ B: 1, KB: 1024, MB: 1024 * 1024 } as Record<string, number>)[m[2]!]!;
+  };
+  const first = await loaded();
+  await expect.poll(loaded, { timeout: 20000 }).toBeGreaterThan(first); // the count moves while it uploads
+  await shot(page, "54-upload-progress");
+  await ring.click(); // cancel
+  await expect(ring).toHaveCount(0, { timeout: 5000 });
+  await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await page.waitForTimeout(1500);
+  await expect(page.getByText("big.bin", { exact: true })).toHaveCount(sentBefore); // nothing was sent
+
+  // A failing upload stays visible as failed until dismissed.
+  await page.route(/\/_matrix\/media\/v3\/upload/, (route) => route.abort("failed"));
+  await attachFile(page, fx.big);
+  await expect(page.getByText("Upload failed. Tap to dismiss.")).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Dismiss" }).click();
+  await expect(page.getByText("Upload failed. Tap to dismiss.")).toHaveCount(0);
 });

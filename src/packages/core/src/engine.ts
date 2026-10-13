@@ -158,8 +158,14 @@ export interface TimelineHandle {
   edit(eventId: EventId, body: string): Promise<void>;
   /** Delete (redact) one of my messages. */
   redact(eventId: EventId): Promise<void>;
-  /** Upload and send a file or image (encrypted when the room is encrypted). */
+  /**
+   * Upload and send a file, image, video or audio (encrypted when the room is encrypted). The upload shows up in
+   * the timeline with its progress (`TimelineItem.upload`) until the message exists. Resolves when sent; rejects
+   * with EngineError("unknown", "cancelled") if cancelled.
+   */
   sendAttachment(file: AttachmentSource): Promise<void>;
+  /** Cancel an upload in progress, or dismiss one that failed. `id` is the item's `transactionId`. */
+  cancelUpload(id: string): void;
   /** Send `body` as a reply to `eventId`. */
   reply(eventId: EventId, body: string): Promise<void>;
   /** Toggle my reaction `key` (an emoji) on an event. */

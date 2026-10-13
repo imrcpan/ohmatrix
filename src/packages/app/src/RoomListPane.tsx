@@ -15,7 +15,19 @@ function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
   if (room.typing?.length) return typingLabel(room.typing, t, room.isDirect);
   const m = room.lastMessage;
   if (!m) return t("noMessages");
-  const body = (m.content.kind === "image" ? `📷 ${t("photo")}` : contentText(m.content)).replace(/\s+/g, " ").trim();
+  const body = (
+    m.content.kind === "image"
+      ? `📷 ${t("photo")}`
+      : m.content.kind === "video"
+        ? `🎬 ${t("video")}`
+        : m.content.kind === "audio"
+          ? m.content.voice
+            ? `🎤 ${t("voiceMessage")}`
+            : `🎵 ${m.content.name}`
+          : contentText(m.content)
+  )
+    .replace(/\s+/g, " ")
+    .trim();
   if (m.content.kind === "service") return body;
   if (m.isOwn) return `${t("you")}: ${body}`;
   return room.isDirect ? body : `${m.senderName}: ${body}`;

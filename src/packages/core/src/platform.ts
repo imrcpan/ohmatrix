@@ -20,6 +20,40 @@ export interface SystemNotifications {
   show(n: { title: string; body: string; tag: string; onClick: () => void }): void;
 }
 
+/** What a finished recording hands back: a file ready to send, with the facts the recorder measured itself. */
+export interface RecordedMedia extends AttachmentSource {
+  durationMs: number;
+}
+
+/**
+ * A microphone or camera that has been opened (permission granted) and is ready: `preview` can already be shown,
+ * and recording begins with `start()`.
+ */
+export interface Recorder {
+  readonly kind: "audio" | "video";
+  /** Begin recording. */
+  start(): void;
+  /** A live preview source for video recordings (on web a MediaStream); opaque to shared code. */
+  readonly preview?: unknown;
+  /** Loudness 0..1 about ten times a second while recording; returns an unsubscribe. */
+  onLevel(cb: (level: number) => void): () => void;
+  /** Stop and return the recording. */
+  stop(): Promise<RecordedMedia>;
+  /** Stop and throw the recording away; releases the microphone/camera. */
+  cancel(): void;
+}
+
+/** Why a recording could not start. */
+export class RecordError extends Error {
+  constructor(
+    readonly reason: "denied" | "unsupported" | "no_device",
+    message: string,
+  ) {
+    super(message);
+    this.name = "RecordError";
+  }
+}
+
 /** Persists user preferences (localStorage / AsyncStorage / settings file). */
 export interface PreferencesStore {
   load(): Promise<Partial<Preferences>>;
@@ -33,6 +67,8 @@ export interface PreferencesStore {
 export interface PlatformServices {
   sessionStore: SessionStore;
   notifications?: SystemNotifications;
+  /** Record a voice message or a short video. Absent = the record buttons are hidden. Rejects with RecordError. */
+  recordMedia?(kind: "audio" | "video"): Promise<Recorder>;
   /** Absent = preferences live only for this run. */
   preferences?: PreferencesStore;
   /** Let the user choose files to send. Absent = the attach button is hidden. */

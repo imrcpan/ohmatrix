@@ -60,6 +60,62 @@ function messageContent(ev: MatrixEvent): MessageContent {
         ...(c.file && { encryption: c.file }),
       };
     }
+    case MsgType.Video: {
+      const info = c.info as
+        | {
+            w?: number;
+            h?: number;
+            duration?: number;
+            size?: number;
+            mimetype?: string;
+            thumbnail_url?: string;
+            thumbnail_file?: { url?: string };
+            thumbnail_info?: { mimetype?: string };
+          }
+        | undefined;
+      const url = typeof c.url === "string" ? c.url : (c.file?.url as string | undefined);
+      if (!url) return { kind: "unsupported", body: body || "Video" };
+      const thumbUrl = info?.thumbnail_url ?? info?.thumbnail_file?.url;
+      return {
+        kind: "video",
+        url,
+        name: (c.filename as string | undefined) ?? (body || "video"),
+        ...(info?.w && { width: info.w }),
+        ...(info?.h && { height: info.h }),
+        ...(info?.duration && { durationMs: info.duration }),
+        ...(info?.size && { size: info.size }),
+        ...(info?.mimetype && { mimeType: info.mimetype }),
+        ...(c.file && { encryption: c.file }),
+        ...(thumbUrl && {
+          thumbnail: {
+            url: thumbUrl,
+            ...(info?.thumbnail_file && { encryption: info.thumbnail_file }),
+            ...(info?.thumbnail_info?.mimetype && { mimeType: info.thumbnail_info.mimetype }),
+          },
+        }),
+      };
+    }
+    case MsgType.Audio: {
+      const info = c.info as { duration?: number; size?: number; mimetype?: string } | undefined;
+      const url = typeof c.url === "string" ? c.url : (c.file?.url as string | undefined);
+      if (!url) return { kind: "unsupported", body: body || "Audio" };
+      // Voice messages carry MSC3245's marker; their length and waveform live in MSC1767's audio block.
+      const voice = "org.matrix.msc3245.voice" in c || "m.voice" in c;
+      const ext = c["org.matrix.msc1767.audio"] as { duration?: number; waveform?: number[] } | undefined;
+      const duration = ext?.duration ?? info?.duration;
+      const wave = Array.isArray(ext?.waveform) ? ext!.waveform.map((n) => Math.max(0, Math.min(1, n / 1024))) : undefined;
+      return {
+        kind: "audio",
+        url,
+        name: (c.filename as string | undefined) ?? (body || "audio"),
+        ...(duration && { durationMs: duration }),
+        ...(info?.size && { size: info.size }),
+        ...(info?.mimetype && { mimeType: info.mimetype }),
+        ...(c.file && { encryption: c.file }),
+        ...(voice && { voice }),
+        ...(wave && { waveform: wave }),
+      };
+    }
     case MsgType.File: {
       const info = c.info as { size?: number; mimetype?: string } | undefined;
       const url = typeof c.url === "string" ? c.url : (c.file?.url as string | undefined);
@@ -153,6 +209,10 @@ export function notificationPreview(ev: MatrixEvent): string | undefined {
   switch (c.msgtype) {
     case MsgType.Image:
       return "📷";
+    case MsgType.Video:
+      return `🎬 ${(c.filename as string | undefined) ?? c.body ?? ""}`.trim();
+    case MsgType.Audio:
+      return "org.matrix.msc3245.voice" in c || "m.voice" in c ? "🎤" : `🎵 ${(c.filename as string | undefined) ?? c.body ?? ""}`.trim();
     case MsgType.File:
       return `📎 ${(c.filename as string | undefined) ?? c.body ?? ""}`.trim();
     default: {

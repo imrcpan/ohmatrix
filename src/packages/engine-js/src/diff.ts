@@ -12,7 +12,8 @@ function equal(a: TimelineItem, b: TimelineItem): boolean {
     JSON.stringify(a.reactions) === JSON.stringify(b.reactions) &&
     JSON.stringify(a.replyTo) === JSON.stringify(b.replyTo) &&
     a.edited === b.edited &&
-    JSON.stringify(a.readBy) === JSON.stringify(b.readBy)
+    JSON.stringify(a.readBy) === JSON.stringify(b.readBy) &&
+    JSON.stringify(a.upload) === JSON.stringify(b.upload)
   );
 }
 

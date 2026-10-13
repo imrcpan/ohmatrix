@@ -12,3 +12,6 @@ export { EllipsisText } from "./EllipsisText.js";
 export { truncateWithDots } from "./truncate.js";
 export { Toggle } from "./Toggle.js";
 export { ImageViewer, fitSize } from "./ImageViewer.js";
+export { VideoViewer } from "./VideoViewer.js";
+export { LivePreview } from "./VideoSurface.js";
+export { AudioRow, ProgressRing, Waveform } from "./media.js";

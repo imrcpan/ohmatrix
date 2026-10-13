@@ -46,6 +46,7 @@ import {
 } from "@ohmatrix/core";
 import { nameOf, notificationPreview, roomItems, stripReplyFallback, toRoomSummary, typingNames } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
+import { probeMedia, type Probe } from "./probe.js";
 import { resolveHomeserver } from "./discovery.js";
 import { diffTimeline } from "./diff.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
@@ -901,7 +902,54 @@ export class JsSdkEngine implements MatrixEngine {
     const room: Room | null = client.getRoom(roomId);
     if (!room) throw new EngineError("not_found", `unknown room ${roomId}`);
     const listeners = new Set<Listener<ListUpdate<TimelineItem>[]>>();
-    let current: TimelineItem[] = roomItems(client, room);
+    // Files being uploaded are shown in the timeline (with progress) until their message exists.
+    interface Pending {
+      id: string;
+      name: string;
+      mimeType: string;
+      size: number;
+      loaded: number;
+      total: number;
+      startedAt: number;
+      previewUrl?: string;
+      failed?: boolean;
+      abort: AbortController;
+    }
+    const uploading = new Map<string, Pending>();
+    const kindOf = (mime: string) => (mime.startsWith("image/") ? "image" : mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "file");
+    const uploadItems = (): TimelineItem[] =>
+      [...uploading.values()].map((u) => {
+        const base = { name: u.name, size: u.size, mimeType: u.mimeType, url: "" };
+        const k = kindOf(u.mimeType);
+        const content: TimelineItem["content"] =
+          k === "image"
+            ? { kind: "image", url: "", body: u.name, mimeType: u.mimeType }
+            : k === "video"
+              ? { kind: "video", ...base }
+              : k === "audio"
+                ? { kind: "audio", ...base }
+                : { kind: "file", ...base };
+        return {
+          id: `upload:${u.id}`,
+          transactionId: u.id,
+          roomId,
+          sender: client.getUserId() ?? "",
+          senderName: "",
+          isOwn: true,
+          ts: u.startedAt,
+          content,
+          status: "sending" as const,
+          upload: {
+            progress: u.total ? u.loaded / u.total : 0,
+            loaded: u.loaded,
+            total: u.total,
+            ...(u.previewUrl && { previewUrl: u.previewUrl }),
+            ...(u.failed && { failed: true }),
+          },
+        };
+      });
+    const compute = () => [...roomItems(client, room), ...uploadItems()];
+    let current: TimelineItem[] = compute();
     let pending = false;
 
     const refresh = () => {
@@ -909,7 +957,7 @@ export class JsSdkEngine implements MatrixEngine {
       pending = true;
       queueMicrotask(() => {
         pending = false;
-        const next = roomItems(client, room);
+        const next = compute();
         const updates = diffTimeline(current, next);
         current = next;
         if (updates.length) listeners.forEach((cb) => cb(updates));
@@ -998,30 +1046,127 @@ export class JsSdkEngine implements MatrixEngine {
         guard(async () => {
           await client.sendTextMessage(roomId, body);
         }),
+      cancelUpload: (id: string) => {
+        const u = uploading.get(id);
+        if (!u) return;
+        u.abort.abort(); // a failed upload has nothing to abort: this just dismisses it
+        uploading.delete(id);
+        if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
+        refresh();
+      },
       sendAttachment: (file: AttachmentSource) =>
         guard(async () => {
           const blob = file.data as Blob;
-          const isImage = file.mimeType.startsWith("image/");
-          let dims: { w: number; h: number } | undefined;
-          if (isImage && typeof createImageBitmap === "function") {
-            try {
-              const bmp = await createImageBitmap(blob);
-              dims = { w: bmp.width, h: bmp.height };
-              bmp.close();
-            } catch {
-              /* not decodable: send without size */
+          const kind = kindOf(file.mimeType);
+          const id = `upload-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+          const u: Pending = {
+            id,
+            name: file.name,
+            mimeType: file.mimeType,
+            size: file.size,
+            loaded: 0,
+            total: file.size,
+            startedAt: Date.now(),
+            abort: new AbortController(),
+          };
+          uploading.set(id, u);
+          let lastPaint = 0;
+          const paint = (force = false) => {
+            const now = Date.now();
+            if (force || now - lastPaint > 120) {
+              lastPaint = now;
+              refresh();
             }
+          };
+          if (kind === "image" && typeof URL.createObjectURL === "function") u.previewUrl = URL.createObjectURL(blob);
+          refresh();
+          try {
+            // What the browser knows about the file: picture size, play time, and a poster frame for videos.
+            let dims: { w?: number | undefined; h?: number | undefined } = { w: file.width, h: file.height };
+            let durationMs = file.durationMs;
+            let poster: Probe["poster"];
+            if (kind === "image" && !dims.w && typeof createImageBitmap === "function") {
+              try {
+                const bmp = await createImageBitmap(blob);
+                dims = { w: bmp.width, h: bmp.height };
+                bmp.close();
+              } catch {
+                /* not decodable: send without size */
+              }
+            } else if (kind === "video" || kind === "audio") {
+              const p = await probeMedia(blob, kind);
+              durationMs ??= p.durationMs;
+              poster = p.poster;
+              if (kind === "video") dims = { w: file.width ?? p.width, h: file.height ?? p.height };
+              if (poster && typeof URL.createObjectURL === "function") {
+                u.previewUrl = URL.createObjectURL(poster.blob);
+                refresh();
+              }
+            }
+            const info: Record<string, unknown> = {
+              mimetype: file.mimeType,
+              size: file.size,
+              ...(dims.w && dims.h && { w: dims.w, h: dims.h }),
+              ...(durationMs && { duration: durationMs }),
+            };
+            const msgtype = kind === "image" ? "m.image" : kind === "video" ? "m.video" : kind === "audio" ? "m.audio" : "m.file";
+            const content: Record<string, unknown> = { msgtype, body: file.name, filename: file.name, info };
+            if (kind === "audio" && file.voice) {
+              content["org.matrix.msc3245.voice"] = {};
+              content["org.matrix.msc1767.audio"] = {
+                ...(durationMs && { duration: durationMs }),
+                ...(file.waveform && { waveform: file.waveform.map((n) => Math.round(Math.max(0, Math.min(1, n)) * 1024)) }),
+              };
+            }
+            const upload = async (body: Blob, name: string, type: string, includeFilename: boolean, track: boolean) =>
+              (
+                await client.uploadContent(body, {
+                  name,
+                  type,
+                  includeFilename,
+                  abortController: u.abort,
+                  ...(track && {
+                    progressHandler: ({ loaded, total }: { loaded: number; total: number }) => {
+                      u.loaded = loaded;
+                      if (total) u.total = total;
+                      paint();
+                    },
+                  }),
+                })
+              ).content_uri;
+            if (client.isRoomEncrypted(roomId) || (await client.getCrypto()?.isEncryptionEnabledInRoom(roomId))) {
+              const { data, info: enc } = await encryptAttachment(await blob.arrayBuffer());
+              content.file = { ...enc, url: await upload(new Blob([data]), file.name, "application/octet-stream", false, true), mimetype: file.mimeType };
+              if (poster) {
+                const t = await encryptAttachment(await poster.blob.arrayBuffer());
+                info.thumbnail_file = {
+                  ...t.info,
+                  url: await upload(new Blob([t.data]), "poster.jpg", "application/octet-stream", false, false),
+                  mimetype: "image/jpeg",
+                };
+                info.thumbnail_info = { mimetype: "image/jpeg", w: poster.width, h: poster.height, size: poster.blob.size };
+              }
+            } else {
+              content.url = await upload(blob, file.name, file.mimeType, true, true);
+              if (poster) {
+                info.thumbnail_url = await upload(poster.blob, "poster.jpg", "image/jpeg", true, false);
+                info.thumbnail_info = { mimetype: "image/jpeg", w: poster.width, h: poster.height, size: poster.blob.size };
+              }
+            }
+            u.loaded = u.total;
+            paint(true);
+            const sending = client.sendMessage(roomId, content as never); // its local echo appears now, so the upload row can go
+            uploading.delete(id);
+            refresh();
+            await sending;
+          } catch (e) {
+            if (u.abort.signal.aborted) throw new EngineError("unknown", "cancelled", e); // cancelUpload already removed it
+            u.failed = true;
+            refresh(); // stays in the timeline, marked failed, until dismissed
+            throw e;
+          } finally {
+            if (!uploading.has(id) && u.previewUrl) URL.revokeObjectURL(u.previewUrl);
           }
-          const info = { mimetype: file.mimeType, size: file.size, ...dims };
-          const content: Record<string, unknown> = { msgtype: isImage ? "m.image" : "m.file", body: file.name, filename: file.name, info };
-          if (client.isRoomEncrypted(roomId) || (await client.getCrypto()?.isEncryptionEnabledInRoom(roomId))) {
-            const { data, info: enc } = await encryptAttachment(await blob.arrayBuffer());
-            const up = await client.uploadContent(new Blob([data]), { name: file.name, type: "application/octet-stream", includeFilename: false });
-            content.file = { ...enc, url: up.content_uri, mimetype: file.mimeType };
-          } else {
-            content.url = (await client.uploadContent(blob, { name: file.name, type: file.mimeType })).content_uri;
-          }
-          await client.sendMessage(roomId, content as never);
         }),
       edit: (eventId, body) =>
         guard(async () => {

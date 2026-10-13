@@ -645,3 +645,118 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   90000,
 );
+
+for (const encrypted of [false, true]) {
+  test.skipIf(!process.env.OHMATRIX_LIVE)(
+    `video and audio: send, voice marker and waveform, upload row, download${encrypted ? " (encrypted room)" : ""}`,
+    async () => {
+      const e = new JsSdkEngine({ cryptoStorage: "memory" });
+      await e.auth.loginWithPassword("http://localhost:8008", "test", "123456");
+      let rooms: RoomSummary[] = [];
+      e.rooms.subscribe((u) => {
+        rooms = applyUpdates(rooms, u);
+      });
+      await e.sync.start();
+      const roomId = await scratchRoom(e, encrypted);
+      await expect.poll(() => rooms.some((r) => r.id === roomId), { timeout: 15000 }).toBe(true);
+      if (encrypted)
+        await expect
+          .poll(() => (e as unknown as { client: { isRoomEncrypted(id: string): boolean } }).client.isRoomEncrypted(roomId), { timeout: 15000 })
+          .toBe(true);
+      const tl = e.openTimeline(roomId);
+      let items: TimelineItem[] = [];
+      const sawUpload = new Set<string>();
+      tl.subscribe((u) => {
+        items = applyUpdates(items, u);
+        for (const i of items) if (i.upload) sawUpload.add(i.content.kind);
+      });
+
+      const bytes = (n: number, seed: number) => Uint8Array.from({ length: n }, (_, i) => (i * seed) & 255);
+      const video = bytes(5000, 7),
+        voice = bytes(3000, 11),
+        song = bytes(4000, 13);
+      await tl.sendAttachment({
+        name: "clip.mp4",
+        mimeType: "video/mp4",
+        size: video.length,
+        data: new Blob([video], { type: "video/mp4" }),
+        durationMs: 4200,
+        width: 640,
+        height: 360,
+      });
+      await tl.sendAttachment({
+        name: "voice.ogg",
+        mimeType: "audio/ogg",
+        size: voice.length,
+        data: new Blob([voice], { type: "audio/ogg" }),
+        durationMs: 7300,
+        voice: true,
+        waveform: [0, 0.25, 0.5, 1],
+      });
+      await tl.sendAttachment({
+        name: "song.mp3",
+        mimeType: "audio/mpeg",
+        size: song.length,
+        data: new Blob([song], { type: "audio/mpeg" }),
+        durationMs: 180000,
+      });
+      await expect.poll(() => items.filter((i) => i.status === "sent" && ["video", "audio"].includes(i.content.kind)).length, { timeout: 20000 }).toBe(3);
+      expect(items.some((i) => i.upload)).toBe(false); // every upload row is gone once its message exists
+      expect([...sawUpload].sort()).toEqual(["audio", "video"]); // ...but each was visible while uploading
+
+      const v = items.find((i) => i.content.kind === "video")!.content as Extract<TimelineItem["content"], { kind: "video" }>;
+      const a = items.filter((i) => i.content.kind === "audio").map((i) => i.content as Extract<TimelineItem["content"], { kind: "audio" }>);
+      expect(v).toMatchObject({ name: "clip.mp4", durationMs: 4200, width: 640, height: 360, mimeType: "video/mp4", size: video.length });
+      expect(!!v.encryption).toBe(encrypted);
+      const vo = a.find((c) => c.name === "voice.ogg")!,
+        so = a.find((c) => c.name === "song.mp3")!;
+      expect(vo).toMatchObject({ voice: true, durationMs: 7300 });
+      expect(vo.waveform).toEqual([0, 0.25, 0.5, 1]);
+      expect(so.voice).toBeUndefined();
+      expect(so.durationMs).toBe(180000);
+      const fetchBytes = async (c: { url: string; encryption?: unknown; mimeType?: string }) =>
+        new Uint8Array(await (await fetch(await e.media.resolve(c.url, { encryption: c.encryption, mimeType: c.mimeType }))).arrayBuffer());
+      expect(await fetchBytes(v)).toEqual(video);
+      expect(await fetchBytes(vo)).toEqual(voice);
+      expect(await fetchBytes(so)).toEqual(song);
+      tl.close();
+      await e.sync.stop();
+    },
+    90000,
+  );
+}
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "cancelling an upload stops it, sends nothing and removes the row",
+  async () => {
+    const e = new JsSdkEngine({ cryptoStorage: "memory" });
+    await e.auth.loginWithPassword("http://localhost:8008", "test", "123456");
+    let rooms: RoomSummary[] = [];
+    e.rooms.subscribe((u) => {
+      rooms = applyUpdates(rooms, u);
+    });
+    await e.sync.start();
+    const roomId = await scratchRoom(e);
+    await expect.poll(() => rooms.some((r) => r.id === roomId), { timeout: 15000 }).toBe(true);
+    const tl = e.openTimeline(roomId);
+    let items: TimelineItem[] = [];
+    tl.subscribe((u) => {
+      items = applyUpdates(items, u);
+    });
+    const big = new Uint8Array(8 * 1024 * 1024);
+    const sending = tl.sendAttachment({ name: "huge.bin", mimeType: "application/octet-stream", size: big.length, data: new Blob([big]) });
+    const outcome = sending.then(
+      () => "sent",
+      (err: Error) => `rejected: ${err.message}`,
+    );
+    await expect.poll(() => items.find((i) => i.upload)?.transactionId, { timeout: 10000 }).toBeTruthy();
+    tl.cancelUpload(items.find((i) => i.upload)!.transactionId!);
+    expect(await outcome).toBe("rejected: cancelled");
+    await expect.poll(() => items.some((i) => i.upload), { timeout: 5000 }).toBe(false);
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(items.some((i) => i.content.kind === "file")).toBe(false); // nothing was sent
+    tl.close();
+    await e.sync.stop();
+  },
+  60000,
+);

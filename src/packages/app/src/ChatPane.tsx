@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable } from "react-native";
-import { contentText, type TimelineItem } from "@ohmatrix/core";
+import { contentText, type AttachmentSource, type TimelineItem } from "@ohmatrix/core";
 import { FlatList, ScrollView, Text, View } from "react-native";
 import {
   ImageViewer,
+  VideoViewer,
   MessageMenu,
   Avatar,
   Bubble,
@@ -20,6 +21,8 @@ import {
 } from "@ohmatrix/ui";
 import type { MenuPoint } from "@ohmatrix/ui";
 import { MessageResults } from "./MessageResults.js";
+import { formatDuration, useAudioPlayer } from "./useAudio.js";
+import { useVoiceRecording, VideoRecorderDialog } from "./Recording.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useServices, useAppState, useController, useLocale, useT } from "./context.js";
 import { formatBytes, formatClock, typingLabel } from "./format.js";
@@ -45,6 +48,7 @@ interface RowActions {
   edit(item: TimelineItem): void;
   remove(eventId: string): void;
   jump(eventId: string): void;
+  cancelUpload(id: string): void;
   download(file: { url: string; name: string; encryption?: unknown; mimeType?: string }): void;
 }
 
@@ -53,6 +57,7 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
   const [confirmDelete, setConfirmDelete] = useState(false);
   const locale = useLocale();
   const t = useT();
+  const controller = useController();
   const m = row.type === "message" ? row.item : undefined;
   const avatar = useMediaUrl(m?.senderAvatar, { width: 64, height: 64, fit: "crop" });
   const content = m?.content;
@@ -70,6 +75,26 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
       : {},
   );
   const [viewing, setViewing] = useState(false);
+  const [viewingVideo, setViewingVideo] = useState(false);
+  const encOf = (c: typeof content) =>
+    c && "encryption" in c && c.encryption ? { encryption: c.encryption, ...("mimeType" in c && c.mimeType ? { mimeType: c.mimeType } : {}) } : {};
+  // Audio is fetched when play is pressed; video when its player is opened; posters are small and load at once.
+  const audio = useAudioPlayer(
+    () => (content?.kind === "audio" ? controller.resolveMedia(content.url, encOf(content)) : Promise.reject(new Error("not audio"))),
+    content?.kind === "audio" ? content.durationMs : undefined,
+  );
+  const videoDims = content?.kind === "video" ? fit(content.width ?? 640, content.height ?? 360) : undefined;
+  const poster = useMediaUrl(
+    content?.kind === "video" ? content.thumbnail?.url : undefined,
+    content?.kind === "video" && content.thumbnail
+      ? {
+          width: 400,
+          height: 400,
+          ...(content.thumbnail.encryption ? { encryption: content.thumbnail.encryption, mimeType: content.thumbnail.mimeType ?? "image/jpeg" } : {}),
+        }
+      : {},
+  );
+  const videoFile = useMediaUrl(viewingVideo && content?.kind === "video" ? content.url : undefined, encOf(content));
   // The sharp original is only fetched once the photo is opened.
   const original = useMediaUrl(
     viewing && content?.kind === "image" ? content.url : undefined,
@@ -115,13 +140,59 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
         >
           <Bubble
             own={m.isOwn}
-            text={content.kind === "image" || content.kind === "file" ? "" : content.kind === "undecryptable" ? t("undecryptable") : contentText(content)}
+            text={
+              content.kind === "image" || content.kind === "file" || content.kind === "video" || content.kind === "audio"
+                ? ""
+                : content.kind === "undecryptable"
+                  ? t("undecryptable")
+                  : contentText(content)
+            }
             time={formatClock(m.ts, locale)}
             status={m.isOwn ? (m.readBy?.length && m.status === "sent" ? "read" : m.status) : undefined}
             readLabel={m.readBy?.length ? t("readBy", { names: m.readBy.map((r) => r.name).join(", ") }) : undefined}
             senderName={showAvatar && row.first ? m.senderName : undefined}
             senderId={m.sender}
-            image={dims ? { uri: image, ...dims, onPress: () => setViewing(true) } : undefined}
+            image={dims ? { uri: m.upload?.previewUrl ?? image, ...dims, onPress: m.upload ? undefined : () => setViewing(true) } : undefined}
+            video={
+              videoDims && content.kind === "video"
+                ? {
+                    posterUri: m.upload?.previewUrl ?? poster,
+                    ...videoDims,
+                    durationLabel: formatDuration(content.durationMs) || undefined,
+                    onPress: () => setViewingVideo(true),
+                  }
+                : undefined
+            }
+            audio={
+              content.kind === "audio"
+                ? {
+                    voice: !!content.voice,
+                    name: content.name,
+                    samples: content.waveform,
+                    progress: audio.state.progress,
+                    playing: audio.state.status === "playing",
+                    loading: audio.state.status === "loading",
+                    timeLabel:
+                      audio.state.status === "idle"
+                        ? formatDuration(audio.state.durationMs)
+                        : `${formatDuration(audio.state.positionMs)} / ${formatDuration(audio.state.durationMs)}`,
+                    playLabel: audio.state.status === "playing" ? t("pause") : t("play"),
+                    onToggle: () => void audio.toggle(),
+                    onSeek: (f) => void audio.seek(f),
+                  }
+                : undefined
+            }
+            upload={
+              m.upload
+                ? {
+                    progress: m.upload.progress,
+                    failed: m.upload.failed,
+                    cancelLabel: t(m.upload.failed ? "upload.dismiss" : "upload.cancel"),
+                    label: m.upload.failed ? t("upload.failed") : `${formatBytes(m.upload.loaded)} / ${formatBytes(m.upload.total)}`,
+                    onCancel: () => actions.cancelUpload(m.transactionId ?? ""),
+                  }
+                : undefined
+            }
             file={content.kind === "file" ? { name: content.name, sizeLabel: formatBytes(content.size), onPress: () => actions.download(content) } : undefined}
             reply={
               m.replyTo && {
@@ -148,6 +219,17 @@ function TimelineRow({ row, isGroup, actions, highlighted }: { row: Row; isGroup
           width={content.width}
           height={content.height}
           labels={{ close: t("viewer.close"), zoomIn: t("viewer.zoomIn"), zoomOut: t("viewer.zoomOut"), fit: t("viewer.fit") }}
+        />
+      )}
+      {content.kind === "video" && (
+        <VideoViewer
+          visible={viewingVideo}
+          onClose={() => setViewingVideo(false)}
+          uri={videoFile}
+          poster={poster}
+          width={content.width}
+          height={content.height}
+          closeLabel={t("viewer.close")}
         />
       )}
       <MessageMenu
@@ -226,6 +308,9 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
   const [replying, setReplying] = useState<TimelineItem | null>(null);
   const [editing, setEditing] = useState<TimelineItem | null>(null);
   const [prefill, setPrefill] = useState<{ text: string; nonce: number }>();
+  const [recordingVideo, setRecordingVideo] = useState(false);
+  const sendFile = useCallback((f: AttachmentSource) => handle.current?.sendAttachment(f).catch(() => {}) ?? Promise.resolve(), []);
+  const voice = useVoiceRecording(sendFile, services, t);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const actions = useMemo<RowActions>(
@@ -246,6 +331,7 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
           .then((url) => services.saveFile?.({ url, name: f.name }))
           .catch(() => {}),
       remove: (id) => void handle.current?.redact(id).catch(() => {}),
+      cancelUpload: (id) => handle.current?.cancelUpload(id),
       jump: (id) => {
         const index = rowsRef.current.findIndex((r) => r.type === "message" && r.item.id === id);
         if (index >= 0) listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
@@ -399,6 +485,13 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
       <Composer
         placeholder={t("message")}
         prefill={prefill}
+        notice={voice.notice}
+        recording={voice.bar}
+        record={
+          services.recordMedia
+            ? { onVoice: () => void voice.start(), onVideo: () => setRecordingVideo(true), voiceLabel: t("record.voice"), videoLabel: t("record.video") }
+            : undefined
+        }
         onTyping={(on) => handle.current?.setTyping(on)}
         onAttach={
           services.pickFiles
@@ -425,6 +518,7 @@ export function ChatPane(props: { roomId: string; onBack?: (() => void) | undefi
           setEditing(null);
         }}
       />
+      <VideoRecorderDialog visible={recordingVideo} onClose={() => setRecordingVideo(false)} send={sendFile} />
     </View>
   );
 }
