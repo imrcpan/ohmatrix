@@ -98,6 +98,12 @@ export class MockEngine implements MatrixEngine {
     },
   };
 
+  readonly messages = {
+    forward: async (): Promise<void> => {
+      throw new EngineError("unsupported", "mock cannot forward");
+    },
+  };
+
   readonly rooms = {
     subscribe: (cb: Listener<ListUpdate<RoomSummary>[]>) => {
       this.roomCbs.add(cb);
@@ -121,9 +127,10 @@ export class MockEngine implements MatrixEngine {
           isEncrypted: false,
           members: [],
           muted: false,
+          pinnedEventIds: [],
           me: this.me,
           myRole: "admin",
-          can: { editInfo: false, invite: false, kick: false, changeRoles: false },
+          can: { editInfo: false, invite: false, kick: false, changeRoles: false, pin: false },
         });
       return () => {};
     },
@@ -163,6 +170,7 @@ export class MockEngine implements MatrixEngine {
       edit: async () => {},
       redact: async () => {},
       reply: async (_id, body) => this.send(roomId, body),
+      pin: async () => {},
       react: async () => {},
       markRead: async () => this.markRead(roomId),
       close: () => mine.clear(),

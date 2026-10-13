@@ -78,6 +78,8 @@ export interface PlatformServices {
    * are dragged over the window. Returns the unsubscribe function. Absent = no drop/paste.
    */
   receiveFiles?(onFiles: (files: AttachmentSource[]) => void, onHover: (over: boolean) => void): () => void;
+  /** Open a link outside the app (a browser tab). Absent = links are inert. */
+  openLink?(url: string): void;
   /** Save/open a resolved file URL (e.g. trigger a browser download). */
   saveFile?(file: { url: string; name: string }): Promise<void>;
 }

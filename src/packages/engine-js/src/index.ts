@@ -44,7 +44,7 @@ import {
   type TimelineHandle,
   type TimelineItem,
 } from "@ohmatrix/core";
-import { nameOf, notificationPreview, roomItems, stripReplyFallback, toRoomSummary, typingNames } from "./convert.js";
+import { nameOf, notificationPreview, pinnedIds, roomItems, stripReplyFallback, toRoomSummary, toTimelineItem, typingNames, firstUrls } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { probeMedia, type Probe } from "./probe.js";
 import { resolveHomeserver } from "./discovery.js";
@@ -160,6 +160,49 @@ export interface StorageKeyProvider {
 }
 
 /** matrix-js-sdk engine for web/desktop with Rust (WASM) end-to-end encryption. */
+/**
+ * Open-graph previews for the links in an outgoing body, fetched through the homeserver (which does the
+ * network access, so the client is not the one revealing what is being linked). Shape: Element/Beeper's
+ * `com.beeper.linkpreviews`, which is also what we render when other clients send it.
+ */
+async function linkPreviews(client: MatrixClient, body: string): Promise<Record<string, unknown>> {
+  const urls = firstUrls(body);
+  if (!urls.length) return {};
+  const previews = await Promise.all(
+    urls.map(async (url) => {
+      try {
+        const p = await client.getUrlPreview(url, Date.now());
+        const str = (k: string) => (typeof p[k] === "string" && p[k] ? (p[k] as string) : undefined);
+        if (!str("og:title") && !str("og:description") && !str("og:image")) return null;
+        return {
+          "og:url": url,
+          matched_url: url,
+          ...(str("og:title") ? { "og:title": str("og:title") } : {}),
+          ...(str("og:description") ? { "og:description": str("og:description") } : {}),
+          ...(str("og:image")
+            ? {
+                "og:image": str("og:image"),
+                "og:image:type": str("og:image:type"),
+                "og:image:width": p["og:image:width"],
+                "og:image:height": p["og:image:height"],
+              }
+            : {}),
+          ...(str("og:site_name") ? { "og:site_name": str("og:site_name") } : {}),
+        };
+      } catch {
+        return null; // no preview available (server disallows it, or the page has no open-graph data)
+      }
+    }),
+  );
+  const kept = previews.filter(Boolean);
+  return kept.length ? { "com.beeper.linkpreviews": kept } : {};
+}
+
+/** `m.mentions` block, only when there is something to mention. */
+function mentionBlock(mentions?: string[]): Record<string, unknown> {
+  return mentions?.length ? { "m.mentions": { user_ids: mentions } } : {};
+}
+
 export class JsSdkEngine implements MatrixEngine {
   private secretKeys = new SecretKeyCache();
   private cryptoPrefix: string | null = null;
@@ -694,6 +737,59 @@ export class JsSdkEngine implements MatrixEngine {
 
   private mediaCache = new Map<string, Promise<string>>();
 
+  /**
+   * Forward a message: text and mentions are copied, media is fetched (and decrypted in an encrypted
+   * room) and re-uploaded into the target room, so its own encryption keys apply.
+   */
+  readonly messages = {
+    forward: (params: { fromRoomId: string; eventId: string; toRoomId: string }) =>
+      guard(async () => {
+        const client = this.requireClient();
+        const source = client.getRoom(params.fromRoomId);
+        const ev = source?.findEventById(params.eventId);
+        console.log(
+          "FWDDBG",
+          JSON.stringify({
+            from: params.fromRoomId,
+            to: params.toRoomId,
+            eventId: params.eventId,
+            hasRoom: !!source,
+            hasEv: !!ev,
+            live: source?.getLiveTimeline().getEvents().length,
+          }),
+        );
+        if (!ev) throw new EngineError("not_found", "the message is no longer available");
+        const item = toTimelineItem(client, ev);
+        if (!item) throw new EngineError("unsupported", "this message cannot be forwarded");
+        const c = item.content;
+        const to = this.openTimeline(params.toRoomId);
+        try {
+          if (c.kind === "text") {
+            const prefix = item.sender ? `${item.senderName}:\n` : "";
+            await to.sendText(`${prefix}${c.body}`, c.mentions);
+            return;
+          }
+          if (c.kind !== "image" && c.kind !== "file" && c.kind !== "video" && c.kind !== "audio") {
+            throw new EngineError("unsupported", "this message cannot be forwarded");
+          }
+          const enc = "encryption" in c && c.encryption ? { encryption: c.encryption, ...(c.mimeType ? { mimeType: c.mimeType } : {}) } : {};
+          const url = await this.media.resolve(c.url, enc);
+          const blob = await (await fetch(url)).blob();
+          const name = c.kind === "file" || c.kind === "video" || c.kind === "audio" ? c.name : c.body || "image";
+          await to.sendAttachment({
+            name,
+            mimeType: c.mimeType ?? blob.type ?? "application/octet-stream",
+            size: blob.size,
+            data: blob,
+            ...(c.kind === "video" || c.kind === "audio" ? (c.durationMs ? { durationMs: c.durationMs } : {}) : {}),
+            ...(c.kind === "audio" && c.voice ? { voice: true, ...(c.waveform ? { waveform: c.waveform } : {}) } : {}),
+          });
+        } finally {
+          to.close();
+        }
+      }),
+  };
+
   readonly media = {
     resolve: (mxc: string, o: MediaOptions = {}) => {
       const client = this.requireClient();
@@ -783,11 +879,13 @@ export class JsSdkEngine implements MatrixEngine {
           muted: !!summary.muted,
           me,
           myRole: roleOf(myPower),
+          pinnedEventIds: pinnedIds(room),
           can: {
             editInfo: manage && st.maySendStateEvent(EventType.RoomName, me) && st.maySendStateEvent(EventType.RoomTopic, me),
             invite: manage && st.hasSufficientPowerLevelFor("invite", myPower),
             kick: manage && st.hasSufficientPowerLevelFor("kick", myPower),
             changeRoles: manage && st.maySendStateEvent(EventType.RoomPowerLevels, me),
+            pin: manage && st.maySendStateEvent(EventType.RoomPinnedEvents, me),
           },
           ...(topic && { topic }),
           ...(avatar && { avatar }),
@@ -1042,9 +1140,9 @@ export class JsSdkEngine implements MatrixEngine {
           if (!room.getLiveTimeline().getPaginationToken(Direction.Backward)) return;
           await client.paginateEventTimeline(room.getLiveTimeline(), { backwards: true, limit: 30 });
         }),
-      sendText: (body) =>
+      sendText: (body, mentions) =>
         guard(async () => {
-          await client.sendTextMessage(roomId, body);
+          await client.sendMessage(roomId, { msgtype: "m.text", body, ...mentionBlock(mentions), ...(await linkPreviews(client, body)) } as never);
         }),
       cancelUpload: (id: string) => {
         const u = uploading.get(id);
@@ -1181,9 +1279,22 @@ export class JsSdkEngine implements MatrixEngine {
         guard(async () => {
           await client.redactEvent(roomId, eventId);
         }),
-      reply: (eventId, body) =>
+      reply: (eventId, body, mentions) =>
         guard(async () => {
-          await client.sendMessage(roomId, { msgtype: "m.text", body, "m.relates_to": { "m.in_reply_to": { event_id: eventId } } } as never);
+          await client.sendMessage(roomId, {
+            msgtype: "m.text",
+            body,
+            ...mentionBlock(mentions),
+            "m.relates_to": { "m.in_reply_to": { event_id: eventId } },
+          } as never);
+        }),
+      pin: (eventId, pinned) =>
+        guard(async () => {
+          const state = room.currentState;
+          const current = pinnedIds(room);
+          const next = pinned ? [...current.filter((e) => e !== eventId), eventId] : current.filter((e) => e !== eventId);
+          await client.sendStateEvent(roomId, EventType.RoomPinnedEvents as never, { events: next } as never, "");
+          void state; // the room's own state event updates pinnedIds for the next conversion pass
         }),
       react: (eventId, key) =>
         guard(async () => {

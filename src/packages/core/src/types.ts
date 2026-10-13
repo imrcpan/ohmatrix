@@ -37,8 +37,31 @@ export interface RoomSummary {
   lastActivityTs: number;
 }
 
+/** A link found in a message body, with the server's open-graph preview (Matrix `m.mentions`-era `com.beeper.linkpreviews` style). */
+export type LinkPreview = {
+  url: string;
+  title?: string;
+  description?: string;
+  /** Preview image, as an mxc:// URI. */
+  image?: MxcUri;
+  imageWidth?: number;
+  imageHeight?: number;
+  siteName?: string;
+};
+
 export type MessageContent =
-  | { kind: "text"; body: string; formattedBody?: string }
+  | {
+      kind: "text";
+      body: string;
+      /** HTML body, when the sender sent one; rendered as rich text (never as raw HTML). */
+      formattedBody?: string;
+      /** Users mentioned with @name; kept so mentions can be highlighted and counted. */
+      mentions?: UserId[];
+      /** This message mentions me. */
+      mentionsMe?: boolean;
+      /** Link previews for the URLs in the body, when the server could fetch them. */
+      previews?: LinkPreview[];
+    }
   | { kind: "image"; url: MxcUri; width?: number; height?: number; body: string; mimeType?: string; encryption?: unknown }
   | { kind: "file"; url: MxcUri; name: string; size?: number; mimeType?: string; encryption?: unknown }
   | {
@@ -99,6 +122,8 @@ export interface TimelineItem {
   /** Present while the file is still being uploaded (the message does not exist on the server yet). */
   upload?: UploadState;
   edited?: boolean;
+  /** Pinned in the room (m.room.pinned_events). */
+  pinned?: boolean;
   /** This message replies to another; `preview` is plain text of the original. */
   replyTo?: { id: EventId; senderName: string; sender: UserId; preview: string };
   status: "sending" | "sent" | "failed";
@@ -218,8 +243,10 @@ export interface RoomDetails {
   muted: boolean;
   me: UserId;
   myRole: MemberRole;
+  /** Event ids pinned in the room, newest last. */
+  pinnedEventIds: EventId[];
   /** What I am allowed to do here, according to the room's power levels. */
-  can: { editInfo: boolean; invite: boolean; kick: boolean; changeRoles: boolean };
+  can: { editInfo: boolean; invite: boolean; kick: boolean; changeRoles: boolean; pin: boolean };
 }
 
 /** A person found in the user directory (or looked up by full user id). */

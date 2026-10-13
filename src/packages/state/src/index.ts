@@ -57,7 +57,7 @@ export interface AppState {
 export interface OpenRoom {
   /** Where the "New messages" divider goes; fixed at open time. */
   firstUnreadEventId: EventId | null;
-  sendText(body: string): Promise<void>;
+  sendText(body: string, mentions?: UserId[]): Promise<void>;
   setTyping(typing: boolean): void;
   onTyping(cb: (names: string[]) => void): () => void;
   paginateBackwards(): Promise<void>;
@@ -65,8 +65,10 @@ export interface OpenRoom {
   cancelUpload(id: string): void;
   edit(eventId: EventId, body: string): Promise<void>;
   redact(eventId: EventId): Promise<void>;
-  reply(eventId: EventId, body: string): Promise<void>;
+  reply(eventId: EventId, body: string, mentions?: UserId[]): Promise<void>;
   react(eventId: EventId, key: string): Promise<void>;
+  /** Pin or unpin a message in the room. */
+  pin(eventId: EventId, pinned: boolean): Promise<void>;
   markRead(): Promise<void>;
   close(): void;
 }
@@ -127,6 +129,8 @@ export interface AppController {
   setUpEncryption(password: string): Promise<string>;
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
   openRoom(roomId: RoomId): OpenRoom;
+  /** Forward a message into another room, copying text, mentions and attachments. */
+  forwardMessage(fromRoomId: RoomId, eventId: EventId, toRoomId: RoomId): Promise<void>;
   /** Resolve an mxc:// URI to a loadable image URL (cached by the engine). */
   resolveMedia(mxc: MxcUri, opts?: MediaOptions): Promise<string>;
   dispose(): void;
@@ -264,6 +268,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     },
     setUpEncryption: async (password) => (await engine.security.setUp({ password })).recoveryKey,
     restoreWithRecoveryKey: (key) => engine.security.restoreWithRecoveryKey(key),
+    forwardMessage: (fromRoomId, eventId, toRoomId) => engine.messages.forward({ fromRoomId, eventId, toRoomId }),
     resolveMedia: (mxc, opts) => engine.media.resolve(mxc, opts),
     openRoom(roomId) {
       const tl = engine.openTimeline(roomId);
@@ -272,7 +277,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       void tl.markRead().catch(() => {});
       return {
         firstUnreadEventId: tl.firstUnreadEventId,
-        sendText: (body) => tl.sendText(body),
+        sendText: (body, mentions) => tl.sendText(body, mentions),
         setTyping: (typing) => tl.setTyping(typing),
         onTyping: (cb) => tl.onTyping(cb),
         paginateBackwards: () => tl.paginateBackwards(),
@@ -280,8 +285,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         cancelUpload: (id) => tl.cancelUpload(id),
         edit: (eventId, body) => tl.edit(eventId, body),
         redact: (eventId) => tl.redact(eventId),
-        reply: (eventId, body) => tl.reply(eventId, body),
+        reply: (eventId, body, mentions) => tl.reply(eventId, body, mentions),
         react: (eventId, key) => tl.react(eventId, key),
+        pin: (eventId, pinned) => tl.pin(eventId, pinned),
         markRead: () => tl.markRead(),
         close: () => {
           off();

@@ -80,6 +80,12 @@ export interface MediaApi {
   resolve(mxc: MxcUri, opts?: MediaOptions): Promise<string>;
 }
 
+/** Actions that span rooms rather than one timeline. */
+export interface MessagesApi {
+  /** Copy a message's content into another room ("forward"), keeping attachments. */
+  forward(params: { fromRoomId: RoomId; eventId: EventId; toRoomId: RoomId }): Promise<void>;
+}
+
 export interface SecurityApi {
   state(): Promise<SecurityState>;
   /** Emits when the state may have changed (after sync, key import, ...). Emits the current state first. */
@@ -149,7 +155,8 @@ export interface TimelineHandle {
   /** Immediately emits a `reset` (oldest first), then incremental updates. */
   subscribe(cb: Listener<ListUpdate<TimelineItem>[]>): Unsubscribe;
   paginateBackwards(): Promise<void>;
-  sendText(body: string): Promise<void>;
+  /** Send plain text. `mentions` become an `m.mentions` block, so the mentioned people are notified. */
+  sendText(body: string, mentions?: UserId[]): Promise<void>;
   /** Tell the room I am (or am no longer) typing. Safe to call on every keystroke: the engine throttles. */
   setTyping(typing: boolean): void;
   /** Names of the people typing right now; emits immediately and on every change. */
@@ -167,7 +174,9 @@ export interface TimelineHandle {
   /** Cancel an upload in progress, or dismiss one that failed. `id` is the item's `transactionId`. */
   cancelUpload(id: string): void;
   /** Send `body` as a reply to `eventId`. */
-  reply(eventId: EventId, body: string): Promise<void>;
+  reply(eventId: EventId, body: string, mentions?: UserId[]): Promise<void>;
+  /** Pin or unpin a message in the room (needs power to send m.room.pinned_events). */
+  pin(eventId: EventId, pinned: boolean): Promise<void>;
   /** Toggle my reaction `key` (an emoji) on an event. */
   react(eventId: EventId, key: string): Promise<void>;
   markRead(): Promise<void>;
@@ -187,6 +196,7 @@ export interface MatrixEngine {
   readonly sync: SyncApi;
   readonly rooms: RoomListApi;
   readonly media: MediaApi;
+  readonly messages: MessagesApi;
   readonly security: SecurityApi;
   readonly profile: ProfileApi;
   readonly devices: DevicesApi;
