@@ -62,6 +62,7 @@ export interface OpenRoom {
   onTyping(cb: (names: string[]) => void): () => void;
   paginateBackwards(): Promise<void>;
   sendAttachment(file: AttachmentSource): Promise<void>;
+  cancelUpload(id: string): void;
   edit(eventId: EventId, body: string): Promise<void>;
   redact(eventId: EventId): Promise<void>;
   reply(eventId: EventId, body: string): Promise<void>;
@@ -276,6 +277,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         onTyping: (cb) => tl.onTyping(cb),
         paginateBackwards: () => tl.paginateBackwards(),
         sendAttachment: (file) => tl.sendAttachment(file),
+        cancelUpload: (id) => tl.cancelUpload(id),
         edit: (eventId, body) => tl.edit(eventId, body),
         redact: (eventId) => tl.redact(eventId),
         reply: (eventId, body) => tl.reply(eventId, body),

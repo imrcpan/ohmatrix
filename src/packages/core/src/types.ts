@@ -41,6 +41,30 @@ export type MessageContent =
   | { kind: "text"; body: string; formattedBody?: string }
   | { kind: "image"; url: MxcUri; width?: number; height?: number; body: string; mimeType?: string; encryption?: unknown }
   | { kind: "file"; url: MxcUri; name: string; size?: number; mimeType?: string; encryption?: unknown }
+  | {
+      kind: "video";
+      url: MxcUri;
+      name: string;
+      width?: number;
+      height?: number;
+      durationMs?: number;
+      size?: number;
+      mimeType?: string;
+      encryption?: unknown;
+      thumbnail?: { url: MxcUri; encryption?: unknown; mimeType?: string };
+    }
+  /** Audio file or voice message (`voice`: recorded in the app, shown as a bubble with a waveform). */
+  | {
+      kind: "audio";
+      url: MxcUri;
+      name: string;
+      durationMs?: number;
+      size?: number;
+      mimeType?: string;
+      encryption?: unknown;
+      voice?: boolean;
+      waveform?: number[];
+    }
   /** Membership/name/topic changes etc., rendered centered like Telegram service messages. */
   | { kind: "service"; body: string }
   /** Encrypted event we could not (yet) decrypt: missing keys until verification/backup restore. */
@@ -72,6 +96,8 @@ export interface TimelineItem {
   reactions?: ReactionSummary[];
   /** On my own messages: the other people who have read up to this message. */
   readBy?: Reader[];
+  /** Present while the file is still being uploaded (the message does not exist on the server yet). */
+  upload?: UploadState;
   edited?: boolean;
   /** This message replies to another; `preview` is plain text of the original. */
   replyTo?: { id: EventId; senderName: string; sender: UserId; preview: string };
@@ -82,7 +108,7 @@ export type SyncState = "stopped" | "connecting" | "syncing" | "error";
 
 /** Plain-text rendering of any content, for previews and fallbacks. */
 export function contentText(c: MessageContent): string {
-  return c.kind === "file" ? c.name : c.kind === "undecryptable" ? "🔒 Unable to decrypt this message" : c.body;
+  return c.kind === "file" || c.kind === "video" || c.kind === "audio" ? c.name : c.kind === "undecryptable" ? "🔒 Unable to decrypt this message" : c.body;
 }
 
 /**
@@ -99,6 +125,26 @@ export interface AttachmentSource {
   mimeType: string;
   size: number;
   data: unknown;
+  /** Known playing time (a recording knows it better than the file header does). */
+  durationMs?: number;
+  /** Amplitude samples 0..1 of a voice message, for drawing its waveform. */
+  waveform?: number[];
+  /** Send audio as a voice message. */
+  voice?: boolean;
+  width?: number;
+  height?: number;
+}
+
+/** A file being uploaded: shown in the timeline until the message is sent. */
+export interface UploadState {
+  /** 0..1. */
+  progress: number;
+  loaded: number;
+  total: number;
+  /** Local picture to show while it uploads (images and video posters). */
+  previewUrl?: string;
+  /** The upload failed; the item stays until dismissed. */
+  failed?: boolean;
 }
 
 /** User-chosen settings, persisted per device (not per account). */

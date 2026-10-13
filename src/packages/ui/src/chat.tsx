@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import type React from "react";
 import { Image, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Icon } from "./Icon.js";
+import { AudioRow, ProgressRing } from "./media.js";
 import { fontFamily, peerColor, radius, useTheme } from "./theme.js";
 
 export type BubblePosition = { first: boolean; last: boolean };
@@ -14,6 +16,25 @@ export function Bubble(props: {
   senderId?: string | undefined;
   /** Image message; with no `text` the image fills the bubble and the time sits on it (Telegram style). */
   image?: { uri: string | undefined; width: number; height: number; onPress?: (() => void) | undefined } | undefined;
+  /** Video: poster with a play button and its length; press opens the player. */
+  video?: { posterUri?: string | undefined; width: number; height: number; durationLabel?: string | undefined; onPress?: (() => void) | undefined } | undefined;
+  /** Audio file or voice message with play/pause, progress and time. */
+  audio?:
+    | {
+        voice: boolean;
+        name: string;
+        samples?: number[] | undefined;
+        progress: number;
+        playing: boolean;
+        loading: boolean;
+        timeLabel: string;
+        playLabel: string;
+        onToggle: () => void;
+        onSeek: (fraction: number) => void;
+      }
+    | undefined;
+  /** The file is still uploading: a progress ring with a cancel cross replaces the play button / sits on the picture. */
+  upload?: { progress: number; failed?: boolean | undefined; label: string; cancelLabel: string; onCancel: () => void } | undefined;
   /** File attachment row (icon, name, size); press downloads it. */
   file?: { name: string; sizeLabel: string; onPress: () => void } | undefined;
   /** Quoted message shown at the top; press jumps to the original. */
@@ -33,7 +54,8 @@ export function Bubble(props: {
   const corners = props.own
     ? { borderTopLeftRadius: R, borderBottomLeftRadius: R, borderTopRightRadius: first ? R : r, borderBottomRightRadius: last ? R : r }
     : { borderTopRightRadius: R, borderBottomRightRadius: R, borderTopLeftRadius: first ? R : r, borderBottomLeftRadius: last ? R : r };
-  const imageOnly = !!props.image && !props.text;
+  const media = props.image ?? props.video;
+  const imageOnly = !!media && !props.text;
   const fg = props.own ? colors.bubbleOutText : colors.bubbleInText;
   const meta = imageOnly ? "#FFFFFF" : props.own ? colors.bubbleOutMeta : colors.textSecondary;
   const statusIcon = props.status === "sending" ? "clock" : props.status === "failed" ? "alert" : props.status === "read" ? "checks" : "check";
@@ -110,8 +132,8 @@ export function Bubble(props: {
       )}
       {props.image && (
         // Photos are looked at, so the hand cursor and a tap opens the viewer (the rest of the bubble is text and keeps the text cursor).
-        <Pressable
-          accessibilityRole="button"
+        <PressableOrView
+          plain={!!props.upload}
           accessibilityLabel="Open photo"
           disabled={!props.image.onPress}
           onPress={props.image.onPress}
@@ -127,8 +149,46 @@ export function Bubble(props: {
           ]}
         >
           {props.image.uri && <Image source={{ uri: props.image.uri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} />}
-        </Pressable>
+          {props.upload && <UploadOverlay upload={props.upload} />}
+        </PressableOrView>
       )}
+      {props.video && (
+        <PressableOrView
+          plain={!!props.upload}
+          accessibilityLabel="Open video"
+          disabled={!props.video.onPress || !!props.upload}
+          onPress={props.video.onPress}
+          style={[
+            {
+              width: props.video.width,
+              height: props.video.height,
+              maxWidth: "100%",
+              backgroundColor: "#10161D",
+              ...(imageOnly ? {} : { marginHorizontal: -12, marginBottom: 6, marginTop: props.senderName ? 0 : -7, width: props.video.width + 24 }),
+            },
+            props.video.onPress ? ({ cursor: "pointer" } as object) : {},
+          ]}
+        >
+          {props.video.posterUri && <Image source={{ uri: props.video.posterUri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} />}
+          {props.upload ? (
+            <UploadOverlay upload={props.upload} />
+          ) : (
+            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="play" size={28} strokeWidth={2.4} color="#FFFFFF" />
+              </View>
+            </View>
+          )}
+          {!!props.video.durationLabel && (
+            <View
+              style={{ position: "absolute", left: 8, top: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}
+            >
+              <Text style={{ fontSize: 12, fontFamily, color: "#FFFFFF" }}>{props.video.durationLabel}</Text>
+            </View>
+          )}
+        </PressableOrView>
+      )}
+      {props.audio && <AudioRow own={props.own} {...props.audio} upload={props.upload} />}
       {props.file && (
         <Pressable
           accessibilityRole="button"
@@ -136,23 +196,33 @@ export function Bubble(props: {
           onPress={props.file.onPress}
           style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingRight: 8, paddingBottom: 14, minWidth: 190 }}
         >
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: props.own ? "rgba(255,255,255,0.22)" : colors.accent,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon name="file" size={22} color={colors.onAccent} />
-          </View>
+          {props.upload ? (
+            <ProgressRing
+              progress={props.upload.progress}
+              failed={props.upload.failed}
+              onCancel={props.upload.onCancel}
+              label={props.upload.cancelLabel}
+              dark={!props.own}
+            />
+          ) : (
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: props.own ? "rgba(255,255,255,0.22)" : colors.accent,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon name="file" size={22} color={colors.onAccent} />
+            </View>
+          )}
           <View style={{ flexShrink: 1 }}>
             <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "500", fontFamily, color: fg }}>
               {props.file.name}
             </Text>
-            <Text style={{ fontSize: 13, fontFamily, color: meta }}>{props.file.sizeLabel}</Text>
+            <Text style={{ fontSize: 13, fontFamily, color: meta }}>{props.upload ? props.upload.label : props.file.sizeLabel}</Text>
           </View>
         </Pressable>
       )}
@@ -166,6 +236,47 @@ export function Bubble(props: {
         </Text>
       )}
       {metaRow}
+    </View>
+  );
+}
+
+/** A button, except while uploading: the progress ring inside is a button too, and buttons cannot nest. */
+function PressableOrView(props: {
+  plain: boolean;
+  accessibilityLabel: string;
+  disabled: boolean;
+  onPress?: (() => void) | undefined;
+  style: object;
+  children: React.ReactNode;
+}) {
+  if (props.plain) return <View style={props.style}>{props.children}</View>;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={props.accessibilityLabel} disabled={props.disabled} onPress={props.onPress} style={props.style}>
+      {props.children}
+    </Pressable>
+  );
+}
+
+function UploadOverlay({ upload }: { upload: NonNullable<Parameters<typeof Bubble>[0]["upload"]> }) {
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.28)",
+      }}
+    >
+      <ProgressRing progress={upload.progress} failed={upload.failed} onCancel={upload.onCancel} label={upload.cancelLabel} />
+      <View
+        style={{ position: "absolute", bottom: 8, left: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}
+      >
+        <Text style={{ fontSize: 12, fontFamily, color: "#FFFFFF" }}>{upload.label}</Text>
+      </View>
     </View>
   );
 }
@@ -203,6 +314,13 @@ export function Composer(props: {
   onAttach?: (() => void) | undefined;
   /** Called while the user types (true) and when they stop or send (false). */
   onTyping?: ((typing: boolean) => void) | undefined;
+  /** Record buttons (camera, microphone) shown instead of Send while the field is empty. */
+  record?: { onVoice: () => void; onVideo: () => void; voiceLabel: string; videoLabel: string } | undefined;
+  /** A voice recording in progress replaces the field with a recording bar. */
+  recording?:
+    { seconds: string; levels: number[]; sendLabel: string; cancelLabel: string; recordingLabel: string; onSend: () => void; onCancel: () => void } | undefined;
+  /** A short message above the bar, e.g. why recording could not start. */
+  notice?: string | undefined;
 }) {
   const { colors } = useTheme();
   const [text, setText] = useState("");
@@ -243,12 +361,17 @@ export function Composer(props: {
           </Pressable>
         </View>
       )}
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, paddingHorizontal: 10 }}>
-        {props.onAttach && (
+      {!!props.notice && (
+        <Text accessibilityRole="alert" style={{ paddingHorizontal: 14, paddingTop: 8, fontSize: 13, fontFamily, color: colors.danger }}>
+          {props.notice}
+        </Text>
+      )}
+      {props.recording ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 8, paddingHorizontal: 10, minHeight: 54 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Attach"
-            onPress={props.onAttach}
+            accessibilityLabel={props.recording.cancelLabel}
+            onPress={props.recording.onCancel}
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
               width: 38,
               height: 38,
@@ -258,58 +381,152 @@ export function Composer(props: {
               backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
             })}
           >
-            <Icon name="attach" size={22} color={colors.textSecondary} />
+            <Icon name="trash" size={22} color={colors.danger} />
           </Pressable>
-        )}
-        <View
-          style={{
-            flex: 1,
-            minHeight: 38,
-            borderRadius: 19,
-            borderWidth: 1,
-            borderColor: colors.separator,
-            backgroundColor: colors.bg,
-            paddingHorizontal: 14,
-            paddingVertical: 7,
-            justifyContent: "center",
-          }}
-        >
-          <TextInput
-            multiline
-            value={text}
-            onChangeText={change}
-            onBlur={() => props.onTyping?.(false)}
-            placeholder={props.placeholder}
-            placeholderTextColor={colors.textSecondary}
-            onContentSizeChange={(e) => setHeight(Math.min(120, Math.max(22, e.nativeEvent.contentSize.height)))}
-            onKeyPress={(e) => {
-              const ne = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
-              if (Platform.OS === "web" && ne.key === "Enter" && !ne.shiftKey) {
-                e.preventDefault();
-                send();
-              }
+          <View
+            accessibilityLabel={props.recording.recordingLabel}
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              height: 38,
+              paddingHorizontal: 14,
+              borderRadius: 19,
+              backgroundColor: colors.bgSecondary,
             }}
-            style={[{ height, fontSize: 16, lineHeight: 21, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
-          />
+          >
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger }} />
+            <Text accessibilityLabel="Recording time" style={{ fontSize: 16, fontFamily, color: colors.text, fontVariant: ["tabular-nums"], minWidth: 40 }}>
+              {props.recording.seconds}
+            </Text>
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 2, height: 24, overflow: "hidden" }}>
+              {props.recording.levels.slice(-40).map((v, i) => (
+                <View key={i} style={{ width: 3, borderRadius: 1.5, height: Math.max(3, Math.round(v * 22)), backgroundColor: colors.accent }} />
+              ))}
+            </View>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={props.recording.sendLabel}
+            onPress={props.recording.onSend}
+            style={({ pressed }) => ({
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.accent,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Icon name="send" size={20} strokeWidth={2.5} color={colors.onAccent} />
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Send"
-          disabled={!canSend}
-          onPress={send}
-          style={({ pressed }) => ({
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: canSend ? colors.accent : colors.bgSecondary,
-            opacity: pressed ? 0.8 : 1,
-          })}
-        >
-          <Icon name="send" size={20} strokeWidth={2.5} color={canSend ? colors.onAccent : colors.textTertiary} />
-        </Pressable>
-      </View>
+      ) : (
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, paddingHorizontal: 10 }}>
+          {props.onAttach && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Attach"
+              onPress={props.onAttach}
+              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+              })}
+            >
+              <Icon name="attach" size={22} color={colors.textSecondary} />
+            </Pressable>
+          )}
+          <View
+            style={{
+              flex: 1,
+              minHeight: 38,
+              borderRadius: 19,
+              borderWidth: 1,
+              borderColor: colors.separator,
+              backgroundColor: colors.bg,
+              paddingHorizontal: 14,
+              paddingVertical: 7,
+              justifyContent: "center",
+            }}
+          >
+            <TextInput
+              multiline
+              value={text}
+              onChangeText={change}
+              onBlur={() => props.onTyping?.(false)}
+              placeholder={props.placeholder}
+              placeholderTextColor={colors.textSecondary}
+              onContentSizeChange={(e) => setHeight(Math.min(120, Math.max(22, e.nativeEvent.contentSize.height)))}
+              onKeyPress={(e) => {
+                const ne = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
+                if (Platform.OS === "web" && ne.key === "Enter" && !ne.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              style={[{ height, fontSize: 16, lineHeight: 21, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
+            />
+          </View>
+          {!canSend && props.record ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={props.record.videoLabel}
+                onPress={props.record.onVideo}
+                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                })}
+              >
+                <Icon name="camera" size={22} color={colors.textSecondary} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={props.record.voiceLabel}
+                onPress={props.record.onVoice}
+                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                })}
+              >
+                <Icon name="mic" size={22} color={colors.accent} />
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send"
+              disabled={!canSend}
+              onPress={send}
+              style={({ pressed }) => ({
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: canSend ? colors.accent : colors.bgSecondary,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Icon name="send" size={20} strokeWidth={2.5} color={canSend ? colors.onAccent : colors.textTertiary} />
+            </Pressable>
+          )}
+        </View>
+      )}
     </View>
   );
 }
