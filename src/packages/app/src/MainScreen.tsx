@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Text, useWindowDimensions, View } from "react-native";
-import { Icon, TextButton, fontFamily, useTheme } from "@ohmatrix/ui";
+import { ActivityIndicator, Text, View } from "react-native";
+import { Icon, TextButton, fontFamily, useTheme, useViewport } from "@ohmatrix/ui";
 import { ChatPane } from "./ChatPane.js";
 import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
@@ -73,7 +73,7 @@ function EmptyDetail() {
 
 export function MainScreen() {
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width } = useViewport();
   const controller = useController();
   const roomId = useAppState((s) => s.selectedRoomId);
   const infoOpen = useAppState((s) => s.roomInfoOpen);

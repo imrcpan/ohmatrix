@@ -15,3 +15,5 @@ export { ImageViewer, fitSize } from "./ImageViewer.js";
 export { VideoViewer } from "./VideoViewer.js";
 export { LivePreview } from "./VideoSurface.js";
 export { AudioRow, ProgressRing, Waveform } from "./media.js";
+export { ScaleProvider } from "./Scale.js";
+export { useViewport } from "./viewport.js";

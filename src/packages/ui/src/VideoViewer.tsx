@@ -1,5 +1,8 @@
 import { useEffect } from "react";
-import { ActivityIndicator, Modal, Pressable, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, View } from "react-native";
+import { ScaleRoot } from "./Scale.js";
+import { useScale } from "./viewport.js";
+import { useViewport } from "./viewport.js";
 import { Icon } from "./Icon.js";
 import { VideoSurface } from "./VideoSurface.js";
 
@@ -17,7 +20,8 @@ export function VideoViewer(props: {
   height?: number | undefined;
   closeLabel?: string;
 }) {
-  const win = useWindowDimensions();
+  const win = useViewport();
+  const scale = useScale();
   const natural = { width: props.width ?? 640, height: props.height ?? 360 };
   const k = Math.min(1, (win.width * 0.8) / natural.width, (win.height * 0.8) / natural.height);
   const size = { width: Math.round(natural.width * k), height: Math.round(natural.height * k) };
@@ -41,37 +45,39 @@ export function VideoViewer(props: {
 
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
-      <Pressable
-        accessibilityLabel="Viewer backdrop"
-        onPress={props.onClose}
-        style={[{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center" }, { cursor: "default" } as object]}
-      >
-        <Pressable onPress={() => {}} style={{ width: size.width, height: size.height, alignItems: "center", justifyContent: "center" }}>
-          {props.uri ? (
-            <VideoSurface uri={props.uri} width={size.width} height={size.height} poster={props.poster} autoPlay />
-          ) : (
-            <ActivityIndicator color="#FFFFFF" />
-          )}
-        </Pressable>
-        <View style={{ position: "absolute", top: 16, right: 16, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={props.closeLabel ?? "Close"}
-            onPress={props.onClose}
-            hitSlop={6}
-            style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? "rgba(255,255,255,0.28)" : hovered ? "rgba(255,255,255,0.18)" : "transparent",
-            })}
-          >
-            <Icon name="close" size={22} color="#FFFFFF" />
+      <ScaleRoot scale={scale}>
+        <Pressable
+          accessibilityLabel="Viewer backdrop"
+          onPress={props.onClose}
+          style={[{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center" }, { cursor: "default" } as object]}
+        >
+          <Pressable onPress={() => {}} style={{ width: size.width, height: size.height, alignItems: "center", justifyContent: "center" }}>
+            {props.uri ? (
+              <VideoSurface uri={props.uri} width={size.width} height={size.height} poster={props.poster} autoPlay />
+            ) : (
+              <ActivityIndicator color="#FFFFFF" />
+            )}
           </Pressable>
-        </View>
-      </Pressable>
+          <View style={{ position: "absolute", top: 16, right: 16, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={props.closeLabel ?? "Close"}
+              onPress={props.onClose}
+              hitSlop={6}
+              style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? "rgba(255,255,255,0.28)" : hovered ? "rgba(255,255,255,0.18)" : "transparent",
+              })}
+            >
+              <Icon name="close" size={22} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </Pressable>
+      </ScaleRoot>
     </Modal>
   );
 }

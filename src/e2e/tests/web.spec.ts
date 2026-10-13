@@ -1842,3 +1842,51 @@ test("upload progress and cancel; a failed upload can be dismissed", async ({ pa
   await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(page.getByText("Upload failed. Tap to dismiss.")).toHaveCount(0);
 });
+
+test("zoom: the setting scales the whole interface, menus still open at the pointer, and it persists", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Zoom", exact: true })).toContainText("100%");
+  const before = (await page.getByText("Appearance").boundingBox())!;
+  await page.getByRole("button", { name: "Zoom", exact: true }).click();
+  await page.getByRole("menuitem", { name: "150%" }).click();
+  await expect(page.getByRole("button", { name: "Zoom", exact: true })).toContainText("150%");
+  const after = (await page.getByText("Appearance").boundingBox())!;
+  expect(after.height / before.height).toBeGreaterThan(1.4);
+  expect(after.height / before.height).toBeLessThan(1.6);
+  await shot(page, "55-zoom-150");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}").uiScale)).toBe(1.5);
+  // The language menu is a modal outside the app root; it must be zoomed and anchored too.
+  const lang = page.getByRole("button", { name: "Language", exact: true });
+  let prev = "";
+  await expect
+    .poll(
+      async () => {
+        const b = JSON.stringify(await lang.boundingBox());
+        const same = b === prev;
+        prev = b;
+        return same;
+      },
+      { intervals: [300] },
+    )
+    .toBe(true);
+  await lang.click();
+  const row = (await lang.boundingBox())!;
+  const item = (await page.getByRole("menuitem", { name: "English" }).boundingBox())!;
+  const menu = await page.getByRole("menuitem").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: r.top, bottom: r.bottom })));
+  const top = Math.min(...menu.map((m) => m.top)),
+    bottom = Math.max(...menu.map((m) => m.bottom));
+  // Opens just below the row, or just above it when there is no room below.
+  expect(Math.min(Math.abs(top - (row.y + row.height)), Math.abs(row.y - bottom))).toBeLessThan(30);
+  expect(item.x + item.width).toBeLessThanOrEqual(1280);
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Settings", exact: true }).first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.style.zoom)).toBe("1.5");
+  // Back to 100% so later tests on this origin are unaffected.
+  await page.evaluate(() =>
+    localStorage.setItem("ohmatrix.prefs.v1", JSON.stringify({ ...JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}"), uiScale: 1 })),
+  );
+});
