@@ -1284,11 +1284,11 @@ test("room administration UI: members without rights see no editing; shared medi
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Invite people" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "alice", exact: true })).toHaveCount(0);
-  // Shared photos come from the loaded messages; older ones can be loaded on demand.
-  await expect(page.getByText(/^Photos · \d+/)).toBeVisible({ timeout: 15000 });
+  // Shared media has a tab per kind and reaches back through the room's history, not only the loaded messages.
+  await expect(page.getByText("Shared media", { exact: true })).toBeVisible({ timeout: 15000 });
+  for (const tab of ["Photos", "Videos", "Audio", "Files"]) await expect(page.getByRole("tab", { name: tab })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Photos" })).toHaveAttribute("aria-selected", "true");
   await shot(page, "39-shared-media");
-  await page.getByRole("button", { name: "Load older messages" }).click();
-  await expect(page.getByText(/^Photos · \d+/)).toBeVisible();
 });
 
 test("search: global message search finds a message beyond the loaded history and jumps to it", async ({ page }) => {
@@ -2606,4 +2606,107 @@ test("spaces, portrait: the space's settings open over the list and closing them
   await page.getByRole("dialog").getByRole("button", { name: "Leave space" }).click();
   await expect(page.getByText("No rooms in this space yet")).toHaveCount(0, { timeout: 15000 });
   await expect(page.getByPlaceholder("Search")).toBeVisible();
+});
+
+test("shared media: tabs by kind reach the whole history, open in the viewers, and page on demand", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const [tok, me] = [await apiLogin("alice"), await apiLogin("test")];
+  const tag = `gallery${Date.now().toString(36)}`;
+  const { room_id } = await api(tok, "POST", "/createRoom", { name: `Gallery ${tag}`, preset: "private_chat", invite: ["@test:localhost"] });
+  await api(me, "POST", `/join/${encodeURIComponent(room_id!)}`, {});
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  const upload = async (bytes: Buffer, type: string, name: string) =>
+    (
+      (await (
+        await fetch(`http://localhost:8008/_matrix/media/v3/upload?filename=${name}`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${tok}`, "content-type": type },
+          body: bytes,
+        })
+      ).json()) as { content_uri: string }
+    ).content_uri;
+  const png1 = await upload(png, "image/png", "p.png");
+  const send = (content: Record<string, unknown>, n: number) =>
+    api(tok, "PUT", `/rooms/${encodeURIComponent(room_id!)}/send/m.room.message/g${Date.now()}${n}`, content);
+  let n = 0;
+  // The oldest message is a picture, then chat, a file, a clip and a voice message, then 130 more pictures. The server
+  // filters out the chat before it counts a batch of 100, so it is the pictures that have to outnumber a batch.
+  await send({ msgtype: "m.image", body: "oldest.png", url: png1, info: { mimetype: "image/png", w: 1, h: 1, size: png.length } }, n++);
+  for (let i = 0; i < 20; i++) await send({ msgtype: "m.text", body: `chat ${i}` }, n++);
+  await send(
+    {
+      msgtype: "m.file",
+      body: "report.txt",
+      filename: "report.txt",
+      url: await upload(Buffer.from("report"), "text/plain", "report.txt"),
+      info: { mimetype: "text/plain", size: 6 },
+    },
+    n++,
+  );
+  await send(
+    {
+      msgtype: "m.video",
+      body: "clip.mp4",
+      filename: "clip.mp4",
+      url: await upload(Buffer.alloc(64), "video/mp4", "clip.mp4"),
+      info: { mimetype: "video/mp4", w: 64, h: 64, duration: 3000, size: 64 },
+    },
+    n++,
+  );
+  await send(
+    {
+      msgtype: "m.audio",
+      body: "memo.ogg",
+      filename: "memo.ogg",
+      url: await upload(Buffer.alloc(64), "audio/ogg", "memo.ogg"),
+      info: { mimetype: "audio/ogg", duration: 2000, size: 64 },
+      "org.matrix.msc3245.voice": {},
+    },
+    n++,
+  );
+  for (let i = 0; i < 130; i++)
+    await send({ msgtype: "m.image", body: `pic-${i}.png`, url: png1, info: { mimetype: "image/png", w: 1, h: 1, size: png.length } }, n++);
+
+  await login(page);
+  await openRoom(page, `Gallery ${tag}`, new RegExp(`Gallery ${tag}`));
+  await page.getByRole("button", { name: "Chat info", exact: true }).click();
+  await expect(page.getByText("Shared media", { exact: true })).toBeVisible({ timeout: 15000 });
+
+  // Photos: a first page, then "Load more" until the very first message of the room turns up.
+  const tiles = () => page.getByRole("button", { name: /\.png$/ });
+  await expect(tiles().first()).toBeVisible({ timeout: 15000 });
+  const first = await tiles().count();
+  expect(first).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "oldest.png" })).toHaveCount(0);
+  expect(first).toBeLessThan(131); // one page is not the whole room
+  for (let i = 0; i < 6 && (await page.getByRole("button", { name: "oldest.png" }).count()) === 0; i++) {
+    const before = await tiles().count();
+    await page.getByRole("button", { name: "Load more" }).click();
+    await expect.poll(() => tiles().count(), { timeout: 15000 }).toBeGreaterThan(before);
+  }
+  await page.getByRole("button", { name: "oldest.png" }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "oldest.png" })).toBeVisible();
+  expect(await tiles().count()).toBe(131);
+  await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(0); // the room's beginning: nothing left
+  await shot(page, "74-shared-photos");
+
+  // A picture opens in the photo viewer.
+  await page.getByRole("button", { name: "pic-3.png" }).click();
+  await expect(page.getByLabel("Viewer backdrop")).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Viewer backdrop")).toHaveCount(0);
+
+  // Files, video and audio each have their own list, found through the chat and pictures in between.
+  await page.getByRole("tab", { name: "Files" }).click();
+  await expect(page.getByRole("button", { name: /report\.txt/ })).toBeVisible({ timeout: 15000 });
+  await expect(tiles()).toHaveCount(0);
+  await page.getByRole("tab", { name: "Videos" }).click();
+  await expect(page.getByRole("button", { name: "clip.mp4" })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("0:03")).toBeVisible();
+  await shot(page, "75-shared-video");
+  await page.getByRole("tab", { name: "Audio" }).click();
+  await expect(page.getByRole("button", { name: /Voice message/ })).toBeVisible({ timeout: 15000 });
+  await page.getByRole("tab", { name: "Photos" }).click();
+  expect(await tiles().count()).toBe(131); // switching back keeps what was loaded
 });

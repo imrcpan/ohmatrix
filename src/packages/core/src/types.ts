@@ -221,6 +221,15 @@ export interface DeviceInfo {
   current: boolean;
 }
 
+/** The kinds of shared media a room's gallery can be filtered by. Voice messages belong to "audio". */
+export type MediaKind = "image" | "video" | "audio" | "file";
+
+/** One page of a room's media, newest first. `next` is where the following page starts; absent = the room's beginning. */
+export interface SharedMediaPage {
+  items: TimelineItem[];
+  next?: string;
+}
+
 /** A room listed inside a space. */
 export interface SpaceChild {
   roomId: RoomId;
