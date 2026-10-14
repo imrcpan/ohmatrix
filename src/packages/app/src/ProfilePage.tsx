@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Avatar, Dialog, fontFamily, Icon, NavBar, PrimaryButton, Row, Section, TextButton, TextField, useTheme } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, PrimaryButton, TextButton, TextField, useTheme } from "@ohmatrix/ui";
 import { EngineError } from "@ohmatrix/core";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { SecuritySheet } from "./SecuritySheet.js";
+import { Group, Item, PageHeader } from "./settings/kit.js";
 import { useMediaUrl } from "./useMedia.js";
 
 export function ProfilePage(props: { homeserver: string }) {
@@ -32,30 +33,32 @@ export function ProfilePage(props: { homeserver: string }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgSecondary }}>
-      <NavBar title={t("profile")} onBack={() => controller.sidebarBack()} backLabel={t("chats")} />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <PageHeader title={t("profile")} onBack={() => controller.sidebarBack()} backLabel={t("chats")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={{ alignItems: "center", paddingTop: 28, paddingBottom: 6, gap: 6, backgroundColor: colors.bgSecondary }}>
+        <View style={{ alignItems: "center", paddingTop: 4, paddingBottom: 4, gap: 2 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t("changePhoto")} onPress={() => void changePhoto()} disabled={!services.pickFiles}>
-            <Avatar id={profile?.userId ?? "?"} name={displayName || "?"} size={96} src={avatar} />
+            <Avatar id={profile?.userId ?? "?"} name={displayName || "?"} size={72} src={avatar} />
           </Pressable>
-          {services.pickFiles && <TextButton title={t("changePhoto")} onPress={() => void changePhoto()} />}
-          <Text style={{ fontSize: 24, fontWeight: "700", fontFamily, color: colors.text }}>{displayName}</Text>
+          <Text style={{ fontSize: 22, fontWeight: "700", letterSpacing: -0.3, fontFamily, color: colors.text, marginTop: 8 }}>{displayName}</Text>
           <Text selectable style={{ fontSize: 15, fontFamily, color: colors.textSecondary }}>
             {profile?.userId}
           </Text>
         </View>
-        <Section title={t("account")}>
-          <Row
+        <Group title={t("account")}>
+          {services.pickFiles && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
+          <Item
             label={t("name")}
             value={displayName}
+            icon="user"
             onPress={() => {
               setName(displayName);
               setEditing(true);
             }}
           />
-          <Row
+          <Item
             label={t("status")}
+            icon="smile"
             value={profile?.status ?? t("status.empty")}
             onPress={() => {
               setStatusText(profile?.status ?? "");
@@ -63,19 +66,12 @@ export function ProfilePage(props: { homeserver: string }) {
               setEditingStatus(true);
             }}
           />
-          <Row label={t("userId")} value={profile?.userId} />
-          <Row label={t("homeserver")} value={props.homeserver} last />
-        </Section>
-        <Section title={t("security")}>
-          <Row
-            label={t("encryption")}
-            icon="lock"
-            iconColor={security === "ready" ? "#34C759" : colors.accent}
-            value={encValue}
-            last
-            onPress={actionable ? () => setSheet(true) : undefined}
-          />
-        </Section>
+          <Item label={t("userId")} value={profile?.userId} icon="hash" />
+          <Item label={t("homeserver")} value={props.homeserver} icon="info" />
+        </Group>
+        <Group title={t("security")}>
+          <Item label={t("encryption")} icon="lock" value={encValue} onPress={actionable ? () => setSheet(true) : undefined} />
+        </Group>
       </ScrollView>
       <View
         style={{
