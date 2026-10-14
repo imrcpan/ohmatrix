@@ -153,7 +153,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
         {d && (
           <>
-            <View style={{ alignItems: "center", paddingTop: 4, paddingHorizontal: 20, gap: 2 }}>
+            <View style={{ alignItems: "center", paddingTop: 12, paddingHorizontal: 20, gap: 2 }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("room.changePhoto")}
