@@ -1,0 +1,125 @@
+import { expect, test, vi } from "vitest";
+import type { TimelineItem } from "@ohmatrix/core";
+import { bubbleProps, bubbleStatus, bubbleText, type BubbleInputs } from "./bubbleProps.js";
+import type { RowActions } from "./rowActions.js";
+import type { Translate } from "./types.js";
+
+const t: Translate = (key, params) => (params ? `${key}:${JSON.stringify(params)}` : key);
+const item = (over: Partial<TimelineItem> = {}): TimelineItem => ({
+  id: "$1",
+  roomId: "!r",
+  sender: "@a:s",
+  senderName: "Ann",
+  isOwn: false,
+  ts: new Date(2026, 5, 10, 12, 0).getTime(),
+  status: "sent",
+  content: { kind: "text", body: "hi" },
+  ...over,
+});
+const actions = (): RowActions => ({
+  react: vi.fn(),
+  pin: vi.fn(),
+  forward: vi.fn(),
+  reply: vi.fn(),
+  edit: vi.fn(),
+  remove: vi.fn(),
+  jump: vi.fn(),
+  cancelUpload: vi.fn(),
+  download: vi.fn(),
+});
+const inputs = (m: TimelineItem, over: Partial<BubbleInputs> = {}): BubbleInputs => ({
+  item: m,
+  first: true,
+  last: true,
+  showAvatar: false,
+  t,
+  locale: "en",
+  actions: actions(),
+  runs: undefined,
+  openLink: vi.fn(),
+  image: undefined,
+  video: undefined,
+  audio: { state: { status: "idle", progress: 0, positionMs: 0, durationMs: 4000 }, toggle: vi.fn(), seek: vi.fn() },
+  previews: [],
+  previewImageUrl: undefined,
+  openImage: vi.fn(),
+  openVideo: vi.fn(),
+  ...over,
+});
+
+test("text shows its body; media shows none (they have their own parts); undecryptable shows a notice", () => {
+  expect(bubbleText(item(), t)).toBe("hi");
+  expect(bubbleText(item({ content: { kind: "image", url: "mxc://a/b", body: "x.png" } }), t)).toBe("");
+  expect(bubbleText(item({ content: { kind: "undecryptable" } }), t)).toBe("undecryptable");
+});
+
+test("only my own messages have a status; read once someone has read a sent one", () => {
+  expect(bubbleStatus(item())).toBeUndefined();
+  expect(bubbleStatus(item({ isOwn: true }))).toBe("sent");
+  expect(bubbleStatus(item({ isOwn: true, status: "sending" }))).toBe("sending");
+  expect(bubbleStatus(item({ isOwn: true, readBy: [{ userId: "@b:s", name: "Bob" }] }))).toBe("read");
+  expect(bubbleStatus(item({ isOwn: true, status: "sending", readBy: [{ userId: "@b:s", name: "Bob" }] }))).toBe("sending");
+});
+
+test("the sender's name is shown in a group, on the first message of a run only", () => {
+  expect(bubbleProps(inputs(item(), { showAvatar: true, first: true })).senderName).toBe("Ann");
+  expect(bubbleProps(inputs(item(), { showAvatar: true, first: false })).senderName).toBeUndefined();
+  expect(bubbleProps(inputs(item(), { showAvatar: false })).senderName).toBeUndefined();
+});
+
+test("a reply's quote jumps to the original, and mentions and pins carry over", () => {
+  const a = actions();
+  const m = item({
+    pinned: true,
+    edited: true,
+    replyTo: { id: "$orig", sender: "@b:s", senderName: "Bob", preview: "earlier" },
+    content: { kind: "text", body: "x", mentionsMe: true },
+  });
+  const p = bubbleProps(inputs(m, { actions: a }));
+  p.reply!.onPress();
+  expect(a.jump).toHaveBeenCalledWith("$orig");
+  expect(p).toMatchObject({ pinned: true, mentionsMe: true, editedLabel: "edited", muted: false });
+});
+
+test("a picture that is still uploading shows the local preview and cannot be opened; cancelling uses the transaction", () => {
+  const a = actions();
+  const m = item({
+    isOwn: true,
+    transactionId: "txn1",
+    content: { kind: "image", url: "", body: "p.png" },
+    upload: { progress: 0.5, loaded: 500, total: 1000, previewUrl: "blob:local" },
+  });
+  const p = bubbleProps(inputs(m, { actions: a, image: { uri: undefined, width: 100, height: 80 } }));
+  expect(p.image).toMatchObject({ uri: "blob:local", width: 100, height: 80, onPress: undefined });
+  p.upload!.onCancel();
+  expect(a.cancelUpload).toHaveBeenCalledWith("txn1");
+  expect(p.upload).toMatchObject({ progress: 0.5, cancelLabel: "upload.cancel" });
+});
+
+test("a finished picture opens in the viewer", () => {
+  const open = vi.fn();
+  const m = item({ content: { kind: "image", url: "mxc://a/b", body: "p.png" } });
+  bubbleProps(inputs(m, { image: { uri: "blob:x", width: 10, height: 10 }, openImage: open })).image!.onPress!();
+  expect(open).toHaveBeenCalled();
+});
+
+test("audio shows its length when idle and position / length while playing", () => {
+  const m = item({ content: { kind: "audio", url: "mxc://a/b", name: "v.ogg", voice: true } });
+  const idle = bubbleProps(inputs(m));
+  expect(idle.audio).toMatchObject({ voice: true, playing: false, timeLabel: "0:04", playLabel: "play" });
+  const playing = bubbleProps(
+    inputs(m, { audio: { state: { status: "playing", progress: 0.25, positionMs: 1000, durationMs: 4000 }, toggle: vi.fn(), seek: vi.fn() } }),
+  );
+  expect(playing.audio).toMatchObject({ playing: true, timeLabel: "0:01 / 0:04", playLabel: "pause", progress: 0.25 });
+});
+
+test("only the first link preview gets the resolved picture", () => {
+  const m = item({ content: { kind: "text", body: "x" } });
+  const p = bubbleProps(
+    inputs(m, {
+      previews: [{ url: "https://a", image: "mxc://a/1" }, { url: "https://b", image: "mxc://a/2" }, { url: "https://c" }],
+      previewImageUrl: "blob:one",
+    }),
+  );
+  expect(p.previews!.map((x) => x.image)).toEqual(["blob:one", undefined, undefined]);
+});
