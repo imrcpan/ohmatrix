@@ -75,7 +75,7 @@ function wrap(e: unknown): EngineError {
             ? "rate_limited"
             : e.errcode === "M_NOT_FOUND"
               ? "not_found"
-              : e.errcode === "M_ROOM_IN_USE" || e.httpStatus === 409
+              : e.errcode === "M_ROOM_IN_USE" || e.errcode === "M_USER_IN_USE" || e.httpStatus === 409
                 ? "conflict"
                 : "unknown";
   } else if (e instanceof TypeError || (e as Error)?.name === "ConnectionError") code = "network";
@@ -751,6 +751,30 @@ export class JsSdkEngine implements MatrixEngine {
           password,
           initial_device_display_name: "OhMatrix Web",
         });
+        const session: Session = { homeserver: baseUrl, userId: res.user_id, deviceId: res.device_id, accessToken: res.access_token };
+        await this.auth.restore(session);
+        return session;
+      }),
+    register: (homeserver: string, username: string, password: string) =>
+      guard(async (): Promise<Session> => {
+        const baseUrl = await resolveHomeserver(homeserver);
+        const client = createClient({ baseUrl, localTimeoutMs: 20_000 });
+        const body = { username, password, initial_device_display_name: "OhMatrix Web" };
+        // A server answers the first request with the steps it wants done ("flows"); the one we can do alone is the
+        // "dummy" step. Anything else (an e-mail address, a captcha, terms) is more than a password form can answer.
+        let auth: { session?: string; type: string } | undefined;
+        let res: { user_id: string; device_id?: string; access_token?: string } | undefined;
+        try {
+          res = await client.registerRequest(body);
+        } catch (e) {
+          const data = e instanceof MatrixError ? (e.data as { flows?: Array<{ stages: string[] }>; session?: string }) : undefined;
+          if (!(e instanceof MatrixError) || e.httpStatus !== 401 || !data?.flows) throw e;
+          if (!data.flows.some((f) => f.stages.every((st) => st === "m.login.dummy")))
+            throw new EngineError("unsupported", "This server needs more than a username and password to register.", e);
+          auth = { type: "m.login.dummy", ...(data.session && { session: data.session }) };
+        }
+        res ??= await client.registerRequest({ ...body, ...(auth && { auth }) });
+        if (!res.access_token || !res.device_id) throw new EngineError("unknown", "The server did not sign the new account in.");
         const session: Session = { homeserver: baseUrl, userId: res.user_id, deviceId: res.device_id, accessToken: res.access_token };
         await this.auth.restore(session);
         return session;

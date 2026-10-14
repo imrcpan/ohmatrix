@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
-import { Icon, PrimaryButton, TextField, fontFamily, useTheme } from "@ohmatrix/ui";
+import { Icon, PrimaryButton, TextButton, TextField, fontFamily, useTheme } from "@ohmatrix/ui";
 import { useAppState, useController, useT } from "./context.js";
 
 export function LoginScreen(props: { defaultHomeserver: string }) {
@@ -10,21 +10,40 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
   const busy = useAppState((s) => s.auth === "signingIn");
   const rawError = useAppState((s) => s.authError);
   const errorCode = useAppState((s) => s.authErrorCode);
-  const [homeserver, setHomeserver] = useState(props.defaultHomeserver);
+  // The server used last time, if any; otherwise the app's default.
+  const lastHomeserver = useAppState((s) => s.prefs.lastHomeserver);
+  const [homeserver, setHomeserver] = useState(lastHomeserver || props.defaultHomeserver);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [confirm, setConfirm] = useState("");
   // Technical messages from the network stack ("NetworkError when attempting to fetch resource", a blocked CORS request for a
   // host that does not exist...) all mean the same to the user: the address cannot be reached.
   const error = !rawError
     ? null
     : errorCode === "network"
       ? t("login.network", { server: homeserver.trim() })
-      : errorCode === "forbidden" || errorCode === "unauthorized"
-        ? t("login.rejected")
-        : rawError;
-  const ready = !!homeserver.trim() && !!username.trim() && !!password;
+      : creating
+        ? errorCode === "conflict"
+          ? t("register.taken")
+          : errorCode === "forbidden"
+            ? t("register.closed")
+            : errorCode === "unsupported"
+              ? t("register.unsupported")
+              : rawError
+        : errorCode === "forbidden" || errorCode === "unauthorized"
+          ? t("login.rejected")
+          : rawError;
+  const mismatch = creating && !!confirm && confirm !== password;
+  const ready = !!homeserver.trim() && !!username.trim() && !!password && (!creating || (!!confirm && !mismatch));
   const submit = () => {
-    if (ready && !busy) void controller.login(homeserver.trim(), username.trim(), password);
+    if (!ready || busy) return;
+    if (creating) void controller.register(homeserver.trim(), username.trim(), password);
+    else void controller.login(homeserver.trim(), username.trim(), password);
+  };
+  const toggle = () => {
+    setCreating((v) => !v);
+    setConfirm("");
   };
 
   return (
@@ -36,15 +55,36 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
               <Icon name="chat" size={52} strokeWidth={1.8} color={colors.onAccent} />
             </View>
             <Text style={{ fontSize: 30, fontWeight: "700", fontFamily, color: colors.text, marginTop: 8 }}>{t("welcome.title")}</Text>
-            <Text style={{ fontSize: 16, fontFamily, color: colors.textSecondary, textAlign: "center" }}>{t("welcome.subtitle")}</Text>
+            <Text style={{ fontSize: 16, fontFamily, color: colors.textSecondary, textAlign: "center" }}>
+              {creating ? t("register.title") : t("welcome.subtitle")}
+            </Text>
           </View>
           <TextField label={t("homeserver")} value={homeserver} onChangeText={setHomeserver} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
           <TextField label={t("username")} value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} textContentType="username" />
-          <TextField label={t("password")} value={password} onChangeText={setPassword} secureTextEntry textContentType="password" onSubmitEditing={submit} />
+          <TextField
+            label={t("password")}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            textContentType={creating ? "newPassword" : "password"}
+            onSubmitEditing={creating ? undefined : submit}
+          />
+          {creating && (
+            <TextField
+              label={t("register.confirm")}
+              value={confirm}
+              onChangeText={setConfirm}
+              secureTextEntry
+              textContentType="newPassword"
+              onSubmitEditing={submit}
+            />
+          )}
+          {mismatch && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("register.mismatch")}</Text>}
           {!!error && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{error}</Text>}
           <View style={{ marginTop: 4 }}>
-            <PrimaryButton title={t("signIn")} onPress={submit} loading={busy} disabled={!ready} />
+            <PrimaryButton title={creating ? t("register.submit") : t("signIn")} onPress={submit} loading={busy} disabled={!ready} />
           </View>
+          <TextButton title={creating ? t("register.back") : t("register.toggle")} onPress={toggle} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

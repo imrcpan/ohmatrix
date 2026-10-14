@@ -29,6 +29,12 @@ export type Listener<T> = (value: T) => void;
 
 export interface AuthApi {
   loginWithPassword(homeserver: string, username: string, password: string): Promise<Session>;
+  /**
+   * Create an account with a username and password and sign in as it. Only servers that need nothing more than that
+   * can be registered on (no e-mail address, captcha or terms to accept); on any other it throws `unsupported`, and on a
+   * server that has registration closed it throws `forbidden`. A taken username is a `conflict`.
+   */
+  register(homeserver: string, username: string, password: string): Promise<Session>;
   restore(session: Session): Promise<void>;
   logout(): Promise<void>;
 }

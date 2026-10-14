@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { Session, SessionStore } from "@ohmatrix/core";
+import { EngineError, type Preferences, type Session, type SessionStore } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAppController, totalUnread } from "./index.js";
 
@@ -28,6 +28,49 @@ test("bootstrap without session → signedOut; login → signedIn and persists s
   await app.logout();
   expect(app.store.getState().auth).toBe("signedOut");
   expect(store.saved).toBeNull();
+});
+
+test("the server signed in to is remembered, by signing in or by registering, and only saved when it changes", async () => {
+  let saved: Preferences | null = null;
+  let saves = 0;
+  const app = createAppController(new MockEngine(), {
+    sessionStore: memoryStore(),
+    preferences: {
+      load: async () => ({}),
+      save: async (p) => {
+        saved = p;
+        saves++;
+      },
+    },
+  });
+  await app.bootstrap();
+  expect(app.store.getState().prefs.lastHomeserver).toBeNull();
+  await app.login(" chat.example.org ", "test", "123456");
+  expect(app.store.getState().prefs.lastHomeserver).toBe("chat.example.org");
+  await app.logout();
+  expect(app.store.getState().prefs.lastHomeserver).toBe("chat.example.org"); // it outlives the session
+  await app.register("chat.example.org", "newbie", "123456");
+  expect(app.store.getState().auth).toBe("signedIn");
+  expect(app.store.getState().userId).toBe("@newbie:chat.example.org");
+  expect(saves).toBe(1);
+  expect(saved!.lastHomeserver).toBe("chat.example.org");
+  await app.logout();
+  await app.register("other.example.org", "newbie", "123456");
+  expect(saved!.lastHomeserver).toBe("other.example.org");
+});
+
+test("a failed registration leaves the user signed out with the server's reason, and the server is not remembered", async () => {
+  const engine = new MockEngine();
+  engine.auth.register = async () => {
+    throw new EngineError("forbidden", "Registration has been disabled");
+  };
+  const app = createAppController(engine, { sessionStore: memoryStore() });
+  await app.bootstrap();
+  await app.register("closed.example.org", "x", "123456");
+  const s = app.store.getState();
+  expect(s.auth).toBe("signedOut");
+  expect(s.authErrorCode).toBe("forbidden");
+  expect(s.prefs.lastHomeserver).toBeNull();
 });
 
 test("sent message shows up in timeline and room list", async () => {
@@ -62,11 +105,20 @@ test("preferences load on bootstrap and persist on change", async () => {
     uiScale: 1,
     notifications: false,
     notificationPreview: true,
+    lastHomeserver: null,
   });
   app.setPreferences({ sidebarWidth: 400 });
   await Promise.resolve();
   await Promise.resolve();
-  expect(saved).toEqual({ theme: "sakura", locale: "zh-CN", sidebarWidth: 400, uiScale: 1, notifications: false, notificationPreview: true });
+  expect(saved).toEqual({
+    theme: "sakura",
+    locale: "zh-CN",
+    sidebarWidth: 400,
+    uiScale: 1,
+    notifications: false,
+    notificationPreview: true,
+    lastHomeserver: null,
+  });
 });
 
 test("totalUnread counts notifying chats, manual marks once, and skips muted chats and invites", () => {

@@ -18,6 +18,7 @@ import {
   type UserSuggestion,
   type MxcUri,
   type PlatformServices,
+  type Session,
   type RoomId,
   type RoomSummary,
   type SpaceChild,
@@ -89,6 +90,8 @@ export interface AppController {
   /** Restore a saved session, if any. Call once at startup. */
   bootstrap(): Promise<void>;
   login(homeserver: string, username: string, password: string): Promise<void>;
+  /** Create an account on the server and sign in as it (see `AuthApi.register`). */
+  register(homeserver: string, username: string, password: string): Promise<void>;
   logout(): Promise<void>;
   /** Update and persist preferences (theme, language, sidebar width...). */
   setPreferences(patch: Partial<Preferences>): void;
@@ -209,6 +212,25 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       roomInfoOpen: false,
     });
 
+  /** Signing in and registering end the same way: keep the session, remember the server, start syncing. */
+  const signIn = async (homeserver: string, start: () => Promise<Session>) => {
+    set({ auth: "signingIn", authError: null, authErrorCode: null });
+    try {
+      const session = await start();
+      await services.sessionStore.save(session);
+      set({ auth: "signedIn", userId: session.userId, homeserver: session.homeserver });
+      // Offered again the next time the sign-in screen is shown (after signing out, or on another account).
+      const typed = homeserver.trim();
+      if (store.getState().prefs.lastHomeserver !== typed) {
+        set((s) => ({ prefs: { ...s.prefs, lastHomeserver: typed } }));
+        void services.preferences?.save(store.getState().prefs).catch(() => {});
+      }
+      await engine.sync.start();
+    } catch (e) {
+      signedOut(messageOf(e), e instanceof EngineError ? e.code : null);
+    }
+  };
+
   return {
     store,
     async bootstrap() {
@@ -226,17 +248,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         signedOut(e instanceof EngineError && e.code === "unauthorized" ? null : messageOf(e));
       }
     },
-    async login(homeserver, username, password) {
-      set({ auth: "signingIn", authError: null, authErrorCode: null });
-      try {
-        const session = await engine.auth.loginWithPassword(homeserver, username, password);
-        await services.sessionStore.save(session);
-        set({ auth: "signedIn", userId: session.userId, homeserver: session.homeserver });
-        await engine.sync.start();
-      } catch (e) {
-        signedOut(messageOf(e), e instanceof EngineError ? e.code : null);
-      }
-    },
+    login: (homeserver, username, password) => signIn(homeserver, () => engine.auth.loginWithPassword(homeserver, username, password)),
+    register: (homeserver, username, password) => signIn(homeserver, () => engine.auth.register(homeserver, username, password)),
     async logout() {
       try {
         await engine.auth.logout();

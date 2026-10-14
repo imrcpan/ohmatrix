@@ -24,7 +24,8 @@ if [ ! -f "$DATA/homeserver.yaml" ]; then
 
 # --- dev overrides ---
 registration_shared_secret: "ohmatrix-dev-secret"
-enable_registration: false
+enable_registration: true
+enable_registration_without_verification: true
 user_directory:
   enabled: true
   search_all_users: true
