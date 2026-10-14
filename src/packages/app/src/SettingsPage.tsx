@@ -2,15 +2,10 @@ import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Dialog, fontFamily, Icon, Menu, NavBar, PrimaryButton, Row, Section, TextButton, Toggle, useTheme, type Anchor } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
+import { LANGUAGES } from "./languages.js";
 import { ThemeGrid } from "./ThemeGrid.js";
 
-/** Language names are shown in their own language on purpose and are not translated. */
 const SCALES = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
-
-const LANGUAGES = [
-  { id: "en", label: "English" },
-  { id: "zh-CN", label: "简体中文" },
-] as const;
 
 export function SettingsPage() {
   const { colors } = useTheme();

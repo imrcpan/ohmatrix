@@ -2963,3 +2963,31 @@ test("sign-in: create an account, and the server signed in to is offered again a
   await page.getByRole("button", { name: "Already have an account? Sign in" }).click();
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 });
+
+test("sign-in: the language is chosen at the bottom right, from a menu that opens upwards, and is kept", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const button = page.getByRole("button", { name: "Language" });
+  await expect(button).toContainText("English");
+  const b = (await button.boundingBox())!;
+  expect(b.x + b.width).toBeGreaterThan(1280 - 40);
+  expect(b.y + b.height).toBeGreaterThan(800 - 40);
+  // Borderless: no border or outline of its own.
+  expect(await button.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe("0px");
+  await button.click();
+  const zh = page.getByRole("menuitem", { name: "简体中文" });
+  await expect(zh).toBeVisible();
+  const m = (await zh.boundingBox())!;
+  expect(m.y + m.height).toBeLessThan(b.y); // above the button
+  await shot(page, "42-login-language-menu");
+  await zh.click();
+  await expect(page.getByText("登录你的 Matrix 账号")).toBeVisible();
+  await expect(page.getByRole("button", { name: "语言" })).toContainText("简体中文");
+  await page.reload();
+  await expect(page.getByText("登录你的 Matrix 账号")).toBeVisible();
+  // Back to English, for the tests that follow (the language is kept in the browser, which is fresh for each test).
+  await page.getByRole("button", { name: "语言" }).click();
+  await page.getByRole("menuitem", { name: "English" }).click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+});
