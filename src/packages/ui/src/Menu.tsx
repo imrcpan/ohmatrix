@@ -26,9 +26,9 @@ const ROW = 36;
 
 /**
  * Popover menu anchored to a point or rectangle (Fluent flyout / macOS context menu): opens below the
- * anchor, flips above near the bottom edge, and is clamped inside the window.
+ * anchor (or above it with `up`), flips above near the bottom edge, and is clamped inside the window.
  */
-export function Menu(props: { visible: boolean; anchor: Anchor | null; items: MenuItem[]; onClose: () => void; alignRight?: boolean }) {
+export function Menu(props: { visible: boolean; anchor: Anchor | null; items: MenuItem[]; onClose: () => void; alignRight?: boolean; up?: boolean }) {
   const { colors, dark } = useTheme();
   const win = useViewport();
   const scale = useScale();
@@ -42,7 +42,7 @@ export function Menu(props: { visible: boolean; anchor: Anchor | null; items: Me
   const rawLeft = props.alignRight ? a.x + a.width - MENU_WIDTH : a.x;
   const left = Math.max(8, Math.min(rawLeft, win.width - MENU_WIDTH - 8));
   const below = a.y + a.height + 6;
-  const top = below + h > win.height - 8 ? Math.max(8, a.y - h - 6) : below;
+  const top = props.up || below + h > win.height - 8 ? Math.max(8, a.y - h - 6) : below;
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>

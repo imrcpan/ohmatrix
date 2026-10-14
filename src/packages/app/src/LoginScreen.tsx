@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
-import { Icon, PrimaryButton, TextButton, TextField, fontFamily, useTheme } from "@ohmatrix/ui";
-import { useAppState, useController, useT } from "./context.js";
+import { useRef, useState, type ComponentRef } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Icon, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme, type Anchor } from "@ohmatrix/ui";
+import { useAppState, useController, useLocale, useT } from "./context.js";
+import { LANGUAGES } from "./languages.js";
 
 export function LoginScreen(props: { defaultHomeserver: string }) {
   const { colors } = useTheme();
@@ -15,6 +16,11 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
   const [homeserver, setHomeserver] = useState(lastHomeserver || props.defaultHomeserver);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const locale = useLocale();
+  const langRef = useRef<ComponentRef<typeof View>>(null);
+  const [langAnchor, setLangAnchor] = useState<Anchor | null>(null);
+  const [langMenu, setLangMenu] = useState(false);
+  const language = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
   const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState("");
   // Technical messages from the network stack ("NetworkError when attempting to fetch resource", a blocked CORS request for a
@@ -87,6 +93,39 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
           <TextButton title={creating ? t("register.back") : t("register.toggle")} onPress={toggle} />
         </View>
       </ScrollView>
+      {/* The language, at the bottom right: a borderless name and arrow that opens a menu upwards. */}
+      <View ref={langRef} style={{ position: "absolute", right: 16, bottom: 16 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("language")}
+          onPress={() =>
+            langRef.current?.measureInWindow((x, y, width, height) => {
+              setLangAnchor({ x, y, width, height });
+              setLangMenu(true);
+            })
+          }
+          style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+            height: 36,
+            paddingHorizontal: 10,
+            borderRadius: 10,
+            backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 15, fontFamily, color: colors.textSecondary }}>{language.label}</Text>
+          <Icon name="chevronDown" size={16} color={colors.textTertiary} />
+        </Pressable>
+      </View>
+      <Menu
+        visible={langMenu}
+        anchor={langAnchor}
+        alignRight
+        up
+        onClose={() => setLangMenu(false)}
+        items={LANGUAGES.map((l) => ({ label: l.label, checked: l.id === locale, onPress: () => controller.setPreferences({ locale: l.id }) }))}
+      />
     </KeyboardAvoidingView>
   );
 }
