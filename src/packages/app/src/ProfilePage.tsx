@@ -13,6 +13,8 @@ export function ProfilePage(props: { homeserver: string }) {
   const controller = useController();
   const services = useServices();
   const profile = useAppState((s) => s.profile);
+  // Known from the sign-in, and shown at once: the profile itself is read from the server and can take a moment.
+  const userId = useAppState((s) => s.userId) ?? "";
   const security = useAppState((s) => s.security);
   const avatar = useMediaUrl(profile?.avatar, { width: 192, height: 192, fit: "crop" });
   const [editing, setEditing] = useState(false);
@@ -38,12 +40,16 @@ export function ProfilePage(props: { homeserver: string }) {
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4, gap: 2 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t("changePhoto")} onPress={() => void changePhoto()} disabled={!services.pickFiles}>
-            <Avatar id={profile?.userId ?? "?"} name={displayName || "?"} size={72} src={avatar} />
+            <Avatar id={profile?.userId ?? userId} name={displayName || "?"} size={72} src={avatar} />
           </Pressable>
-          <Text style={{ fontSize: 22, fontWeight: "700", letterSpacing: -0.3, fontFamily, color: colors.text, marginTop: 8 }}>{displayName}</Text>
-          <Text selectable style={{ fontSize: 15, fontFamily, color: colors.textSecondary }}>
-            {profile?.userId}
-          </Text>
+          {!!displayName && (
+            <Text style={{ fontSize: 22, fontWeight: "700", letterSpacing: -0.3, fontFamily, color: colors.text, marginTop: 8 }}>{displayName}</Text>
+          )}
+          {!!(profile?.userId ?? userId) && (
+            <Text selectable style={{ fontSize: 15, fontFamily, color: colors.textSecondary }}>
+              {profile?.userId ?? userId}
+            </Text>
+          )}
         </View>
         <Group title={t("account")}>
           {services.pickFiles && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
@@ -66,7 +72,7 @@ export function ProfilePage(props: { homeserver: string }) {
               setEditingStatus(true);
             }}
           />
-          <Item label={t("userId")} value={profile?.userId} icon="hash" />
+          <Item label={t("userId")} value={profile?.userId ?? userId} icon="hash" />
           <Item label={t("homeserver")} value={props.homeserver} icon="info" />
         </Group>
         <Group title={t("security")}>
