@@ -71,6 +71,8 @@ export interface OpenRoom {
   paginateBackwards(): Promise<void>;
   sendAttachment(file: AttachmentSource): Promise<void>;
   cancelUpload(id: string): void;
+  resend(id: string): Promise<void>;
+  discard(id: string): void;
   edit(eventId: EventId, body: string): Promise<void>;
   redact(eventId: EventId): Promise<void>;
   reply(eventId: EventId, body: string, mentions?: UserId[]): Promise<void>;
@@ -343,6 +345,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         paginateBackwards: () => tl.paginateBackwards(),
         sendAttachment: (file) => tl.sendAttachment(file),
         cancelUpload: (id) => tl.cancelUpload(id),
+        resend: (id) => tl.resend(id),
+        discard: (id) => tl.discard(id),
         edit: (eventId, body) => tl.edit(eventId, body),
         redact: (eventId) => tl.redact(eventId),
         reply: (eventId, body, mentions) => tl.reply(eventId, body, mentions),

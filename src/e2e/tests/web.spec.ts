@@ -1888,6 +1888,88 @@ test("upload progress and cancel; a failed upload can be dismissed", async ({ pa
   await expect(page.getByText("Upload failed. Tap to dismiss.")).toHaveCount(0);
 });
 
+/** Makes the server refuse every message the page sends, until `restore` is called. A refusal is not retried by the client, so the message fails at once. */
+async function refuseSends(page: Page) {
+  const send = /\/_matrix\/client\/v3\/rooms\/[^/]+\/send\//;
+  await page.route(send, (route) =>
+    route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ errcode: "M_FORBIDDEN", error: "refused for the test" }) }),
+  );
+  return () => page.unroute(send);
+}
+
+test("a message that could not be sent: tap its mark to send it again, or drop it from its menu", async ({ page }) => {
+  await openNotes(page);
+  // The client keeps what is waiting to be sent, so that it survives a reload.
+  const holdsPending = () => page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith("mx_pending_events_")));
+  const retry = page.getByRole("button", { name: "Not sent. Tap to send again." });
+  await expect(retry).toHaveCount(0);
+
+  // The server refuses it: it stays in the chat, marked as not sent.
+  const restore = await refuseSends(page);
+  const text = `resend ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  await expect(retry).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(text, { exact: true })).toHaveCount(1);
+  await shot(page, "45-not-sent");
+
+  // Its menu offers what can be done with a message that never arrived, and nothing that needs one that did.
+  await page.getByText(text, { exact: true }).click({ button: "right" });
+  await expect(page.getByRole("menuitem")).toHaveCount(2);
+  await expect(page.getByRole("menuitem", { name: "Send again" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "React 👍" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Once the server takes it, the mark sends it again: it goes through, once.
+  await restore();
+  const accepted = page.waitForResponse((r) => /\/send\//.test(r.url()) && r.status() === 200);
+  await retry.click();
+  await accepted;
+  await expect(retry).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByText(text, { exact: true })).toHaveCount(1);
+  await expect.poll(holdsPending, { timeout: 15000 }).toBe(false); // the client has let go of it, so a reload does not bring it back as unsent
+  await page.reload();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText(text, { exact: true })).toHaveCount(1, { timeout: 20000 });
+
+  // Delete drops one that failed, without a confirmation and without the server hearing of it.
+  const restore2 = await refuseSends(page);
+  const dropped = `dropped ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(dropped);
+  await page.getByPlaceholder("Message").press("Enter");
+  await expect(retry).toBeVisible({ timeout: 15000 });
+  await page.getByText(dropped, { exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.getByText(dropped, { exact: true })).toHaveCount(0);
+  await expect(retry).toHaveCount(0);
+  await expect.poll(holdsPending, { timeout: 15000 }).toBe(false);
+  await restore2();
+  await page.reload();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText(dropped, { exact: true })).toHaveCount(0);
+});
+
+test("a file that failed to upload can be sent again from its menu", async ({ page }) => {
+  const fx = makeFixtures();
+  await openNotes(page);
+  const before = await page.getByText("big.bin", { exact: true }).count();
+  const upload = /\/_matrix\/media\/v3\/upload/;
+  await page.route(upload, (route) => route.abort("failed"));
+  await attachFile(page, fx.big);
+  await expect(page.getByText("Upload failed. Tap to dismiss.")).toBeVisible({ timeout: 20000 });
+  await page.getByText("big.bin", { exact: true }).last().click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Send again" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.unroute(upload);
+  await page.getByText("big.bin", { exact: true }).last().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Send again" }).click();
+  // The same file goes up again, with no new pick, and arrives once.
+  await expect(page.getByText("Upload failed. Tap to dismiss.")).toHaveCount(0, { timeout: 30000 });
+  await expect(page.getByText("big.bin", { exact: true })).toHaveCount(before + 1, { timeout: 30000 });
+});
+
 test("zoom: the setting scales the whole interface, menus still open at the pointer, and it persists", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);

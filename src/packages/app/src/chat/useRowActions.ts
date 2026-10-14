@@ -33,6 +33,8 @@ export function useRowActions(opts: {
           .catch(() => {}),
       remove: (id) => void latest.current.handle.current?.redact(id).catch(() => {}),
       cancelUpload: (id) => latest.current.handle.current?.cancelUpload(id),
+      resend: (id) => void latest.current.handle.current?.resend(id).catch(() => {}),
+      discard: (id) => latest.current.handle.current?.discard(id),
       jump: (id) => latest.current.jump(id),
     }),
     [latest],

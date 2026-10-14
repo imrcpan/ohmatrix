@@ -14,5 +14,9 @@ export interface RowActions {
   /** Scroll to a message, loading older history first if it is not loaded (a reply's quote). */
   jump(eventId: string): void;
   cancelUpload(id: string): void;
+  /** Try to send a message again that could not be sent. `id` is its transaction id. */
+  resend(id: string): void;
+  /** Drop a message that could not be sent. */
+  discard(id: string): void;
   download(file: { url: string; name: string; encryption?: unknown; mimeType?: string }): void;
 }
