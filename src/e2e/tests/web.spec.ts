@@ -2885,3 +2885,35 @@ test("opening a chat shows a loading indicator inside the chat until the message
   await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
   await expect(page.getByRole("progressbar", { name: "Loading messages" })).toHaveCount(0, { timeout: 15000 });
 });
+
+test("opening a long chat draws about a screen and a half at once, then the older messages arrive without moving the view", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  // The newest message sits at the bottom of the scroller. Its distance from the bottom of the window is what must not
+  // change while the rest of the history is drawn above it.
+  const sample = () =>
+    page.evaluate(() => {
+      const el = [...document.querySelectorAll<HTMLElement>("*")].find(
+        (e) => e.scrollHeight > e.clientHeight + 20 && ["auto", "scroll"].includes(getComputedStyle(e).overflowY) && e.getBoundingClientRect().x > 300,
+      );
+      if (!el) return null;
+      const rows = [...el.querySelectorAll<HTMLElement>("[data-row-key]")];
+      const last = rows[rows.length - 1];
+      return { content: el.scrollHeight, view: el.clientHeight, rows: rows.length, last: last ? Math.round(last.getBoundingClientRect().bottom) : null };
+    });
+  // Shown as soon as the first rows are drawn: the loading overlay is gone while only a window of rows exists.
+  await expect(page.getByText("Loading messages")).toHaveCount(0, { timeout: 15000 });
+  const first = await sample();
+  expect(first).not.toBeNull();
+  // From here on, whatever is added is added above: the newest message stays exactly where it is.
+  const lasts = new Set<number | null>([first!.last]);
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(100);
+    const m = await sample();
+    if (m) lasts.add(m.last);
+  }
+  expect([...lasts].filter((v) => v !== null && Math.abs(v - first!.last!) > 2)).toEqual([]);
+  // The window is about a screen and a half to begin with (at 800px, 1.5 screens is 1200px of messages).
+  expect(first!.content).toBeLessThan(first!.view * 4);
+});

@@ -29,7 +29,7 @@ export function MessageList(props: MessageListProps) {
     settle.current = setTimeout(() => {
       ready.current = true;
       p.current.onReady();
-    }, 400);
+    }, 80);
   };
   // A page of history can come back without a new row (events that show nothing), so a window still not full is asked
   // about again a moment later, a few times, until the history runs out.
