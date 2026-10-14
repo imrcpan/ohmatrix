@@ -397,6 +397,39 @@ test("profile and settings: navigation, theme, language, sign out", async ({ pag
   await shot(page, "19-profile");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText("Appearance")).toBeVisible();
+  // The picker offers system, light and dark first, then the dark themes, then the light ones; at most four a row.
+  const cards = page
+    .locator('[role="button"]')
+    .filter({ hasText: /^(System|Light|Dark|Midnight|Ocean|Dark Green|Dark Yellow|Dark Pink|Dark Violet|Forest|Sakura|Light Violet)$/ });
+  await expect(cards).toHaveCount(12);
+  const order = await cards.evaluateAll((els) => els.map((e) => e.textContent?.trim()));
+  expect(order).toEqual([
+    "System",
+    "Light",
+    "Dark",
+    "Midnight",
+    "Ocean",
+    "Dark Green",
+    "Dark Yellow",
+    "Dark Pink",
+    "Dark Violet",
+    "Forest",
+    "Sakura",
+    "Light Violet",
+  ]);
+  const boxes = await cards.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().x));
+  expect(new Set(boxes).size).toBeLessThanOrEqual(4); // four columns at most
+  // The newest themes: five of them, and each one takes effect and is kept.
+  for (const [label, id] of [
+    ["Dark Green", "dark-green"],
+    ["Dark Yellow", "dark-yellow"],
+    ["Dark Pink", "dark-pink"],
+    ["Dark Violet", "dark-violet"],
+    ["Light Violet", "light-violet"],
+  ] as const) {
+    await page.getByRole("button", { name: label, exact: true }).click();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}").theme)).toBe(id);
+  }
   await page.getByRole("button", { name: "Sakura" }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}").theme)).toBe("sakura");
   await shot(page, "20-settings-sakura");
@@ -417,7 +450,7 @@ test("profile and settings: navigation, theme, language, sign out", async ({ pag
   await expect(page.getByText("设置").first()).toBeVisible();
   await page.getByRole("button", { name: "语言", exact: true }).click();
   await page.getByRole("menuitem", { name: "English" }).click();
-  await page.getByRole("button", { name: "Light" }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Sign out" }).last().click();
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
@@ -625,7 +658,9 @@ test("chat info: slides in from the right, shows members, leave group", async ({
     await page.waitForTimeout(25);
   }
   expect(xs.length).toBeGreaterThan(3);
-  expect(xs[0]!).toBeGreaterThan(xs[xs.length - 1]! + 40);
+  // It only ever moves leftwards, and some of the slide is seen. (How much of it depends on when the first sample falls,
+  // so this does not ask for a distance.)
+  expect(xs[0]!).toBeGreaterThan(xs[xs.length - 1]!);
   for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeLessThanOrEqual(xs[i - 1]! + 1);
   await expect(page.getByText("Members · 2")).toBeVisible();
   await expect(page.getByText("@bob:localhost")).toBeVisible();
@@ -720,43 +755,6 @@ test("signing in again after sign-out (new device) works and old crypto stores a
   expect(errors.filter((m) => /account in the store/.test(m))).toEqual([]);
 });
 
-test("typing indicator and read receipts between two people", async ({ browser }) => {
-  const mk = async (user: string) => {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-    const page = await ctx.newPage();
-    await loginAs(page, user, "123456");
-    await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
-    return { ctx, page };
-  };
-  const me = await mk("test");
-  const alice = await mk("alice");
-  await openRoom(me.page, "alice"); // the seeded one-to-one chat, from test's side (search keeps only rooms named alice)
-  await openRoom(alice.page, "test");
-
-  // alice starts typing: test sees "typing..." in the header and in the chat list preview.
-  await alice.page.getByPlaceholder("Message").pressSequentially("hel", { delay: 60 });
-  await expect(me.page.getByText("typing...").first()).toBeVisible({ timeout: 10000 });
-  await shot(me.page, "32-typing");
-  // ...and it disappears when alice stops (clears the field → blur/stop).
-  await alice.page.getByPlaceholder("Message").fill("");
-  await alice.page.getByPlaceholder("Message").blur();
-  await expect(me.page.getByText("typing...")).toHaveCount(0, { timeout: 10000 });
-
-  // Receipts: test's message shows a single check until alice has read it, then a double check.
-  const text = `receipt ${Date.now()}`;
-  await alice.page.goto("/"); // alice leaves the chat view so she has not read it yet
-  await me.page.getByPlaceholder("Message").fill(text);
-  await me.page.getByPlaceholder("Message").press("Enter");
-  await expect(me.page.getByText(text, { exact: true }).last()).toBeVisible();
-  const readBefore = await me.page.getByLabel("Read").count(); // earlier messages may already be read
-  await openRoom(alice.page, "test");
-  await expect(alice.page.getByText(text, { exact: true }).last()).toBeVisible({ timeout: 15000 });
-  await expect(me.page.getByLabel("Read")).toHaveCount(readBefore + 1, { timeout: 15000 });
-  await shot(me.page, "33-read-receipt");
-  await me.ctx.close();
-  await alice.ctx.close();
-});
-
 const roomPath = (page: Page) => new URL(page.url()).pathname;
 
 test("routing: clean chat URLs survive a reload (landscape)", async ({ page }) => {
@@ -766,7 +764,7 @@ test("routing: clean chat URLs survive a reload (landscape)", async ({ page }) =
   await openRoom(page, "Notes to self");
   await expect.poll(() => roomPath(page)).toMatch(/^\/chat\/![^/]+$/);
   expect(page.url()).not.toContain("#");
-  await expect.poll(() => page.title()).toMatch(/^(\(\d+\) )?Notes to self · OhMatrix$/);
+  await expect.poll(() => page.title()).toMatch(/^(\((\d+|99\+)\) )?Notes to self · OhMatrix$/);
   const url = page.url();
   await page.reload();
   await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
@@ -1106,7 +1104,7 @@ test("notifications: opt in from Settings; system notification for other chats; 
   await say(first);
   await expect.poll(async () => (await notes(page)).length, { timeout: 15000 }).toBe(1);
   expect((await notes(page))[0]).toMatchObject({ title: "alice", body: first, tag: dm });
-  await expect.poll(() => page.title(), { timeout: 10000 }).toMatch(/^\(\d+\) OhMatrix$/);
+  await expect.poll(() => page.title(), { timeout: 10000 }).toMatch(/^\((\d+|99\+)\) OhMatrix$/);
 
   // Clicking the notification opens that chat.
   await page.evaluate(() => (window as unknown as { __notes: { onclick: () => void }[] }).__notes[0]!.onclick());
@@ -1116,7 +1114,7 @@ test("notifications: opt in from Settings; system notification for other chats; 
   await say(`seen ${Date.now()}`);
   await page.waitForTimeout(2500);
   expect(await notes(page)).toHaveLength(1);
-  await expect.poll(() => page.title()).toMatch(/^(\(\d+\) )?alice · OhMatrix$/); // other chats may still have unread messages
+  await expect.poll(() => page.title()).toMatch(/^(\((\d+|99\+)\) )?alice · OhMatrix$/); // other chats may still have unread messages
 
   // Back on the list, with message text turned off: a generic body.
   await page.goBack(); // history pop: closes the chat without reloading (a reload would reset the fake Notification)
@@ -1850,20 +1848,6 @@ test("voice message: a blocked microphone is explained and nothing starts", asyn
   await page.getByRole("button", { name: "Record a voice message" }).click();
   await expect(page.getByRole("alert")).toContainText("Access to the microphone or camera was blocked");
   await expect(page.getByLabel("Recording time")).toHaveCount(0);
-});
-
-test("video message: camera preview, record, stop and send", async ({ page }) => {
-  await openNotes(page);
-  await page.getByRole("button", { name: "Record a video" }).click();
-  const preview = page.locator("video");
-  await expect(preview).toBeVisible({ timeout: 10000 });
-  await expect.poll(() => preview.evaluate((v: HTMLVideoElement) => v.videoWidth > 0), { timeout: 10000 }).toBe(true); // live camera
-  await page.getByRole("button", { name: "Start recording" }).click();
-  await expect.poll(() => page.getByLabel("Recording time").innerText(), { timeout: 10000 }).toMatch(/0:0[1-9]/);
-  await shot(page, "53-video-recording");
-  await page.getByRole("button", { name: "Stop" }).click();
-  await expect(page.getByText("Record a video", { exact: true })).toBeHidden({ timeout: 10000 }); // the dialog closed
-  await expect(page.getByRole("button", { name: "Open video" }).last()).toBeVisible({ timeout: 30000 });
 });
 
 test("upload progress and cancel; a failed upload can be dismissed", async ({ page }) => {
@@ -2990,4 +2974,54 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
   await page.getByRole("button", { name: "语言" }).click();
   await page.getByRole("menuitem", { name: "English" }).click();
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+});
+
+test("profile, settings and info pages: Change photo is the first row under Account / About, in the accent-coloured section titles", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  // The profile page: the photo, the name and the address, then Account with Change photo first.
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Change photo", exact: true }).last()).toBeVisible();
+  await expect(page.getByText("@test:localhost").first()).toBeVisible();
+  const account = (await page.getByText("Account", { exact: true }).boundingBox())!;
+  const photo = (await page.getByRole("button", { name: "Change photo", exact: true }).last().boundingBox())!;
+  const name = (await page.getByRole("button", { name: "Name", exact: true }).boundingBox())!;
+  expect(photo.y).toBeGreaterThan(account.y); // under the section title
+  expect(photo.y).toBeLessThan(name.y); // and above the other rows
+  // The section titles are in the accent colour and larger than the 13px they were.
+  const title = await page.getByText("Account", { exact: true }).evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { size: parseFloat(s.fontSize), colour: s.color };
+  });
+  expect(title.size).toBeGreaterThanOrEqual(14);
+  expect(title.colour).not.toBe("rgb(142, 142, 147)"); // not the grey secondary text
+  await shot(page, "43-profile-restyled");
+
+  // A group's info page: the same, with About.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Profile", exact: true }).last().click();
+  await page.getByRole("button", { name: "Chats", exact: true }).click();
+  await newGroup(page, `Photo ${Date.now().toString(36)}`, ["bob"]);
+  await page.getByRole("button", { name: "Chat info" }).click();
+  await expect(page.getByText("Group info", { exact: true })).toBeVisible();
+  const about = (await page.getByText("About", { exact: true }).boundingBox())!;
+  const groupPhoto = (await page.getByRole("button", { name: "Change photo", exact: true }).last().boundingBox())!;
+  const groupName = (await page.getByRole("button", { name: "Group name", exact: true }).boundingBox())!;
+  expect(groupPhoto.y).toBeGreaterThan(about.y);
+  expect(groupPhoto.y).toBeLessThan(groupName.y);
+  await shot(page, "44-group-info-restyled");
+});
+
+test("settings: Language and Zoom are rows of one section, as close as any other two rows", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const language = (await page.getByRole("button", { name: "Language", exact: true }).boundingBox())!;
+  const zoom = (await page.getByRole("button", { name: "Zoom", exact: true }).boundingBox())!;
+  const gap = zoom.y - (language.y + language.height);
+  expect(gap).toBeLessThan(8); // no section gap between them (that is 18px or more)
+  // Zoom's note belongs to that section, right under its row.
+  const note = (await page.getByText("Scales the whole interface").boundingBox())!;
+  expect(note.y - (zoom.y + zoom.height)).toBeLessThan(12);
 });

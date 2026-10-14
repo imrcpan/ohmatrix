@@ -9,10 +9,13 @@ import { fontFamily, Icon, IconButton, useTheme, type IconName } from "@ohmatrix
  */
 
 /** Back button and a bold title, laid out like the chat list's header, with room for an action at the end. */
+/** Side padding of the header and of a row: the shared NavBar puts its back button at x = 4, and so does this. */
+const PAD = 8;
+
 export function PageHeader(props: { title: string; onBack?: (() => void) | undefined; backLabel?: string | undefined; trailing?: ReactNode }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, height: 64, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, height: 64, paddingHorizontal: PAD, paddingTop: 10, paddingBottom: 8 }}>
       {props.onBack && <IconButton icon="back" label={props.backLabel ?? "Back"} size={26} onPress={props.onBack} />}
       <Text
         accessibilityRole="header"
