@@ -1,8 +1,9 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Dialog, fontFamily, Icon, Menu, NavBar, PrimaryButton, Row, Section, TextButton, Toggle, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
+import { Group, Item, PageHeader } from "./settings/kit.js";
 import { ThemeGrid } from "./ThemeGrid.js";
 
 const SCALES = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
@@ -25,18 +26,18 @@ export function SettingsPage() {
   const current = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgSecondary }}>
-      <NavBar title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <PageHeader title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-        <Section title={t("appearance")}>
+        <Group title={t("appearance")}>
           <ThemeGrid />
-        </Section>
-        <Section>
+        </Group>
+        <Group>
           <View ref={langRef}>
-            <Row
+            <Item
               label={t("language")}
+              icon="chat"
               value={current.label}
-              last
               chevron={false}
               right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
               onPress={() =>
@@ -47,13 +48,13 @@ export function SettingsPage() {
               }
             />
           </View>
-        </Section>
-        <Section footer={t("zoom.footer")}>
+        </Group>
+        <Group footer={t("zoom.footer")}>
           <View ref={scaleRef}>
-            <Row
+            <Item
               label={t("zoom")}
+              icon="zoomIn"
               value={`${Math.round(prefs.uiScale * 100)}%`}
-              last
               chevron={false}
               right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
               onPress={() =>
@@ -64,14 +65,14 @@ export function SettingsPage() {
               }
             />
           </View>
-        </Section>
-        <Section
+        </Group>
+        <Group
           title={t("notifications")}
           footer={t(permission === "denied" ? "notif.footer.denied" : permission === "unsupported" ? "notif.footer.unsupported" : "notif.footer.default")}
         >
-          <Row
+          <Item
             label={t("notif.desktop")}
-            last={!prefs.notifications}
+            icon="bell"
             chevron={false}
             right={
               <Toggle
@@ -93,25 +94,25 @@ export function SettingsPage() {
             }
           />
           {prefs.notifications && permission === "granted" && (
-            <Row
+            <Item
               label={t("notif.preview")}
-              last
+              icon="mailUnread"
               chevron={false}
               right={
                 <Toggle label={t("notif.preview")} value={prefs.notificationPreview} onChange={(v) => controller.setPreferences({ notificationPreview: v })} />
               }
             />
           )}
-        </Section>
-        <Section title={t("sessions")}>
-          <Row label={t("sessions")} icon="device" last onPress={() => controller.openSidebarPage("sessions")} />
-        </Section>
-        <Section title={t("account")}>
-          <Row label={t("signOut")} danger last onPress={() => setConfirm(true)} chevron={false} />
-        </Section>
-        <Section title={t("about")}>
-          <Row label="OhMatrix" value={`${t("version")} 0.1.0`} last />
-        </Section>
+        </Group>
+        <Group title={t("sessions")}>
+          <Item label={t("sessions")} icon="device" onPress={() => controller.openSidebarPage("sessions")} />
+        </Group>
+        <Group title={t("account")}>
+          <Item label={t("signOut")} icon="signOut" danger onPress={() => setConfirm(true)} chevron={false} />
+        </Group>
+        <Group title={t("about")}>
+          <Item label="OhMatrix" value={`${t("version")} 0.1.0`} icon="info" />
+        </Group>
         <Text style={{ textAlign: "center", marginTop: 24, fontSize: 12, fontFamily, color: colors.textSecondary }}>OhMatrix · GPL-3.0</Text>
       </ScrollView>
       <Menu

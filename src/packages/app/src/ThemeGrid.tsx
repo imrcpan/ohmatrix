@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { fontFamily, listThemes, SYSTEM_THEME, themeLabel, useTheme, type ThemeDefinition } from "@ohmatrix/ui";
+import { fontFamily, Icon, listThemes, SYSTEM_THEME, themeLabel, useTheme, type ThemeDefinition } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 
 function Preview({ def }: { def: ThemeDefinition }) {
@@ -35,8 +35,25 @@ export function ThemeGrid() {
         onPress={() => controller.setPreferences({ theme: id })}
         style={{ width: 84, alignItems: "center", gap: 6 }}
       >
-        <View style={{ width: 84, height: 72, borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: active ? colors.accent : colors.separator }}>
-          {preview}
+        <View style={{ width: 84, height: 74, borderRadius: 18, borderWidth: 2.5, padding: 3, borderColor: active ? colors.accent : "transparent" }}>
+          <View style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}>{preview}</View>
+          {active && (
+            <View
+              style={{
+                position: "absolute",
+                right: 6,
+                bottom: 6,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: colors.accent,
+              }}
+            >
+              <Icon name="check" size={13} color={colors.onAccent} strokeWidth={3} />
+            </View>
+          )}
         </View>
         <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, fontWeight: active ? "600" : "400", color: active ? colors.accent : colors.text }}>
           {label}
@@ -46,18 +63,18 @@ export function ThemeGrid() {
   };
 
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, padding: 14 }}>
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 12 }}>
       {card(
         SYSTEM_THEME,
         t("theme.system"),
         <View style={{ flex: 1, flexDirection: "row" }}>
           <View style={{ flex: 1, overflow: "hidden" }}>
-            <View style={{ width: 80, height: 68 }}>
+            <View style={{ width: 72, height: 62 }}>
               <Preview def={light} />
             </View>
           </View>
           <View style={{ flex: 1, overflow: "hidden" }}>
-            <View style={{ width: 80, height: 68, marginLeft: -40 }}>
+            <View style={{ width: 72, height: 62, marginLeft: -36 }}>
               <Preview def={dark} />
             </View>
           </View>
