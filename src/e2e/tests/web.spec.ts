@@ -2917,3 +2917,49 @@ test("opening a long chat draws about a screen and a half at once, then the olde
   // The window is about a screen and a half to begin with (at 800px, 1.5 screens is 1200px of messages).
   expect(first!.content).toBeLessThan(first!.view * 4);
 });
+
+test("sign-in: create an account, and the server signed in to is offered again after signing out", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const inputs = page.locator("input");
+  // Switching to registration asks for the password twice, and says so when they differ.
+  await page.getByRole("button", { name: "No account yet? Create one" }).click();
+  await expect(page.getByText("Create a Matrix account")).toBeVisible();
+  await expect(inputs).toHaveCount(4);
+  const name = `reg${Date.now().toString(36)}`;
+  // A server typed differently from the default is what must come back later.
+  await inputs.nth(0).fill("localhost:8008");
+  await inputs.nth(1).fill(name);
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(3).fill("1234567");
+  await expect(page.getByText("The two passwords are not the same.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create account" })).toBeDisabled();
+  await shot(page, "41-register");
+  await inputs.nth(3).fill("123456");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  // It is the new account.
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await expect(page.getByText(`@${name}:localhost`).first()).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out" }).last().click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  await expect(page.locator("input").nth(0)).toHaveValue("localhost:8008");
+  // ...also after the page is loaded again.
+  await page.reload();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  await expect(page.locator("input").nth(0)).toHaveValue("localhost:8008");
+
+  // A username that is taken is refused, with a message that says why.
+  await page.getByRole("button", { name: "No account yet? Create one" }).click();
+  await page.locator("input").nth(1).fill("test");
+  await page.locator("input").nth(2).fill("123456");
+  await page.locator("input").nth(3).fill("123456");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("That username is taken. Choose another.")).toBeVisible({ timeout: 15000 });
+  // ...and signing in is a click away again.
+  await page.getByRole("button", { name: "Already have an account? Sign in" }).click();
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+});

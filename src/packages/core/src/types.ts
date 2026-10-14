@@ -190,6 +190,8 @@ export interface Preferences {
   notifications: boolean;
   /** Include the message text in notifications (off = just "New message"). */
   notificationPreview: boolean;
+  /** The server last signed in to (as typed), offered again on the sign-in screen; null = none yet. */
+  lastHomeserver: string | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -199,6 +201,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   uiScale: 1,
   notifications: false,
   notificationPreview: true,
+  lastHomeserver: null,
 };
 
 /** The signed-in user's own profile. */

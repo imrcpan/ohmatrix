@@ -1011,3 +1011,20 @@ for (const encrypted of [false, true]) {
     120000,
   );
 }
+
+test.skipIf(!process.env.OHMATRIX_LIVE)(
+  "register: a new account is signed in, a taken name is a conflict",
+  async () => {
+    const name = `live${Date.now().toString(36)}`;
+    const e = new JsSdkEngine({ cryptoStorage: "memory" });
+    const session = await e.auth.register("http://localhost:8008", name, "123456");
+    expect(session.userId).toBe(`@${name}:localhost`);
+    expect(session.accessToken).toBeTruthy();
+    await e.auth.logout();
+    const again = new JsSdkEngine({ cryptoStorage: "memory" });
+    await expect(again.auth.register("http://localhost:8008", name, "123456")).rejects.toMatchObject({ code: "conflict" });
+    await again.auth.loginWithPassword("http://localhost:8008", name, "123456"); // the account works
+    await again.auth.logout();
+  },
+  30000,
+);

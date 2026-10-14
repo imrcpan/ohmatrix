@@ -26,6 +26,10 @@ export class MockEngine implements MatrixEngine {
       this.me = `@${username}:${homeserver.replace(/^https?:\/\//, "").replace(/\/.*$/, "")}`;
       return { homeserver, userId: this.me, deviceId: "MOCK", accessToken: "mock" };
     },
+    register: async (homeserver: string, username: string): Promise<Session> => {
+      this.me = `@${username}:${homeserver.replace(/^https?:\/\//, "").replace(/\/.*$/, "")}`;
+      return { homeserver, userId: this.me, deviceId: "MOCK", accessToken: "mock" };
+    },
     restore: async (session: Session) => {
       this.me = session.userId;
     },
