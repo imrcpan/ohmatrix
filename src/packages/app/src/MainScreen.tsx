@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { Icon, TextButton, fontFamily, useTheme, useViewport } from "@ohmatrix/ui";
-import { ChatPane } from "./ChatPane.js";
+import { ChatPane } from "./chat/ChatPane.js";
 import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { useAppState, useController, useT } from "./context.js";
@@ -100,7 +100,7 @@ export function MainScreen() {
               <RoomGate roomId={roomId}>
                 <View style={{ flex: 1, flexDirection: "row" }}>
                   <View style={{ flex: 1 }}>
-                    <ChatPane key={roomId} roomId={roomId} onInfo={() => controller.openRoomInfo(!infoOpen)} />
+                    <ChatPane roomId={roomId} onInfo={() => controller.openRoomInfo(!infoOpen)} />
                   </View>
                   <SlidePanel mode="dock" open={infoOpen}>
                     <RoomInfoPanel roomId={roomId} mode="dock" />
@@ -123,7 +123,7 @@ export function MainScreen() {
           roomId ? (
             <RoomGate roomId={roomId}>
               <View style={{ flex: 1 }}>
-                <ChatPane key={roomId} roomId={roomId} onBack={() => controller.selectRoom(null)} onInfo={() => controller.openRoomInfo(true)} />
+                <ChatPane roomId={roomId} onBack={() => controller.selectRoom(null)} onInfo={() => controller.openRoomInfo(true)} />
                 <SlidePanel mode="overlay" open={infoOpen}>
                   <RoomInfoPanel roomId={roomId} mode="overlay" />
                 </SlidePanel>

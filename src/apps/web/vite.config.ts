@@ -9,11 +9,15 @@ import { dirname, resolve } from "node:path";
  * implementation (the plain file is the native fallback).
  */
 function webPlatformFiles() {
+  // Testing only: OHMATRIX_NATIVE_LIST=1 builds the web app with the native message list (the inverted one phones use)
+  // in place of the web one, so the same end-to-end tests can exercise it in a browser.
+  const nativeList = process.env.OHMATRIX_NATIVE_LIST === "1";
   return {
     name: "ohmatrix-web-platform-files",
     enforce: "pre" as const,
     resolveId(source: string, importer?: string) {
       if (!importer || !source.startsWith(".") || !source.endsWith(".js")) return null;
+      if (nativeList && /\/MessageList\.js$/.test(source)) return null;
       for (const ext of [".web.tsx", ".web.ts"]) {
         const candidate = resolve(dirname(importer), source.replace(/\.js$/, ext));
         if (existsSync(candidate)) return candidate;

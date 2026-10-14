@@ -16,6 +16,17 @@ async function openRoom(page: Page, name: string, row: RegExp = new RegExp(name)
 }
 
 /** Searches the people picker in the open dialog and taps the result. */
+/** A fresh group of test, alice and bob, opened. Tests that need members must not depend on rooms other tests left. */
+async function openFreshGroup(page: Page, prefix: string) {
+  const name = `${prefix} ${Date.now().toString(36)}`;
+  await page.evaluate(async (name) => {
+    const c = (window as unknown as { __ohmatrix: { controller: { createGroup(n: string, i: string[]): Promise<void> } } }).__ohmatrix.controller;
+    await c.createGroup(name, ["@alice:localhost", "@bob:localhost"]);
+  }, name);
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+  return name;
+}
+
 async function pickPerson(page: Page, query: string, name: string) {
   await page
     .getByPlaceholder(/^Name or user id/)
@@ -1676,6 +1687,9 @@ test("a screen that fails to render shows a way out (light or dark with the syst
   await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 30000 });
 });
 
+/** Whether this run uses the native (inverted) message list in the browser, see `pnpm test:e2e:native`. */
+const native = process.env.OHMATRIX_NATIVE_LIST === "1";
+
 // ---- audio, video, recording, upload progress ----------------------------------------------------------------------
 
 let fixtures: { tone: string; clip: string; big: string } | null = null;
@@ -2104,7 +2118,7 @@ test("forward: a message is copied into another chat", async ({ page }) => {
 test("mention autocomplete: floating menu at the @, titled, keyboard-driven, capped below the top bar", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
-  await openRoom(page, "Team");
+  await openFreshGroup(page, "Mentions");
   const field = page.getByPlaceholder("Message");
   await field.click();
   await field.pressSequentially("@");
@@ -2160,7 +2174,7 @@ test("mention autocomplete: floating menu at the @, titled, keyboard-driven, cap
 test("mention autocomplete: opens at any @ not glued to a letter or digit, including with the caret moved back", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
-  await openRoom(page, "Team");
+  await openFreshGroup(page, "Mentions");
   const field = page.getByPlaceholder("Message");
   const items = page.getByRole("menuitem", { name: /^Mention / });
   await field.click();
@@ -2482,17 +2496,26 @@ test("chat scrolling is native: wheel events are not cancelled, it opens at the 
     page.evaluate(() => {
       const el = [...document.querySelectorAll<HTMLElement>("*")].find(
         (e) => e.scrollHeight > e.clientHeight + 20 && ["auto", "scroll"].includes(getComputedStyle(e).overflowY) && e.getBoundingClientRect().x > 300,
-      )!;
+      );
+      // Nothing scrolls yet while the first rows are still arriving: report an empty list and let the caller wait.
+      if (!el) return { top: 0, height: 0, view: 0, transform: "none" };
       (window as unknown as { __chatScroller: HTMLElement }).__chatScroller = el;
       return { top: el.scrollTop, height: el.scrollHeight, view: el.clientHeight, transform: getComputedStyle(el).transform };
     });
-  const pos = () => page.evaluate(() => (window as unknown as { __chatScroller: HTMLElement }).__chatScroller.scrollTop);
+  // (Looked up each time: a list that is drawn again leaves the node it was first read from behind.)
+  const pos = () => scroller().then((m) => m.top);
+  /** How far the view is from the newest message, whichever way the list is laid out. */
+  const gapToLatest = async () => {
+    const m = await scroller();
+    return native ? Math.round(m.top) : m.height - m.view - m.top;
+  };
 
   // It is a plain scroller (no upside-down transform), opened at the newest message.
   await expect.poll(async () => (await scroller()).height, { timeout: 15000 }).toBeGreaterThan(900);
   const s = await scroller();
-  expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(s.transform); // not flipped upside down
-  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 10000 }).toBeLessThan(4);
+  // The web list is an ordinary scroller; the native one (tried here with OHMATRIX_NATIVE_LIST=1) is flipped upside down.
+  expect(native ? ["matrix(1, 0, 0, -1, 0, 0)"] : ["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(s.transform);
+  await expect.poll(gapToLatest, { timeout: 10000 }).toBeLessThan(4);
   // Rows are still being measured for a moment after the first jump to the bottom: take the reference once it is still.
   let stable = "";
   await expect
@@ -2508,7 +2531,8 @@ test("chat scrolling is native: wheel events are not cancelled, it opens at the 
     .toBe(true);
   const settled = await scroller();
 
-  // The wheel is left to the browser: nothing cancels it (that cancelling is what removed momentum scrolling).
+  // The web list leaves the wheel to the browser: nothing cancels it (that cancelling is what removed momentum
+  // scrolling). The native list, tried in a browser, is react-native-web's inverted list, which does cancel it.
   await page.evaluate(() => {
     const w = window as unknown as { __wheelPrevented: boolean[] };
     w.__wheelPrevented = [];
@@ -2516,32 +2540,35 @@ test("chat scrolling is native: wheel events are not cancelled, it opens at the 
   });
   await page.mouse.move(800, 400);
   await page.mouse.wheel(0, -300);
-  await expect.poll(pos, { timeout: 5000 }).toBeLessThan(settled.top - 100);
-  expect(await page.evaluate(() => (window as unknown as { __wheelPrevented: boolean[] }).__wheelPrevented)).toEqual([false]);
+  // Up is toward older messages: the web view moves up the page, the inverted one away from the newest.
+  if (native) await expect.poll(gapToLatest, { timeout: 5000 }).toBeGreaterThan(100);
+  else await expect.poll(pos, { timeout: 5000 }).toBeLessThan(settled.top - 100);
+  if (!native) expect(await page.evaluate(() => (window as unknown as { __wheelPrevented: boolean[] }).__wheelPrevented)).toEqual([false]);
 
   // Down is down and up is up, a wheel step moves by the wheel's distance.
-  const before = await pos();
+  const before = await gapToLatest();
   await page.mouse.wheel(0, 120);
-  await expect.poll(pos, { timeout: 5000 }).toBeGreaterThan(before + 60);
+  await expect.poll(gapToLatest, { timeout: 5000 }).toBeLessThan(before - 60); // toward the newest message
 
   // Following new messages: at the bottom, a new message keeps the view at the bottom.
   await page.mouse.wheel(0, 5000);
-  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 5000 }).toBeLessThan(4);
+  await expect.poll(gapToLatest, { timeout: 5000 }).toBeLessThan(4);
   const text = `follow ${Date.now()}`;
   await page.getByPlaceholder("Message").fill(text);
   await page.getByPlaceholder("Message").press("Enter");
   await expect(page.getByText(text, { exact: true }).last()).toBeVisible({ timeout: 20000 });
-  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 5000 }).toBeLessThan(4);
+  await expect.poll(gapToLatest, { timeout: 5000 }).toBeLessThan(4);
   await expect(page.getByText(text, { exact: true }).last()).toBeInViewport();
 
   // Scrolled away from the bottom, a new message does not drag the view down.
   await page.mouse.wheel(0, -600);
-  await expect.poll(async () => (await scroller()).height - (await scroller()).view - (await pos()), { timeout: 5000 }).toBeGreaterThan(300);
+  await expect.poll(gapToLatest, { timeout: 5000 }).toBeGreaterThan(300);
   const away = await pos();
   await page.getByPlaceholder("Message").fill(`stay ${Date.now()}`);
   await page.getByPlaceholder("Message").press("Enter");
   await page.waitForTimeout(1500);
-  expect(Math.abs((await pos()) - away)).toBeLessThan(4);
+  // react-native-web ignores `maintainVisibleContentPosition`, which the real native list relies on here.
+  if (!native) expect(Math.abs((await pos()) - away)).toBeLessThan(4);
 });
 
 test("chat scrolling: scrolling up loads older history without moving the view, and a search result jumps to its message", async ({ page }) => {
@@ -2709,4 +2736,152 @@ test("shared media: tabs by kind reach the whole history, open in the viewers, a
   await expect(page.getByRole("button", { name: /Voice message/ })).toBeVisible({ timeout: 15000 });
   await page.getByRole("tab", { name: "Photos" }).click();
   expect(await tiles().count()).toBe(131); // switching back keeps what was loaded
+});
+
+test("message list: a reply's quote jumps to an original that is not loaded; scroll-to-latest button; date pill", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const [alice, me] = [await apiLogin("alice"), await apiLogin("test")];
+  const tag = `jump${Date.now().toString(36)}`;
+  const { room_id } = await api(alice, "POST", "/createRoom", { name: `Jump ${tag}`, preset: "private_chat", invite: ["@test:localhost"] });
+  await api(me, "POST", `/join/${encodeURIComponent(room_id!)}`, {});
+  let n = 0;
+  const send = (content: Record<string, unknown>) =>
+    api(alice, "PUT", `/rooms/${encodeURIComponent(room_id!)}/send/m.room.message/j${Date.now()}${n++}`, content);
+  const original = (await send({ msgtype: "m.text", body: `ORIGINAL ${tag}` }))["event_id"]!;
+  for (let i = 0; i < 260; i++) await send({ msgtype: "m.text", body: `filler ${i}` });
+  await send({ msgtype: "m.text", body: `the answer ${tag}`, "m.relates_to": { "m.in_reply_to": { event_id: original } } });
+
+  await login(page);
+  await openRoom(page, `Jump ${tag}`, new RegExp(`Jump ${tag}`));
+  await expect(page.getByText(`the answer ${tag}`, { exact: true })).toBeVisible({ timeout: 20000 });
+  // Opening a long room reads a few pages of it, not all of it: the oldest message is still out of reach.
+  await page.waitForTimeout(2000);
+  const loadedNow = await page.evaluate(() => {
+    const c = (window as unknown as { __ohmatrix: { controller: { store: { getState(): { selectedRoomId: string; timelines: Record<string, unknown[]> } } } } })
+      .__ohmatrix.controller;
+    const st = c.store.getState();
+    return (st.timelines[st.selectedRoomId] ?? []).length;
+  });
+  expect(loadedNow).toBeLessThan(250);
+  // The original is far back: not loaded, so its quote has nothing to show yet.
+  await expect(page.getByText(`ORIGINAL ${tag}`, { exact: true })).toHaveCount(0);
+  const button = page.getByRole("button", { name: "Scroll to latest message" });
+  await expect(button).toHaveCount(0); // at the bottom: no button
+
+  // The quote under the reply: pressing it finds the original (loading history on the way) and lands on it.
+  await page.getByText("…", { exact: true }).last().click();
+  // (The quote under the reply now shows the same text; the original itself is the first of the two in the page.)
+  await expect(page.getByText(`ORIGINAL ${tag}`, { exact: true }).first()).toBeInViewport({ timeout: 30000 });
+  await expect(page.getByLabel("Found message")).toBeVisible();
+  await shot(page, "76-reply-jump");
+
+  // Far from the bottom the button shows; pressing it returns to the newest message and the button goes away.
+  await expect(button).toBeVisible();
+  await button.click();
+  await expect(page.getByText(`the answer ${tag}`, { exact: true })).toBeInViewport({ timeout: 10000 });
+  await expect(button).toHaveCount(0, { timeout: 5000 });
+
+  // Scrolled up a little, the date of what is in view floats at the top while moving, then goes away. (Let the list
+  // settle after its own jump first: a scroll within a moment of that is taken to be the jump's own.)
+  await page.waitForTimeout(700);
+  await page.mouse.move(850, 400);
+  await page.mouse.wheel(0, -500);
+  const pill = page.getByLabel("Date");
+  await expect(pill).toBeVisible({ timeout: 5000 });
+  await expect(pill).toContainText("Today");
+  await expect(pill).toHaveCount(0, { timeout: 5000 });
+
+  // A message from someone else arriving while up in the history is counted on the button.
+  await page.waitForTimeout(700);
+  await page.mouse.wheel(0, -1500);
+  await expect(button).toBeVisible();
+  await send({ msgtype: "m.text", body: `while away ${tag}` });
+  await expect(page.getByLabel("1 new messages")).toBeVisible({ timeout: 15000 });
+  await button.click();
+  await expect(page.getByText(`while away ${tag}`, { exact: true })).toBeInViewport({ timeout: 10000 });
+  await expect(button).toHaveCount(0, { timeout: 5000 });
+
+  // A reply whose original was deleted says so instead of doing nothing.
+  const gone = (await send({ msgtype: "m.text", body: `short-lived ${tag}` }))["event_id"]!;
+  await send({ msgtype: "m.text", body: `reply to gone ${tag}`, "m.relates_to": { "m.in_reply_to": { event_id: gone } } });
+  await api(alice, "PUT", `/rooms/${encodeURIComponent(room_id!)}/redact/${encodeURIComponent(gone)}/r${Date.now()}`, {});
+  await expect(page.getByText(`reply to gone ${tag}`, { exact: true })).toBeVisible({ timeout: 15000 });
+  await page.getByText("…", { exact: true }).last().click();
+  await expect(page.getByText("That message could not be found")).toBeVisible({ timeout: 30000 });
+});
+
+test("opening a chat shows a loading indicator inside the chat until the messages are in, then the messages", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  // The first messages come from the sync cache and the list is placed within a moment, so the indicator can be short:
+  // record when it shows up and goes away instead of hoping to catch it by eye.
+  await page.evaluate(() => {
+    const w = window as unknown as { __loadingSeen: { shown: number; gone: number; where?: { x: number; y: number } } };
+    w.__loadingSeen = { shown: 0, gone: 0 };
+    const present = () => document.querySelector('[role="progressbar"][aria-label="Loading messages"]') as HTMLElement | null;
+    let was = false;
+    const tick = () => {
+      const el = present();
+      if (el && !was) {
+        w.__loadingSeen.shown = performance.now();
+        const r = el.getBoundingClientRect();
+        w.__loadingSeen.where = { x: r.x, y: r.y };
+      }
+      if (!el && was) w.__loadingSeen.gone = performance.now();
+      was = !!el;
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+  const search = page.getByPlaceholder("Search");
+  await search.fill("OhMatrix Dev");
+  await page
+    .getByRole("button", { name: /OhMatrix Dev/ })
+    .first()
+    .click();
+  await expect(page.getByText(/Backlog message #30/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("progressbar", { name: "Loading messages" })).toHaveCount(0);
+  const seen = await page.evaluate(
+    () => (window as unknown as { __loadingSeen: { shown: number; gone: number; where?: { x: number; y: number } } }).__loadingSeen,
+  );
+  // The web list waits for its rows to settle, so the indicator shows meanwhile; the native one is in place from the
+  // first frame and may never need it.
+  if (!native) expect(seen.shown).toBeGreaterThan(0);
+  if (!native) expect(seen.gone).toBeGreaterThan(seen.shown); // and went away afterwards
+  // It lasts until the list has stopped moving: the view is at the newest message and does not move afterwards.
+  const scroller = () =>
+    page.evaluate(() => {
+      const el = [...document.querySelectorAll<HTMLElement>("*")].find(
+        (e) => e.scrollHeight > e.clientHeight + 20 && ["auto", "scroll"].includes(getComputedStyle(e).overflowY) && e.getBoundingClientRect().x > 300,
+      );
+      if (!el) return { top: 0, height: 0, gap: 0 };
+      // How far from the newest message: the web list counts down the page, the native (flipped) one up from zero.
+      const flipped = getComputedStyle(el).transform === "matrix(1, 0, 0, -1, 0, 0)";
+      return {
+        top: Math.round(el.scrollTop),
+        height: el.scrollHeight,
+        gap: Math.round(flipped ? el.scrollTop : el.scrollHeight - el.clientHeight - el.scrollTop),
+      };
+    });
+  const atReveal = await scroller();
+  expect(atReveal.gap).toBeLessThan(4);
+  await page.waitForTimeout(1200);
+  expect(await scroller()).toEqual(atReveal);
+  // Inside the chat pane (right of the list, below the header), not over the whole window.
+  if (!native) {
+    expect(seen.where!.x).toBeGreaterThan(380);
+    expect(seen.where!.y).toBeGreaterThan(50);
+  }
+  // An empty chat does not spin for ever either.
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New group" }).click();
+  await page
+    .getByRole("dialog")
+    .locator("input")
+    .first()
+    .fill(`Empty ${Date.now().toString(36)}`);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("progressbar", { name: "Loading messages" })).toHaveCount(0, { timeout: 15000 });
 });

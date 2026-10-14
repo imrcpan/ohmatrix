@@ -23,7 +23,8 @@
     "format:check": "prettier --check .",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "prepare": "simple-git-hooks"
+    "prepare": "simple-git-hooks",
+    "test:e2e:native": "OHMATRIX_NATIVE_LIST=1 pnpm --filter @ohmatrix/e2e e2e -g \"chat scrolling|scrolling up|a reply's quote|opening a chat shows|replies:|search: |unread:|reactions|edit and delete|pin:|forward:\""
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
