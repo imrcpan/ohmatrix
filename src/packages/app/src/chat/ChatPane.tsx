@@ -18,6 +18,7 @@ import { useComposer } from "./useComposer.js";
 import { useNewWhileAway } from "./useNewWhileAway.js";
 import { useReveal } from "./useReveal.js";
 import { useRoomTimeline } from "./useRoomTimeline.js";
+import { useRowWindow } from "./useRowWindow.js";
 import { useRowActions } from "./useRowActions.js";
 
 interface ChatPaneProps {
@@ -38,14 +39,32 @@ function Chat(props: ChatPaneProps) {
   const { colors } = useTheme();
   const t = useT();
   const locale = useLocale();
-  const { room, items, handle, typing, rows, isGroup } = useRoomTimeline(props.roomId);
+  const { room, items, handle, typing, rows: allRows, isGroup } = useRoomTimeline(props.roomId);
   const list = useRef<MessageListHandle | null>(null);
   const datePill = useRef<DatePillControls | null>(null);
   const [ready, setReady] = useState(false);
+  // Only the newest screen and a half is drawn at first; see useRowWindow.
+  const win = useRowWindow(allRows, ready);
+  const rows = win.rows;
   const [searching, setSearching] = useState(false);
   const [forwarding, setForwarding] = useState<TimelineItem | null>(null);
 
-  const reveal = useReveal({ roomId: props.roomId, rows, items, handle, list, t });
+  // A message that is loaded but not drawn yet is drawn before the list goes to it.
+  const revealList = useRef<MessageListHandle | null>({
+    scrollToLatest: () => list.current?.scrollToLatest(),
+    scrollToRow: (key) => {
+      win.grow(key);
+      setTimeout(() => list.current?.scrollToRow(key), 60);
+    },
+  });
+  revealList.current = {
+    scrollToLatest: () => list.current?.scrollToLatest(),
+    scrollToRow: (key) => {
+      win.grow(key);
+      setTimeout(() => list.current?.scrollToRow(key), 60);
+    },
+  };
+  const reveal = useReveal({ roomId: props.roomId, rows: allRows, items, handle, list: revealList, t });
   const composer = useComposer(props.roomId, handle, t);
   const attachments = useAttachments(handle, t);
   const nw = useNewWhileAway(items);
@@ -86,7 +105,11 @@ function Chat(props: ChatPaneProps) {
         rows={rows}
         loaded={items !== undefined}
         renderRow={renderRow}
-        onReachedStart={() => void handle.current?.paginateBackwards().catch(() => {})}
+        onReachedStart={() => {
+          // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
+          if (win.grow()) return;
+          void handle.current?.paginateBackwards().catch(() => {});
+        }}
         onReady={() => setReady(true)}
         onPinnedChange={nw.onPinnedChange}
         onAwayChange={nw.onAwayChange}

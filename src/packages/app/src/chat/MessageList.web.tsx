@@ -24,8 +24,8 @@ interface ScrollNode {
   scrollBy?(o: { top: number }): void;
 }
 
-/** How long the content must stay unchanged before the list is shown, and how long to wait before showing it anyway. */
-const SETTLE_MS = 400;
+/** How long the content must stay unchanged before the list is shown (the window is small, so it is measured at once), and how long to wait before showing it anyway. */
+const SETTLE_MS = 80;
 const GIVE_UP_MS = 10_000;
 
 /**
