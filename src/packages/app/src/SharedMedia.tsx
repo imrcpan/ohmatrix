@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import type { MediaKind, TimelineItem } from "@ohmatrix/core";
-import { fontFamily, Icon, ImageViewer, Row, Section, TextButton, useTheme, VideoViewer } from "@ohmatrix/ui";
+import { fontFamily, Icon, ImageViewer, TextButton, useTheme, VideoViewer } from "@ohmatrix/ui";
 import { useController, useServices, useT } from "./context.js";
 import { formatBytes } from "./format.js";
 import { formatDuration, useAudioPlayer } from "./useAudio.js";
+import { Group, Item } from "./settings/kit.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const KINDS: { kind: MediaKind; label: "media.photos" | "media.videos" | "media.audio" | "media.files" }[] = [
@@ -55,18 +56,17 @@ function Tile(props: { item: TimelineItem; size: number; onOpen: () => void }) {
 }
 
 /** One audio file or voice message, playable in place. */
-function AudioItem(props: { item: TimelineItem; last: boolean }) {
+function AudioItem(props: { item: TimelineItem }) {
   const t = useT();
   const controller = useController();
   const c = props.item.content as Content<"audio">;
   const audio = useAudioPlayer(() => controller.resolveMedia(c.url, enc(c)), c.durationMs);
   const playing = audio.state.status === "playing";
   return (
-    <Row
+    <Item
       label={c.voice ? t("voiceMessage") : c.name}
       subtitle={`${props.item.senderName} · ${playing ? `${formatDuration(audio.state.positionMs)} / ` : ""}${formatDuration(audio.state.durationMs) || formatBytes(c.size)}`}
       icon={playing ? "pause" : "play"}
-      last={props.last}
       chevron={false}
       onPress={() => void audio.toggle()}
     />
@@ -135,7 +135,7 @@ export function SharedMedia(props: { roomId: string }) {
   const poster = useMediaUrl(vc?.kind === "video" ? vc.thumbnail?.url : undefined, vc?.kind === "video" && vc.thumbnail ? { width: 400, height: 400 } : {});
 
   return (
-    <Section title={t("sharedMedia")}>
+    <Group title={t("sharedMedia")}>
       <View accessibilityRole="tablist" style={{ flexDirection: "row", padding: 6, gap: 4 }}>
         {KINDS.map((k) => (
           <Pressable
@@ -167,16 +167,15 @@ export function SharedMedia(props: { roomId: string }) {
           ))}
         </View>
       ) : (
-        items.map((i, n) =>
+        items.map((i) =>
           i.content.kind === "audio" ? (
-            <AudioItem key={i.id} item={i} last={n === items.length - 1 && !list?.next} />
+            <AudioItem key={i.id} item={i} />
           ) : i.content.kind === "file" ? (
-            <Row
+            <Item
               key={i.id}
               label={i.content.name}
               subtitle={`${i.senderName}${i.content.size ? ` · ${formatBytes(i.content.size)}` : ""}`}
               icon="file"
-              last={n === items.length - 1 && !list?.next}
               chevron={false}
               onPress={() => {
                 const c = i.content as Content<"file">;
@@ -189,9 +188,9 @@ export function SharedMedia(props: { roomId: string }) {
           ) : null,
         )
       )}
-      {list && items.length === 0 && !loading && !failed && <Row label={t("media.none")} last chevron={false} />}
-      {failed && <Row label={t("media.failed")} last chevron={false} onPress={() => void more(kind)} />}
-      {loading && <Row label={t("media.loading")} last chevron={false} />}
+      {list && items.length === 0 && !loading && !failed && <Item label={t("media.none")} chevron={false} />}
+      {failed && <Item label={t("media.failed")} chevron={false} onPress={() => void more(kind)} />}
+      {loading && <Item label={t("media.loading")} chevron={false} />}
       {!!list?.next && !loading && !failed && (
         <View style={{ alignItems: "center", paddingVertical: 4 }}>
           <TextButton title={t("media.more")} onPress={() => void more(kind)} />
@@ -211,6 +210,6 @@ export function SharedMedia(props: { roomId: string }) {
       {vc?.kind === "video" && (
         <VideoViewer visible onClose={() => setViewing(null)} uri={full} poster={poster} width={vc.width} height={vc.height} closeLabel={t("viewer.close")} />
       )}
-    </Section>
+    </Group>
   );
 }
