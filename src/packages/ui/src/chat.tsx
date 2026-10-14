@@ -69,6 +69,9 @@ export function Bubble(props: {
   position: BubblePosition;
   status?: "sending" | "sent" | "read" | "failed" | undefined;
   readLabel?: string | undefined;
+  /** A message that could not be sent: the alert mark in its status is a button that sends it again. */
+  onRetry?: (() => void) | undefined;
+  retryLabel?: string | undefined;
   muted?: boolean;
 }) {
   const { colors } = useTheme();
@@ -101,16 +104,21 @@ export function Bubble(props: {
         {props.editedLabel ? `${props.editedLabel} ` : ""}
         {props.time}
       </Text>
-      {props.own && (
-        <View accessibilityLabel={props.status === "read" ? (props.readLabel ?? "Read") : undefined}>
-          <Icon
-            name={statusIcon}
-            size={props.status === "read" ? 20 : 18}
-            strokeWidth={2.4}
-            color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
-          />
-        </View>
-      )}
+      {props.own &&
+        (failed && props.onRetry ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={props.retryLabel ?? "Send again"} onPress={props.onRetry} hitSlop={8}>
+            <Icon name={statusIcon} size={18} strokeWidth={2.4} color={colors.danger} />
+          </Pressable>
+        ) : (
+          <View accessibilityLabel={props.status === "read" ? (props.readLabel ?? "Read") : undefined}>
+            <Icon
+              name={statusIcon}
+              size={props.status === "read" ? 20 : 18}
+              strokeWidth={2.4}
+              color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
+            />
+          </View>
+        ))}
     </View>
   );
   return (

@@ -57,6 +57,8 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
     text: bubbleText(m, t),
     time: formatClock(m.ts, i.locale),
     status: bubbleStatus(m),
+    onRetry: m.status === "failed" && m.transactionId && !upload ? () => actions.resend(m.transactionId!) : undefined,
+    retryLabel: t("resend.failed"),
     readLabel: m.readBy?.length ? t("readBy", { names: m.readBy.map((r) => r.name).join(", ") }) : undefined,
     senderName: i.showAvatar && i.first ? m.senderName : undefined,
     senderId: m.sender,

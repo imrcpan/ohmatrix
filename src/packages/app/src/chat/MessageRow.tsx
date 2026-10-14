@@ -45,8 +45,14 @@ export function MessageRow(props: {
   // Rich text: a formatted body is parsed into safe runs; a plain body still gets links and mention pills.
   const runs: readonly Run[] | undefined = c.kind === "text" ? (c.formattedBody ? parseFormatted(c.formattedBody) : plainRuns(c.body, c.mentions)) : undefined;
   const showAvatar = props.isGroup && !m.isOwn;
-  const open = (x: number, y: number) => setMenu({ x, y });
+  const open = (x: number, y: number) => {
+    if (!unsent || failed) setMenu({ x, y });
+  };
   const mineKeys = (m.reactions ?? []).filter((r) => r.mine).map((r) => r.key);
+  // A message that has not reached the server has no event to reply to, pin, edit or react on, and nothing to delete
+  // there: it can only be sent again or dropped. One that is still being sent has nothing to offer yet.
+  const unsent = m.status !== "sent";
+  const failed = m.status === "failed" && !!m.transactionId;
 
   const bubble = bubbleProps({
     item: m,
@@ -131,16 +137,23 @@ export function MessageRow(props: {
         visible={!!menu}
         anchor={menu}
         onClose={() => setMenu(null)}
-        emojis={QUICK_REACTIONS}
+        emojis={unsent ? [] : QUICK_REACTIONS}
         activeEmojis={mineKeys}
         onEmoji={(k) => actions.react(m.id, k)}
-        actions={[
-          { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
-          { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
-          { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
-          ...(m.isOwn && c.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
-          ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
-        ]}
+        actions={
+          unsent
+            ? [
+                { label: t("resend"), icon: "send" as const, onPress: () => actions.resend(m.transactionId!) },
+                { label: t("delete"), icon: "trash" as const, danger: true, onPress: () => actions.discard(m.transactionId!) },
+              ]
+            : [
+                { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
+                { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
+                { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
+                ...(m.isOwn && c.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
+                ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
+              ]
+        }
       />
       <Dialog visible={confirmDelete} title={t("delete.title")} message={t("delete.body")} onClose={() => setConfirmDelete(false)}>
         <PrimaryButton

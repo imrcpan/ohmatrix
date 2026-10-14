@@ -25,6 +25,8 @@ const actions = (): RowActions => ({
   remove: vi.fn(),
   jump: vi.fn(),
   cancelUpload: vi.fn(),
+  resend: vi.fn(),
+  discard: vi.fn(),
   download: vi.fn(),
 });
 const inputs = (m: TimelineItem, over: Partial<BubbleInputs> = {}): BubbleInputs => ({
@@ -122,4 +124,24 @@ test("only the first link preview gets the resolved picture", () => {
     }),
   );
   expect(p.previews!.map((x) => x.image)).toEqual(["blob:one", undefined, undefined]);
+});
+
+test("a message that could not be sent can be sent again from its status mark, by its transaction", () => {
+  const a = actions();
+  const failed = bubbleProps(inputs(item({ isOwn: true, transactionId: "txn9", status: "failed" }), { actions: a }));
+  expect(failed.status).toBe("failed");
+  failed.onRetry!();
+  expect(a.resend).toHaveBeenCalledWith("txn9");
+  expect(failed.retryLabel).toBe("resend.failed");
+  // Nothing to retry on one that went through, one still on its way, or a file whose upload has its own cancel.
+  expect(bubbleProps(inputs(item({ isOwn: true, transactionId: "t", status: "sent" }))).onRetry).toBeUndefined();
+  expect(bubbleProps(inputs(item({ isOwn: true, transactionId: "t", status: "sending" }))).onRetry).toBeUndefined();
+  const upload = item({
+    isOwn: true,
+    transactionId: "u",
+    status: "failed",
+    content: { kind: "image", url: "", body: "p.png" },
+    upload: { progress: 0.2, loaded: 200, total: 1000, failed: true },
+  });
+  expect(bubbleProps(inputs(upload)).onRetry).toBeUndefined();
 });

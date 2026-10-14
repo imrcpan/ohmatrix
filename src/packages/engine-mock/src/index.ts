@@ -199,6 +199,8 @@ export class MockEngine implements MatrixEngine {
       },
       sendAttachment: async () => {},
       cancelUpload: () => {},
+      resend: async () => {},
+      discard: () => {},
       edit: async () => {},
       redact: async () => {},
       reply: async (_id, body) => this.send(roomId, body),

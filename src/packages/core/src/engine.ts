@@ -226,6 +226,13 @@ export interface TimelineHandle {
   sendAttachment(file: AttachmentSource): Promise<void>;
   /** Cancel an upload in progress, or dismiss one that failed. `id` is the item's `transactionId`. */
   cancelUpload(id: string): void;
+  /**
+   * Send a message again that could not be sent (its status is `failed`). `id` is the item's `transactionId`. A file
+   * that failed to upload is uploaded again from the copy the engine kept.
+   */
+  resend(id: string): Promise<void>;
+  /** Drop a message that could not be sent, or dismiss a file that failed to upload. `id` is the item's `transactionId`. */
+  discard(id: string): void;
   /** Send `body` as a reply to `eventId`. */
   reply(eventId: EventId, body: string, mentions?: UserId[]): Promise<void>;
   /** Pin or unpin a message in the room (needs power to send m.room.pinned_events). */

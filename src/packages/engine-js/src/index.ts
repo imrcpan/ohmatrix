@@ -1318,6 +1318,8 @@ export class JsSdkEngine implements MatrixEngine {
       previewUrl?: string;
       failed?: boolean;
       abort: AbortController;
+      /** What was picked, kept so that a failed upload can be tried again. */
+      source: AttachmentSource;
     }
     const uploading = new Map<string, Pending>();
     const kindOf = (mime: string) => (mime.startsWith("image/") ? "image" : mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "file");
@@ -1342,7 +1344,7 @@ export class JsSdkEngine implements MatrixEngine {
           isOwn: true,
           ts: u.startedAt,
           content,
-          status: "sending" as const,
+          status: u.failed ? ("failed" as const) : ("sending" as const),
           upload: {
             progress: u.total ? u.loaded / u.total : 0,
             loaded: u.loaded,
@@ -1411,7 +1413,9 @@ export class JsSdkEngine implements MatrixEngine {
         ? null
         : (current.find((i) => !i.isOwn && i.content.kind !== "service" && liveEvents.findIndex((e) => e.getId() === i.id) > readIdx)?.id ?? null);
 
-    return {
+    /** A message of mine that is waiting to be sent or could not be sent, by its local id. */
+    const pendingEvent = (txn: string) => room.getPendingEvents().find((e) => e.getTxnId() === txn);
+    const handle: TimelineHandle = {
       firstUnreadEventId: firstUnread,
       setTyping: (typing: boolean) => {
         if (!typing) {
@@ -1458,6 +1462,27 @@ export class JsSdkEngine implements MatrixEngine {
         if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
         refresh();
       },
+      resend: (txn: string) =>
+        guard(async () => {
+          const failedUpload = uploading.get(txn);
+          if (failedUpload) {
+            if (!failedUpload.failed) return; // still going
+            uploading.delete(txn);
+            if (failedUpload.previewUrl) URL.revokeObjectURL(failedUpload.previewUrl);
+            await handle.sendAttachment(failedUpload.source);
+            return;
+          }
+          const ev = pendingEvent(txn);
+          if (!ev) throw new EngineError("not_found", "That message is no longer waiting to be sent");
+          await client.resendEvent(ev, room);
+        }),
+      discard: (txn: string) => {
+        if (uploading.has(txn)) return handle.cancelUpload(txn);
+        const ev = pendingEvent(txn);
+        if (!ev) return;
+        client.cancelPendingEvent(ev);
+        refresh();
+      },
       sendAttachment: (file: AttachmentSource) =>
         guard(async () => {
           const blob = file.data as Blob;
@@ -1472,6 +1497,7 @@ export class JsSdkEngine implements MatrixEngine {
             total: file.size,
             startedAt: Date.now(),
             abort: new AbortController(),
+            source: file,
           };
           uploading.set(id, u);
           let lastPaint = 0;
@@ -1641,5 +1667,6 @@ export class JsSdkEngine implements MatrixEngine {
         listeners.clear();
       },
     };
+    return handle;
   }
 }
