@@ -105,6 +105,7 @@ export class MockEngine implements MatrixEngine {
     resolve: async (): Promise<string> => {
       throw new EngineError("unsupported", "mock has no media");
     },
+    sharedPage: async (): Promise<{ items: never[] }> => ({ items: [] }),
   };
 
   readonly spaces = {

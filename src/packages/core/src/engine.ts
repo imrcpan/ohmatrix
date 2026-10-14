@@ -9,6 +9,8 @@ import type {
   IncomingNotification,
   RoomDetails,
   SpaceChild,
+  MediaKind,
+  SharedMediaPage,
   Profile,
   UserSuggestion,
   EventId,
@@ -83,6 +85,12 @@ export interface MediaApi {
    * authenticated media; on web this is a cached blob: URL). Rejects with EngineError on failure.
    */
   resolve(mxc: MxcUri, opts?: MediaOptions): Promise<string>;
+  /**
+   * A page of the room's media of one kind, newest first, reaching back past what the timeline has loaded. The
+   * engine keeps asking the server until it has found `want` items (default 30) or reached the room's beginning,
+   * so a kind that is rare does not come back as a series of empty pages. Pass `next` of the last page as `from`.
+   */
+  sharedPage(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number }): Promise<SharedMediaPage>;
 }
 
 /** Spaces: containers that hold other rooms (MSC1772). */

@@ -3,6 +3,7 @@ import {
   createClient,
   Method,
   Direction,
+  Filter,
   IndexedDBStore,
   PendingEventOrdering,
   MatrixError,
@@ -44,6 +45,8 @@ import {
   type RoomId,
   type RoomSummary,
   type SpaceChild,
+  type MediaKind,
+  type SharedMediaPage,
   type Session,
   type SyncState,
   type TimelineHandle,
@@ -56,6 +59,7 @@ import { resolveHomeserver } from "./discovery.js";
 import { diffTimeline } from "./diff.js";
 import { aliasLocalpart, thresholdsOf } from "./roomSettings.js";
 import { childRooms, isDirectRoom } from "./spaces.js";
+import { mediaKindOf } from "./sharedMedia.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
 
 function wrap(e: unknown): EngineError {
@@ -990,6 +994,49 @@ export class JsSdkEngine implements MatrixEngine {
   };
 
   readonly media = {
+    sharedPage: (roomId: string, o: { kind: MediaKind; from?: string; want?: number }) =>
+      guard(async (): Promise<SharedMediaPage> => {
+        const c = this.requireClient();
+        const room = c.getRoom(roomId);
+        if (!room) throw new EngineError("not_found", `unknown room ${roomId}`);
+        const want = Math.max(1, o.want ?? 30);
+        const encrypted = c.isRoomEncrypted(roomId);
+        // An open room's media events carry a url the server can filter on; an encrypted room's are opaque to it, so
+        // there it can only narrow down to messages and the kind is decided here, after decrypting.
+        const filter = new Filter(c.getUserId());
+        filter.setDefinition({
+          room: { timeline: encrypted ? { types: ["m.room.message", "m.room.encrypted"] } : { types: ["m.room.message"], contains_url: true } },
+        });
+        const map = c.getEventMapper();
+        const items: TimelineItem[] = [];
+        let from: string | null = o.from ?? null;
+        let next: string | undefined = o.from;
+        // A page is a batch of the room's history, however many of it are the kind asked for; keep going until enough are.
+        for (let round = 0; round < 12 && items.length < want; round++) {
+          const res = await c.createMessagesRequest(roomId, from, 100, Direction.Backward, filter);
+          for (const raw of res.chunk) {
+            const ev = map(raw);
+            const sender = ev.getSender();
+            if (sender) ev.sender = room.getMember(sender);
+            if (ev.isEncrypted()) await c.decryptEventIfNeeded(ev).catch(() => {});
+            const item = toTimelineItem(c, ev);
+            if (item && mediaKindOf(item.content) === o.kind) items.push(item);
+          }
+          next = res.end ?? undefined;
+          if (!res.end || res.chunk.length === 0) {
+            next = undefined;
+            break;
+          }
+          from = res.end;
+        }
+        // The server hands out an end token even for the last batch; only an empty reply proves the beginning was
+        // reached. Look once more before offering a "next", so the caller is never sent to a page that holds nothing.
+        if (next) {
+          const probe = await c.createMessagesRequest(roomId, next, 1, Direction.Backward, filter);
+          if (probe.chunk.length === 0) next = undefined;
+        }
+        return { items, ...(next ? { next } : {}) };
+      }),
     resolve: (mxc: string, o: MediaOptions = {}) => {
       const client = this.requireClient();
       const key = `${mxc}|${o.width ?? ""}x${o.height ?? ""}|${o.fit ?? "scale"}|${o.encryption ? "enc" : ""}`;

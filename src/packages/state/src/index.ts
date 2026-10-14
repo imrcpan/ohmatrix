@@ -21,6 +21,8 @@ import {
   type RoomId,
   type RoomSummary,
   type SpaceChild,
+  type MediaKind,
+  type SharedMediaPage,
   type SecurityState,
   type SyncState,
   type TimelineItem,
@@ -148,6 +150,8 @@ export interface AppController {
   setUpEncryption(password: string): Promise<string>;
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
   openRoom(roomId: RoomId): OpenRoom;
+  /** A page of the room's shared media of one kind, newest first (see MediaApi.sharedPage). */
+  sharedMedia(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number }): Promise<SharedMediaPage>;
   /** Forward a message into another room, copying text, mentions and attachments. */
   forwardMessage(fromRoomId: RoomId, eventId: EventId, toRoomId: RoomId): Promise<void>;
   /** Resolve an mxc:// URI to a loadable image URL (cached by the engine). */
@@ -312,6 +316,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     restoreWithRecoveryKey: (key) => engine.security.restoreWithRecoveryKey(key),
     forwardMessage: (fromRoomId, eventId, toRoomId) => engine.messages.forward({ fromRoomId, eventId, toRoomId }),
     resolveMedia: (mxc, opts) => engine.media.resolve(mxc, opts),
+    sharedMedia: (roomId, opts) => engine.media.sharedPage(roomId, opts),
     openRoom(roomId) {
       const tl = engine.openTimeline(roomId);
       handles.set(roomId, tl);

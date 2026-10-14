@@ -912,3 +912,102 @@ test.skipIf(!process.env.OHMATRIX_LIVE)(
   },
   120000,
 );
+
+for (const encrypted of [false, true]) {
+  test.skipIf(!process.env.OHMATRIX_LIVE)(
+    `shared media: pages by kind past what the timeline has loaded${encrypted ? " (encrypted room)" : ""}`,
+    async () => {
+      const e = new JsSdkEngine({ cryptoStorage: "memory" });
+      await e.auth.loginWithPassword("http://localhost:8008", "test", "123456");
+      let rooms: RoomSummary[] = [];
+      e.rooms.subscribe((u) => {
+        rooms = applyUpdates(rooms, u);
+      });
+      await e.sync.start();
+      const roomId = await scratchRoom(e, encrypted);
+      await expect.poll(() => rooms.some((r) => r.id === roomId), { timeout: 15000 }).toBe(true);
+      if (encrypted)
+        await expect
+          .poll(() => (e as unknown as { client: { isRoomEncrypted(id: string): boolean } }).client.isRoomEncrypted(roomId), { timeout: 15000 })
+          .toBe(true);
+      const tl = e.openTimeline(roomId);
+
+      // A mixed history: pictures, a video, audio, files and plain chat between them, oldest first.
+      const png = (n: number) => ({ name: `pic-${n}.png`, mimeType: "image/png", size: PNG_1X1.length, data: new Blob([PNG_1X1], { type: "image/png" }) });
+      await tl.sendAttachment(png(1));
+      await tl.sendText("hello");
+      await tl.sendAttachment({
+        name: "clip.mp4",
+        mimeType: "video/mp4",
+        size: 100,
+        data: new Blob([new Uint8Array(100)], { type: "video/mp4" }),
+        durationMs: 1000,
+        width: 64,
+        height: 64,
+      });
+      await tl.sendAttachment(png(2));
+      await tl.sendAttachment({ name: "a.txt", mimeType: "text/plain", size: 1, data: new Blob(["a"], { type: "text/plain" }) });
+      await tl.sendText("middle");
+      await tl.sendAttachment(png(3));
+      await tl.sendAttachment({
+        name: "v.ogg",
+        mimeType: "audio/ogg",
+        size: 50,
+        data: new Blob([new Uint8Array(50)], { type: "audio/ogg" }),
+        durationMs: 2000,
+        voice: true,
+      });
+      await tl.sendAttachment(png(4));
+      await tl.sendAttachment({ name: "b.txt", mimeType: "text/plain", size: 1, data: new Blob(["b"], { type: "text/plain" }) });
+      await tl.sendAttachment(png(5));
+      await tl.sendText("last");
+
+      const name = (i: { content: { kind: string; name?: string; body?: string } }) => i.content.name ?? i.content.body;
+      // Each kind comes back on its own, newest first, whatever else is mixed in with it.
+      const all = async (kind: "image" | "video" | "audio" | "file", want?: number) => {
+        const names: string[] = [];
+        let from: string | undefined;
+        let pages = 0;
+        for (;;) {
+          const page = await e.media.sharedPage(roomId, { kind, ...(from ? { from } : {}), ...(want ? { want } : {}) });
+          names.push(...page.items.map((i) => name(i)!));
+          pages++;
+          if (!page.next) return { names, pages };
+          from = page.next;
+          if (pages > 20) throw new Error("did not terminate");
+        }
+      };
+      expect((await all("image")).names).toEqual(["pic-5.png", "pic-4.png", "pic-3.png", "pic-2.png", "pic-1.png"]);
+      expect((await all("video")).names).toEqual(["clip.mp4"]);
+      expect((await all("audio")).names).toEqual(["v.ogg"]);
+      expect((await all("file")).names).toEqual(["b.txt", "a.txt"]);
+
+      // Asking for two at a time pages through the pictures without repeating or skipping any, and the last page says so.
+      const small = await all("image", 2);
+      expect(small.names).toEqual(["pic-5.png", "pic-4.png", "pic-3.png", "pic-2.png", "pic-1.png"]);
+      const first = await e.media.sharedPage(roomId, { kind: "image", want: 2 });
+      expect(first.items.length).toBeGreaterThanOrEqual(2);
+
+      // A rare kind in one call: the single video is found although most of the history is something else.
+      const video = await e.media.sharedPage(roomId, { kind: "video" });
+      expect(video.items.map((i) => name(i))).toEqual(["clip.mp4"]);
+      expect(video.items[0]).toMatchObject({ content: { kind: "video", durationMs: 1000 }, isOwn: true });
+      const voice = (await e.media.sharedPage(roomId, { kind: "audio" })).items[0]!;
+      expect(voice.content).toMatchObject({ kind: "audio", voice: true });
+
+      // What comes back can be opened: the picture downloads (and decrypts in an encrypted room).
+      const pic = (await e.media.sharedPage(roomId, { kind: "image", want: 1 })).items[0]!.content;
+      if (pic.kind !== "image") throw new Error("not an image");
+      const url = await e.media.resolve(pic.url, pic.encryption ? { encryption: pic.encryption, mimeType: "image/png" } : {});
+      expect(new Uint8Array(await (await fetch(url)).arrayBuffer())).toEqual(PNG_1X1);
+
+      // A room with none of a kind: empty, and done.
+      const lonely = await scratchRoom(e, encrypted);
+      await expect.poll(() => rooms.some((r) => r.id === lonely), { timeout: 15000 }).toBe(true);
+      expect(await e.media.sharedPage(lonely, { kind: "image" })).toEqual({ items: [] });
+      tl.close();
+      await e.sync.stop();
+    },
+    120000,
+  );
+}

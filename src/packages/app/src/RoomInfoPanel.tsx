@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, type TimelineItem, contentText } from "@ohmatrix/core";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, contentText } from "@ohmatrix/core";
 import {
   Avatar,
   Dialog,
@@ -22,6 +22,7 @@ import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { levelLabel, RoomSettingsSections } from "./RoomSettings.js";
+import { SharedMedia } from "./SharedMedia.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const ROLE_POWER: Record<MemberRole, number> = { member: 0, moderator: 50, admin: 100 };
@@ -87,26 +88,6 @@ function MemberRow(props: { member: RoomMember; last: boolean; onPress?: ((ancho
   );
 }
 
-function Thumb(props: { item: TimelineItem; size: number }) {
-  const { colors } = useTheme();
-  const c = props.item.content;
-  const encryption = c.kind === "image" ? c.encryption : undefined;
-  const uri = useMediaUrl(c.kind === "image" ? c.url : undefined, {
-    width: 200,
-    height: 200,
-    fit: "crop",
-    ...(encryption ? { encryption, ...(c.kind === "image" && c.mimeType && { mimeType: c.mimeType }) } : {}),
-  });
-  return (
-    <View
-      accessibilityLabel={c.kind === "image" ? c.body : undefined}
-      style={{ width: props.size, height: props.size, borderRadius: 8, overflow: "hidden", backgroundColor: colors.bgSecondary }}
-    >
-      {uri ? <Image source={{ uri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} /> : null}
-    </View>
-  );
-}
-
 /** Chat info: avatar, name, topic, address, encryption, mute, members (with management), shared media, leave/delete. */
 export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" }) {
   const { colors } = useTheme();
@@ -123,7 +104,6 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [leveling, setLeveling] = useState<RoomMember | null>(null);
   const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [gridWidth, setGridWidth] = useState(300);
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
   const items = useAppState((s) => s.timelines[props.roomId]);
 
@@ -132,13 +112,6 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     return controller.subscribeRoomDetails(props.roomId, setD);
   }, [controller, props.roomId]);
 
-  const { images, files } = useMemo(
-    () => ({
-      images: (items ?? []).filter((i) => i.content.kind === "image").reverse(),
-      files: (items ?? []).filter((i) => i.content.kind === "file").reverse(),
-    }),
-    [items],
-  );
   // Pinned messages: only the ones already loaded can be shown (the list is state, the bodies are events).
   const pinned = useMemo(() => {
     const ids = d?.pinnedEventIds ?? [];
@@ -271,46 +244,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 />
               </Section>
             )}
-            {!forSpace && (images.length > 0 || files.length > 0) && (
-              <>
-                {images.length > 0 && (
-                  <Section title={`${t("sharedMedia")} · ${images.length}`}>
-                    <View onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, padding: 10 }}>
-                      {images.slice(0, 12).map((i) => (
-                        <Thumb key={i.id} item={i} size={Math.max(60, Math.floor((gridWidth - 20 - 12) / 3))} />
-                      ))}
-                    </View>
-                  </Section>
-                )}
-                {files.length > 0 && (
-                  <Section title={`${t("sharedFiles")} · ${files.length}`}>
-                    {files.slice(0, 20).map((i, n) => {
-                      const c = i.content as Extract<TimelineItem["content"], { kind: "file" }>;
-                      return (
-                        <Row
-                          key={i.id}
-                          label={c.name}
-                          icon="file"
-                          last={n === Math.min(files.length, 20) - 1}
-                          chevron={false}
-                          onPress={() =>
-                            void controller
-                              .resolveMedia(c.url, { ...(c.encryption ? { encryption: c.encryption } : {}), ...(c.mimeType && { mimeType: c.mimeType }) })
-                              .then((url) => services.saveFile?.({ url, name: c.name }))
-                              .catch(() => {})
-                          }
-                        />
-                      );
-                    })}
-                  </Section>
-                )}
-              </>
-            )}
-            {!forSpace && (
-              <Section>
-                <Row label={t("loadOlder")} icon="image" last chevron={false} onPress={() => void controller.paginateRoom(d.id)} />
-              </Section>
-            )}
+            {!forSpace && <SharedMedia roomId={d.id} />}
             {!forSpace && pinned.length > 0 && (
               <Section title={t("pinned.title")}>
                 {pinned.map((m, i) => (
