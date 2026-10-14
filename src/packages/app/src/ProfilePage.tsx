@@ -36,7 +36,7 @@ export function ProfilePage(props: { homeserver: string }) {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <PageHeader title={t("profile")} onBack={() => controller.sidebarBack()} backLabel={t("chats")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={{ alignItems: "center", paddingTop: 4, paddingBottom: 4, gap: 2 }}>
+        <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4, gap: 2 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={t("changePhoto")} onPress={() => void changePhoto()} disabled={!services.pickFiles}>
             <Avatar id={profile?.userId ?? "?"} name={displayName || "?"} size={72} src={avatar} />
           </Pressable>
