@@ -32,7 +32,7 @@ export function SettingsPage() {
         <Group title={t("appearance")}>
           <ThemeGrid />
         </Group>
-        <Group>
+        <Group footer={t("zoom.footer")}>
           <View ref={langRef}>
             <Item
               label={t("language")}
@@ -48,8 +48,6 @@ export function SettingsPage() {
               }
             />
           </View>
-        </Group>
-        <Group footer={t("zoom.footer")}>
           <View ref={scaleRef}>
             <Item
               label={t("zoom")}
