@@ -1,33 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, contentText } from "@ohmatrix/core";
-import {
-  Avatar,
-  Dialog,
-  fontFamily,
-  Icon,
-  IconButton,
-  Menu,
-  NavBar,
-  PrimaryButton,
-  Row,
-  Section,
-  TextButton,
-  Toggle,
-  useTheme,
-  type Anchor,
-  type MenuItem,
-} from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, IconButton, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { levelLabel, RoomSettingsSections } from "./RoomSettings.js";
+import { Group, Item, PageHeader } from "./settings/kit.js";
 import { SharedMedia } from "./SharedMedia.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const ROLE_POWER: Record<MemberRole, number> = { member: 0, moderator: 50, admin: 100 };
 
-function MemberRow(props: { member: RoomMember; last: boolean; onPress?: ((anchor: Anchor) => void) | undefined }) {
+function MemberRow(props: { member: RoomMember; onPress?: ((anchor: Anchor) => void) | undefined }) {
   const { colors } = useTheme();
   const t = useT();
   const m = props.member;
@@ -43,34 +28,33 @@ function MemberRow(props: { member: RoomMember; last: boolean; onPress?: ((ancho
           : m.power > 0
             ? t("level.custom", { n: m.power })
             : null;
-  const body = (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: 14, minHeight: 54 }}>
+  const body = (hovered?: boolean, pressed?: boolean) => (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        minHeight: 54,
+        marginHorizontal: 6,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+      }}
+    >
       <Avatar id={m.userId} name={m.name} size={36} src={avatar} />
-      <View
-        style={{
-          flex: 1,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          minHeight: 54,
-          borderBottomWidth: props.last ? 0 : 1,
-          borderBottomColor: colors.separator,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={{ fontSize: 16, fontFamily, color: colors.text }}>
-            {m.name}
-          </Text>
-          <Text numberOfLines={1} selectable style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
-            {m.userId}
-          </Text>
-        </View>
-        {tag && <Text style={{ fontSize: 13, fontFamily, color: m.invited ? colors.textSecondary : colors.accent }}>{tag}</Text>}
-        {props.onPress && <Icon name="more" size={18} color={colors.textTertiary} />}
+      <View style={{ flex: 1 }}>
+        <Text numberOfLines={1} style={{ fontSize: 16, fontFamily, color: colors.text }}>
+          {m.name}
+        </Text>
+        <Text numberOfLines={1} selectable style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
+          {m.userId}
+        </Text>
       </View>
+      {tag && <Text style={{ fontSize: 13, fontFamily, color: m.invited ? colors.textSecondary : colors.accent }}>{tag}</Text>}
+      {props.onPress && <Icon name="more" size={18} color={colors.textTertiary} />}
     </View>
   );
-  if (!props.onPress) return body;
+  if (!props.onPress) return body();
   return (
     <Pressable
       accessibilityRole="button"
@@ -79,11 +63,8 @@ function MemberRow(props: { member: RoomMember; last: boolean; onPress?: ((ancho
         const n = e.nativeEvent as { pageX?: number; pageY?: number };
         props.onPress!({ x: n.pageX ?? 0, y: n.pageY ?? 0, width: 0, height: 0 });
       }}
-      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-      })}
     >
-      {body}
+      {({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => body(hovered, pressed)}
     </Pressable>
   );
 }
@@ -162,8 +143,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const canEdit = !!d?.can.editInfo;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgSecondary }}>
-      <NavBar
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <PageHeader
         title={title}
         onBack={props.mode === "overlay" ? close : undefined}
         backLabel={t("close")}
@@ -172,17 +153,19 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
         {d && (
           <>
-            <View style={{ alignItems: "center", paddingTop: 24, paddingHorizontal: 20, gap: 4 }}>
+            <View style={{ alignItems: "center", paddingTop: 4, paddingHorizontal: 20, gap: 2 }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("room.changePhoto")}
                 disabled={!canEdit || !services.pickFiles}
                 onPress={() => void changePhoto()}
               >
-                <Avatar id={d.id} name={d.name} size={96} src={avatar} />
+                <Avatar id={d.id} name={d.name} size={72} src={avatar} />
               </Pressable>
-              {canEdit && !!services.pickFiles && <TextButton title={t("changePhoto")} onPress={() => void changePhoto()} />}
-              <Text numberOfLines={2} style={{ marginTop: 8, fontSize: 22, fontWeight: "700", fontFamily, color: colors.text, textAlign: "center" }}>
+              <Text
+                numberOfLines={2}
+                style={{ marginTop: 8, fontSize: 22, fontWeight: "700", letterSpacing: -0.3, fontFamily, color: colors.text, textAlign: "center" }}
+              >
                 {d.name}
               </Text>
               <Text style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
@@ -192,9 +175,10 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
             {!!problem && (
               <Text style={{ marginTop: 12, marginHorizontal: 20, textAlign: "center", fontSize: 14, fontFamily, color: colors.danger }}>{problem}</Text>
             )}
-            <Section title={t("about")}>
+            <Group title={t("about")}>
+              {canEdit && !!services.pickFiles && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
               {!direct && (
-                <Row
+                <Item
                   label={t(forSpace ? "space.name" : "room.editName")}
                   value={d.name}
                   onPress={canEdit ? () => setEdit("name") : undefined}
@@ -202,83 +186,60 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 />
               )}
               {(!!d.topic || canEdit) && !direct && (
-                <Row label={t("topic")} value={d.topic ?? t("room.noTopic")} onPress={canEdit ? () => setEdit("topic") : undefined} chevron={canEdit} />
+                <Item label={t("topic")} value={d.topic ?? t("room.noTopic")} onPress={canEdit ? () => setEdit("topic") : undefined} chevron={canEdit} />
               )}
-              <Row label={t("address")} value={d.alias ?? d.id} last={forSpace} />
+              <Item label={t("address")} value={d.alias ?? d.id} />
               {/* A space is a container with no conversation of its own to encrypt. */}
-              {!forSpace && (
-                <Row
-                  label={t("encryption")}
-                  icon="lock"
-                  iconColor={d.isEncrypted ? "#34C759" : colors.textSecondary}
-                  value={d.isEncrypted ? t("enc.on") : t("enc.off")}
-                  last
-                />
-              )}
-            </Section>
+              {!forSpace && <Item label={t("encryption")} icon="lock" value={d.isEncrypted ? t("enc.on") : t("enc.off")} />}
+            </Group>
             {forSpace && (
-              <Section title={`${t("space.rooms")} · ${children.length}`}>
-                {children.length === 0 && <Row label={t("space.empty")} last chevron={false} />}
-                {children.slice(0, 30).map((c, i) => (
-                  <Row
+              <Group title={`${t("space.rooms")} · ${children.length}`}>
+                {children.length === 0 && <Item label={t("space.empty")} chevron={false} />}
+                {children.slice(0, 30).map((c) => (
+                  <Item
                     key={c.roomId}
                     label={c.name}
                     icon={c.isSpace ? "users" : "chat"}
-                    last={i === Math.min(children.length, 30) - 1}
                     // Open the room itself; its own info is one tap away there.
                     onPress={() => controller.selectRoom(c.roomId)}
                   />
                 ))}
-              </Section>
+              </Group>
             )}
             {!direct && <RoomSettingsSections d={d} report={report} space={forSpace} />}
             {!forSpace && (
-              <Section>
-                <Row
+              <Group>
+                <Item
                   label={t("mute")}
                   icon={d.muted ? "bellOff" : "bell"}
-                  iconColor={d.muted ? colors.textSecondary : colors.accent}
-                  last
                   chevron={false}
                   right={<Toggle label={t("mute")} value={d.muted} onChange={(v) => void controller.setRoomMuted(d.id, v).catch(report)} />}
                 />
-              </Section>
+              </Group>
             )}
             {!forSpace && <SharedMedia roomId={d.id} />}
             {!forSpace && pinned.length > 0 && (
-              <Section title={t("pinned.title")}>
-                {pinned.map((m, i) => (
-                  <Row
+              <Group title={t("pinned.title")}>
+                {pinned.map((m) => (
+                  <Item
                     key={m.id}
                     label={m.senderName}
                     value={m.content.kind === "image" ? t("photo") : contentText(m.content).slice(0, 60)}
                     icon="pin"
-                    last={i === pinned.length - 1}
                     onPress={() => controller.openMessage(d.id, m.id)}
                   />
                 ))}
-              </Section>
+              </Group>
             )}
-            <Section title={direct ? t("participant") : `${t("membersTitle")} · ${d.members.length}`}>
-              {d.can.invite && <Row label={t("room.invite")} icon="userPlus" chevron={false} onPress={() => setInviting(true)} last={d.members.length === 0} />}
-              {d.members.map((m, i) => (
-                <MemberRow
-                  key={m.userId}
-                  member={m}
-                  last={i === d.members.length - 1}
-                  onPress={manageable(m) && memberMenu(m).length ? (anchor) => setMenu({ member: m, anchor }) : undefined}
-                />
+            <Group title={direct ? t("participant") : `${t("membersTitle")} · ${d.members.length}`}>
+              {d.can.invite && <Item label={t("room.invite")} icon="userPlus" chevron={false} onPress={() => setInviting(true)} />}
+              {d.members.map((m) => (
+                <MemberRow key={m.userId} member={m} onPress={manageable(m) && memberMenu(m).length ? (anchor) => setMenu({ member: m, anchor }) : undefined} />
               ))}
-            </Section>
-            <Section>
-              <Row
-                label={direct ? t("deleteChat") : forSpace ? t("space.leave") : t("leaveGroup")}
-                danger
-                last
-                chevron={false}
-                onPress={() => setConfirm(true)}
-              />
-            </Section>
+            </Group>
+            <Group>
+              <Item label={direct ? t("deleteChat") : forSpace ? t("space.leave") : t("leaveGroup")} danger chevron={false} onPress={() => setConfirm(true)} />
+            </Group>
           </>
         )}
       </ScrollView>

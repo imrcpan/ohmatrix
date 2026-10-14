@@ -8,8 +8,8 @@ import { fontFamily, Icon, IconButton, useTheme, type IconName } from "@ohmatrix
  * height with a bold title, and rounded rows that fill on hover, with single-colour icons like the menus.
  */
 
-/** Back button and a bold title, laid out like the chat list's header. */
-export function PageHeader(props: { title: string; onBack?: (() => void) | undefined; backLabel?: string | undefined }) {
+/** Back button and a bold title, laid out like the chat list's header, with room for an action at the end. */
+export function PageHeader(props: { title: string; onBack?: (() => void) | undefined; backLabel?: string | undefined; trailing?: ReactNode }) {
   const { colors } = useTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, height: 64, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}>
@@ -21,6 +21,7 @@ export function PageHeader(props: { title: string; onBack?: (() => void) | undef
       >
         {props.title}
       </Text>
+      {props.trailing}
     </View>
   );
 }

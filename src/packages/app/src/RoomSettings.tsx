@@ -1,9 +1,10 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { View } from "react-native";
 import type { HistoryVisibility, JoinRule, PowerThresholds, RoomDetails } from "@ohmatrix/core";
-import { Icon, Menu, Row, Section, useTheme, type Anchor, type MenuItem } from "@ohmatrix/ui";
+import { Icon, Menu, useTheme, type Anchor, type IconName, type MenuItem } from "@ohmatrix/ui";
 import { useController, useT } from "./context.js";
 import { PromptDialog } from "./PromptDialog.js";
+import { Group, Item } from "./settings/kit.js";
 
 type T = ReturnType<typeof useT>;
 
@@ -17,7 +18,7 @@ export function levelLabel(level: number, t: T): string {
 }
 
 /** A settings row that opens a dropdown menu under itself (like the language row in Settings). */
-function MenuRow(props: { label: string; value: string; items: MenuItem[]; disabled?: boolean; last?: boolean; icon?: Parameters<typeof Row>[0]["icon"] }) {
+function MenuRow(props: { label: string; value: string; items: MenuItem[]; disabled?: boolean; icon?: IconName }) {
   const { colors } = useTheme();
   const ref = useRef<ComponentRef<typeof View>>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -26,11 +27,10 @@ function MenuRow(props: { label: string; value: string; items: MenuItem[]; disab
   return (
     <>
       <View ref={ref}>
-        <Row
+        <Item
           label={props.label}
           subtitle={props.value}
           {...(props.icon ? { icon: props.icon } : {})}
-          last={props.last ?? false}
           chevron={false}
           right={editable ? <Icon name="chevronDown" size={16} color={colors.textTertiary} /> : undefined}
           onPress={
@@ -120,55 +120,52 @@ export function RoomSettingsSections(props: {
 
   return (
     <>
-      <Section title={t("access.title")} footer={t(d.joinRule === "public" ? "join.public.hint" : "join.invite.hint")}>
+      <Group title={t("access.title")} footer={t(d.joinRule === "public" ? "join.public.hint" : "join.invite.hint")}>
         <MenuRow label={t("join.title")} icon="lock" value={t(JOIN_LABEL[d.joinRule])} items={joinItems} disabled={!canSettings} />
-        <MenuRow label={t("history.title")} icon="clock" value={t(HISTORY_LABEL[d.historyVisibility])} items={historyItems} disabled={!canSettings} last />
-      </Section>
+        <MenuRow label={t("history.title")} icon="clock" value={t(HISTORY_LABEL[d.historyVisibility])} items={historyItems} disabled={!canSettings} />
+      </Group>
 
       {(d.aliases.length > 0 || canSettings) && (
-        <Section title={t("addresses.title")} footer={t("addresses.footer")}>
+        <Group title={t("addresses.title")} footer={t("addresses.footer")}>
           {d.aliases.map((alias, i) => (
             <AnchoredPress
               key={alias}
               label={alias}
               subtitle={i === 0 ? t("address.main") : undefined}
               icon="hash"
-              last={!canSettings && i === d.aliases.length - 1}
               disabled={!canSettings}
               onOpen={(anchor) => setAliasMenu({ alias, anchor })}
             />
           ))}
-          {canSettings && <Row label={t("address.add")} icon="plus" chevron={false} last onPress={() => setAliasPrompt(true)} />}
-        </Section>
+          {canSettings && <Item label={t("address.add")} icon="plus" chevron={false} onPress={() => setAliasPrompt(true)} />}
+        </Group>
       )}
 
-      <Section title={t("perm.title")} footer={t("perm.footer")}>
-        {thresholds.map(({ key, label }, i) => (
+      <Group title={t("perm.title")} footer={t("perm.footer")}>
+        {thresholds.map(({ key, label }) => (
           <MenuRow
             key={key}
             label={t(label)}
             value={levelLabel(d.levels[key], t)}
             items={levelItems(key)}
             disabled={!d.can.changeRoles || d.levels[key] > myPower}
-            last={i === thresholds.length - 1}
           />
         ))}
-      </Section>
+      </Group>
 
       {d.banned.length > 0 && (
-        <Section title={`${t("banned.title")} · ${d.banned.length}`}>
-          {d.banned.map((b, i) => (
+        <Group title={`${t("banned.title")} · ${d.banned.length}`}>
+          {d.banned.map((b) => (
             <AnchoredPress
               key={b.userId}
               label={b.name}
               subtitle={b.reason ? `${b.userId} · ${b.reason}` : b.userId}
               icon="close"
-              last={i === d.banned.length - 1}
               disabled={!d.can.ban}
               onOpen={(anchor) => setBannedMenu({ userId: b.userId, anchor })}
             />
           ))}
-        </Section>
+        </Group>
       )}
 
       <Menu
@@ -227,22 +224,14 @@ export function RoomSettingsSections(props: {
 }
 
 /** A row that reports where it was pressed, so a menu can open next to it. */
-function AnchoredPress(props: {
-  label: string;
-  subtitle?: string | undefined;
-  icon?: Parameters<typeof Row>[0]["icon"];
-  last: boolean;
-  disabled: boolean;
-  onOpen: (anchor: Anchor) => void;
-}) {
+function AnchoredPress(props: { label: string; subtitle?: string | undefined; icon?: IconName; disabled: boolean; onOpen: (anchor: Anchor) => void }) {
   const ref = useRef<ComponentRef<typeof View>>(null);
   return (
     <View ref={ref}>
-      <Row
+      <Item
         label={props.label}
         subtitle={props.subtitle}
         {...(props.icon ? { icon: props.icon } : {})}
-        last={props.last}
         chevron={false}
         onPress={props.disabled ? undefined : () => ref.current?.measureInWindow((x, y, width, height) => props.onOpen({ x, y, width, height }))}
       />
