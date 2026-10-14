@@ -94,40 +94,44 @@ export function MainScreen() {
             onCommit={(w) => controller.setPreferences({ sidebarWidth: w })}
           />
         </View>
-        <View style={{ flex: 1 }}>
-          {roomId ? (
-            <RoomGate roomId={roomId}>
-              <View style={{ flex: 1, flexDirection: "row" }}>
-                <View style={{ flex: 1 }}>
-                  <ChatPane key={roomId} roomId={roomId} onInfo={() => controller.openRoomInfo(!infoOpen)} />
+        <View style={{ flex: 1, flexDirection: "row" }}>
+          <View style={{ flex: 1 }}>
+            {roomId ? (
+              <RoomGate roomId={roomId}>
+                <View style={{ flex: 1, flexDirection: "row" }}>
+                  <View style={{ flex: 1 }}>
+                    <ChatPane key={roomId} roomId={roomId} onInfo={() => controller.openRoomInfo(!infoOpen)} />
+                  </View>
+                  <SlidePanel mode="dock" open={infoOpen}>
+                    <RoomInfoPanel roomId={roomId} mode="dock" />
+                  </SlidePanel>
                 </View>
-                <SlidePanel mode="dock" open={infoOpen}>
-                  <RoomInfoPanel roomId={roomId} mode="dock" />
-                </SlidePanel>
-              </View>
-            </RoomGate>
-          ) : (
-            <EmptyDetail />
-          )}
+              </RoomGate>
+            ) : (
+              <EmptyDetail />
+            )}
+          </View>
         </View>
       </View>
     );
   }
   return (
-    <SlideStack
-      list={<SidebarNav />}
-      detail={
-        roomId ? (
-          <RoomGate roomId={roomId}>
-            <View style={{ flex: 1 }}>
-              <ChatPane key={roomId} roomId={roomId} onBack={() => controller.selectRoom(null)} onInfo={() => controller.openRoomInfo(true)} />
-              <SlidePanel mode="overlay" open={infoOpen}>
-                <RoomInfoPanel roomId={roomId} mode="overlay" />
-              </SlidePanel>
-            </View>
-          </RoomGate>
-        ) : null
-      }
-    />
+    <View style={{ flex: 1 }}>
+      <SlideStack
+        list={<SidebarNav />}
+        detail={
+          roomId ? (
+            <RoomGate roomId={roomId}>
+              <View style={{ flex: 1 }}>
+                <ChatPane key={roomId} roomId={roomId} onBack={() => controller.selectRoom(null)} onInfo={() => controller.openRoomInfo(true)} />
+                <SlidePanel mode="overlay" open={infoOpen}>
+                  <RoomInfoPanel roomId={roomId} mode="overlay" />
+                </SlidePanel>
+              </View>
+            </RoomGate>
+          ) : null
+        }
+      />
+    </View>
   );
 }
