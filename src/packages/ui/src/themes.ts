@@ -160,7 +160,6 @@ export function themeLabel(def: ThemeDefinition, locale: string): string {
 }
 
 // ---- built-in themes ---------------------------------------------------------------------
-
 registerTheme(
   defineTheme({
     id: "light",
@@ -211,6 +210,93 @@ registerTheme(
 );
 registerTheme(
   defineTheme({
+    id: "dark-green",
+    label: { en: "Dark Green", "zh-CN": "暗绿" },
+    dark: true,
+    accent: "#00BC7D",
+    bubbleOut: "#078357",
+    // The surfaces stay neutral: the theme shows through the accent, the bubble and the badge.
+    bg: "#141414",
+    bgSecondary: "#1F1F1F",
+    chatBg: "#0D0D0D",
+    bubbleIn: "#1F1F1F",
+    overrides: {
+      // A bright accent takes a dark label (contrast 7.6:1; white would be 2.5:1).
+      onAccent: "#0B1F17",
+      selected: "#0B8A5C",
+      badge: "#02B377",
+      serviceChip: "rgba(0,0,0,0.6)",
+      mentionBg: "rgba(0,188,125,0.26)",
+      mentionHighlight: "rgba(0,188,125,0.15)",
+    },
+  }),
+);
+registerTheme(
+  defineTheme({
+    id: "dark-yellow",
+    label: { en: "Dark Yellow", "zh-CN": "暗黄" },
+    dark: true,
+    accent: "#F0B100",
+    bubbleOut: "#A97C07",
+    bg: "#141414",
+    bgSecondary: "#1F1F1F",
+    chatBg: "#0D0D0D",
+    bubbleIn: "#1F1F1F",
+    overrides: {
+      onAccent: "#241A00",
+      selected: "#B1820B",
+      badge: "#E5A902",
+      serviceChip: "rgba(0,0,0,0.6)",
+      mentionBg: "rgba(240,177,0,0.26)",
+      mentionHighlight: "rgba(240,177,0,0.15)",
+    },
+  }),
+);
+registerTheme(
+  defineTheme({
+    id: "dark-pink",
+    label: { en: "Dark Pink", "zh-CN": "暗粉" },
+    dark: true,
+    accent: "#FF8CB0",
+    bubbleOut: "#C46B87",
+    bg: "#141414",
+    bgSecondary: "#1F1F1F",
+    chatBg: "#0D0D0D",
+    bubbleIn: "#1F1F1F",
+    overrides: {
+      onAccent: "#2A1119",
+      selected: "#B4627B",
+      badge: "#F486A8",
+      serviceChip: "rgba(0,0,0,0.6)",
+      mentionBg: "rgba(255,140,176,0.26)",
+      mentionHighlight: "rgba(255,140,176,0.15)",
+    },
+  }),
+);
+registerTheme(
+  defineTheme({
+    id: "dark-violet",
+    label: { en: "Dark Violet", "zh-CN": "紫罗兰黑" },
+    dark: true,
+    accent: "#A695E7",
+    bubbleOut: "#7F72B1",
+    bg: "#141414",
+    bgSecondary: "#1F1F1F",
+    chatBg: "#0D0D0D",
+    bubbleIn: "#1F1F1F",
+    overrides: {
+      // A bright accent takes a dark label (contrast 6.9:1; white would be 2.6:1).
+      onAccent: "#1B1524",
+      selected: "#7A6DAA",
+      badge: "#9E8EDD",
+      serviceChip: "rgba(0,0,0,0.6)",
+      mentionBg: "rgba(166,149,231,0.26)",
+      mentionHighlight: "rgba(166,149,231,0.15)",
+    },
+  }),
+);
+registerTheme(
+  defineTheme({
     id: "forest",
     label: { en: "Forest", "zh-CN": "森林" },
     dark: false,
@@ -229,5 +315,17 @@ registerTheme(
     accent: "#E5588A",
     chatBg: "#F6E6EC",
     bgSecondary: "#FBF1F4",
+  }),
+);
+registerTheme(
+  defineTheme({
+    id: "light-violet",
+    label: { en: "Light Violet", "zh-CN": "紫罗兰亮色" },
+    dark: false,
+    // A step deeper than the violet of the dark theme, so the accent stays readable on white (4.8:1).
+    accent: "#7C5CD6",
+    chatBg: "#EFE9FA",
+    bgSecondary: "#F5F1FC",
+    bubbleOut: "#7C5CD6",
   }),
 );
