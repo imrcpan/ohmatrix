@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type TimelineItem, contentText } from "@ohmatrix/core";
+import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, type TimelineItem, contentText } from "@ohmatrix/core";
 import {
   Avatar,
   Dialog,
@@ -145,10 +145,17 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     return ids.map((id) => (items ?? []).find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i);
   }, [d?.pinnedEventIds, items]);
 
+  const forSpace = useAppState((s) => s.spaceInfoOpen && s.spaceId === props.roomId);
+  const [children, setChildren] = useState<SpaceChild[]>([]);
+  useEffect(() => {
+    if (!forSpace) return;
+    return controller.subscribeSpace(props.roomId, setChildren);
+  }, [controller, forSpace, props.roomId]);
+
   const direct = d?.isDirect ?? false;
   const joined = d?.members.filter((m) => !m.invited).length ?? 0;
-  const title = direct ? t("userInfo") : t("groupInfo");
-  const close = () => controller.openRoomInfo(false);
+  const title = direct ? t("userInfo") : forSpace ? t("spaceInfo") : t("groupInfo");
+  const close = () => (forSpace ? controller.openSpaceInfo(false) : controller.openRoomInfo(false));
   const report = (e: unknown) => setProblem(e instanceof EngineError && e.code === "forbidden" ? t("notAllowed") : e instanceof Error ? e.message : String(e));
 
   const myPower = d?.members.find((m) => m.userId === d.me)?.power ?? 0;
@@ -206,38 +213,65 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 {d.name}
               </Text>
               <Text style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
-                {direct ? t("directChat") : joined === 1 ? t("member.one") : t("members", { n: joined })}
+                {direct ? t("directChat") : `${forSpace ? `${t("space")} · ` : ""}${joined === 1 ? t("member.one") : t("members", { n: joined })}`}
               </Text>
             </View>
             {!!problem && (
               <Text style={{ marginTop: 12, marginHorizontal: 20, textAlign: "center", fontSize: 14, fontFamily, color: colors.danger }}>{problem}</Text>
             )}
             <Section title={t("about")}>
-              {!direct && <Row label={t("room.editName")} value={d.name} onPress={canEdit ? () => setEdit("name") : undefined} chevron={canEdit} />}
+              {!direct && (
+                <Row
+                  label={t(forSpace ? "space.name" : "room.editName")}
+                  value={d.name}
+                  onPress={canEdit ? () => setEdit("name") : undefined}
+                  chevron={canEdit}
+                />
+              )}
               {(!!d.topic || canEdit) && !direct && (
                 <Row label={t("topic")} value={d.topic ?? t("room.noTopic")} onPress={canEdit ? () => setEdit("topic") : undefined} chevron={canEdit} />
               )}
-              <Row label={t("address")} value={d.alias ?? d.id} />
-              <Row
-                label={t("encryption")}
-                icon="lock"
-                iconColor={d.isEncrypted ? "#34C759" : colors.textSecondary}
-                value={d.isEncrypted ? t("enc.on") : t("enc.off")}
-                last
-              />
+              <Row label={t("address")} value={d.alias ?? d.id} last={forSpace} />
+              {/* A space is a container with no conversation of its own to encrypt. */}
+              {!forSpace && (
+                <Row
+                  label={t("encryption")}
+                  icon="lock"
+                  iconColor={d.isEncrypted ? "#34C759" : colors.textSecondary}
+                  value={d.isEncrypted ? t("enc.on") : t("enc.off")}
+                  last
+                />
+              )}
             </Section>
-            {!direct && <RoomSettingsSections d={d} report={report} />}
-            <Section>
-              <Row
-                label={t("mute")}
-                icon={d.muted ? "bellOff" : "bell"}
-                iconColor={d.muted ? colors.textSecondary : colors.accent}
-                last
-                chevron={false}
-                right={<Toggle label={t("mute")} value={d.muted} onChange={(v) => void controller.setRoomMuted(d.id, v).catch(report)} />}
-              />
-            </Section>
-            {(images.length > 0 || files.length > 0) && (
+            {forSpace && (
+              <Section title={`${t("space.rooms")} · ${children.length}`}>
+                {children.length === 0 && <Row label={t("space.empty")} last chevron={false} />}
+                {children.slice(0, 30).map((c, i) => (
+                  <Row
+                    key={c.roomId}
+                    label={c.name}
+                    icon={c.isSpace ? "users" : "chat"}
+                    last={i === Math.min(children.length, 30) - 1}
+                    // Open the room itself; its own info is one tap away there.
+                    onPress={() => controller.selectRoom(c.roomId)}
+                  />
+                ))}
+              </Section>
+            )}
+            {!direct && <RoomSettingsSections d={d} report={report} space={forSpace} />}
+            {!forSpace && (
+              <Section>
+                <Row
+                  label={t("mute")}
+                  icon={d.muted ? "bellOff" : "bell"}
+                  iconColor={d.muted ? colors.textSecondary : colors.accent}
+                  last
+                  chevron={false}
+                  right={<Toggle label={t("mute")} value={d.muted} onChange={(v) => void controller.setRoomMuted(d.id, v).catch(report)} />}
+                />
+              </Section>
+            )}
+            {!forSpace && (images.length > 0 || files.length > 0) && (
               <>
                 {images.length > 0 && (
                   <Section title={`${t("sharedMedia")} · ${images.length}`}>
@@ -272,10 +306,12 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 )}
               </>
             )}
-            <Section>
-              <Row label={t("loadOlder")} icon="image" last chevron={false} onPress={() => void controller.paginateRoom(d.id)} />
-            </Section>
-            {pinned.length > 0 && (
+            {!forSpace && (
+              <Section>
+                <Row label={t("loadOlder")} icon="image" last chevron={false} onPress={() => void controller.paginateRoom(d.id)} />
+              </Section>
+            )}
+            {!forSpace && pinned.length > 0 && (
               <Section title={t("pinned.title")}>
                 {pinned.map((m, i) => (
                   <Row
@@ -301,7 +337,13 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               ))}
             </Section>
             <Section>
-              <Row label={direct ? t("deleteChat") : t("leaveGroup")} danger last chevron={false} onPress={() => setConfirm(true)} />
+              <Row
+                label={direct ? t("deleteChat") : forSpace ? t("space.leave") : t("leaveGroup")}
+                danger
+                last
+                chevron={false}
+                onPress={() => setConfirm(true)}
+              />
             </Section>
           </>
         )}
@@ -309,11 +351,11 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       <Menu visible={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} items={menu ? memberMenu(menu.member) : []} />
       <PromptDialog
         visible={edit === "name"}
-        title={t("room.editName")}
+        title={t(forSpace ? "space.name" : "room.editName")}
         message=""
         confirmLabel={t("save")}
         initial={[d?.name ?? ""]}
-        fields={[{ label: t("room.editName") }]}
+        fields={[{ label: t(forSpace ? "space.name" : "room.editName") }]}
         onClose={() => setEdit(null)}
         onConfirm={([v]) => controller.roomAdmin.setName(props.roomId, v!)}
       />
@@ -378,12 +420,12 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       </Dialog>
       <Dialog
         visible={confirm}
-        title={t(direct ? "deleteChat.title" : "leaveGroup.title")}
-        message={t(direct ? "deleteChat.body" : "leaveGroup.body")}
+        title={t(direct ? "deleteChat.title" : forSpace ? "leaveSpace.title" : "leaveGroup.title")}
+        message={t(direct ? "deleteChat.body" : forSpace ? "leaveSpace.body" : "leaveGroup.body")}
         onClose={() => setConfirm(false)}
       >
         <PrimaryButton
-          title={direct ? t("deleteChat") : t("leaveGroup")}
+          title={direct ? t("deleteChat") : forSpace ? t("space.leave") : t("leaveGroup")}
           loading={busy}
           onPress={() => {
             setBusy(true);

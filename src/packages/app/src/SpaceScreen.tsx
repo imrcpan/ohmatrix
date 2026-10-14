@@ -20,6 +20,8 @@ import { useAppState, useController, useServices, useT } from "./context.js";
 import { RoomListItem } from "./RoomListPane.js";
 import { NewGroupDialog } from "./NewChatDialogs.js";
 import { PromptDialog } from "./PromptDialog.js";
+import { RoomInfoPanel } from "./RoomInfoPanel.js";
+import { SlidePanel } from "./SlidePanel.js";
 import { InviteDialog } from "./InviteDialog.js";
 
 /** A space's own contents, styled exactly like the main chat list but showing the space's children. */
@@ -67,11 +69,10 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
     return q ? list.filter((r) => r.name.toLowerCase().includes(q)) : list;
   }, [children, rooms, query, spaceId]);
 
-  // A space has no timeline worth reading: its members and settings live in the same info panel rooms use.
-  const openInfo = () => {
-    controller.selectRoom(spaceId);
-    controller.openRoomInfo(true);
-  };
+  // Members and settings use the same info panel rooms have, opened for the space on its own: the chat on screen
+  // stays as it is, and closing the panel returns to this list.
+  const openInfo = () => controller.openSpaceInfo(true);
+  const infoOpen = useAppState((s) => s.spaceInfoOpen);
   const action: MenuItem[] = [
     { label: t("space.createRoom"), icon: "plus", onPress: () => setDialog("create") },
     { label: t("space.addRoom"), icon: "chat", onPress: () => setDialog("add") },
@@ -191,6 +192,10 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
         />
         <TextButton title={t("cancel")} onPress={() => setLeaving(false)} />
       </Dialog>
+      {/* The space's info covers the space's own list, nothing wider: in landscape that is the left pane. */}
+      <SlidePanel mode="overlay" open={infoOpen}>
+        <RoomInfoPanel roomId={spaceId} mode="overlay" />
+      </SlidePanel>
     </View>
   );
 }

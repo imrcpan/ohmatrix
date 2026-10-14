@@ -78,7 +78,11 @@ const THRESHOLDS: { key: keyof PowerThresholds; label: Parameters<T>[0] }[] = [
  * Room access, addresses, permission levels and banned people, as sections of the chat-info panel. Everyone
  * sees the current values; only people the room's power levels allow can change them.
  */
-export function RoomSettingsSections(props: { d: RoomDetails; report: (e: unknown) => void }) {
+export function RoomSettingsSections(props: {
+  d: RoomDetails;
+  report: (e: unknown) => void;
+  /** A space has no messages of its own: leave out the levels that only concern messages. */ space?: boolean;
+}) {
   const { d, report } = props;
   const t = useT();
   const controller = useController();
@@ -92,6 +96,7 @@ export function RoomSettingsSections(props: { d: RoomDetails; report: (e: unknow
   const [bannedMenu, setBannedMenu] = useState<{ userId: string; anchor: Anchor } | null>(null);
 
   const act = (p: Promise<unknown>) => void p.catch(report);
+  const thresholds = props.space ? THRESHOLDS.filter((x) => x.key !== "sendMessages" && x.key !== "redact") : THRESHOLDS;
 
   const joinItems: MenuItem[] = (["public", "invite"] as const).map((rule) => ({
     label: t(JOIN_LABEL[rule]),
@@ -138,14 +143,14 @@ export function RoomSettingsSections(props: { d: RoomDetails; report: (e: unknow
       )}
 
       <Section title={t("perm.title")} footer={t("perm.footer")}>
-        {THRESHOLDS.map(({ key, label }, i) => (
+        {thresholds.map(({ key, label }, i) => (
           <MenuRow
             key={key}
             label={t(label)}
             value={levelLabel(d.levels[key], t)}
             items={levelItems(key)}
             disabled={!d.can.changeRoles || d.levels[key] > myPower}
-            last={i === THRESHOLDS.length - 1}
+            last={i === thresholds.length - 1}
           />
         ))}
       </Section>

@@ -47,6 +47,8 @@ export interface AppState {
   selectedRoomId: RoomId | null;
   /** The space whose room list is open over the chat list; null = the main list. */
   spaceId: RoomId | null;
+  /** The info panel of the open space (members, settings) is showing. It is independent of the selected chat. */
+  spaceInfoOpen: boolean;
   prefs: Preferences;
   /** What the left pane shows: the chat list, my profile, or settings (settings sits above profile). */
   sidebarPage: SidebarPage;
@@ -97,6 +99,8 @@ export interface AppController {
   openSidebarPage(page: SidebarPage): void;
   /** Open a space's room list (slides over the chat list); null closes it. */
   openSpace(spaceId: RoomId | null): void;
+  /** Show or hide the open space's info panel, without selecting the space as a chat. */
+  openSpaceInfo(open: boolean): void;
   /** One level up: settings → profile → chats. */
   sidebarBack(): void;
   openRoomInfo(open: boolean): void;
@@ -171,6 +175,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     roomInfoOpen: false,
     focusEvent: null,
     spaceId: null,
+    spaceInfoOpen: false,
   }));
   const set = store.setState;
   const offs = [
@@ -180,7 +185,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     engine.rooms.subscribe((updates) => set((s) => ({ rooms: applyUpdates(s.rooms, updates) }))),
   ];
 
-  const select = (selectedRoomId: RoomId | null) => set((s) => (s.selectedRoomId === selectedRoomId ? {} : { selectedRoomId, roomInfoOpen: false }));
+  // Opening a chat closes the space's info panel: the one panel on the right belongs to what is on screen.
+  const select = (selectedRoomId: RoomId | null) =>
+    set((s) => (s.selectedRoomId === selectedRoomId ? { spaceInfoOpen: false } : { selectedRoomId, roomInfoOpen: false, spaceInfoOpen: false }));
 
   const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
 
@@ -244,9 +251,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     removeDevices: (ids, password) => engine.devices.remove(ids, password),
     setAvatar: (file) => engine.profile.setAvatar(file),
     openSidebarPage: (sidebarPage) => set({ sidebarPage }),
-    openSpace: (spaceId) => set({ spaceId }),
+    openSpace: (spaceId) => set({ spaceId, spaceInfoOpen: false }),
+    openSpaceInfo: (open) => set((s) => ({ spaceInfoOpen: open && s.spaceId !== null, ...(open ? { roomInfoOpen: false } : {}) })),
     sidebarBack: () => set((s) => ({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" })),
-    openRoomInfo: (roomInfoOpen) => set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null })),
+    openRoomInfo: (roomInfoOpen) =>
+      set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null, ...(roomInfoOpen ? { spaceInfoOpen: false } : {}) })),
     selectRoom: select,
     async acceptInvite(roomId) {
       await engine.rooms.acceptInvite(roomId);
@@ -271,7 +280,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);
-      set((s) => (s.selectedRoomId === roomId ? { selectedRoomId: null, roomInfoOpen: false } : {}));
+      set((s) => ({
+        ...(s.selectedRoomId === roomId ? { selectedRoomId: null, roomInfoOpen: false } : {}),
+        // Leaving the space that is open closes it (and its info panel) rather than leaving a pane for a room that is gone.
+        ...(s.spaceId === roomId ? { spaceId: null, spaceInfoOpen: false } : {}),
+      }));
     },
     declineInvite: (roomId) => engine.rooms.declineInvite(roomId),
     async startDirectChat(userId) {

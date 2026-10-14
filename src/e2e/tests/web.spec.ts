@@ -2355,12 +2355,47 @@ test("spaces: list rows, new space, contents slide over the list, more menu, add
   expect(await page.getByRole("menuitem").allInnerTexts()).toEqual(labels);
   await shot(page, "69-space-menu");
 
-  // Members and settings open the space's info panel (members, access, addresses, permissions).
-  await page.getByRole("menuitem", { name: "View members" }).click();
-  await expect(page.getByText(/^Members · \d+$/)).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Access", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Close", exact: true }).click();
-  await more.click();
+  // Members and settings open the space's own info page. It covers the space's list inside the left pane (it does not
+  // slide in from the right edge of the window) and no chat is opened or replaced.
+  await expect(page.getByText("Select a chat to start messaging")).toBeVisible();
+  const pane = (await back.boundingBox())!;
+  for (const entry of ["View members", "Settings"]) {
+    await page.getByRole("menuitem", { name: entry }).click();
+    await expect(page.getByText("Space info", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Group info", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/^Members · \d+$/)).toBeVisible();
+    await expect(page.getByText("Access", { exact: true })).toBeVisible();
+    // Specific to a space: its name and its rooms, and none of what only a conversation has.
+    await expect(page.getByText("Space name", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Rooms · \d+$/)).toBeVisible();
+    await expect(page.getByText("Encryption", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Mute notifications")).toHaveCount(0);
+    await expect(page.getByText("Load older messages")).toHaveCount(0);
+    await expect(page.getByText("Who can send messages")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Leave space" })).toBeVisible();
+    // Once it has slid in, it sits exactly over the space's list: same left edge as that pane's own back button,
+    // and nothing of it reaches past the left pane into the chat area.
+    const closeBtn = page.getByRole("button", { name: "Close", exact: true });
+    await expect.poll(async () => (await closeBtn.boundingBox())!.x, { timeout: 5000 }).toBe(pane.x);
+    const title = (await page.getByText("Space info", { exact: true }).boundingBox())!;
+    expect(title.x + title.width).toBeLessThan(384);
+    await expect(page.getByText("Select a chat to start messaging")).toBeVisible();
+    await expect(page.getByPlaceholder("Message")).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as unknown as { __ohmatrix: { controller: { store: { getState(): { selectedRoomId: string | null } } } } }
+          ).__ohmatrix.controller.store.getState().selectedRoomId,
+      ),
+    ).toBeNull();
+    await page.waitForTimeout(500); // let the menu finish fading before the picture
+    await shot(page, "73-space-info");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByText("Space info", { exact: true })).toHaveCount(0, { timeout: 5000 });
+    expect((await back.boundingBox())!.x).toBe(pane.x);
+    await more.click();
+  }
 
   // Share shows the link in a dialog: Cancel copies nothing, Copy puts the link on the clipboard and closes.
   await page.evaluate(() => navigator.clipboard.writeText("untouched"));
@@ -2543,4 +2578,32 @@ test("chat scrolling: scrolling up loads older history without moving the view, 
     .first()
     .click();
   await expect(page.getByLabel("Found message")).toBeInViewport({ timeout: 10000 });
+});
+
+test("spaces, portrait: the space's settings open over the list and closing them returns to the space list, not a chat", async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 800 });
+  await login(page);
+  const name = `Space ${Date.now().toString(36)}`;
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New space" }).click();
+  await page.getByRole("dialog").locator("input").fill(name);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  const back = page.getByRole("button", { name: "Back", exact: true });
+  await expect(back).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await expect(page.getByText("Space info", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Access", { exact: true })).toBeVisible();
+  await shot(page, "72-space-settings-portrait");
+  // Back out of the panel: the space's list is on screen, and it is not a chat.
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByText("Access", { exact: true })).toHaveCount(0, { timeout: 5000 });
+  await expect(page.getByText("No rooms in this space yet")).toBeVisible();
+  await expect(page.getByPlaceholder("Message")).toHaveCount(0);
+  // Leaving the space closes it.
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Leave space" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Leave space" }).click();
+  await expect(page.getByText("No rooms in this space yet")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
 });
