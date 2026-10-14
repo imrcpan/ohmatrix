@@ -2,6 +2,11 @@ import { Pressable, Text, View } from "react-native";
 import { fontFamily, Icon, listThemes, SYSTEM_THEME, themeLabel, useTheme, type ThemeDefinition } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 
+/** Card size and gap of the picker; the row holds at most `COLUMNS` of them. */
+const CARD_W = 84;
+const CARD_GAP = 12;
+const COLUMNS = 4;
+
 function Preview({ def }: { def: ThemeDefinition }) {
   const c = def.colors;
   return (
@@ -33,9 +38,9 @@ export function ThemeGrid() {
         accessibilityLabel={label}
         accessibilityState={{ selected: active }}
         onPress={() => controller.setPreferences({ theme: id })}
-        style={{ width: 84, alignItems: "center", gap: 6 }}
+        style={{ width: CARD_W, alignItems: "center", gap: 6 }}
       >
-        <View style={{ width: 84, height: 74, borderRadius: 18, borderWidth: 2.5, padding: 3, borderColor: active ? colors.accent : "transparent" }}>
+        <View style={{ width: CARD_W, height: 74, borderRadius: 18, borderWidth: 2.5, padding: 3, borderColor: active ? colors.accent : "transparent" }}>
           <View style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}>{preview}</View>
           {active && (
             <View
@@ -63,7 +68,18 @@ export function ThemeGrid() {
   };
 
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 12 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: CARD_GAP,
+        padding: CARD_GAP,
+        // At most four cards to a row, however wide the pane is.
+        maxWidth: CARD_W * COLUMNS + CARD_GAP * (COLUMNS - 1) + CARD_GAP * 2,
+        alignSelf: "center",
+      }}
+    >
       {card(
         SYSTEM_THEME,
         t("theme.system"),

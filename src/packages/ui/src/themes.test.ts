@@ -8,7 +8,9 @@ test("mix interpolates colours", () => {
 
 test("built-in themes are registered and complete", () => {
   const ids = listThemes().map((t) => t.id);
-  expect(ids).toEqual(expect.arrayContaining(["light", "dark", "midnight", "ocean", "forest", "sakura"]));
+  expect(ids).toEqual(
+    expect.arrayContaining(["light", "dark", "midnight", "ocean", "forest", "dark-green", "dark-pink", "dark-yellow", "dark-violet", "light-violet", "sakura"]),
+  );
   for (const t of listThemes()) for (const v of Object.values(t.colors)) expect(v).toBeTruthy();
 });
 
