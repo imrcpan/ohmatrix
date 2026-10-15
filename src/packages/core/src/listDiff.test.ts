@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import type { TimelineItem } from "@ohmatrix/core";
-import { diffTimeline } from "./diff.js";
+import type { TimelineItem } from "./types.js";
+import { diffTimeline } from "./listDiff.js";
 
 const it = (id: string, body = id, status: TimelineItem["status"] = "sent", txn?: string): TimelineItem => ({
   id,
@@ -33,8 +33,8 @@ test("pinning a message updates it in place", () => {
   expect(diffTimeline([pinned], [it("1")])).toEqual([{ op: "set", index: 0, item: it("1") }]);
 });
 
-import { reuseRooms } from "./diff.js";
-import type { RoomSummary } from "@ohmatrix/core";
+import { reuseRooms } from "./listDiff.js";
+import type { RoomSummary } from "./types.js";
 
 const room = (id: string, over: Partial<RoomSummary> = {}): RoomSummary => ({
   id,
