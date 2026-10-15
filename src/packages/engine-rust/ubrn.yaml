@@ -1,0 +1,23 @@
+# Builds matrix-rust-sdk's FFI crate (the one Element X uses) into a React Native TurboModule with
+# uniffi-bindgen-react-native. The SDK revision is pinned to the one whose uniffi version (0.31) the bindgen
+# generates for; matrix-sdk 0.19 moved to uniffi 0.32 and does not work with it yet.
+crate:
+  repo: https://github.com/matrix-org/matrix-rust-sdk
+  rev: 1c44fb66214667c6d00acaf72ab592493653708b # matrix-sdk-0.18.0
+  manifestPath: bindings/matrix-sdk-ffi/Cargo.toml
+android:
+  cargoExtras: []
+  directory: android
+  native_bindings_dir: kotlin
+  useSharedLibrary: true
+  jniLibs: src/main/jniLibs
+  # The emulator is x86_64, real phones are arm64; 32-bit ARM is left out.
+  targets:
+    - x86_64
+    - arm64-v8a
+turboModule:
+  cpp: cpp
+  ts: src
+bindings:
+  cpp: cpp/generated
+  ts: src/generated

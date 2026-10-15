@@ -1,0 +1,57 @@
+{
+  "name": "@ohmatrix/engine-rust",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "description": "MatrixEngine for iOS and Android on top of matrix-rust-sdk (through uniffi-bindgen-react-native)",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run",
+    "ubrn": "ubrn"
+  },
+  "dependencies": {
+    "@ohmatrix/core": "workspace:*",
+    "@ubjs/core": "0.31.0-6",
+    "uniffi-bindgen-react-native": "0.31.0-6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "vitest": "^5.0.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "types": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imrcpan/oh-matrix.git",
+    "directory": "src/packages/engine-rust"
+  },
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
+  "codegenConfig": {
+    "name": "EngineRustSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "outputDir": {
+      "ios": "ios/generated",
+      "android": "android/generated"
+    },
+    "android": {
+      "javaPackageName": "com.ohmatrix.enginerust"
+    }
+  },
+  "files": [
+    "src",
+    "android",
+    "ios",
+    "cpp",
+    "EngineRust.podspec",
+    "react-native.config.js",
+    "!**/__tests__",
+    "!**/*.test.ts"
+  ]
+}

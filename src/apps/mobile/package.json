@@ -6,19 +6,27 @@
   "type": "module",
   "scripts": {
     "start": "expo start",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ohmatrix/app": "workspace:*",
     "@ohmatrix/core": "workspace:*",
     "@ohmatrix/engine-mock": "workspace:*",
+    "@ohmatrix/engine-rust": "workspace:*",
     "@ohmatrix/state": "workspace:*",
     "expo": "^57.0.27",
+    "expo-build-properties": "~57.0.22",
+    "expo-crypto": "~57.0.4",
+    "expo-dev-client": "~57.0.20",
+    "expo-file-system": "~57.0.7",
+    "expo-secure-store": "~57.0.4",
     "react": "19.2.3",
     "react-native": "0.86.3"
   },
   "devDependencies": {
-    "@types/react": "~19.2.0"
+    "@types/react": "~19.2.0",
+    "vitest": "^5.0.3"
   },
   "main": "index.ts"
 }

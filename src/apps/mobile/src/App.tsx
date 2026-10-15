@@ -1,29 +1,70 @@
-import { SafeAreaView } from "react-native";
-import type { PlatformServices, Session, SessionStore } from "@ohmatrix/core";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, SafeAreaView, Text, View } from "react-native";
+import * as Crypto from "expo-crypto";
+import { Paths } from "expo-file-system";
+import * as SecureStore from "expo-secure-store";
+import type { MatrixEngine, PlatformServices } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
-import { createAppController } from "@ohmatrix/state";
+import { createAppController, type AppController } from "@ohmatrix/state";
 import { App as SharedApp } from "@ohmatrix/app";
+import { createSessionStore, databasePassphrase, pathOfFileUri } from "./secureStorage.js";
 
-// TODO: replace with Keychain/Keystore storage and the native engine (engine-rust).
-let saved: Session | null = null;
-const sessionStore: SessionStore = {
-  load: async () => saved,
-  save: async (s) => {
-    saved = s;
-  },
-  clear: async () => {
-    saved = null;
-  },
-};
-
+// The session goes in the Android Keystore (iOS Keychain), through expo-secure-store.
+const sessionStore = createSessionStore(SecureStore);
 const services: PlatformServices = { sessionStore };
-const controller = createAppController(new MockEngine(), services);
-void controller.bootstrap();
+
+/**
+ * The engine: matrix-rust-sdk through the native module, or the in-memory mock (EXPO_PUBLIC_ENGINE=mock) for working on
+ * the screens without the native library. The Rust one is loaded only when used, so a build without it still starts.
+ */
+async function createEngine(): Promise<MatrixEngine> {
+  if (process.env["EXPO_PUBLIC_ENGINE"] === "mock") return new MockEngine();
+  const { RustEngine } = await import("@ohmatrix/engine-rust");
+  return new RustEngine({
+    dataDir: pathOfFileUri(Paths.document.uri),
+    cacheDir: pathOfFileUri(Paths.cache.uri),
+    passphrase: () => databasePassphrase(SecureStore, (n) => Crypto.getRandomBytes(n)),
+  });
+}
+
+let started: Promise<AppController> | null = null;
+const controller = () =>
+  (started ??= createEngine().then((engine) => {
+    const c = createAppController(engine, services);
+    void c.bootstrap();
+    return c;
+  }));
+
+function Boot() {
+  const [c, setC] = useState<AppController | null>(null);
+  useEffect(() => {
+    void controller().then(setC);
+  }, []);
+  if (!c)
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  return <SharedApp controller={c} services={services} defaultHomeserver="matrix.org" />;
+}
+
+/** EXPO_PUBLIC_NATIVE_SELFTEST=1: show whether the Rust library loaded, instead of the app. */
+function SelfTest() {
+  const [text, setText] = useState("calling the native module…");
+  useEffect(() => {
+    void import("@ohmatrix/engine-rust")
+      .then((m) => m.nativeSelfTest())
+      .then((r) => setText(`native OK\nmatrix-rust-sdk ${r.sdkGitSha}\ntransaction id ${r.transactionId}`))
+      .catch((e: unknown) => setText(`native FAILED\n${e instanceof Error ? e.message : String(e)}`));
+  }, []);
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <Text style={{ fontSize: 18, textAlign: "center" }}>{text}</Text>
+    </View>
+  );
+}
 
 export function App() {
-  return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <SharedApp controller={controller} services={services} defaultHomeserver="matrix.org" />
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={{ flex: 1 }}>{process.env["EXPO_PUBLIC_NATIVE_SELFTEST"] === "1" ? <SelfTest /> : <Boot />}</SafeAreaView>;
 }

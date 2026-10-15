@@ -8,3 +8,15 @@ build/
 ios/Pods/
 android/.gradle/
 src/dev/synapse/data/
+
+# engine-rust: the pinned matrix-rust-sdk checkout, Rust build output, and what ubrn generates from it
+src/packages/engine-rust/rust_modules/
+src/packages/engine-rust/target/
+src/packages/engine-rust/cpp/
+src/packages/engine-rust/android/
+src/packages/engine-rust/ios/
+src/packages/engine-rust/src/generated/
+src/packages/engine-rust/src/Native*
+src/packages/engine-rust/src/bindings.tsx
+src/packages/engine-rust/EngineRust.podspec
+*.so
