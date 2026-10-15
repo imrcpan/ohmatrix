@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, contentText } from "@ohmatrix/core";
-import { Avatar, Dialog, fontFamily, Icon, IconButton, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
@@ -144,12 +144,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <PageHeader
-        title={title}
-        onBack={props.mode === "overlay" ? close : undefined}
-        backLabel={t("close")}
-        trailing={props.mode === "dock" ? <IconButton icon="close" label={t("close")} color={colors.textSecondary} size={20} onPress={close} /> : undefined}
-      />
+      {/* The same back arrow whether the panel is docked beside the chat or covers the screen. */}
+      <PageHeader title={title} onBack={close} backLabel={t("close")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
         {d && (
           <>
