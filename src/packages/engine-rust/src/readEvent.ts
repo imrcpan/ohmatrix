@@ -1,4 +1,4 @@
-import type { EventItemLike, ItemContent } from "./timelineItem.js";
+import type { EventItemLike, ItemContent, ReplyLike } from "./timelineItem.js";
 import type { MembershipChange, StateChange } from "./serviceText.js";
 
 /**
@@ -54,8 +54,33 @@ function profileOf(p: Tagged | undefined): { name?: string | undefined; avatar?:
   return { name: str(p.inner?.["displayName"]), avatar: str(p.inner?.["avatarUrl"]) };
 }
 
-/** The wording of a `MessageContent`'s body: text-like messages as text, media as their file name. */
-function messageBody(msgType: Tagged): { body: string; formatted?: string | undefined } | null {
+interface MediaSource {
+  url(): string;
+  toJson(): string;
+}
+type Info =
+  | { width?: bigint | number; height?: bigint | number; mimetype?: string; size?: bigint | number; duration?: number; thumbnailSource?: MediaSource }
+  | undefined;
+
+const dims = (info: Info): { width?: number; height?: number } => {
+  const width = num(info?.width);
+  const height = num(info?.height);
+  return { ...(width !== undefined && { width }), ...(height !== undefined && { height }) };
+};
+const num = (v: unknown): number | undefined => (typeof v === "bigint" || typeof v === "number" ? Number(v) : undefined);
+
+/**
+ * What the SDK needs to open a file again, kept as the JSON of its source; only a source that carries keys (the room is
+ * encrypted) needs it, since a plain `mxc://` address says all the rest.
+ */
+function encryptionOf(source: MediaSource | undefined): string | undefined {
+  if (!source) return undefined;
+  const json = source.toJson();
+  return json.includes('"key"') ? json : undefined;
+}
+
+/** A line saying what a message is, for a reply's quote and a chat row. */
+export function messageBody(msgType: Tagged): { body: string; formatted?: string | undefined } | null {
   const c = msgType.inner?.["content"] as Record<string, unknown> | undefined;
   switch (msgType.tag) {
     case "Text":
@@ -64,28 +89,104 @@ function messageBody(msgType: Tagged): { body: string; formatted?: string | unde
       const f = c?.["formatted"] as { body?: string } | undefined;
       return { body: str(c?.["body"]) ?? "", formatted: f?.body };
     }
+    case "Image":
+    case "Video":
+    case "Audio":
+    case "File":
+      return { body: str(c?.["caption"]) ?? str(c?.["filename"]) ?? "" };
     default:
       return null;
   }
+}
+
+/** A media message as our content; `null` for a kind that is not media. */
+function mediaContent(msgType: Tagged): ItemContent | null {
+  const c = msgType.inner?.["content"] as
+    { filename?: string; caption?: string; source?: MediaSource; info?: Info; voice?: unknown; audio?: { duration?: number; waveform?: number[] } } | undefined;
+  if (!c?.source) return null;
+  const url = c.source.url();
+  const info = c.info;
+  const encryption = encryptionOf(c.source);
+  const common = {
+    url,
+    ...(info?.mimetype && { mimeType: info.mimetype }),
+    ...(encryption && { encryption }),
+  };
+  const size = num(info?.size);
+  const name = c.filename ?? c.caption ?? "";
+  switch (msgType.tag) {
+    case "Image":
+      return {
+        type: "image",
+        body: c.caption ?? name,
+        ...common,
+        ...dims(info),
+      };
+    case "Video": {
+      const thumb = info?.thumbnailSource;
+      const thumbEnc = encryptionOf(thumb);
+      return {
+        type: "video",
+        name,
+        ...common,
+        ...(size !== undefined && { size }),
+        ...dims(info),
+        ...(info?.duration !== undefined && { durationMs: Math.round(Number(info.duration)) }),
+        ...(thumb && { thumbnail: { url: thumb.url(), ...(thumbEnc && { encryption: thumbEnc }) } }),
+      };
+    }
+    case "Audio": {
+      const ms = c.audio?.duration ?? info?.duration;
+      return {
+        type: "audio",
+        name,
+        ...common,
+        ...(size !== undefined && { size }),
+        ...(ms !== undefined && { durationMs: Math.round(Number(ms)) }),
+        ...(c.voice ? { voice: true } : {}),
+        ...(c.audio?.waveform?.length ? { waveform: c.audio.waveform } : {}),
+      };
+    }
+    case "File":
+      return { type: "file", name, ...common, ...(size !== undefined && { size }) };
+    default:
+      return null;
+  }
+}
+
+/** The message a reply answers, as far as the SDK has it. */
+function replyOf(r: { eventId(): string; event(): Tagged } | undefined): ReplyLike | undefined {
+  if (!r) return undefined;
+  const eventId = r.eventId();
+  const d = r.event();
+  if (d.tag !== "Ready") return { eventId };
+  const i = d.inner ?? {};
+  const content = i["content"] as Tagged | undefined;
+  const kind = (content?.inner?.["content"] as { kind?: Tagged } | undefined)?.kind;
+  const msgType = (kind?.inner?.["content"] as { msgType?: Tagged } | undefined)?.msgType;
+  const profile = profileOf(i["senderProfile"] as Tagged | undefined);
+  return { eventId, original: { sender: str(i["sender"]) ?? "", senderName: profile.name, body: (msgType && messageBody(msgType)?.body) || "" } };
 }
 
 function itemContent(raw: Tagged): ItemContent {
   switch (raw.tag) {
     case "MsgLike": {
       const msgLike = raw.inner?.["content"] as
-        { kind: Tagged; reactions?: { key: string; senders: { senderId: string }[] }[]; inReplyTo?: unknown } | undefined;
+        { kind: Tagged; reactions?: { key: string; senders: { senderId: string }[] }[]; inReplyTo?: { eventId(): string; event(): Tagged } } | undefined;
       const kind = msgLike?.kind;
       if (kind?.tag === "Message") {
         const message = kind.inner?.["content"] as { msgType: Tagged; isEdited?: boolean } | undefined;
-        const text = message ? messageBody(message.msgType) : null;
-        if (!message || !text) return { type: "unsupported", description: message?.msgType.tag ?? "Message" };
-        return {
-          type: "text",
-          body: text.body,
-          ...(text.formatted && { formattedBody: text.formatted }),
+        if (!message) return { type: "unsupported", description: "Message" };
+        const extras = {
           ...(message.isEdited && { edited: true }),
           reactions: (msgLike?.reactions ?? []).map((r) => ({ key: r.key, senders: r.senders.map((s) => s.senderId) })),
+          ...(msgLike?.inReplyTo && { replyTo: replyOf(msgLike.inReplyTo) }),
         };
+        const media = mediaContent(message.msgType);
+        if (media) return { ...media, ...extras } as ItemContent;
+        const text = ["Image", "Video", "Audio", "File"].includes(message.msgType.tag) ? null : messageBody(message.msgType);
+        if (!text) return { type: "unsupported", description: message.msgType.tag };
+        return { type: "text", body: text.body, ...(text.formatted && { formattedBody: text.formatted }), ...extras };
       }
       if (kind?.tag === "UnableToDecrypt") return { type: "undecryptable" };
       if (kind?.tag === "Redacted") return { type: "redacted" };

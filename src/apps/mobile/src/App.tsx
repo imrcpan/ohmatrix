@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
-import { Paths } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as SecureStore from "expo-secure-store";
 import type { MatrixEngine, PlatformServices } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
@@ -27,6 +27,7 @@ async function createEngine(): Promise<MatrixEngine> {
     dataDir: pathOfFileUri(Paths.document.uri),
     cacheDir: pathOfFileUri(Paths.cache.uri),
     passphrase: () => databasePassphrase(SecureStore, (n) => Crypto.getRandomBytes(n)),
+    readFile: (path) => new File(`file://${path}`).arrayBuffer(),
   });
 }
 

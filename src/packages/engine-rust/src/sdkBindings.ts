@@ -4,15 +4,19 @@
  * what it hands over is read by `readEvent` / `toRoomSummary`, which are.
  */
 import type * as Ffi from "./bindings.js";
-import { readEvent, type RawEvent } from "./readEvent.js";
+import { messageBody, readEvent, type RawEvent } from "./readEvent.js";
+import { toBase64 } from "./base64.js";
 import { toEngineError } from "./errors.js";
 import type { RoomInfoLike } from "./roomSummary.js";
+import type { RawSecurity } from "./security.js";
 import type {
   LatestEvent,
   ListChange,
   Sdk,
   SdkClient,
+  EventRef,
   SdkClientConfig,
+  RawHit,
   RawLevels,
   RawMember,
   RawRoomDetails,
@@ -44,6 +48,8 @@ const powerOf = (p: Ffi.PowerLevel): number => (p.tag === "Value" ? Number((p as
 const task = (h: { cancel(): void } | undefined): SdkTask => ({ cancel: () => h?.cancel() });
 
 export function sdkFromBindings(b: Bindings): Sdk {
+  /** Downloaded files that must stay on disk while the app runs. */
+  const files: Ffi.MediaFileHandleLike[] = [];
   const infoOf = (i: Ffi.RoomInfo): RoomInfoLike => ({
     id: i.id,
     displayName: i.displayName,
@@ -65,6 +71,22 @@ export function sdkFromBindings(b: Bindings): Sdk {
     const e = item.asEvent();
     return e ? { event: readEvent(e as unknown as RawEvent) } : {};
   };
+
+  /** Whether a text has anything in it that markdown would make something of. */
+  const hasMarkdown = (body: string) => /[*_`~#>[\]\\|]|^\s*(\d+[.)]|[-+])\s/m.test(body);
+
+  /**
+   * A message as the markdown it was typed as, with the people it mentions. A plain text is sent plain: an edit of a
+   * message with no formatting would otherwise carry an empty formatted fallback.
+   */
+  const contentOf = (body: string, mentions?: string[]) => {
+    const content = hasMarkdown(body) ? b.messageEventContentFromMarkdown(body) : b.messageEventContentNew(new b.MessageType.Text({ content: { body } }));
+    return mentions?.length ? content.withMentions({ userIds: mentions, room: false }) : content;
+  };
+  const idOf = (ref: EventRef): Ffi.EventOrTransactionId =>
+    ref.eventId !== undefined
+      ? new b.EventOrTransactionId.EventId({ eventId: ref.eventId })
+      : new b.EventOrTransactionId.TransactionId({ transactionId: ref.transactionId });
 
   const timelineOf = (t: Ffi.TimelineLike): SdkTimeline => ({
     async onChanges(cb) {
@@ -92,11 +114,36 @@ export function sdkFromBindings(b: Bindings): Sdk {
       return task(handle);
     },
     paginateBackwards: (count) => call(() => t.paginateBackwards(count)),
-    async sendText(body) {
-      const content = b.messageEventContentNew(new b.MessageType.Text({ content: { body } }));
-      await call(() => t.send(content));
+    async sendText(body, mentions) {
+      await call(() => t.send(contentOf(body, mentions)));
     },
+    reply: (eventId, body, mentions) => call(() => t.sendReply(contentOf(body, mentions), eventId)),
+    edit: (ref, body) => call(() => t.edit(idOf(ref), new b.EditedContent.RoomMessage({ content: contentOf(body) }))),
+    redact: (ref) => call(() => t.redactEvent(idOf(ref), undefined)),
+    react: async (ref, key) => void (await call(() => t.toggleReaction(idOf(ref), key))),
+    pin: async (eventId, pinned) => void (await call(() => (pinned ? t.pinEvent(eventId) : t.unpinEvent(eventId)))),
     markRead: () => call(() => t.markAsRead(b.ReceiptType.Read)),
+    item: async (eventId) => readEvent((await call(() => t.getEventTimelineItemByEventId(eventId))) as unknown as RawEvent),
+    async sendMedia(f) {
+      const params: Ffi.UploadParameters = { source: new b.UploadSource.File({ filename: f.path }) };
+      const dims = {
+        ...(f.width !== undefined && { width: BigInt(Math.round(f.width)) }),
+        ...(f.height !== undefined && { height: BigInt(Math.round(f.height)) }),
+      };
+      const common = { mimetype: f.mimeType, size: BigInt(Math.round(f.size)) };
+      const duration = f.durationMs !== undefined ? { duration: f.durationMs } : {};
+      const handle =
+        f.kind === "image"
+          ? t.sendImage(params, undefined, { ...common, ...dims })
+          : f.kind === "video"
+            ? t.sendVideo(params, undefined, { ...common, ...dims, ...duration })
+            : f.kind === "audio"
+              ? f.voice
+                ? t.sendVoiceMessage(params, { ...common, ...duration }, f.waveform ?? [])
+                : t.sendAudio(params, { ...common, ...duration })
+              : t.sendFile(params, common);
+      await call(() => handle.join());
+    },
   });
 
   const roomOf = (r: Ffi.RoomLike): SdkRoom => ({
@@ -144,6 +191,16 @@ export function sdkFromBindings(b: Bindings): Sdk {
         } as Ffi.RoomPowerLevelChanges),
       );
     },
+    join: () => call(() => r.join()),
+    markRead: async () => {
+      await call(() => r.markAsRead(b.ReceiptType.Read));
+      await call(() => r.setUnreadFlag(false));
+    },
+    setFavourite: (favourite) => call(() => r.setIsFavourite(favourite, undefined)),
+    setUnreadFlag: (unread) => call(() => r.setUnreadFlag(unread)),
+    retrySending: async () => r.enableSendQueue(true),
+    setAvatar: (mimeType, data) => call(() => r.uploadAvatar(mimeType, data, undefined)),
+    sendRaw: (eventType, content) => call(() => r.sendRaw(eventType, content)),
     setJoinRule: (rule) => call(() => r.updateJoinRules(rule === "public" ? new b.JoinRule.Public() : new b.JoinRule.Invite())),
     setHistoryVisibility: (v) =>
       call(() =>
@@ -267,6 +324,103 @@ export function sdkFromBindings(b: Bindings): Sdk {
     async setMuted(roomId, muted) {
       const settings = await call(() => c.getNotificationSettings());
       await call(() => (muted ? settings.setRoomNotificationMode(roomId, b.RoomNotificationMode.Mute) : settings.restoreDefaultRoomNotificationMode(roomId)));
+    },
+    createRoom: (o) =>
+      call(() =>
+        c.createRoom({
+          ...(o.name && { name: o.name }),
+          ...(o.topic !== undefined && { topic: o.topic }),
+          isEncrypted: o.encrypted,
+          isDirect: o.direct,
+          visibility: new b.RoomVisibility.Private(),
+          preset: o.direct ? b.RoomPreset.TrustedPrivateChat : b.RoomPreset.PrivateChat,
+          invite: o.invite,
+          isSpace: o.space,
+        }),
+      ),
+    joinRoom: async (idOrAlias) => (await call(() => c.joinRoomByIdOrAlias(idOrAlias, []))).id(),
+    directRoom: (userId) => c.getDmRoom(userId)?.id(),
+    searchUsers: async (term, limit) => (await call(() => c.searchUsers(term, BigInt(limit)))).results,
+    userProfile: (userId) => call(() => c.getProfile(userId)),
+    setDisplayName: (name) => call(() => c.setDisplayName(name)),
+    setAvatar: (mimeType, data) => call(() => c.uploadAvatar(mimeType, data)),
+    security() {
+      const enc = c.encryption();
+      const recoveryName = ["Unknown", "Enabled", "Disabled", "Incomplete"] as const;
+      return {
+        async read(): Promise<RawSecurity> {
+          const v = enc.verificationState();
+          return {
+            recovery: recoveryName[enc.recoveryState()] ?? "Unknown",
+            verified: v === b.VerificationState.Verified ? true : v === b.VerificationState.Unverified ? false : undefined,
+            backupOnServer: await enc.backupExistsOnServer().catch(() => false),
+          };
+        },
+        onChange(cb) {
+          const handles = [
+            enc.recoveryStateListener({ onUpdate: cb }),
+            enc.verificationStateListener({ onUpdate: cb }),
+            enc.backupStateListener({ onUpdate: cb }),
+          ];
+          return { cancel: () => handles.forEach((h) => h.cancel()) };
+        },
+        async setUp(password) {
+          const progress = { onUpdate: () => {} };
+          try {
+            return await enc.enableRecovery(false, undefined, progress);
+          } catch (first) {
+            // The account may have no cross-signing keys yet, and the server wants the password to make them.
+            const handle = await call(() => enc.resetIdentity());
+            if (!handle) throw toEngineError(first);
+            await call(() => handle.reset(new b.AuthData.Password({ passwordDetails: { identifier: c.userId(), password } })));
+            return await call(() => enc.enableRecovery(false, undefined, progress));
+          }
+        },
+        recover: (recoveryKey) => call(() => enc.recover(recoveryKey)),
+      };
+    },
+    search(term, roomId) {
+      type Hit = { eventId: string; sender: string; senderProfile: Ffi.ProfileDetails; content: Ffi.TimelineItemContent; timestamp: bigint };
+      const hit = (roomId: string, r: Hit): RawHit => {
+        const profile = r.senderProfile as unknown as { tag: string; inner?: { displayName?: string } };
+        const content = r.content as unknown as {
+          tag: string;
+          inner?: { content?: { kind?: { tag: string; inner?: { content?: { msgType?: { tag: string; inner?: { content?: Record<string, unknown> } } } } } } };
+        };
+        const msgType = content.inner?.content?.kind?.inner?.content?.msgType;
+        return {
+          roomId,
+          eventId: r.eventId,
+          sender: r.sender,
+          ...(profile.tag === "Ready" && profile.inner?.displayName && { senderName: profile.inner.displayName }),
+          ts: Number(r.timestamp),
+          text: (msgType && messageBody(msgType)?.body) || "",
+        };
+      };
+      const room = roomId ? c.getRoom(roomId) : undefined;
+      if (roomId && room) {
+        const it = room.searchMessages(term, 20);
+        return { next: async () => (await call(() => it.nextEvents()))?.map((r) => hit(roomId, r)) };
+      }
+      let it: Promise<Ffi.GlobalSearchIteratorLike> | undefined;
+      return {
+        async next() {
+          it ??= call(() => c.searchMessages(term, b.SearchRoomFilter.Rooms, 20));
+          return (await call(async () => (await it)!.nextEvents()))?.map((r) => hit(r.roomId, r.result));
+        },
+      };
+    },
+    async mediaUrl(mxc, o) {
+      const source = o.source ? b.MediaSource.fromJson(o.source) : b.MediaSource.fromUrl(mxc);
+      // A thumbnail comes as bytes and goes into the page as a data address; a whole file is kept on disk by the SDK.
+      if (o.width && o.height && !o.source) {
+        const bytes = await call(() => c.getMediaThumbnail(source, BigInt(o.width ?? 0), BigInt(o.height ?? 0)));
+        return `data:${o.mimeType ?? "image/jpeg"};base64,${toBase64(bytes)}`;
+      }
+      const handle = await call(() => c.getMediaFile(source, undefined, o.mimeType ?? "application/octet-stream", true, undefined));
+      // The file goes away with its handle, so the handles are kept for as long as the client lives.
+      files.push(handle);
+      return `file://${handle.path()}`;
     },
     room: (id) => {
       const r = c.getRoom(id);

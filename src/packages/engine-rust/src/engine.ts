@@ -1,18 +1,27 @@
 import {
   diffTimeline,
   EngineError,
+  resolveHomeserver,
   reuseRooms,
+  type AttachmentSource,
   type AuthApi,
   type HistoryVisibility,
+  type IncomingNotification,
   type MemberRole,
   type PowerThresholds,
   type RoomDetails,
   type ListUpdate,
   type Listener,
   type MatrixEngine,
+  type MediaKind,
+  type MediaOptions,
   type Profile,
   type RoomSummary,
+  type SearchPage,
+  type SecurityState,
   type Session,
+  type SharedMediaPage,
+  type SpaceChild,
   type SyncApi,
   type SyncState,
   type TimelineHandle,
@@ -21,7 +30,14 @@ import {
 } from "@ohmatrix/core";
 import { guard, toEngineError } from "./errors.js";
 import { compareRooms, isListed, toRoomSummary } from "./roomSummary.js";
-import type { LatestEvent, Sdk, SdkClient, SdkRoom, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
+import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
+import { addAlias, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
+import { readStatus, register, writeStatus } from "./account.js";
+import { listDevices, removeDevices, type Account, type Fetch } from "./devices.js";
+import { forwardContent, kindOfMime, pathOf } from "./forward.js";
+import { personName } from "./serviceText.js";
+import type { EventRef, LatestEvent, Sdk, SdkClient, SdkRoom, SdkSearch, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
+import { securityStateOf } from "./security.js";
 import { toRoomDetails } from "./roomDetails.js";
 import { fromSession, toSession } from "./session.js";
 import { toTimelineItem } from "./timelineItem.js";
@@ -35,6 +51,10 @@ export interface RustEngineOptions {
   cacheDir: string;
   /** The passphrase of the database, the same every time (see the app's secure storage). */
   passphrase(): Promise<string>;
+  /** Read a file of the device (a picked picture, for a profile picture). */
+  readFile?(path: string): Promise<ArrayBuffer>;
+  /** For the requests the SDK cannot make (the list of sessions); the platform's `fetch` when not given. */
+  fetch?: Fetch;
 }
 
 /** The name the SDK shows for this device in the list of sessions. */
@@ -45,21 +65,14 @@ const SYNC_STATE: Record<string, SyncState> = { Idle: "stopped", Running: "synci
 /** The power level each role stands for. */
 const ROLE_POWER: Record<MemberRole, number> = { admin: 100, moderator: 50, member: 0 };
 
-const unsupported = (what: string) => new EngineError("unsupported", `${what} is not available in the native engine yet`);
+const unsupported = (what: string) => new EngineError("unsupported", `${what} is not available here`);
 
 /** A subscription that does nothing, for the places the app subscribes at start and a failure would only hide a screen. */
 const noSubscription = (): Unsubscribe => () => {};
 
-/** A method that is not implemented yet: it fails as `unsupported`, so the app can tell and carry on. */
-const unsupportedAsync =
-  (what: string) =>
-  async (..._args: unknown[]): Promise<never> => {
-    throw unsupported(what);
-  };
-
 /**
  * `MatrixEngine` over matrix-rust-sdk. `sdk` is how the SDK is reached: the real bindings in the app
- * (`sdkFromBindings`), a fake in tests. What is not implemented yet fails with `unsupported`, which the app already
+ * (`sdkFromBindings`), a fake in tests. What the platform cannot do fails with `unsupported`, which the app already
  * treats as "this engine cannot do that".
  */
 export class RustEngineCore implements MatrixEngine {
@@ -68,6 +81,8 @@ export class RustEngineCore implements MatrixEngine {
   private tasks: SdkTask[] = [];
   private syncState: SyncState = "stopped";
   private readonly syncListeners = new Set<Listener<SyncState>>();
+  /** Things that look again when the list of chats changes (the pages of spaces). */
+  private readonly listWatchers = new Set<() => void>();
   private readonly roomListeners = new Set<Listener<ListUpdate<RoomSummary>[]>>();
   private readonly profileListeners = new Set<Listener<Profile | null>>();
   private lastProfile: Profile | null = null;
@@ -109,6 +124,12 @@ export class RustEngineCore implements MatrixEngine {
     this.client = null;
     this.rooms_ = new RoomList();
     this.lastProfile = null;
+    for (const g of this.galleries.values()) g.close();
+    this.galleries.clear();
+    this.mediaUrls.clear();
+    this.searches.clear();
+    this.spaceViews.clear();
+    this.noticeListeners.clear();
     this.profileListeners.forEach((cb) => cb(null));
     this.roomListeners.forEach((cb) => cb([{ op: "reset", items: [] }]));
     this.setSync("stopped");
@@ -120,7 +141,13 @@ export class RustEngineCore implements MatrixEngine {
     try {
       const p = await c.profile();
       const id = c.userId();
-      this.lastProfile = { userId: id, displayName: p.displayName || id.replace(/^@/, "").replace(/:.*$/, ""), ...(p.avatarUrl && { avatar: p.avatarUrl }) };
+      const status = await readStatus(this.fetch(), this.account()).catch(() => undefined);
+      this.lastProfile = {
+        userId: id,
+        displayName: p.displayName || id.replace(/^@/, "").replace(/:.*$/, ""),
+        ...(p.avatarUrl && { avatar: p.avatarUrl }),
+        ...(status && { status }),
+      };
       this.profileListeners.forEach((cb) => cb(this.lastProfile));
     } catch {
       /* keep what there was */
@@ -136,9 +163,12 @@ export class RustEngineCore implements MatrixEngine {
         void this.loadProfile();
         return toSession(client.session());
       }),
-    register: async () => {
-      throw unsupported("Registration");
-    },
+    register: (homeserver: string, username: string, password: string) =>
+      guard(async () => {
+        const session = await register(this.fetch(), await resolveHomeserver(homeserver), username, password, DEVICE_NAME);
+        await this.auth.restore(session);
+        return session;
+      }),
     restore: (session: Session) =>
       guard(async () => {
         const client = await this.makeClient(session.homeserver);
@@ -199,7 +229,11 @@ export class RustEngineCore implements MatrixEngine {
         const summary = isListed(info.membership)
           ? toRoomSummary(info, latest.item ? { lastActivityTs: latest.item.timestamp, ...(last && { lastMessage: last }) } : undefined)
           : null;
-        if (this.rooms_.setSummary(room.id(), summary)) this.emitRooms();
+        const before = this.rooms_.get(room.id());
+        if (this.rooms_.setSummary(room.id(), summary)) {
+          if (before && summary) this.notifyOf(before, summary);
+          this.emitRooms();
+        }
       } catch {
         /* the room is gone, or the SDK is not ready: the next change tries again */
       }
@@ -208,10 +242,37 @@ export class RustEngineCore implements MatrixEngine {
     await refresh();
   }
 
+  /** A room whose unread count went up has a new message that should be told of (unless the room is muted). */
+  private notifyOf(before: RoomSummary, now: RoomSummary) {
+    if (now.muted || now.invite || now.unreadCount <= before.unreadCount) return;
+    const last = now.lastMessage;
+    const text =
+      last?.content.kind === "text"
+        ? last.content.body
+        : last?.content.kind === "image"
+          ? last.content.body
+          : last && "name" in last.content
+            ? last.content.name
+            : undefined;
+    const note: IncomingNotification = {
+      eventId: last?.id ?? "",
+      roomId: now.id,
+      roomName: now.name,
+      isDirect: now.isDirect,
+      senderName: last?.senderName ?? "",
+      ...(text && { preview: text }),
+      highlight: now.highlightCount > before.highlightCount,
+    };
+    this.noticeListeners.forEach((cb) => cb(note));
+  }
+
+  private readonly noticeListeners = new Set<Listener<IncomingNotification>>();
+
   private emitRooms() {
     const items = this.rooms_.list();
     const updates: ListUpdate<RoomSummary>[] = [{ op: "reset", items }];
     this.roomListeners.forEach((cb) => cb(updates));
+    this.listWatchers.forEach((w) => w());
   }
 
   readonly rooms = {
@@ -221,20 +282,36 @@ export class RustEngineCore implements MatrixEngine {
       return () => void this.roomListeners.delete(cb);
     },
     leave: (roomId: string) => guard(() => this.room(roomId).leave()),
-    acceptInvite: unsupportedAsync("Accepting an invitation"),
-    declineInvite: unsupportedAsync("Declining an invitation"),
-    setPinned: unsupportedAsync("Pinning a chat"),
-    setMarkedUnread: unsupportedAsync("Marking a chat unread"),
-    markRead: unsupportedAsync("Marking a chat read"),
+    acceptInvite: (roomId: string) => guard(() => this.room(roomId).join()),
+    // Declining is leaving a room one is only invited to.
+    declineInvite: (roomId: string) => guard(() => this.room(roomId).leave()),
+    setPinned: (roomId: string, pinned: boolean) => guard(() => this.room(roomId).setFavourite(pinned)),
+    setMarkedUnread: (roomId: string, unread: boolean) => guard(() => this.room(roomId).setUnreadFlag(unread)),
+    markRead: (roomId: string) => guard(() => this.room(roomId).markRead()),
     setMuted: (roomId: string, muted: boolean) =>
       guard(async () => {
         await this.need().setMuted(roomId, muted);
         this.detailRefreshers.get(roomId)?.forEach((refresh) => refresh());
       }),
-    createDirect: unsupportedAsync("Starting a chat"),
-    createGroup: unsupportedAsync("Creating a group"),
-    createSpace: unsupportedAsync("Creating a space"),
-    joinRoom: unsupportedAsync("Joining a room"),
+    createDirect: (userId: string) =>
+      guard(async () => {
+        const c = this.need();
+        return c.directRoom(userId) ?? (await c.createRoom({ name: "", invite: [userId], encrypted: true, space: false, direct: true }));
+      }),
+    createGroup: (opts: { name: string; invite: string[] }) =>
+      guard(() => this.need().createRoom({ name: opts.name, invite: opts.invite, encrypted: true, space: false, direct: false })),
+    createSpace: (opts: { name: string; topic?: string; invite?: string[] }) =>
+      guard(() =>
+        this.need().createRoom({
+          name: opts.name,
+          ...(opts.topic !== undefined && { topic: opts.topic }),
+          invite: opts.invite ?? [],
+          encrypted: false,
+          space: true,
+          direct: false,
+        }),
+      ),
+    joinRoom: (idOrAlias: string) => guard(() => this.need().joinRoom(idOrAlias.trim())),
     subscribeDetails: (roomId: string, cb: Listener<RoomDetails>): Unsubscribe => {
       const room = this.room(roomId);
       let live = true;
@@ -273,33 +350,199 @@ export class RustEngineCore implements MatrixEngine {
     },
   };
 
+  /** Pictures and files already fetched, by what they were asked for: the same one is often asked for many times. */
+  private readonly mediaUrls = new Map<string, Promise<string>>();
+  /** One timeline per room, kept for the gallery: it reads back further than the chat does. */
+  private readonly galleries = new Map<string, RustTimeline>();
+
   readonly media = {
-    resolve: unsupportedAsync("Pictures"),
-    sharedPage: unsupportedAsync("Shared media"),
-  };
-  readonly messages = { forward: unsupportedAsync("Forwarding") };
-  readonly spaces = {
-    children: unsupportedAsync("Spaces"),
-    subscribe: (..._args: unknown[]): Unsubscribe => noSubscription(),
-    addChild: unsupportedAsync("Spaces"),
-    removeChild: unsupportedAsync("Spaces"),
-    moveChild: unsupportedAsync("Spaces"),
-    candidates: unsupportedAsync("Spaces"),
-  };
-  /** Encryption setup is not wired yet: the app shows no banner and no recovery prompt for "unavailable". */
-  readonly security = {
-    state: async () => "unavailable" as const,
-    onState: (cb: Listener<"unavailable">): Unsubscribe => {
-      cb("unavailable");
-      return noSubscription();
+    resolve: (mxc: string, opts: MediaOptions = {}): Promise<string> => {
+      const key = [mxc, opts.width, opts.height, opts.encryption ? "enc" : ""].join("|");
+      let url = this.mediaUrls.get(key);
+      if (!url) {
+        url = guard(() =>
+          this.need().mediaUrl(mxc, {
+            ...(typeof opts.encryption === "string" && { source: opts.encryption }),
+            ...(opts.width && opts.height && { width: opts.width, height: opts.height }),
+            ...(opts.mimeType && { mimeType: opts.mimeType }),
+          }),
+        );
+        this.mediaUrls.set(key, url);
+        // A failure is not kept: the next ask tries again.
+        url.catch(() => this.mediaUrls.delete(key));
+      }
+      return url;
     },
-    setUp: unsupportedAsync("Encryption setup"),
-    restoreWithRecoveryKey: unsupportedAsync("Recovering encryption keys"),
+    sharedPage: (roomId: string, opts: { kind: MediaKind; from?: string; want?: number }): Promise<SharedMediaPage> =>
+      guard(async () => {
+        let gallery = this.galleries.get(roomId);
+        if (!gallery) {
+          gallery = new RustTimeline(this.room(roomId), roomId, this.need().userId());
+          gallery.subscribe(() => {});
+          this.galleries.set(roomId, gallery);
+        }
+        const want = opts.want ?? 30;
+        const offset = opts.from ? Number(opts.from) || 0 : 0;
+        const found = () =>
+          gallery
+            .current()
+            .filter((i) => i.content.kind === opts.kind)
+            .reverse();
+        await gallery.ready();
+        // Ask the room for more until it has what the page needs (and one more, to know whether there is a next page).
+        for (let n = 0; found().length <= offset + want && !gallery.atStart && n < 40; n++) await gallery.paginateBackwards();
+        const all = found();
+        const more = all.length > offset + want || !gallery.atStart;
+        return { items: all.slice(offset, offset + want), ...(more && { next: String(offset + want) }) };
+      }),
+  };
+  readonly messages = {
+    forward: (p: { fromRoomId: string; eventId: string; toRoomId: string }) =>
+      guard(async () => {
+        const from = new RustTimeline(this.room(p.fromRoomId), p.fromRoomId, this.need().userId());
+        try {
+          const item = await from.item(p.eventId);
+          const content = forwardContent(item);
+          if (!content) throw new EngineError("unsupported", "This message cannot be forwarded");
+          await this.room(p.toRoomId).sendRaw("m.room.message", JSON.stringify(content));
+        } finally {
+          from.close();
+        }
+      }),
+  };
+  /** The pages open on a space, each with the read that brings it up to date. */
+  private readonly spaceViews = new Map<string, Set<() => void>>();
+
+  private refreshSpace(spaceId: string) {
+    this.spaceViews.get(spaceId)?.forEach((refresh) => refresh());
+  }
+
+  private async childrenOf(spaceId: string): Promise<SpaceChild[]> {
+    const kids = await readChildren(this.fetch(), this.account(), spaceId);
+    return kids.map((k) => toSpaceChild(k, this.rooms_.get(k.roomId)));
+  }
+
+  readonly spaces = {
+    children: (spaceId: string) => guard(() => this.childrenOf(spaceId)),
+    subscribe: (spaceId: string, cb: Listener<SpaceChild[]>): Unsubscribe => {
+      let live = true;
+      let busy = false;
+      let again = false;
+      const refresh = () => {
+        if (busy) {
+          again = true;
+          return;
+        }
+        busy = true;
+        void (async () => {
+          try {
+            do {
+              again = false;
+              const kids = await this.childrenOf(spaceId);
+              if (live) cb(kids);
+            } while (again && live);
+          } catch {
+            /* the server could not be reached: the next change tries again */
+          } finally {
+            busy = false;
+          }
+        })();
+      };
+      const views = this.spaceViews.get(spaceId) ?? new Set<() => void>();
+      views.add(refresh);
+      this.spaceViews.set(spaceId, views);
+      // Names and counts are in my own list, so a change of the list is a reason to look again.
+      this.listWatchers.add(refresh);
+      refresh();
+      return () => {
+        live = false;
+        views.delete(refresh);
+        this.listWatchers.delete(refresh);
+      };
+    },
+    addChild: (spaceId: string, roomId: string, via?: string) =>
+      guard(async () => {
+        const f = this.fetch();
+        const a = this.account();
+        const domain = via ?? a.userId.split(":").slice(1).join(":");
+        const order = orderFor(await readChildren(f, a, spaceId), roomId, "last");
+        await putState(f, a, spaceId, "m.space.child", roomId, { order, via: [domain] });
+        // The child records its parent too, so clients can nest it in a tree without reading the space.
+        await putState(f, a, roomId, "m.space.parent", spaceId, { via: [domain] }).catch(() => {});
+        this.refreshSpace(spaceId);
+      }),
+    removeChild: (spaceId: string, roomId: string) =>
+      guard(async () => {
+        const f = this.fetch();
+        const a = this.account();
+        await putState(f, a, spaceId, "m.space.child", roomId, {});
+        await putState(f, a, roomId, "m.space.parent", spaceId, {}).catch(() => {});
+        this.refreshSpace(spaceId);
+      }),
+    moveChild: (spaceId: string, roomId: string, to: "first" | "last") =>
+      guard(async () => {
+        const f = this.fetch();
+        const a = this.account();
+        const kids = await readChildren(f, a, spaceId);
+        const current = kids.find((k) => k.roomId === roomId);
+        if (!current) throw new EngineError("not_found", `${roomId} is not in the space`);
+        await putState(f, a, spaceId, "m.space.child", roomId, { order: orderFor(kids, roomId, to), via: current.via });
+        this.refreshSpace(spaceId);
+      }),
+    candidates: (spaceId: string) =>
+      guard(async () => {
+        const inSpace = new Set((await readChildren(this.fetch(), this.account(), spaceId)).map((k) => k.roomId));
+        return this.rooms_
+          .list()
+          .filter((r) => !r.invite && !r.isSpace && !r.isDirect && !inSpace.has(r.id))
+          .map((r): SpaceChild => ({
+            roomId: r.id,
+            name: r.name,
+            ...(r.avatar && { avatar: r.avatar }),
+            isSpace: false,
+            unreadCount: r.unreadCount,
+            highlightCount: r.highlightCount,
+          }))
+          .sort((x, y) => x.name.localeCompare(y.name));
+      }),
+  };
+  readonly security = {
+    state: (): Promise<SecurityState> => guard(async () => (this.client ? securityStateOf(await this.client.security().read()) : "unavailable")),
+    onState: (cb: Listener<SecurityState>): Unsubscribe => {
+      const c = this.client;
+      if (!c) {
+        cb("unavailable");
+        return noSubscription();
+      }
+      const security = c.security();
+      let live = true;
+      let last: SecurityState | null = null;
+      const look = () =>
+        void security
+          .read()
+          .then((raw) => {
+            const state = securityStateOf(raw);
+            if (live && state !== last) cb((last = state));
+          })
+          .catch(() => {});
+      const task = security.onChange(look);
+      look();
+      return () => {
+        live = false;
+        task.cancel();
+      };
+    },
+    setUp: (opts: { password: string }) => guard(async () => ({ recoveryKey: await this.need().security().setUp(opts.password) })),
+    restoreWithRecoveryKey: (key: string) => guard(() => this.need().security().recover(key.trim())),
   };
   readonly roomAdmin = {
     setName: (roomId: string, name: string) => guard(() => this.room(roomId).setName(name)),
     setTopic: (roomId: string, topic: string) => guard(() => this.room(roomId).setTopic(topic)),
-    setAvatar: unsupportedAsync("Room pictures"),
+    setAvatar: (roomId: string, file: AttachmentSource) =>
+      guard(async () => {
+        const room = this.room(roomId);
+        await room.setAvatar(file.mimeType, await this.read(file));
+      }),
     invite: (roomId: string, userIds: string[]) =>
       guard(async () => {
         const room = this.room(roomId);
@@ -326,14 +569,70 @@ export class RustEngineCore implements MatrixEngine {
     unban: (roomId: string, userId: string) => guard(() => this.room(roomId).unban(userId)),
     setHistoryVisibility: (roomId: string, visibility: HistoryVisibility) => guard(() => this.room(roomId).setHistoryVisibility(visibility)),
     setJoinRule: (roomId: string, rule: "public" | "invite") => guard(() => this.room(roomId).setJoinRule(rule)),
-    addAlias: unsupportedAsync("Room addresses"),
-    removeAlias: unsupportedAsync("Room addresses"),
-    setMainAlias: unsupportedAsync("Room addresses"),
+    addAlias: (roomId: string, localpart: string) => guard(async () => addAlias(this.fetch(), this.account(), roomId, localpart, await this.aliasesOf(roomId))),
+    removeAlias: (roomId: string, alias: string) => guard(async () => removeAlias(this.fetch(), this.account(), roomId, alias, await this.aliasesOf(roomId))),
+    setMainAlias: (roomId: string, alias: string) => guard(async () => setMainAlias(this.fetch(), this.account(), roomId, alias, await this.aliasesOf(roomId))),
   };
-  readonly search = { messages: unsupportedAsync("Search") };
-  readonly devices = { list: unsupportedAsync("Sessions"), remove: unsupportedAsync("Sessions") };
-  readonly users = { search: unsupportedAsync("Finding people") };
-  readonly notifications = { subscribe: (..._args: unknown[]): Unsubscribe => noSubscription() };
+  private readonly searches = new Map<string, SdkSearch>();
+  private searchCount = 0;
+
+  readonly search = {
+    messages: (o: { term: string; roomId?: string; from?: string }): Promise<SearchPage> =>
+      guard(async () => {
+        const known = o.from ? this.searches.get(o.from) : undefined;
+        if (o.from && !known) return { results: [], localRooms: 0 };
+        const search = known ?? this.need().search(o.term.trim(), o.roomId);
+        const hits = (await search.next()) ?? [];
+        let next: string | undefined;
+        if (hits.length) {
+          next = o.from ?? `s${++this.searchCount}`;
+          this.searches.set(next, search);
+          // Only the latest few searches are kept.
+          for (const old of [...this.searches.keys()].slice(0, -12)) this.searches.delete(old);
+        } else if (o.from) this.searches.delete(o.from);
+        const results = hits.map((h) => ({
+          eventId: h.eventId,
+          roomId: h.roomId,
+          roomName: this.rooms_.name(h.roomId),
+          sender: h.sender,
+          senderName: personName(h.senderName, h.sender),
+          ts: h.ts,
+          text: h.text,
+          local: false,
+        }));
+        return { results, ...(next && { next }), localRooms: 0 };
+      }),
+  };
+  readonly devices = {
+    list: () => guard(() => listDevices(this.fetch(), this.account())),
+    remove: (ids: string[], password: string) => guard(() => removeDevices(this.fetch(), this.account(), ids, password)),
+  };
+  readonly users = {
+    search: (term: string) =>
+      guard(async () => {
+        const c = this.need();
+        const me = c.userId();
+        const q = term.trim();
+        if (!q) return [];
+        const found = (await c.searchUsers(q, 20)).filter((p) => p.userId !== me);
+        // A complete user id the directory does not list is looked up directly, so anyone on the network can be reached.
+        if (/^@[^:\s]+:[^\s]+$/.test(q) && q !== me && !found.some((p) => p.userId === q)) {
+          const p = await c.userProfile(q).catch(() => undefined);
+          if (p) found.unshift(p);
+        }
+        return found.map((p) => ({
+          userId: p.userId,
+          displayName: p.displayName || p.userId.replace(/^@/, "").replace(/:.*$/, ""),
+          ...(p.avatarUrl && { avatar: p.avatarUrl }),
+        }));
+      }),
+  };
+  readonly notifications = {
+    subscribe: (cb: Listener<IncomingNotification>): Unsubscribe => {
+      this.noticeListeners.add(cb);
+      return () => void this.noticeListeners.delete(cb);
+    },
+  };
 
   // ---- everything else -------------------------------------------------------------------------------------------
 
@@ -343,16 +642,45 @@ export class RustEngineCore implements MatrixEngine {
       cb(this.lastProfile);
       return () => void this.profileListeners.delete(cb);
     },
-    setDisplayName: async () => {
-      throw unsupported("Changing the name");
-    },
-    setAvatar: async () => {
-      throw unsupported("Changing the photo");
-    },
-    setStatus: async () => {
-      throw unsupported("The status line");
-    },
+    setDisplayName: (name: string) =>
+      guard(async () => {
+        await this.need().setDisplayName(name);
+        await this.loadProfile();
+      }),
+    setAvatar: (file: AttachmentSource) =>
+      guard(async () => {
+        await this.need().setAvatar(file.mimeType, await this.read(file));
+        await this.loadProfile();
+      }),
+    setStatus: (status: string) =>
+      guard(async () => {
+        await writeStatus(this.fetch(), this.account(), status);
+        await this.loadProfile();
+      }),
   };
+
+  /** The addresses a room lists now. */
+  private async aliasesOf(roomId: string): Promise<Aliases> {
+    const d = await this.room(roomId).details();
+    return { main: d.canonicalAlias, others: d.alternativeAliases };
+  }
+
+  private fetch(): Fetch {
+    return this.options.fetch ?? ((url, init) => globalThis.fetch(url, init));
+  }
+
+  /** Who I am to the homeserver, for the few requests the SDK has no call for. */
+  private account(): Account {
+    const s = this.need().session();
+    return { homeserverUrl: s.homeserverUrl, accessToken: s.accessToken, userId: s.userId, deviceId: s.deviceId };
+  }
+
+  /** The bytes of a picked file. */
+  private async read(file: AttachmentSource): Promise<ArrayBuffer> {
+    if (file.data instanceof ArrayBuffer) return file.data;
+    if (!this.options.readFile) throw unsupported("Reading files");
+    return this.options.readFile(pathOf(file.data));
+  }
 
   private room(roomId: string): SdkRoom {
     const room = this.need().room(roomId);
@@ -385,6 +713,16 @@ class RoomList {
     const now = new Set(this.order.map((r) => r.id()));
     for (const id of [...this.summaries.keys()]) if (!now.has(id)) this.summaries.delete(id);
     return this.order.filter((r) => !before.has(r.id()));
+  }
+
+  /** A room's summary, when it is listed. */
+  get(id: string): RoomSummary | undefined {
+    return this.summaries.get(id);
+  }
+
+  /** The name a room is listed by (its id when it is not known). */
+  name(id: string): string {
+    return this.summaries.get(id)?.name ?? id;
   }
 
   /** Remember a room's summary (null: it is not listed). Returns whether the list changed. */
@@ -456,8 +794,19 @@ class RustTimeline implements TimelineHandle {
     return () => void this.listeners.delete(cb);
   }
 
-  paginateBackwards = () => guard(async () => void (await (await this.timeline).paginateBackwards(30)));
-  sendText = (body: string) => guard(async () => (await this.timeline).sendText(body));
+  /** The start of the room has been read. */
+  atStart = false;
+  paginateBackwards = () =>
+    guard(async () => {
+      this.atStart = await (await this.timeline).paginateBackwards(30);
+    });
+  /** The items as they are now. */
+  current = (): TimelineItem[] => this.items;
+  /** Resolves when the timeline has been opened and its first batch has arrived. */
+  ready = () => this.task!.then(() => {});
+  /** An event of this room, as the chat shows it; `item` rather than `TimelineItem`, since a forward needs what the chat drops. */
+  item = (eventId: string) => guard(async () => (await this.timeline).item(eventId));
+  sendText = (body: string, mentions?: string[]) => guard(async () => (await this.timeline).sendText(body, mentions));
   markRead = () => guard(async () => (await this.timeline).markRead());
 
   setTyping(typing: boolean) {
@@ -470,29 +819,37 @@ class RustTimeline implements TimelineHandle {
     return () => this.typingTask?.cancel();
   }
 
-  edit = async () => {
-    throw unsupported("Editing");
-  };
-  redact = async () => {
-    throw unsupported("Deleting");
-  };
-  sendAttachment = async () => {
-    throw unsupported("Sending files");
-  };
-  cancelUpload = () => {};
-  resend = async () => {
-    throw unsupported("Sending again");
-  };
-  discard = () => {};
-  reply = async () => {
-    throw unsupported("Replying");
-  };
-  pin = async () => {
-    throw unsupported("Pinning");
-  };
-  react = async () => {
-    throw unsupported("Reactions");
-  };
+  /** Which id an item answers to: a message the server has by its event id, one that is still local by its transaction id. */
+  private refOf(id: string): EventRef {
+    const item = this.items.find((i) => i.id === id);
+    return item && item.status !== "sent" && item.transactionId ? { transactionId: item.transactionId } : { eventId: id };
+  }
+
+  edit = (eventId: string, body: string) => guard(async () => (await this.timeline).edit(this.refOf(eventId), body));
+  redact = (eventId: string) => guard(async () => (await this.timeline).redact(this.refOf(eventId)));
+  sendAttachment = (file: AttachmentSource) =>
+    guard(async () =>
+      (await this.timeline).sendMedia({
+        kind: kindOfMime(file.mimeType),
+        path: pathOf(file.data),
+        name: file.name,
+        mimeType: file.mimeType,
+        size: file.size,
+        ...(file.width !== undefined && { width: file.width }),
+        ...(file.height !== undefined && { height: file.height }),
+        ...(file.durationMs !== undefined && { durationMs: file.durationMs }),
+        ...(file.waveform && { waveform: file.waveform }),
+        ...(file.voice && { voice: true }),
+      }),
+    );
+  // Dismissing a local echo of an upload stops the upload.
+  cancelUpload = (id: string) => void this.redact(id).catch(() => {});
+  // The SDK keeps a failed message in the room's send queue and sends it again when the queue is switched on.
+  resend = (_id: string) => guard(() => this.room.retrySending());
+  discard = (id: string) => void this.redact(id).catch(() => {});
+  reply = (eventId: string, body: string, mentions?: string[]) => guard(async () => (await this.timeline).reply(eventId, body, mentions));
+  pin = (eventId: string, pinned: boolean) => guard(async () => (await this.timeline).pin(eventId, pinned));
+  react = (eventId: string, key: string) => guard(async () => (await this.timeline).react(this.refOf(eventId), key));
 
   close() {
     this.closed = true;
