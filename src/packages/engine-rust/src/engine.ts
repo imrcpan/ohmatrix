@@ -67,9 +67,6 @@ const ROLE_POWER: Record<MemberRole, number> = { admin: 100, moderator: 50, memb
 
 const unsupported = (what: string) => new EngineError("unsupported", `${what} is not available here`);
 
-/** A subscription that does nothing, for the places the app subscribes at start and a failure would only hide a screen. */
-const noSubscription = (): Unsubscribe => () => {};
-
 /**
  * `MatrixEngine` over matrix-rust-sdk. `sdk` is how the SDK is reached: the real bindings in the app
  * (`sdkFromBindings`), a fake in tests. What the platform cannot do fails with `unsupported`, which the app already
@@ -129,7 +126,9 @@ export class RustEngineCore implements MatrixEngine {
     this.mediaUrls.clear();
     this.searches.clear();
     this.spaceViews.clear();
-    this.noticeListeners.clear();
+    this.securityTask?.cancel();
+    this.securityTask = null;
+    this.setSecurity("unavailable");
     this.profileListeners.forEach((cb) => cb(null));
     this.roomListeners.forEach((cb) => cb([{ op: "reset", items: [] }]));
     this.setSync("stopped");
@@ -161,6 +160,7 @@ export class RustEngineCore implements MatrixEngine {
         await client.login(username, password, DEVICE_NAME);
         this.client = client;
         void this.loadProfile();
+        this.watchSecurity();
         return toSession(client.session());
       }),
     register: (homeserver: string, username: string, password: string) =>
@@ -175,6 +175,7 @@ export class RustEngineCore implements MatrixEngine {
         await client.restore(fromSession(session, this.sdk.defaultSlidingSync));
         this.client = client;
         void this.loadProfile();
+        this.watchSecurity();
       }),
     logout: () =>
       guard(async () => {
@@ -410,6 +411,30 @@ export class RustEngineCore implements MatrixEngine {
         }
       }),
   };
+  private readonly securityListeners = new Set<Listener<SecurityState>>();
+  private lastSecurity: SecurityState = "unavailable";
+  private securityTask: SdkTask | null = null;
+
+  private setSecurity(state: SecurityState) {
+    if (state === this.lastSecurity) return;
+    this.lastSecurity = state;
+    this.securityListeners.forEach((cb) => cb(state));
+  }
+
+  /** Follow the signed-in client's encryption state (once per client). */
+  private watchSecurity() {
+    const c = this.client;
+    if (!c || this.securityTask || !this.securityListeners.size) return;
+    const security = c.security();
+    const look = () =>
+      void security
+        .read()
+        .then((raw) => this.client === c && this.setSecurity(securityStateOf(raw)))
+        .catch(() => {});
+    this.securityTask = security.onChange(look);
+    look();
+  }
+
   /** The pages open on a space, each with the read that brings it up to date. */
   private readonly spaceViews = new Map<string, Set<() => void>>();
 
@@ -509,28 +534,11 @@ export class RustEngineCore implements MatrixEngine {
   readonly security = {
     state: (): Promise<SecurityState> => guard(async () => (this.client ? securityStateOf(await this.client.security().read()) : "unavailable")),
     onState: (cb: Listener<SecurityState>): Unsubscribe => {
-      const c = this.client;
-      if (!c) {
-        cb("unavailable");
-        return noSubscription();
-      }
-      const security = c.security();
-      let live = true;
-      let last: SecurityState | null = null;
-      const look = () =>
-        void security
-          .read()
-          .then((raw) => {
-            const state = securityStateOf(raw);
-            if (live && state !== last) cb((last = state));
-          })
-          .catch(() => {});
-      const task = security.onChange(look);
-      look();
-      return () => {
-        live = false;
-        task.cancel();
-      };
+      // The app subscribes before anyone has signed in; the state follows the client that signs in later.
+      this.securityListeners.add(cb);
+      cb(this.lastSecurity);
+      this.watchSecurity();
+      return () => void this.securityListeners.delete(cb);
     },
     setUp: (opts: { password: string }) => guard(async () => ({ recoveryKey: await this.need().security().setUp(opts.password) })),
     restoreWithRecoveryKey: (key: string) => guard(() => this.need().security().recover(key.trim())),

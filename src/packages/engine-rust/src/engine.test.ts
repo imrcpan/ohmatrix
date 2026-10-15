@@ -887,29 +887,30 @@ test("a new unread message is told of once, unless the room is muted or it is th
   expect(told).toHaveLength(1);
 });
 
-test("the encryption state is told when it is first known and whenever it changes, and the two actions go to the SDK", async () => {
+test("the encryption state follows the client that signs in later, and goes back to unavailable on sign-out", async () => {
   const { engine, client } = make();
   const seen: string[] = [];
-  const stop0 = engine.security.onState((s) => seen.push(s));
-  expect(seen).toEqual(["unavailable"]);
-  stop0();
-  await engine.auth.loginWithPassword("http://s", "a", "p");
-  seen.length = 0;
-  expect(await engine.security.state()).toBe("unavailable");
+  // The app subscribes before anyone has signed in.
   const stop = engine.security.onState((s) => seen.push(s));
-  await tickMany();
   expect(seen).toEqual(["unavailable"]);
   client.secure = { recovery: "Enabled", verified: false, backupOnServer: true };
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  await tickMany();
+  expect(seen).toEqual(["unavailable", "needs_recovery"]);
+  client.secure = { recovery: "Enabled", verified: true, backupOnServer: true };
   client.secureCb?.();
   client.secureCb?.();
   await tickMany();
-  expect(seen).toEqual(["unavailable", "needs_recovery"]);
+  expect(seen).toEqual(["unavailable", "needs_recovery", "ready"]);
+  expect(await engine.security.state()).toBe("ready");
   expect(await engine.security.setUp({ password: "pw" })).toEqual({ recoveryKey: "EsTc 1234" });
   await engine.security.restoreWithRecoveryKey("  key  ");
   expect(client.secureCalls).toEqual([
     ["setUp", "pw"],
     ["recover", "key"],
   ]);
-  stop();
+  await engine.auth.logout();
+  expect(seen.at(-1)).toBe("unavailable");
   expect(client.secureCb).toBeNull();
+  stop();
 });
