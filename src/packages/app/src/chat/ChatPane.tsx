@@ -17,6 +17,7 @@ import { useAttachments } from "./useAttachments.js";
 import { useComposer } from "./useComposer.js";
 import { useNewWhileAway } from "./useNewWhileAway.js";
 import { useReveal } from "./useReveal.js";
+import { useBackHandler } from "../useBackHandler.js";
 import { useRoomTimeline } from "./useRoomTimeline.js";
 import { useRowWindow } from "./useRowWindow.js";
 import { useRowActions } from "./useRowActions.js";
@@ -47,6 +48,15 @@ function Chat(props: ChatPaneProps) {
   const win = useRowWindow(allRows, ready);
   const rows = win.rows;
   const [searching, setSearching] = useState(false);
+  // Back closes the search bar before it leaves the chat.
+  useBackHandler(
+    searching
+      ? () => {
+          setSearching(false);
+          return true;
+        }
+      : null,
+  );
   const [forwarding, setForwarding] = useState<TimelineItem | null>(null);
 
   // A message that is loaded but not drawn yet is drawn before the list goes to it.

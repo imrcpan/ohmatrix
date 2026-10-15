@@ -3,11 +3,19 @@ import { ScaleProvider, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui"
 import type { ReactNode } from "react";
 import type { PlatformServices } from "@ohmatrix/core";
 import type { AppController } from "@ohmatrix/state";
-import { AppProviders, useAppState } from "./context.js";
+import { AppProviders, useAppState, useController } from "./context.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LoginScreen } from "./LoginScreen.js";
 import { MainScreen } from "./MainScreen.js";
 import { NotificationsBridge } from "./NotificationsBridge.js";
+import { useBackHandler } from "./useBackHandler.js";
+
+/** The platform's back closes the topmost layer of the app, and only leaves the app when there is none. */
+function BackBridge() {
+  const controller = useController();
+  useBackHandler(() => controller.back());
+  return null;
+}
 
 function Root(props: { defaultHomeserver: string }) {
   const { colors } = useTheme();
@@ -16,6 +24,7 @@ function Root(props: { defaultHomeserver: string }) {
     return (
       <>
         <NotificationsBridge />
+        <BackBridge />
         <MainScreen />
       </>
     );
