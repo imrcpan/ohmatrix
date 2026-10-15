@@ -1,4 +1,5 @@
-import type { ListUpdate, RoomSummary, TimelineItem } from "@ohmatrix/core";
+import type { ListUpdate } from "./diff.js";
+import type { RoomSummary, TimelineItem } from "./types.js";
 
 const key = (i: TimelineItem) => i.transactionId ?? i.id;
 
