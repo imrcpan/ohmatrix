@@ -52,12 +52,13 @@ import {
   type TimelineHandle,
   type TimelineItem,
   diffTimeline,
+  resolveHomeserver,
   reuseRooms,
 } from "@ohmatrix/core";
 import { nameOf, notificationPreview, pinnedIds, roomItems, stripReplyFallback, toRoomSummary, toTimelineItem, typingNames, firstUrls } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { probeMedia, type Probe } from "./probe.js";
-import { resolveHomeserver } from "./discovery.js";
+
 import { aliasLocalpart, thresholdsOf } from "./roomSettings.js";
 import { childRooms, isDirectRoom } from "./spaces.js";
 import { mediaKindOf } from "./sharedMedia.js";
