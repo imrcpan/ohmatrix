@@ -3,6 +3,10 @@ import {
   EngineError,
   reuseRooms,
   type AuthApi,
+  type HistoryVisibility,
+  type MemberRole,
+  type PowerThresholds,
+  type RoomDetails,
   type ListUpdate,
   type Listener,
   type MatrixEngine,
@@ -18,6 +22,7 @@ import {
 import { guard, toEngineError } from "./errors.js";
 import { compareRooms, isListed, toRoomSummary } from "./roomSummary.js";
 import type { LatestEvent, Sdk, SdkClient, SdkRoom, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
+import { toRoomDetails } from "./roomDetails.js";
 import { fromSession, toSession } from "./session.js";
 import { toTimelineItem } from "./timelineItem.js";
 import { fromSdkDiff, fromVectorDiff, type VectorDiff } from "./vectorDiff.js";
@@ -36,6 +41,9 @@ export interface RustEngineOptions {
 const DEVICE_NAME = "OhMatrix Android";
 
 const SYNC_STATE: Record<string, SyncState> = { Idle: "stopped", Running: "syncing", Terminated: "stopped", Error: "error", Offline: "connecting" };
+
+/** The power level each role stands for. */
+const ROLE_POWER: Record<MemberRole, number> = { admin: 100, moderator: 50, member: 0 };
 
 const unsupported = (what: string) => new EngineError("unsupported", `${what} is not available in the native engine yet`);
 
@@ -63,6 +71,8 @@ export class RustEngineCore implements MatrixEngine {
   private readonly roomListeners = new Set<Listener<ListUpdate<RoomSummary>[]>>();
   private readonly profileListeners = new Set<Listener<Profile | null>>();
   private lastProfile: Profile | null = null;
+  /** Re-reads of the open chat-info pages, keyed by room: muting is a notification setting, so the room does not announce it. */
+  private readonly detailRefreshers = new Map<string, Set<() => void>>();
   private rooms_ = new RoomList();
   private roomsTask: (SdkTask & { loadMore(): void }) | null = null;
 
@@ -210,21 +220,57 @@ export class RustEngineCore implements MatrixEngine {
       cb([{ op: "reset", items: this.rooms_.list() }]);
       return () => void this.roomListeners.delete(cb);
     },
-    leave: async (roomId: string) => {
-      void roomId;
-      throw unsupported("Leaving a room");
-    },
+    leave: (roomId: string) => guard(() => this.room(roomId).leave()),
     acceptInvite: unsupportedAsync("Accepting an invitation"),
     declineInvite: unsupportedAsync("Declining an invitation"),
     setPinned: unsupportedAsync("Pinning a chat"),
     setMarkedUnread: unsupportedAsync("Marking a chat unread"),
     markRead: unsupportedAsync("Marking a chat read"),
-    setMuted: unsupportedAsync("Muting a chat"),
+    setMuted: (roomId: string, muted: boolean) =>
+      guard(async () => {
+        await this.need().setMuted(roomId, muted);
+        this.detailRefreshers.get(roomId)?.forEach((refresh) => refresh());
+      }),
     createDirect: unsupportedAsync("Starting a chat"),
     createGroup: unsupportedAsync("Creating a group"),
     createSpace: unsupportedAsync("Creating a space"),
     joinRoom: unsupportedAsync("Joining a room"),
-    subscribeDetails: (..._args: unknown[]): Unsubscribe => noSubscription(),
+    subscribeDetails: (roomId: string, cb: Listener<RoomDetails>): Unsubscribe => {
+      const room = this.room(roomId);
+      let live = true;
+      let busy = false;
+      let again = false;
+      // Changes arrive in bursts (a member joins: info, members, levels); one read at a time, and one more after it.
+      const refresh = async () => {
+        if (busy) {
+          again = true;
+          return;
+        }
+        busy = true;
+        try {
+          do {
+            again = false;
+            const details = toRoomDetails(await room.details());
+            if (live) cb(details);
+          } while (again && live);
+        } catch {
+          /* the room is gone, or the SDK is not ready: the next change tries again */
+        } finally {
+          busy = false;
+        }
+      };
+      const task = room.onInfo(() => void refresh());
+      const nudge = () => void refresh();
+      const set = this.detailRefreshers.get(roomId) ?? new Set<() => void>();
+      set.add(nudge);
+      this.detailRefreshers.set(roomId, set);
+      void refresh();
+      return () => {
+        live = false;
+        set.delete(nudge);
+        task.cancel();
+      };
+    },
   };
 
   readonly media = {
@@ -251,18 +297,35 @@ export class RustEngineCore implements MatrixEngine {
     restoreWithRecoveryKey: unsupportedAsync("Recovering encryption keys"),
   };
   readonly roomAdmin = {
-    setName: unsupportedAsync("Room settings"),
-    setTopic: unsupportedAsync("Room settings"),
-    setAvatar: unsupportedAsync("Room settings"),
-    invite: unsupportedAsync("Inviting"),
-    kick: unsupportedAsync("Removing people"),
-    setRole: unsupportedAsync("Roles"),
-    setPower: unsupportedAsync("Roles"),
-    setThresholds: unsupportedAsync("Room settings"),
-    ban: unsupportedAsync("Banning"),
-    unban: unsupportedAsync("Banning"),
-    setHistoryVisibility: unsupportedAsync("Room settings"),
-    setJoinRule: unsupportedAsync("Room settings"),
+    setName: (roomId: string, name: string) => guard(() => this.room(roomId).setName(name)),
+    setTopic: (roomId: string, topic: string) => guard(() => this.room(roomId).setTopic(topic)),
+    setAvatar: unsupportedAsync("Room pictures"),
+    invite: (roomId: string, userIds: string[]) =>
+      guard(async () => {
+        const room = this.room(roomId);
+        for (const id of userIds) await room.invite(id);
+      }),
+    kick: (roomId: string, userId: string) => guard(() => this.room(roomId).kick(userId)),
+    setRole: (roomId: string, userId: string, role: MemberRole) => guard(() => this.room(roomId).setPower(userId, ROLE_POWER[role])),
+    setPower: (roomId: string, userId: string, level: number) => guard(() => this.room(roomId).setPower(userId, level)),
+    setThresholds: (roomId: string, patch: Partial<PowerThresholds>) =>
+      guard(async () => {
+        const room = this.room(roomId);
+        // Changing settings and changing levels share the SDK's state default, so the two cannot differ here.
+        const state = patch.changeSettings ?? patch.changeLevels;
+        await room.setLevels({
+          ...(patch.invite !== undefined && { invite: patch.invite }),
+          ...(patch.kick !== undefined && { kick: patch.kick }),
+          ...(patch.ban !== undefined && { ban: patch.ban }),
+          ...(patch.redact !== undefined && { redact: patch.redact }),
+          ...(patch.sendMessages !== undefined && { eventsDefault: patch.sendMessages }),
+          ...(state !== undefined && { stateDefault: state }),
+        });
+      }),
+    ban: (roomId: string, userId: string, reason?: string) => guard(() => this.room(roomId).ban(userId, reason)),
+    unban: (roomId: string, userId: string) => guard(() => this.room(roomId).unban(userId)),
+    setHistoryVisibility: (roomId: string, visibility: HistoryVisibility) => guard(() => this.room(roomId).setHistoryVisibility(visibility)),
+    setJoinRule: (roomId: string, rule: "public" | "invite") => guard(() => this.room(roomId).setJoinRule(rule)),
     addAlias: unsupportedAsync("Room addresses"),
     removeAlias: unsupportedAsync("Room addresses"),
     setMainAlias: unsupportedAsync("Room addresses"),
@@ -291,9 +354,14 @@ export class RustEngineCore implements MatrixEngine {
     },
   };
 
-  openTimeline(roomId: string): TimelineHandle {
+  private room(roomId: string): SdkRoom {
     const room = this.need().room(roomId);
     if (!room) throw new EngineError("not_found", `unknown room ${roomId}`);
+    return room;
+  }
+
+  openTimeline(roomId: string): TimelineHandle {
+    const room = this.room(roomId);
     return new RustTimeline(room, roomId, this.need().userId());
   }
 }
