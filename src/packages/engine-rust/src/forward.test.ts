@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { forwardContent, kindOfMime, pathOf } from "./forward.js";
+import { attachmentKind, forwardContent, kindOfMime, pathOf } from "./forward.js";
 import type { EventItemLike, ItemContent } from "./timelineItem.js";
 
 const ev = (content: ItemContent): EventItemLike => ({ eventId: "$1", sender: "@a:s", isOwn: false, timestamp: 1, content });
@@ -40,4 +40,14 @@ test("a message forwards as the content that sends it again", () => {
     info: { duration: 1000 },
   });
   expect(forwardContent(ev({ type: "undecryptable" }))).toBeNull();
+});
+
+test("a file is sent as a picture, video or sound only when the SDK has what it needs of it", () => {
+  expect(attachmentKind({ mimeType: "image/png", width: 4, height: 3 })).toBe("image");
+  expect(attachmentKind({ mimeType: "image/png" })).toBe("file");
+  expect(attachmentKind({ mimeType: "video/mp4", width: 4, height: 3, durationMs: 1000 })).toBe("video");
+  expect(attachmentKind({ mimeType: "video/mp4", width: 4, height: 3 })).toBe("file");
+  expect(attachmentKind({ mimeType: "audio/ogg", durationMs: 0 })).toBe("audio");
+  expect(attachmentKind({ mimeType: "audio/ogg" })).toBe("file");
+  expect(attachmentKind({ mimeType: "application/pdf", width: 4, height: 3 })).toBe("file");
 });

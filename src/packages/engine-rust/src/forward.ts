@@ -5,6 +5,24 @@ export function kindOfMime(mime: string): "image" | "video" | "audio" | "file" {
   return mime.startsWith("image/") ? "image" : mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "file";
 }
 
+/**
+ * How a file is sent: as the kind its type says when the SDK has what it needs of that kind (a picture needs its
+ * width and height, a video those and its length, a sound its length), else as a plain file.
+ */
+export function attachmentKind(f: {
+  mimeType: string;
+  width?: number | undefined;
+  height?: number | undefined;
+  durationMs?: number | undefined;
+}): "image" | "video" | "audio" | "file" {
+  const kind = kindOfMime(f.mimeType);
+  const sized = !!f.width && !!f.height;
+  if (kind === "image") return sized ? "image" : "file";
+  if (kind === "video") return sized && f.durationMs !== undefined ? "video" : "file";
+  if (kind === "audio") return f.durationMs !== undefined ? "audio" : "file";
+  return "file";
+}
+
 /** A local file as a path (the app hands over `file://` addresses, some percent-encoded). */
 export function pathOf(data: unknown): string {
   const raw =
