@@ -19,4 +19,4 @@ export { ScaleProvider } from "./Scale.js";
 export { RichText } from "./richtext.js";
 export { parseFormatted, plainRuns, type Run } from "./richtextModel.js";
 export { EmojiPicker, useRecentEmoji } from "./EmojiPicker.js";
-export { useViewport } from "./viewport.js";
+export { useViewport, useUnzoom } from "./viewport.js";

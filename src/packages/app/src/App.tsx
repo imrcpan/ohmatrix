@@ -1,5 +1,5 @@
 import { ActivityIndicator, View } from "react-native";
-import { ScaleProvider, ThemeProvider, useTheme } from "@ohmatrix/ui";
+import { ScaleProvider, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
 import type { ReactNode } from "react";
 import type { PlatformServices } from "@ohmatrix/core";
 import type { AppController } from "@ohmatrix/state";
@@ -33,15 +33,51 @@ function Root(props: { defaultHomeserver: string }) {
  * Shared application shell (screens, navigation, wiring). Platform apps only choose the engine,
  * build `PlatformServices`, call `controller.bootstrap()`, and render this.
  */
-export function App(props: { controller: AppController; services: PlatformServices; defaultHomeserver?: string; onReload?: () => void }) {
+export function App(props: {
+  controller: AppController;
+  services: PlatformServices;
+  defaultHomeserver?: string;
+  onReload?: () => void;
+  /** Room the platform takes for itself, in px of the window: what it draws over the app (system bars, the keyboard). */
+  insets?: Insets | undefined;
+}) {
   return (
     <ErrorBoundary onReload={props.onReload}>
       <AppProviders controller={props.controller} services={props.services}>
         <Themed>
-          <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
+          <Framed insets={props.insets}>
+            <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
+          </Framed>
         </Themed>
       </AppProviders>
     </ErrorBoundary>
+  );
+}
+
+/** Space around the app that something else covers. All sides in the window's px. */
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
+ * Keeps the app out from under what the platform draws over it. It is inside the theme, so the strip behind the status
+ * bar is the theme's colour, and inside the zoom, so it is the size it is meant to be (the insets are in the window's px).
+ * Where there are none (the web) it is not there.
+ */
+function Framed(props: { insets: Insets | undefined; children: ReactNode }) {
+  const { colors } = useTheme();
+  const un = useUnzoom();
+  const i = props.insets;
+  if (!i) return <>{props.children}</>;
+  return (
+    <View
+      style={{ flex: 1, backgroundColor: colors.bg, paddingTop: un(i.top), paddingRight: un(i.right), paddingBottom: un(i.bottom), paddingLeft: un(i.left) }}
+    >
+      {props.children}
+    </View>
   );
 }
 
