@@ -22,15 +22,40 @@ export interface EventItemLike {
   content: ItemContent;
 }
 
+/** What every message has besides its words: edits, reactions and the message it answers. */
+interface Extras {
+  edited?: boolean | undefined;
+  reactions?: ReactionLike[] | undefined;
+  replyTo?: ReplyLike | undefined;
+}
+
 export type ItemContent =
-  | {
-      type: "text";
-      body: string;
-      formattedBody?: string | undefined;
-      edited?: boolean | undefined;
-      reactions?: ReactionLike[] | undefined;
-      replyTo?: ReplyLike | undefined;
-    }
+  | ({ type: "text"; body: string; formattedBody?: string | undefined } & Extras)
+  | ({ type: "image"; url: string; width?: number; height?: number; body: string; mimeType?: string; encryption?: string } & Extras)
+  | ({ type: "file"; url: string; name: string; size?: number; mimeType?: string; encryption?: string } & Extras)
+  | ({
+      type: "video";
+      url: string;
+      name: string;
+      width?: number;
+      height?: number;
+      durationMs?: number;
+      size?: number;
+      mimeType?: string;
+      encryption?: string;
+      thumbnail?: { url: string; encryption?: string };
+    } & Extras)
+  | ({
+      type: "audio";
+      url: string;
+      name: string;
+      durationMs?: number;
+      size?: number;
+      mimeType?: string;
+      encryption?: string;
+      voice?: boolean;
+      waveform?: number[];
+    } & Extras)
   | { type: "membership"; userId: string; userName?: string | undefined; change?: MembershipChange | undefined }
   | { type: "state"; state: StateChange }
   | { type: "undecryptable" }
@@ -80,6 +105,26 @@ export function toTimelineItem(e: EventItemLike, roomId: string, me: string): Ti
     case "text":
       content = { kind: "text", body: c.body, ...(c.formattedBody && { formattedBody: c.formattedBody }) };
       break;
+    case "image": {
+      const { type: _t, edited: _e, reactions: _r, replyTo: _p, ...rest } = c;
+      content = { kind: "image", ...rest };
+      break;
+    }
+    case "file": {
+      const { type: _t, edited: _e, reactions: _r, replyTo: _p, ...rest } = c;
+      content = { kind: "file", ...rest };
+      break;
+    }
+    case "video": {
+      const { type: _t, edited: _e, reactions: _r, replyTo: _p, ...rest } = c;
+      content = { kind: "video", ...rest };
+      break;
+    }
+    case "audio": {
+      const { type: _t, edited: _e, reactions: _r, replyTo: _p, ...rest } = c;
+      content = { kind: "audio", ...rest };
+      break;
+    }
     case "membership": {
       const text = membershipText(c.change, personName(c.userName, c.userId), sender);
       content = text ? { kind: "service", body: text } : null;
@@ -100,7 +145,7 @@ export function toTimelineItem(e: EventItemLike, roomId: string, me: string): Ti
       break;
   }
   if (!content) return null;
-  const text = c.type === "text" ? c : undefined;
+  const text = c.type === "text" || c.type === "image" || c.type === "file" || c.type === "video" || c.type === "audio" ? c : undefined;
   const reactions = reactionsOf(text?.reactions, me);
   const reply = text?.replyTo;
   const readBy = (e.readers ?? []).filter((r) => r.userId !== me).map((r) => ({ userId: r.userId, name: personName(r.name, r.userId) }));

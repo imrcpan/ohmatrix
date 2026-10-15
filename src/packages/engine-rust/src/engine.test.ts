@@ -1,8 +1,9 @@
 import { applyUpdates, type ListUpdate, type RoomSummary, type TimelineItem } from "@ohmatrix/core";
 import { expect, test } from "vitest";
-import { RustEngineCore } from "./engine.js";
+import { RustEngineCore, type RustEngineOptions } from "./engine.js";
 import type {
   LatestEvent,
+  RawHit,
   RawLevels,
   RawRoomDetails,
   ListChange,
@@ -16,6 +17,7 @@ import type {
   TimelineEntry,
 } from "./sdk.js";
 import type { RoomInfoLike } from "./roomSummary.js";
+import type { RawSecurity } from "./security.js";
 import type { EventItemLike } from "./timelineItem.js";
 
 // ---- a fake SDK: just enough of it for the engine to be driven the way the app drives it --------------------------------
@@ -54,13 +56,38 @@ class FakeTimeline implements SdkTimeline {
     this.cb = cb;
     return { cancel: () => void (this.cancelled = true) };
   }
+  /** What each `paginateBackwards` brings: the batches of changes to push, then the room's start. */
+  older: ListChange<TimelineEntry>[][] = [];
+  atStart = false;
   async paginateBackwards() {
     this.paginated++;
-    return false;
+    const batch = this.older.shift();
+    if (batch) this.cb?.(batch);
+    return this.atStart && this.older.length === 0;
   }
-  async sendText(body: string) {
+  items = new Map<string, EventItemLike>();
+  async item(id: string) {
+    const e = this.items.get(id);
+    if (!e) throw new Error("no such event");
+    return e;
+  }
+  async sendMedia(f: unknown) {
+    this.calls.push(["sendMedia", f]);
+  }
+  async sendText(body: string, mentions?: string[]) {
     this.sent.push(body);
+    if (mentions) this.calls.push(["mentions", mentions]);
   }
+  calls: unknown[][] = [];
+  private record =
+    (name: string) =>
+    async (...args: unknown[]) =>
+      void this.calls.push([name, ...args]);
+  reply = this.record("reply");
+  edit = this.record("edit");
+  redact = this.record("redact");
+  react = this.record("react");
+  pin = this.record("pin");
   async markRead() {
     this.read++;
   }
@@ -133,6 +160,13 @@ class FakeRoom implements SdkRoom {
   setLevels = this.record("setLevels") as (p: Partial<RawLevels>) => Promise<void>;
   setJoinRule = this.record("setJoinRule");
   setHistoryVisibility = this.record("setHistoryVisibility");
+  setAvatar = this.record("setAvatar");
+  sendRaw = this.record("sendRaw");
+  join = this.record("join");
+  markRead = this.record("markRead");
+  setFavourite = this.record("setFavourite");
+  setUnreadFlag = this.record("setUnreadFlag");
+  retrySending = this.record("retrySending");
 }
 
 class FakeSync implements SdkSyncService {
@@ -188,13 +222,76 @@ class FakeClient implements SdkClient {
   room(id: string) {
     return this.rooms.get(id);
   }
+  made: unknown[] = [];
+  dm = new Map<string, string>();
+  directory: { userId: string; displayName?: string }[] = [];
+  profiles = new Map<string, { userId: string; displayName?: string }>();
+  async createRoom(o: unknown) {
+    this.made.push(o);
+    return "!new:s";
+  }
+  async joinRoom(id: string) {
+    this.made.push(["join", id]);
+    return "!joined:s";
+  }
+  directRoom(u: string) {
+    return this.dm.get(u);
+  }
+  async searchUsers() {
+    return this.directory;
+  }
+  async userProfile(u: string) {
+    const p = this.profiles.get(u);
+    if (!p) throw new Error("no such user");
+    return p;
+  }
+  secure: RawSecurity = { recovery: "Unknown", verified: undefined, backupOnServer: false };
+  secureCb: (() => void) | null = null;
+  secureCalls: unknown[][] = [];
+  security() {
+    return {
+      read: async () => this.secure,
+      onChange: (cb: () => void): SdkTask => {
+        this.secureCb = cb;
+        return { cancel: () => void (this.secureCb = null) };
+      },
+      setUp: async (password: string) => {
+        this.secureCalls.push(["setUp", password]);
+        return "EsTc 1234";
+      },
+      recover: async (key: string) => void this.secureCalls.push(["recover", key]),
+    };
+  }
+  avatars: unknown[][] = [];
+  async setAvatar(mime: string, data: ArrayBuffer) {
+    this.avatars.push([mime, data.byteLength]);
+  }
+  urls: unknown[][] = [];
+  failUrl = false;
+  async mediaUrl(mxc: string, o: unknown) {
+    this.urls.push([mxc, o]);
+    if (this.failUrl) throw new Error("offline");
+    return `file:///cache/${this.urls.length}`;
+  }
+  /** Batches a search gives, one per `next()`. */
+  hits: RawHit[][] = [];
+  searched: unknown[][] = [];
+  search(term: string, roomId?: string) {
+    this.searched.push([term, roomId]);
+    const batches = [...this.hits];
+    return { next: async () => batches.shift() };
+  }
+  names: string[] = [];
+  async setDisplayName(n: string) {
+    this.names.push(n);
+  }
   muted: [string, boolean][] = [];
   async setMuted(id: string, m: boolean) {
     this.muted.push([id, m]);
   }
 }
 
-function make() {
+function make(fetch?: RustEngineOptions["fetch"]) {
   const client = new FakeClient();
   const configs: unknown[] = [];
   const sdk: Sdk = {
@@ -204,7 +301,12 @@ function make() {
       return client;
     },
   };
-  const engine = new RustEngineCore(sdk, { dataDir: "/data", cacheDir: "/cache", passphrase: async () => "secret" });
+  const engine = new RustEngineCore(sdk, {
+    dataDir: "/data",
+    cacheDir: "/cache",
+    passphrase: async () => "secret",
+    fetch: fetch ?? (async () => ({ ok: true, status: 200, json: async () => ({}) })),
+  });
   return { engine, client, configs };
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -368,14 +470,10 @@ test("sending, reading older messages and marking read go to the SDK's timeline;
   expect(room.timelineObj.cancelled).toBe(true);
 });
 
-test("what is not implemented yet fails as unsupported, and what the app asks for at start does not fail", async () => {
+test("what the app asks for at start does not fail", async () => {
   const { engine, client } = make();
   await engine.auth.loginWithPassword("http://s", "a", "p");
-  await expect(engine.auth.register("http://s", "x", "y")).rejects.toMatchObject({ code: "unsupported" });
-  await expect(engine.search.messages({ term: "x" })).rejects.toMatchObject({ code: "unsupported" });
-  await expect(engine.roomAdmin.addAlias("!r", "x")).rejects.toMatchObject({ code: "unsupported" });
   client.rooms.set("!r", new FakeRoom(info("!r")));
-  await expect(engine.openTimeline("!r").edit("$1", "x")).rejects.toMatchObject({ code: "unsupported" });
   expect(await engine.security.state()).toBe("unavailable");
   expect(() => engine.notifications.subscribe(() => {})()).not.toThrow();
   expect(() => engine.rooms.subscribeDetails("!r", () => {})()).not.toThrow();
@@ -459,4 +557,359 @@ test("administration goes to the room: names, people, roles, levels, rules", asy
   await engine.rooms.setMuted("!r", true);
   expect(client.muted).toEqual([["!r", true]]);
   await expect(a.setName("!nope", "x")).rejects.toMatchObject({ code: "not_found" });
+});
+
+test("message operations go to the SDK's timeline; a message still on its way is addressed by its transaction id", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  client.rooms.set("!r", room);
+  const tl = engine.openTimeline("!r");
+  tl.subscribe(() => {});
+  await tickMany();
+  room.timelineObj.push({
+    tag: "Reset",
+    inner: {
+      values: [
+        { event: event("$1", "one", { isOwn: true }) },
+        { event: event("local", "two", { eventId: undefined, transactionId: "txn1", isOwn: true, sendState: "SendingFailed" }) },
+      ],
+    },
+  });
+  await tl.sendText("hi @bob", ["@bob:s"]);
+  await tl.reply("$1", "answer");
+  await tl.edit("$1", "fixed");
+  await tl.redact("$1");
+  await tl.react("$1", "👍");
+  await tl.pin("$1", true);
+  await tl.edit("txn1", "again");
+  await tl.resend("txn1");
+  tl.discard("txn1");
+  await tickMany();
+  expect(room.timelineObj.calls).toEqual([
+    ["mentions", ["@bob:s"]],
+    ["reply", "$1", "answer", undefined],
+    ["edit", { eventId: "$1" }, "fixed"],
+    ["redact", { eventId: "$1" }],
+    ["react", { eventId: "$1" }, "👍"],
+    ["pin", "$1", true],
+    ["edit", { transactionId: "txn1" }, "again"],
+    ["redact", { transactionId: "txn1" }],
+  ]);
+  expect(room.calls).toEqual([["retrySending"]]);
+});
+
+test("room operations: accept, decline, favourite, unread, read", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  client.rooms.set("!r", room);
+  await engine.rooms.acceptInvite("!r");
+  await engine.rooms.declineInvite("!r");
+  await engine.rooms.setPinned("!r", true);
+  await engine.rooms.setMarkedUnread("!r", true);
+  await engine.rooms.markRead("!r");
+  expect(room.calls).toEqual([["join"], ["leave"], ["setFavourite", true], ["setUnreadFlag", true], ["markRead"]]);
+});
+
+test("making chats, groups and spaces, and joining; a chat that exists is reused", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  client.dm.set("@old:s", "!dm:s");
+  expect(await engine.rooms.createDirect("@old:s")).toBe("!dm:s");
+  expect(await engine.rooms.createDirect("@new:s")).toBe("!new:s");
+  await engine.rooms.createGroup({ name: "G", invite: ["@x:s"] });
+  await engine.rooms.createSpace({ name: "S", topic: "t" });
+  expect(await engine.rooms.joinRoom(" #r:s ")).toBe("!joined:s");
+  expect(client.made).toEqual([
+    { name: "", invite: ["@new:s"], encrypted: true, space: false, direct: true },
+    { name: "G", invite: ["@x:s"], encrypted: true, space: false, direct: false },
+    { name: "S", topic: "t", invite: [], encrypted: false, space: true, direct: false },
+    ["join", "#r:s"],
+  ]);
+});
+
+test("finding people: the directory without me, and a complete user id that is not listed is looked up", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  client.directory = [{ userId: "@me:s" }, { userId: "@al:s", displayName: "Al" }, { userId: "@bo:s" }];
+  expect(await engine.users.search("a")).toEqual([
+    { userId: "@al:s", displayName: "Al" },
+    { userId: "@bo:s", displayName: "bo" },
+  ]);
+  client.profiles.set("@far:o", { userId: "@far:o", displayName: "Far" });
+  expect(await engine.users.search("@far:o")).toEqual([{ userId: "@far:o", displayName: "Far" }, expect.anything(), expect.anything()]);
+  expect(await engine.users.search("@ghost:o")).toHaveLength(2);
+  expect(await engine.users.search("  ")).toEqual([]);
+});
+
+test("changing my name refreshes the profile", async () => {
+  const { engine, client } = make();
+  const seen: (string | null)[] = [];
+  engine.profile.subscribe((p) => seen.push(p?.displayName ?? null));
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  await engine.profile.setDisplayName("New");
+  expect(client.names).toEqual(["New"]);
+  expect(seen.at(-1)).toBe("Me");
+});
+
+test("a picture is fetched once however often it is asked for, and a failure is not kept", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const [a, b] = await Promise.all([
+    engine.media.resolve("mxc://s/i", { width: 64, height: 64 }),
+    engine.media.resolve("mxc://s/i", { width: 64, height: 64 }),
+  ]);
+  expect(a).toBe(b);
+  await engine.media.resolve("mxc://s/i");
+  await engine.media.resolve("mxc://s/e", { encryption: '{"key":{}}', mimeType: "image/png" });
+  expect(client.urls).toEqual([
+    ["mxc://s/i", { width: 64, height: 64 }],
+    ["mxc://s/i", {}],
+    ["mxc://s/e", { source: '{"key":{}}', mimeType: "image/png" }],
+  ]);
+  client.failUrl = true;
+  await expect(engine.media.resolve("mxc://s/x")).rejects.toBeDefined();
+  client.failUrl = false;
+  await expect(engine.media.resolve("mxc://s/x")).resolves.toMatch(/^file:/);
+});
+
+test("the gallery reads back until a page is full, newest first, and tells where the next one starts", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  client.rooms.set("!r", room);
+  const image = (id: string): ListChange<TimelineEntry> => ({
+    tag: "PushFront",
+    inner: { value: { event: { ...event(id, id), content: { type: "image", url: `mxc://s/${id}`, body: id } } } },
+  });
+  const text = (id: string): ListChange<TimelineEntry> => ({ tag: "PushFront", inner: { value: { event: event(id, id) } } });
+  // The room has five pictures between texts; each read brings two events, the newest first.
+  room.timelineObj.older = [
+    [image("$1"), text("$t1")],
+    [image("$2"), image("$3")],
+    [text("$t2"), image("$4")],
+    [image("$5"), text("$t3")],
+  ];
+  room.timelineObj.atStart = true;
+  const first = await engine.media.sharedPage("!r", { kind: "image", want: 2 });
+  expect(first.items.map((i) => i.id)).toEqual(["$1", "$2"]);
+  expect(first.next).toBeDefined();
+  const second = await engine.media.sharedPage("!r", { kind: "image", want: 2, ...(first.next && { from: first.next }) });
+  expect(second.items.map((i) => i.id)).toEqual(["$3", "$4"]);
+  const last = await engine.media.sharedPage("!r", { kind: "image", want: 2, ...(second.next && { from: second.next }) });
+  expect(last.items.map((i) => i.id)).toEqual(["$5"]);
+  expect(last.next).toBeUndefined();
+  expect((await engine.media.sharedPage("!r", { kind: "video" })).items).toEqual([]);
+});
+
+test("files are sent from their path with what the app knows of them; a profile picture is read from the device", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  client.rooms.set("!r", room);
+  const tl = engine.openTimeline("!r");
+  await tl.sendAttachment({ name: "a.png", mimeType: "image/png", size: 10, data: "file:///data/a%20b.png", width: 4, height: 3 });
+  await tl.sendAttachment({ name: "v.ogg", mimeType: "audio/ogg", size: 5, data: "/data/v.ogg", durationMs: 2000, waveform: [0.5], voice: true });
+  expect(room.timelineObj.calls).toEqual([
+    ["sendMedia", { kind: "image", path: "/data/a b.png", name: "a.png", mimeType: "image/png", size: 10, width: 4, height: 3 }],
+    ["sendMedia", { kind: "audio", path: "/data/v.ogg", name: "v.ogg", mimeType: "audio/ogg", size: 5, durationMs: 2000, waveform: [0.5], voice: true }],
+  ]);
+  // Without a way to read the device's files, a picture cannot be set; with one, it is.
+  await expect(engine.profile.setAvatar({ name: "p", mimeType: "image/png", size: 3, data: "/x" })).rejects.toMatchObject({ code: "unsupported" });
+  const read = make();
+  const withFiles = new RustEngineCore(
+    { defaultSlidingSync: "x", newClient: async () => read.client },
+    {
+      dataDir: "/d",
+      cacheDir: "/c",
+      passphrase: async () => "p",
+      readFile: async () => new Uint8Array([1, 2, 3]).buffer,
+      fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }),
+    },
+  );
+  await withFiles.auth.loginWithPassword("http://s", "a", "p");
+  read.client.rooms.set("!r", room);
+  await withFiles.profile.setAvatar({ name: "p", mimeType: "image/png", size: 3, data: "/x" });
+  await withFiles.roomAdmin.setAvatar("!r", { name: "p", mimeType: "image/jpeg", size: 3, data: "/x" });
+  expect(read.client.avatars).toEqual([["image/png", 3]]);
+  expect(room.calls).toEqual([["setAvatar", "image/jpeg", expect.any(ArrayBuffer)]]);
+});
+
+test("forwarding sends the message's content to the other room", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const from = new FakeRoom(info("!a"));
+  const to = new FakeRoom(info("!b"));
+  client.rooms.set("!a", from);
+  client.rooms.set("!b", to);
+  from.timelineObj.items.set("$1", event("$1", "hello"));
+  await engine.messages.forward({ fromRoomId: "!a", eventId: "$1", toRoomId: "!b" });
+  expect(to.calls).toEqual([["sendRaw", "m.room.message", JSON.stringify({ msgtype: "m.text", body: "hello" })]]);
+  await expect(engine.messages.forward({ fromRoomId: "!a", eventId: "$nope", toRoomId: "!b" })).rejects.toBeDefined();
+});
+
+test("searching: batches page through one search, rooms are named, an unknown page is empty", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const hit = (id: string): RawHit => ({ roomId: "!r", eventId: id, sender: "@al:s", senderName: "Al", ts: 5, text: `found ${id}` });
+  client.hits = [[hit("$1"), hit("$2")], [hit("$3")]];
+  const one = await engine.search.messages({ term: " cat " });
+  expect(client.searched).toEqual([["cat", undefined]]);
+  expect(one.results.map((r) => r.eventId)).toEqual(["$1", "$2"]);
+  expect(one.results[0]).toMatchObject({ roomName: "!r", senderName: "Al", text: "found $1", local: false });
+  const two = await engine.search.messages({ term: "cat", ...(one.next && { from: one.next }) });
+  expect(two.results.map((r) => r.eventId)).toEqual(["$3"]);
+  const end = await engine.search.messages({ term: "cat", ...(two.next && { from: two.next }) });
+  expect(end.results).toEqual([]);
+  expect(end.next).toBeUndefined();
+  expect(client.searched).toHaveLength(1);
+  expect((await engine.search.messages({ term: "cat", from: "nope" })).results).toEqual([]);
+  await engine.search.messages({ term: "cat", roomId: "!r" });
+  expect(client.searched.at(-1)).toEqual(["cat", "!r"]);
+});
+
+/** A homeserver for the requests the SDK has no call for: what was asked, and a reply per kind of request. */
+function server(replies: { hierarchy?: unknown; devices?: unknown } = {}) {
+  const asked: { url: string; method: string; body: unknown }[] = [];
+  const fetch: RustEngineOptions["fetch"] = async (url, init) => {
+    asked.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(init.body) : undefined });
+    const body = url.includes("/hierarchy") ? replies.hierarchy : url.endsWith("/devices") ? replies.devices : {};
+    return { ok: true, status: 200, json: async () => body };
+  };
+  return { fetch, asked };
+}
+
+test("a space lists its children with my own names and counts, and changes to it are written to its state", async () => {
+  const hierarchy = {
+    rooms: [
+      {
+        room_id: "!s",
+        children_state: [
+          { state_key: "!a", content: { order: "1", via: ["s"] } },
+          { state_key: "!far", content: { order: "2", via: ["o"] } },
+        ],
+      },
+      { room_id: "!far", name: "Far room" },
+    ],
+  };
+  const { fetch, asked } = server({ hierarchy });
+  const { engine, client } = make(fetch);
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const sync = client.sync;
+  await engine.sync.start();
+  const roomA = new FakeRoom(info("!a", { displayName: "Mine A", numUnreadNotifications: 3n }));
+  const roomB = new FakeRoom(info("!b", { displayName: "Not in the space" }));
+  const dm = new FakeRoom(info("!dm", { isDirect: true }));
+  for (const r of [roomA, roomB, dm]) client.rooms.set(r.id(), r);
+  sync.roomsCb?.([{ tag: "Reset", inner: { values: [roomA, roomB, dm] } }]);
+  await tickMany();
+  expect(await engine.spaces.children("!s")).toEqual([
+    { roomId: "!a", name: "Mine A", isSpace: false, unreadCount: 3, highlightCount: 0 },
+    { roomId: "!far", name: "Far room", isSpace: false, via: ["o"], unreadCount: 0, highlightCount: 0 },
+  ]);
+  expect((await engine.spaces.candidates("!s")).map((c) => c.roomId)).toEqual(["!b"]);
+  asked.length = 0;
+  await engine.spaces.addChild("!s", "!b");
+  await engine.spaces.removeChild("!s", "!a");
+  await engine.spaces.moveChild("!s", "!a", "last");
+  expect(asked.filter((a) => a.method === "PUT").map((a) => [decodeURIComponent(a.url.split("/rooms/")[1] ?? ""), a.body])).toEqual([
+    ["!s/state/m.space.child/!b", { order: "3", via: ["s"] }],
+    ["!b/state/m.space.parent/!s", { via: ["s"] }],
+    ["!s/state/m.space.child/!a", {}],
+    ["!a/state/m.space.parent/!s", {}],
+    ["!s/state/m.space.child/!a", { order: "3", via: ["s"] }],
+  ]);
+});
+
+test("a page open on a space is updated when the list of chats changes, and stops after it is closed", async () => {
+  const { fetch } = server({ hierarchy: { rooms: [{ room_id: "!s", children_state: [{ state_key: "!a", content: { via: ["s"] } }] }] } });
+  const { engine, client } = make(fetch);
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  await engine.sync.start();
+  const seen: string[][] = [];
+  const stop = engine.spaces.subscribe("!s", (kids) => seen.push(kids.map((k) => k.name)));
+  await tickMany();
+  expect(seen).toEqual([["!a"]]);
+  const room = new FakeRoom(info("!a", { displayName: "Named" }));
+  client.rooms.set("!a", room);
+  client.sync.roomsCb?.([{ tag: "Reset", inner: { values: [room] } }]);
+  await tickMany();
+  expect(seen.at(-1)).toEqual(["Named"]);
+  stop();
+  const n = seen.length;
+  client.sync.roomsCb?.([{ tag: "Reset", inner: { values: [] } }]);
+  await tickMany();
+  expect(seen).toHaveLength(n);
+});
+
+test("sessions are listed and signed out through the homeserver", async () => {
+  const { fetch, asked } = server({
+    devices: {
+      devices: [
+        { device_id: "DEV", display_name: "This" },
+        { device_id: "OLD", last_seen_ts: 3 },
+      ],
+    },
+  });
+  const { engine } = make(fetch);
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  expect((await engine.devices.list()).map((d) => [d.id, d.current])).toEqual([
+    ["DEV", true],
+    ["OLD", false],
+  ]);
+  await engine.devices.remove(["OLD"], "pw");
+  expect(asked.at(-1)).toMatchObject({ method: "POST", body: { devices: ["OLD"] } });
+});
+
+test("a new unread message is told of once, unless the room is muted or it is the first look at the room", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  await engine.sync.start();
+  const told: string[] = [];
+  engine.notifications.subscribe((n) => told.push(`${n.roomName}:${n.senderName}:${n.preview ?? ""}:${n.highlight}`));
+  const room = new FakeRoom(info("!r", { displayName: "Chat", numUnreadNotifications: 2n }), { item: event("$1", "first") });
+  client.rooms.set("!r", room);
+  client.sync.roomsCb?.([{ tag: "Reset", inner: { values: [room] } }]);
+  await tickMany();
+  expect(told).toEqual([]);
+  room.roomInfo = info("!r", { displayName: "Chat", numUnreadNotifications: 3n, numUnreadMentions: 1n });
+  room.latestEvent = { item: event("$2", "second") };
+  room.infoCb?.(room.roomInfo);
+  await tickMany();
+  expect(told).toEqual(["Chat:Alice:second:true"]);
+  room.roomInfo = info("!r", { displayName: "Chat", numUnreadNotifications: 1n });
+  room.infoCb?.(room.roomInfo);
+  await tickMany();
+  room.roomInfo = info("!r", { displayName: "Chat", numUnreadNotifications: 5n, mutedByUser: true });
+  room.infoCb?.(room.roomInfo);
+  await tickMany();
+  expect(told).toHaveLength(1);
+});
+
+test("the encryption state is told when it is first known and whenever it changes, and the two actions go to the SDK", async () => {
+  const { engine, client } = make();
+  const seen: string[] = [];
+  const stop0 = engine.security.onState((s) => seen.push(s));
+  expect(seen).toEqual(["unavailable"]);
+  stop0();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  seen.length = 0;
+  expect(await engine.security.state()).toBe("unavailable");
+  const stop = engine.security.onState((s) => seen.push(s));
+  await tickMany();
+  expect(seen).toEqual(["unavailable"]);
+  client.secure = { recovery: "Enabled", verified: false, backupOnServer: true };
+  client.secureCb?.();
+  client.secureCb?.();
+  await tickMany();
+  expect(seen).toEqual(["unavailable", "needs_recovery"]);
+  expect(await engine.security.setUp({ password: "pw" })).toEqual({ recoveryKey: "EsTc 1234" });
+  await engine.security.restoreWithRecoveryKey("  key  ");
+  expect(client.secureCalls).toEqual([
+    ["setUp", "pw"],
+    ["recover", "key"],
+  ]);
+  stop();
+  expect(client.secureCb).toBeNull();
 });

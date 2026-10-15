@@ -70,7 +70,7 @@ test("formatted text, an edit, reactions and who has read it", () => {
   expect(e.readers).toEqual([{ userId: "@bob:s" }]);
 });
 
-test("notices and emotes are text; media is not read here yet and says what it is", () => {
+test("notices and emotes are text; a media message without a source says what it is", () => {
   const msg = (msgType: object) =>
     raw({ content: { tag: "MsgLike", inner: { content: { kind: { tag: "Message", inner: { content: { msgType } } }, reactions: [] } } } });
   expect(readEvent(msg({ tag: "Notice", inner: { content: { body: "n" } } })).content).toMatchObject({ type: "text", body: "n" });
@@ -99,4 +99,68 @@ test("state changes carry the new name or topic", () => {
   expect(s("RoomName", { name: "Team" })).toEqual({ type: "state", state: { kind: "RoomName", value: "Team" } });
   expect(s("RoomTopic", { topic: "Plans" })).toEqual({ type: "state", state: { kind: "RoomTopic", value: "Plans" } });
   expect(s("RoomCreate")).toEqual({ type: "state", state: { kind: "RoomCreate", value: undefined } });
+});
+
+test("media messages carry their address, size and, in an encrypted room, the source to open them again", () => {
+  const src = (url: string, enc = false) => ({ url: () => url, toJson: () => (enc ? `{"url":"${url}","key":{}}` : `{"url":"${url}"}`) });
+  const msg = (msgType: object) =>
+    raw({ content: { tag: "MsgLike", inner: { content: { kind: { tag: "Message", inner: { content: { msgType, isEdited: true } } }, reactions: [] } } } });
+  const content = (tag: string, c: object) => readEvent(msg({ tag, inner: { content: c } })).content;
+  expect(
+    content("Image", { filename: "a.png", caption: "look", source: src("mxc://s/i"), info: { width: 640n, height: 480n, mimetype: "image/png" } }),
+  ).toMatchObject({
+    type: "image",
+    url: "mxc://s/i",
+    body: "look",
+    width: 640,
+    height: 480,
+    mimeType: "image/png",
+    edited: true,
+  });
+  expect(content("Image", { filename: "a.png", source: src("mxc://s/e", true) })).toMatchObject({ body: "a.png", encryption: '{"url":"mxc://s/e","key":{}}' });
+  expect(content("Image", { filename: "a.png", source: src("mxc://s/i") })).not.toHaveProperty("encryption");
+  expect(content("File", { filename: "r.pdf", source: src("mxc://s/f"), info: { size: 2048n, mimetype: "application/pdf" } })).toMatchObject({
+    type: "file",
+    name: "r.pdf",
+    size: 2048,
+  });
+  expect(content("Video", { filename: "v.mp4", source: src("mxc://s/v"), info: { duration: 12500, thumbnailSource: src("mxc://s/t") } })).toMatchObject({
+    type: "video",
+    durationMs: 12500,
+    thumbnail: { url: "mxc://s/t" },
+  });
+  expect(content("Audio", { filename: "v.ogg", source: src("mxc://s/a"), voice: {}, audio: { duration: 3000, waveform: [0.1, 0.5] } })).toMatchObject({
+    type: "audio",
+    voice: true,
+    durationMs: 3000,
+    waveform: [0.1, 0.5],
+  });
+});
+
+test("a reply carries the message it answers when the SDK has it", () => {
+  const text = (body: string) => ({
+    tag: "MsgLike",
+    inner: { content: { kind: { tag: "Message", inner: { content: { msgType: { tag: "Text", inner: { content: { body } } } } } } } },
+  });
+  const reply = (event: object) =>
+    readEvent(
+      raw({
+        content: {
+          tag: "MsgLike",
+          inner: {
+            content: {
+              kind: { tag: "Message", inner: { content: { msgType: { tag: "Text", inner: { content: { body: "ok" } } } } } },
+              reactions: [],
+              inReplyTo: { eventId: () => "$q", event: () => event },
+            },
+          },
+        },
+      }),
+    ).content;
+  expect(
+    reply({ tag: "Ready", inner: { content: text("question"), sender: "@bob:s", senderProfile: { tag: "Ready", inner: { displayName: "Bob" } } } }),
+  ).toMatchObject({
+    replyTo: { eventId: "$q", original: { sender: "@bob:s", senderName: "Bob", body: "question" } },
+  });
+  expect(reply({ tag: "Pending" })).toMatchObject({ replyTo: { eventId: "$q" } });
 });
