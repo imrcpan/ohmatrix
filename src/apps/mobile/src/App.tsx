@@ -46,7 +46,8 @@ function Boot() {
         <ActivityIndicator />
       </View>
     );
-  return <SharedApp controller={c} services={services} defaultHomeserver="matrix.org" />;
+  // EXPO_PUBLIC_DEFAULT_HOMESERVER: a development server to offer on the sign-in screen (the way the web app does).
+  return <SharedApp controller={c} services={services} defaultHomeserver={process.env["EXPO_PUBLIC_DEFAULT_HOMESERVER"] ?? "matrix.org"} />;
 }
 
 /** EXPO_PUBLIC_NATIVE_SELFTEST=1: show whether the Rust library loaded, instead of the app. */

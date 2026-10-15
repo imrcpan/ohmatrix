@@ -14,7 +14,7 @@ export default tseslint.config(
       "src/e2e/test-results/**",
       "src/dev/synapse/data/**",
       "src/packages/engine-rust/{src/generated,cpp,android,ios,rust_modules}/**",
-      "src/packages/engine-rust/src/{bindings.tsx,Native*.ts}",
+      "src/packages/engine-rust/src/Native*.ts",
       "src/apps/mobile/android/**",
     ],
   },
