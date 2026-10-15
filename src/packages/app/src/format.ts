@@ -8,15 +8,39 @@ const startOfDay = (ts: number) => {
   return d.getTime();
 };
 
-export const formatClock = (ts: number, locale: Locale) => new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(ts);
+/**
+ * Building an Intl formatter is the expensive part of formatting a date (about as much as a few hundred formats), and
+ * a chat list formats one for every row on every update. So each (locale, options) pair is built once.
+ */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let f = formatters.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, f);
+  }
+  return f;
+}
+const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>();
+function relativeFormat(locale: string): Intl.RelativeTimeFormat {
+  let f = relativeFormatters.get(locale);
+  if (!f) {
+    f = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    relativeFormatters.set(locale, f);
+  }
+  return f;
+}
+
+export const formatClock = (ts: number, locale: Locale) => dateFormat(locale, { hour: "numeric", minute: "2-digit" }).format(ts);
 
 /** Chat-list time: clock today, weekday within the week, short date otherwise. Empty if no activity. */
 export function formatListTime(ts: number, now: number, locale: Locale): string {
   if (!ts) return "";
   const days = Math.round((startOfDay(now) - startOfDay(ts)) / DAY);
   if (days <= 0) return formatClock(ts, locale);
-  if (days < 7) return new Intl.DateTimeFormat(locale, { weekday: "short" }).format(ts);
-  return new Intl.DateTimeFormat(locale, { year: "2-digit", month: "numeric", day: "numeric" }).format(ts);
+  if (days < 7) return dateFormat(locale, { weekday: "short" }).format(ts);
+  return dateFormat(locale, { year: "2-digit", month: "numeric", day: "numeric" }).format(ts);
 }
 
 /** Date separator label in the timeline. */
@@ -25,7 +49,7 @@ export function formatDayLabel(ts: number, now: number, locale: Locale): string 
   if (days <= 0) return t(locale, "today");
   if (days === 1) return t(locale, "yesterday");
   const sameYear = new Date(ts).getFullYear() === new Date(now).getFullYear();
-  return new Intl.DateTimeFormat(
+  return dateFormat(
     locale,
     days < 7 ? { weekday: "long" } : sameYear ? { month: "long", day: "numeric" } : { year: "numeric", month: "long", day: "numeric" },
   ).format(ts);
@@ -57,10 +81,10 @@ export function typingLabel(names: readonly string[], t: Translate, direct: bool
 /** "just now", "5 minutes ago", "yesterday", or a date: for "last active". */
 export function formatRelative(ts: number, now: number, locale: Locale): string {
   const diff = now - ts;
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const rtf = relativeFormat(locale);
   if (diff < 60_000) return rtf.format(0, "second");
   if (diff < 3_600_000) return rtf.format(-Math.floor(diff / 60_000), "minute");
   if (diff < 86_400_000) return rtf.format(-Math.floor(diff / 3_600_000), "hour");
   if (diff < 7 * 86_400_000) return rtf.format(-Math.floor(diff / 86_400_000), "day");
-  return new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(ts);
+  return dateFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(ts);
 }
