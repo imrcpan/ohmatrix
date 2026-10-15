@@ -1,5 +1,14 @@
 export type FetchLike = (url: string) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
 
+/** The platform's `fetch` (this package knows no platform, so it is reached through `globalThis`), giving up after 6 s. */
+const platformFetch: FetchLike = (url) => {
+  const g = globalThis as unknown as {
+    fetch(url: string, init?: unknown): Promise<{ ok: boolean; json(): Promise<unknown> }>;
+    AbortSignal?: { timeout?(ms: number): unknown };
+  };
+  return g.fetch(url, { signal: g.AbortSignal?.timeout?.(6000) });
+};
+
 const trimSlash = (s: string) => s.replace(/\/+$/, "");
 
 /** Hosts that only ever speak plain http: this machine, private networks, and the usual dev suffixes. */
@@ -23,7 +32,7 @@ export function isLocalHost(host: string): boolean {
  *   (the way Matrix servers delegate, e.g. matrix.org -> matrix-client.matrix.org); if that is missing or
  *   unusable, the name itself is used over https.
  */
-export async function resolveHomeserver(input: string, fetchFn: FetchLike = (u) => fetch(u, { signal: AbortSignal.timeout(6000) })): Promise<string> {
+export async function resolveHomeserver(input: string, fetchFn: FetchLike = platformFetch): Promise<string> {
   const typed = input.trim();
   if (/^http:\/\//i.test(typed)) return trimSlash(typed);
   const host = typed.replace(/^https:\/\//i, "").replace(/\/.*$/, "");
