@@ -20,7 +20,15 @@
             "buildArchs": ["arm64-v8a"]
           }
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "OhMatrix uses the microphone to record voice messages."
+        }
+      ],
+      "expo-sharing",
+      "expo-notifications"
     ]
   }
 }

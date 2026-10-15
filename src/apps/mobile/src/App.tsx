@@ -9,12 +9,13 @@ import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAppController, type AppController } from "@ohmatrix/state";
 import { App as SharedApp } from "@ohmatrix/app";
 import { createSessionStore, databasePassphrase, pathOfFileUri } from "./secureStorage.js";
+import { phoneServices } from "./platform.js";
 import { shellInsets } from "./shellInsets.js";
 import { useKeyboardHeight } from "./useKeyboardHeight.js";
 
 // The session goes in the Android Keystore (iOS Keychain), through expo-secure-store.
 const sessionStore = createSessionStore(SecureStore);
-const services: PlatformServices = { sessionStore };
+const services: PlatformServices = phoneServices({ sessionStore });
 
 /**
  * The engine: matrix-rust-sdk through the native module, or the in-memory mock (EXPO_PUBLIC_ENGINE=mock) for working on
