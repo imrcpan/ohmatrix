@@ -36,7 +36,7 @@ export async function listDevices(f: Fetch, a: Account): Promise<DeviceInfo[]> {
       id: d.device_id,
       name: d.display_name || d.device_id,
       ...(d.last_seen_ts !== undefined && { lastSeenTs: d.last_seen_ts }),
-      ...(d.last_seen_ip && { lastSeenIp: d.last_seen_ip }),
+      ...(d.last_seen_ip && { lastSeenIp: d.last_seen_ip.replace(/^::ffff:/, "") }),
       current: d.device_id === a.deviceId,
     }))
     .sort((x, y) => Number(y.current) - Number(x.current) || (y.lastSeenTs ?? 0) - (x.lastSeenTs ?? 0));

@@ -22,11 +22,20 @@ function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.D
   }
   return f;
 }
-const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>();
-function relativeFormat(locale: string): Intl.RelativeTimeFormat {
+/** What `Intl.RelativeTimeFormat` does for the two languages the app has, for runtimes without it (Hermes on Android). */
+const RELATIVE: Record<Locale, { now: string; ago: (n: number, unit: "minute" | "hour" | "day") => string }> = {
+  en: { now: "now", ago: (n, unit) => `${n} ${unit}${n === 1 ? "" : "s"} ago` },
+  "zh-CN": { now: "现在", ago: (n, unit) => `${n}${{ minute: "分钟", hour: "小时", day: "天" }[unit]}前` },
+};
+
+type Relative = { format(value: number, unit: "second" | "minute" | "hour" | "day"): string };
+const relativeFormatters = new Map<string, Relative>();
+function relativeFormat(locale: Locale): Relative {
   let f = relativeFormatters.get(locale);
   if (!f) {
-    f = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    const Native = (Intl as { RelativeTimeFormat?: new (l: string, o: { numeric: "auto" }) => Relative }).RelativeTimeFormat;
+    const words = RELATIVE[locale] ?? RELATIVE.en;
+    f = Native ? new Native(locale, { numeric: "auto" }) : { format: (value, unit) => (unit === "second" ? words.now : words.ago(-value, unit)) };
     relativeFormatters.set(locale, f);
   }
   return f;

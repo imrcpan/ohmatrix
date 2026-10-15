@@ -27,7 +27,7 @@ test("sessions: this one first, then by last use, with a name even when it has n
     body: {
       devices: [
         { device_id: "A", display_name: "Phone", last_seen_ts: 5 },
-        { device_id: "C", last_seen_ts: 9, last_seen_ip: "1.2.3.4" },
+        { device_id: "C", last_seen_ts: 9, last_seen_ip: "::ffff:1.2.3.4" },
         { device_id: "B", display_name: "Here", last_seen_ts: 1 },
       ],
     },
