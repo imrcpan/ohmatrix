@@ -130,13 +130,15 @@ export function sdkFromBindings(b: Bindings): Sdk {
         ...(f.width !== undefined && { width: BigInt(Math.round(f.width)) }),
         ...(f.height !== undefined && { height: BigInt(Math.round(f.height)) }),
       };
+      // The SDK insists on a blurhash for a picture and a video; there is no decoder here, so a flat grey stands in.
+      const blurhash = "L00000fQfQfQfQfQfQfQfQfQfQfQ";
       const common = { mimetype: f.mimeType, size: BigInt(Math.round(f.size)) };
       const duration = f.durationMs !== undefined ? { duration: f.durationMs } : {};
       const handle =
         f.kind === "image"
-          ? t.sendImage(params, undefined, { ...common, ...dims })
+          ? t.sendImage(params, undefined, { ...common, ...dims, blurhash })
           : f.kind === "video"
-            ? t.sendVideo(params, undefined, { ...common, ...dims, ...duration })
+            ? t.sendVideo(params, undefined, { ...common, ...dims, ...duration, blurhash })
             : f.kind === "audio"
               ? f.voice
                 ? t.sendVoiceMessage(params, { ...common, ...duration }, f.waveform ?? [])
@@ -365,16 +367,10 @@ export function sdkFromBindings(b: Bindings): Sdk {
           return { cancel: () => handles.forEach((h) => h.cancel()) };
         },
         async setUp(password) {
-          const progress = { onUpdate: () => {} };
-          try {
-            return await enc.enableRecovery(false, undefined, progress);
-          } catch (first) {
-            // The account may have no cross-signing keys yet, and the server wants the password to make them.
-            const handle = await call(() => enc.resetIdentity());
-            if (!handle) throw toEngineError(first);
-            await call(() => handle.reset(new b.AuthData.Password({ passwordDetails: { identifier: c.userId(), password } })));
-            return await call(() => enc.enableRecovery(false, undefined, progress));
-          }
+          // The account's own keys first (a new identity: the server wants the password for it), then the recovery that keeps them.
+          const handle = await call(() => enc.resetIdentity());
+          if (handle) await call(() => handle.reset(new b.AuthData.Password({ passwordDetails: { identifier: c.userId(), password } })));
+          return await call(() => enc.enableRecovery(false, undefined, { onUpdate: () => {} }));
         },
         recover: (recoveryKey) => call(() => enc.recover(recoveryKey)),
       };

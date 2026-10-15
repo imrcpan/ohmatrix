@@ -1,5 +1,4 @@
-import { AppState } from "react-native";
-import { Linking } from "react-native";
+import { AppState, Image, Linking } from "react-native";
 import { File, Paths } from "expo-file-system";
 import {
   RecordError,
@@ -41,7 +40,23 @@ export function filePreferences(): PreferencesStore {
 async function pickFiles(): Promise<AttachmentSource[]> {
   const Documents = await import("expo-document-picker");
   const r = await Documents.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
-  return r.canceled ? [] : fromDocuments(r.assets);
+  if (r.canceled) return [];
+  // A picture is sent with its size in pixels, which the picker does not tell: the image component can.
+  const files = fromDocuments(r.assets);
+  return Promise.all(
+    files.map(async (f) => {
+      if (!f.mimeType.startsWith("image/") || typeof f.data !== "string") return f;
+      const uri = f.data;
+      const size = await new Promise<{ width: number; height: number } | null>((resolve) =>
+        Image.getSize(
+          uri,
+          (width, height) => resolve({ width, height }),
+          () => resolve(null),
+        ),
+      );
+      return size ? { ...f, ...size } : f;
+    }),
+  );
 }
 
 /** A voice message: the microphone is opened (permission asked) and ready; recording begins with `start()`. */

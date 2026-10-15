@@ -34,7 +34,7 @@ import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
 import { addAlias, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
 import { readStatus, register, writeStatus } from "./account.js";
 import { listDevices, removeDevices, type Account, type Fetch } from "./devices.js";
-import { forwardContent, kindOfMime, pathOf } from "./forward.js";
+import { attachmentKind, forwardContent, pathOf } from "./forward.js";
 import { personName } from "./serviceText.js";
 import type { EventRef, LatestEvent, Sdk, SdkClient, SdkRoom, SdkSearch, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
 import { securityStateOf } from "./security.js";
@@ -838,7 +838,7 @@ class RustTimeline implements TimelineHandle {
   sendAttachment = (file: AttachmentSource) =>
     guard(async () =>
       (await this.timeline).sendMedia({
-        kind: kindOfMime(file.mimeType),
+        kind: attachmentKind(file),
         path: pathOf(file.data),
         name: file.name,
         mimeType: file.mimeType,
@@ -849,7 +849,11 @@ class RustTimeline implements TimelineHandle {
         ...(file.waveform && { waveform: file.waveform }),
         ...(file.voice && { voice: true }),
       }),
-    );
+    ).catch((e: unknown) => {
+      // The chat swallows this (the file just does not show up), so say why somewhere a developer can read.
+      console.warn("sending a file failed:", e instanceof Error ? e.message : String(e));
+      throw e;
+    });
   // Dismissing a local echo of an upload stops the upload.
   cancelUpload = (id: string) => void this.redact(id).catch(() => {});
   // The SDK keeps a failed message in the room's send queue and sends it again when the queue is switched on.
