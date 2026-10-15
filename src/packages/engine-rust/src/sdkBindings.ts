@@ -13,6 +13,9 @@ import type {
   Sdk,
   SdkClient,
   SdkClientConfig,
+  RawLevels,
+  RawMember,
+  RawRoomDetails,
   SdkRoom,
   SdkSession,
   SdkSyncService,
@@ -34,6 +37,9 @@ async function call<T>(f: () => Promise<T>): Promise<T> {
     throw toEngineError(e);
   }
 }
+
+/** A power level as a number; an unbounded one (a room's creator) reads as 100. */
+const powerOf = (p: Ffi.PowerLevel): number => (p.tag === "Value" ? Number((p as { inner: { value: bigint } }).inner.value) : 100);
 
 const task = (h: { cancel(): void } | undefined): SdkTask => ({ cancel: () => h?.cancel() });
 
@@ -116,7 +122,106 @@ export function sdkFromBindings(b: Bindings): Sdk {
     onTyping: (cb) => task(r.subscribeToTypingNotifications({ call: cb })),
     typingNotice: (typing) => call(() => r.typingNotice(typing)),
     timeline: async () => timelineOf(await call(() => r.timeline())),
+    details: () => detailsOf(r),
+    leave: () => call(() => r.leave()),
+    setName: (name) => call(() => r.setName(name)),
+    setTopic: (topic) => call(() => r.setTopic(topic)),
+    invite: (userId) => call(() => r.inviteUserById(userId)),
+    kick: (userId) => call(() => r.kickUser(userId, undefined)),
+    ban: (userId, reason) => call(() => r.banUser(userId, reason)),
+    unban: (userId) => call(() => r.unbanUser(userId, undefined)),
+    setPower: (userId, level) => call(() => r.updatePowerLevelsForUsers([{ userId, powerLevel: BigInt(level) }])),
+    setLevels: (patch) => {
+      const big = (n: number | undefined) => (n === undefined ? undefined : BigInt(n));
+      return call(() =>
+        r.applyPowerLevelChanges({
+          ban: big(patch.ban),
+          invite: big(patch.invite),
+          kick: big(patch.kick),
+          redact: big(patch.redact),
+          eventsDefault: big(patch.eventsDefault),
+          stateDefault: big(patch.stateDefault),
+        } as Ffi.RoomPowerLevelChanges),
+      );
+    },
+    setJoinRule: (rule) => call(() => r.updateJoinRules(rule === "public" ? new b.JoinRule.Public() : new b.JoinRule.Invite())),
+    setHistoryVisibility: (v) =>
+      call(() =>
+        r.updateHistoryVisibility(
+          v === "invited"
+            ? new b.RoomHistoryVisibility.Invited()
+            : v === "joined"
+              ? new b.RoomHistoryVisibility.Joined()
+              : v === "world_readable"
+                ? new b.RoomHistoryVisibility.WorldReadable()
+                : new b.RoomHistoryVisibility.Shared(),
+        ),
+      ),
   });
+
+  const membershipOf = (m: Ffi.MembershipState): RawMember["membership"] => {
+    const tag = (m as { tag: string }).tag;
+    return tag === "Join" || tag === "Invite" || tag === "Ban" ? tag : "Other";
+  };
+
+  const detailsOf = async (r: Ffi.RoomLike): Promise<RawRoomDetails> => {
+    const info = await call(() => r.roomInfo());
+    const levels = await call(() => r.getPowerLevels());
+    // The people: the SDK hands them over in chunks.
+    const iter = await call(() => r.members());
+    const members: RawMember[] = [];
+    for (let chunk = iter.nextChunk(200); chunk && chunk.length; chunk = iter.nextChunk(200)) {
+      for (const m of chunk) {
+        members.push({
+          userId: m.userId,
+          displayName: m.displayName,
+          avatarUrl: m.avatarUrl,
+          membership: membershipOf(m.membership),
+          power: powerOf(m.powerLevel),
+          reason: m.membershipChangeReason,
+        });
+      }
+    }
+    const v = levels.values();
+    const num = (n: bigint) => Number(n);
+    const raw: RawLevels = {
+      invite: num(v.invite),
+      kick: num(v.kick),
+      ban: num(v.ban),
+      redact: num(v.redact),
+      eventsDefault: num(v.eventsDefault),
+      stateDefault: num(v.stateDefault),
+    };
+    const state = (t: keyof typeof b.StateEventType) => levels.canOwnUserSendState(new (b.StateEventType[t] as new () => Ffi.StateEventType)());
+    return {
+      id: info.id,
+      name: info.displayName || info.rawName || info.id,
+      topic: info.topic,
+      avatarUrl: info.avatarUrl,
+      canonicalAlias: info.canonicalAlias,
+      alternativeAliases: info.alternativeAliases,
+      joinRule: info.joinRule ? (info.joinRule as { tag: string }).tag : undefined,
+      historyVisibility: (info.historyVisibility as { tag: string }).tag,
+      isDirect: info.isDirect,
+      isEncrypted: info.encryptionState === b.EncryptionState.Encrypted,
+      muted: info.cachedUserDefinedNotificationMode === b.RoomNotificationMode.Mute,
+      pinnedEventIds: info.pinnedEventIds,
+      me: r.ownUserId(),
+      members,
+      levels: raw,
+      can: {
+        invite: levels.canOwnUserInvite(),
+        kick: levels.canOwnUserKick(),
+        ban: levels.canOwnUserBan(),
+        pin: levels.canOwnUserPinUnpin(),
+        editName: state("RoomName"),
+        editTopic: state("RoomTopic"),
+        joinRules: state("RoomJoinRules"),
+        history: state("RoomHistoryVisibility"),
+        levels: state("RoomPowerLevels"),
+      },
+    };
+  };
 
   const syncOf = (s: Ffi.SyncServiceLike): SdkSyncService => ({
     start: () => call(() => s.start()),
@@ -158,6 +263,10 @@ export function sdkFromBindings(b: Bindings): Sdk {
     async profile() {
       const p = await call(() => c.getProfile(c.userId()));
       return { displayName: p.displayName, avatarUrl: p.avatarUrl };
+    },
+    async setMuted(roomId, muted) {
+      const settings = await call(() => c.getNotificationSettings());
+      await call(() => (muted ? settings.setRoomNotificationMode(roomId, b.RoomNotificationMode.Mute) : settings.restoreDefaultRoomNotificationMode(roomId)));
     },
     room: (id) => {
       const r = c.getRoom(id);

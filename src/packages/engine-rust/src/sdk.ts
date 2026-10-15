@@ -38,6 +38,72 @@ export interface SdkRoom {
   onTyping(cb: (userIds: string[]) => void): SdkTask;
   typingNotice(typing: boolean): Promise<void>;
   timeline(): Promise<SdkTimeline>;
+  /** What the chat-info panel shows, read now. */
+  details(): Promise<RawRoomDetails>;
+  leave(): Promise<void>;
+  setName(name: string): Promise<void>;
+  setTopic(topic: string): Promise<void>;
+  invite(userId: string): Promise<void>;
+  kick(userId: string): Promise<void>;
+  ban(userId: string, reason?: string): Promise<void>;
+  unban(userId: string): Promise<void>;
+  setPower(userId: string, level: number): Promise<void>;
+  /** Only the given levels change. */
+  setLevels(patch: Partial<RawLevels>): Promise<void>;
+  setJoinRule(rule: "public" | "invite"): Promise<void>;
+  setHistoryVisibility(visibility: "shared" | "invited" | "joined" | "world_readable"): Promise<void>;
+}
+
+/** The levels a room's actions need, as numbers. `stateDefault` is what changing settings and levels needs. */
+export interface RawLevels {
+  invite: number;
+  kick: number;
+  ban: number;
+  redact: number;
+  eventsDefault: number;
+  stateDefault: number;
+}
+
+export interface RawMember {
+  userId: string;
+  displayName?: string | undefined;
+  avatarUrl?: string | undefined;
+  membership: "Join" | "Invite" | "Ban" | "Other";
+  /** The power level; an unbounded one (a room's creator) is read as 100. */
+  power: number;
+  /** Why they were banned or removed. */
+  reason?: string | undefined;
+}
+
+/** What the SDK knows of a room that the chat-info panel is made from (see `toRoomDetails`). */
+export interface RawRoomDetails {
+  id: string;
+  name: string;
+  topic?: string | undefined;
+  avatarUrl?: string | undefined;
+  canonicalAlias?: string | undefined;
+  alternativeAliases: string[];
+  /** The tag of the SDK's join rule (`Public`, `Invite`, `Knock`, ...), when the room has one. */
+  joinRule?: string | undefined;
+  historyVisibility: string;
+  isDirect: boolean;
+  isEncrypted: boolean;
+  muted: boolean;
+  pinnedEventIds: string[];
+  me: string;
+  members: RawMember[];
+  levels: RawLevels;
+  can: {
+    invite: boolean;
+    kick: boolean;
+    ban: boolean;
+    pin: boolean;
+    editName: boolean;
+    editTopic: boolean;
+    joinRules: boolean;
+    history: boolean;
+    levels: boolean;
+  };
 }
 
 /** What a chat list shows of a room's newest event. */
@@ -74,6 +140,8 @@ export interface SdkClient {
   /** My name and picture. */
   profile(): Promise<{ displayName?: string | undefined; avatarUrl?: string | undefined }>;
   room(id: string): SdkRoom | undefined;
+  /** Mute a room, or give it the account's default again. */
+  setMuted(roomId: string, muted: boolean): Promise<void>;
 }
 
 export interface SdkClientConfig {

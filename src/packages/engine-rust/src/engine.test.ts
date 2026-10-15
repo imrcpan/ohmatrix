@@ -1,7 +1,20 @@
 import { applyUpdates, type ListUpdate, type RoomSummary, type TimelineItem } from "@ohmatrix/core";
 import { expect, test } from "vitest";
 import { RustEngineCore } from "./engine.js";
-import type { LatestEvent, ListChange, Sdk, SdkClient, SdkRoom, SdkSession, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
+import type {
+  LatestEvent,
+  RawLevels,
+  RawRoomDetails,
+  ListChange,
+  Sdk,
+  SdkClient,
+  SdkRoom,
+  SdkSession,
+  SdkSyncService,
+  SdkTask,
+  SdkTimeline,
+  TimelineEntry,
+} from "./sdk.js";
 import type { RoomInfoLike } from "./roomSummary.js";
 import type { EventItemLike } from "./timelineItem.js";
 
@@ -86,6 +99,40 @@ class FakeRoom implements SdkRoom {
   async timeline() {
     return this.timelineObj;
   }
+  // ---- chat info and administration: what was asked is written down, the details are what the test sets ----
+  calls: unknown[][] = [];
+  detailsNow: RawRoomDetails = {
+    id: "!r",
+    name: "Room",
+    alternativeAliases: [],
+    historyVisibility: "Shared",
+    isDirect: false,
+    isEncrypted: false,
+    muted: false,
+    pinnedEventIds: [],
+    me: "@me:s",
+    members: [{ userId: "@me:s", membership: "Join", power: 100 }],
+    levels: { invite: 0, kick: 50, ban: 50, redact: 50, eventsDefault: 0, stateDefault: 50 },
+    can: { invite: true, kick: true, ban: true, pin: true, editName: true, editTopic: true, joinRules: true, history: true, levels: true },
+  };
+  async details() {
+    return this.detailsNow;
+  }
+  private record =
+    (name: string) =>
+    async (...args: unknown[]) =>
+      void this.calls.push([name, ...args]);
+  leave = this.record("leave");
+  setName = this.record("setName");
+  setTopic = this.record("setTopic");
+  invite = this.record("invite");
+  kick = this.record("kick");
+  ban = this.record("ban");
+  unban = this.record("unban");
+  setPower = this.record("setPower");
+  setLevels = this.record("setLevels") as (p: Partial<RawLevels>) => Promise<void>;
+  setJoinRule = this.record("setJoinRule");
+  setHistoryVisibility = this.record("setHistoryVisibility");
 }
 
 class FakeSync implements SdkSyncService {
@@ -140,6 +187,10 @@ class FakeClient implements SdkClient {
   }
   room(id: string) {
     return this.rooms.get(id);
+  }
+  muted: [string, boolean][] = [];
+  async setMuted(id: string, m: boolean) {
+    this.muted.push([id, m]);
   }
 }
 
@@ -322,7 +373,7 @@ test("what is not implemented yet fails as unsupported, and what the app asks fo
   await engine.auth.loginWithPassword("http://s", "a", "p");
   await expect(engine.auth.register("http://s", "x", "y")).rejects.toMatchObject({ code: "unsupported" });
   await expect(engine.search.messages({ term: "x" })).rejects.toMatchObject({ code: "unsupported" });
-  await expect(engine.roomAdmin.setName("!r", "x")).rejects.toMatchObject({ code: "unsupported" });
+  await expect(engine.roomAdmin.addAlias("!r", "x")).rejects.toMatchObject({ code: "unsupported" });
   client.rooms.set("!r", new FakeRoom(info("!r")));
   await expect(engine.openTimeline("!r").edit("$1", "x")).rejects.toMatchObject({ code: "unsupported" });
   expect(await engine.security.state()).toBe("unavailable");
@@ -341,4 +392,71 @@ test("signing out stops sync, signs the client out, forgets the rooms, and the n
   expect(client.loggedOut).toBe(true);
   expect(list).toEqual([]);
   await expect(engine.sync.start()).rejects.toMatchObject({ code: "unauthorized" });
+});
+
+test("the chat info is read when subscribed and again when the room changes, one read at a time", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  client.rooms.set("!r", room);
+  const seen: string[] = [];
+  const stop = engine.rooms.subscribeDetails("!r", (d) => seen.push(d.name));
+  await tickMany();
+  expect(seen).toEqual(["Room"]);
+  room.detailsNow = { ...room.detailsNow, name: "Renamed" };
+  room.infoCb?.(info("!r"));
+  await tickMany();
+  expect(seen).toEqual(["Room", "Renamed"]);
+  stop();
+  room.infoCb?.(info("!r"));
+  await tickMany();
+  expect(seen).toHaveLength(2);
+});
+
+test("subscribing to an unknown room fails as not found", async () => {
+  const { engine } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  expect(() => engine.rooms.subscribeDetails("!nope", () => {})).toThrowError(expect.objectContaining({ code: "not_found" }));
+});
+
+test("administration goes to the room: names, people, roles, levels, rules", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  client.rooms.set("!r", room);
+  const a = engine.roomAdmin;
+  await a.setName("!r", "N");
+  await a.setTopic("!r", "T");
+  await a.invite("!r", ["@x:s", "@y:s"]);
+  await a.kick("!r", "@x:s");
+  await a.ban("!r", "@y:s", "spam");
+  await a.unban("!r", "@y:s");
+  await a.setRole("!r", "@x:s", "moderator");
+  await a.setRole("!r", "@x:s", "admin");
+  await a.setRole("!r", "@x:s", "member");
+  await a.setPower("!r", "@x:s", 25);
+  await a.setThresholds("!r", { kick: 60, sendMessages: 10, changeSettings: 70 });
+  await a.setJoinRule("!r", "public");
+  await a.setHistoryVisibility("!r", "joined");
+  await engine.rooms.leave("!r");
+  expect(room.calls).toEqual([
+    ["setName", "N"],
+    ["setTopic", "T"],
+    ["invite", "@x:s"],
+    ["invite", "@y:s"],
+    ["kick", "@x:s"],
+    ["ban", "@y:s", "spam"],
+    ["unban", "@y:s"],
+    ["setPower", "@x:s", 50],
+    ["setPower", "@x:s", 100],
+    ["setPower", "@x:s", 0],
+    ["setPower", "@x:s", 25],
+    ["setLevels", { kick: 60, eventsDefault: 10, stateDefault: 70 }],
+    ["setJoinRule", "public"],
+    ["setHistoryVisibility", "joined"],
+    ["leave"],
+  ]);
+  await engine.rooms.setMuted("!r", true);
+  expect(client.muted).toEqual([["!r", true]]);
+  await expect(a.setName("!nope", "x")).rejects.toMatchObject({ code: "not_found" });
 });

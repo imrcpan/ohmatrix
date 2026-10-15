@@ -159,7 +159,7 @@ export function RoomSettingsSections(props: {
             <AnchoredPress
               key={b.userId}
               label={b.name}
-              subtitle={b.reason ? `${b.userId} · ${b.reason}` : b.userId}
+              subtitle={[b.name !== b.userId ? b.userId : "", b.reason ?? ""].filter(Boolean).join(" · ") || undefined}
               icon="close"
               disabled={!d.can.ban}
               onOpen={(anchor) => setBannedMenu({ userId: b.userId, anchor })}
