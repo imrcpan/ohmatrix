@@ -10,6 +10,8 @@ export interface Session {
   userId: UserId;
   deviceId: string;
   accessToken: string;
+  /** What only the engine that made the session needs to restore it (an opaque string; the others ignore it). */
+  native?: string;
 }
 
 export interface RoomSummary {

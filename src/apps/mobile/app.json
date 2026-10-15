@@ -1,1 +1,26 @@
-{ "expo": { "name": "OhMatrix", "slug": "oh-matrix", "version": "0.0.0", "scheme": "ohmatrix", "orientation": "default" } }
+{
+  "expo": {
+    "name": "OhMatrix",
+    "slug": "oh-matrix",
+    "version": "0.0.0",
+    "scheme": "ohmatrix",
+    "orientation": "default",
+    "newArchEnabled": true,
+    "android": {
+      "package": "org.ohmatrix.app"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "minSdkVersion": 26,
+            "buildArchs": ["arm64-v8a"]
+          }
+        }
+      ]
+    ]
+  }
+}
