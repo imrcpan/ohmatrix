@@ -143,3 +143,45 @@ test("totalUnread counts notifying chats, manual marks once, and skips muted cha
     ]),
   ).toBe(3 + 1 + 4);
 });
+
+test("back steps out of one layer at a time, topmost first, and says when there is nothing left", async () => {
+  const app = createAppController(new MockEngine(), { sessionStore: memoryStore() });
+  await app.bootstrap();
+  await app.login("http://localhost:8008", "test", "123456");
+  const st = () => app.store.getState();
+
+  // Nothing is open: the app is at its first screen.
+  expect(app.back()).toBe(false);
+
+  // A chat with its info panel open: the panel closes first, then the chat.
+  app.selectRoom("!general:example.org");
+  app.openRoomInfo(true);
+  expect(app.back()).toBe(true);
+  expect(st()).toMatchObject({ roomInfoOpen: false, selectedRoomId: "!general:example.org" });
+  expect(app.back()).toBe(true);
+  expect(st().selectedRoomId).toBeNull();
+  expect(app.back()).toBe(false);
+
+  // Settings are reached through the profile and are left the same way, one page at a time.
+  app.openSidebarPage("sessions");
+  expect(app.back()).toBe(true);
+  expect(st().sidebarPage).toBe("settings");
+  expect(app.back()).toBe(true);
+  expect(st().sidebarPage).toBe("profile");
+  expect(app.back()).toBe(true);
+  expect(st().sidebarPage).toBe("chats");
+  expect(app.back()).toBe(false);
+
+  // A space, with its info page over it, and a chat opened from inside it: chat, then info, then space.
+  app.openSpace("!dev:example.org");
+  app.openSpaceInfo(true);
+  expect(st()).toMatchObject({ spaceId: "!dev:example.org", spaceInfoOpen: true });
+  expect(app.back()).toBe(true);
+  expect(st()).toMatchObject({ spaceInfoOpen: false, spaceId: "!dev:example.org" });
+  app.selectRoom("!general:example.org");
+  expect(app.back()).toBe(true);
+  expect(st()).toMatchObject({ selectedRoomId: null, spaceId: "!dev:example.org" });
+  expect(app.back()).toBe(true);
+  expect(st().spaceId).toBeNull();
+  expect(app.back()).toBe(false);
+});

@@ -110,6 +110,12 @@ export interface AppController {
   openSpaceInfo(open: boolean): void;
   /** One level up: settings → profile → chats. */
   sidebarBack(): void;
+  /**
+   * Step back one layer, the topmost first: a space's info page, a chat's info panel, the open chat, a profile or
+   * settings page, a space. Returns false when there is nothing left to step back from, which is when the platform's
+   * own back (leaving the app) should happen.
+   */
+  back(): boolean;
   openRoomInfo(open: boolean): void;
   selectRoom(roomId: RoomId | null): void;
   acceptInvite(roomId: RoomId): Promise<void>;
@@ -272,6 +278,16 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     openSidebarPage: (sidebarPage) => set({ sidebarPage }),
     openSpace: (spaceId) => set({ spaceId, spaceInfoOpen: false }),
     openSpaceInfo: (open) => set((s) => ({ spaceInfoOpen: open && s.spaceId !== null, ...(open ? { roomInfoOpen: false } : {}) })),
+    back() {
+      const s = store.getState();
+      if (s.spaceInfoOpen) set({ spaceInfoOpen: false });
+      else if (s.roomInfoOpen) set({ roomInfoOpen: false });
+      else if (s.selectedRoomId !== null) select(null);
+      else if (s.sidebarPage !== "chats") set({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" });
+      else if (s.spaceId !== null) set({ spaceId: null, spaceInfoOpen: false });
+      else return false;
+      return true;
+    },
     sidebarBack: () => set((s) => ({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" })),
     openRoomInfo: (roomInfoOpen) =>
       set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null, ...(roomInfoOpen ? { spaceInfoOpen: false } : {}) })),
