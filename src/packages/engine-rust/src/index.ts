@@ -1,21 +1,32 @@
 // The MatrixEngine for iOS and Android, on top of matrix-rust-sdk.
 //
-// `bindings.tsx` is what uniffi-bindgen-react-native generated (it installs the Rust crate into the JS runtime and
-// initialises the bindings); the types and classes it exports are matrix-rust-sdk's own (Element X's FFI crate).
-import type { MatrixEngine } from "@ohmatrix/core";
+// `engine.ts` is the engine, written against `sdk.ts` (small interfaces in our own words) so that it can be tested
+// without the native library. `sdkBindings.ts` makes those interfaces out of the bindings uniffi-bindgen-react-native
+// generated, and `bindings.tsx` installs the library; both need the app's native module, so they are loaded only when the
+// engine first needs the SDK, not when this file is imported.
+import type { Sdk, SdkClientConfig } from "./sdk.js";
+import { RustEngineCore, type RustEngineOptions } from "./engine.js";
 
-/** What the engine needs from the app that hosts it. */
-export interface RustEngineOptions {
-  /** A folder in the app's private storage for the SDK's database. */
-  dataDir: string;
-  /** A folder for what can be fetched again (downloaded media). */
-  cacheDir: string;
-  /** The passphrase of the database, the same every time (see the app's secure storage). */
-  passphrase(): Promise<string>;
+export type { RustEngineOptions } from "./engine.js";
+
+/** The SDK, loaded once, the first time a client is made. */
+function lazySdk(): Sdk {
+  let loaded: Promise<Sdk> | null = null;
+  const load = () =>
+    (loaded ??= Promise.all([import("./bindings.js"), import("./sdkBindings.js")]).then(([bindings, adapter]) => adapter.sdkFromBindings(bindings)));
+  return {
+    // Native sliding sync, which is what the SDK is built around; a session made by another engine has none stored.
+    defaultSlidingSync: 1,
+    newClient: async (config: SdkClientConfig) => (await load()).newClient(config),
+  };
 }
 
-/** The engine itself. Its constructor takes the options; it is a `MatrixEngine` (the class is written once the bindings exist). */
-export declare const RustEngine: new (options: RustEngineOptions) => MatrixEngine;
+/** The engine for the app: matrix-rust-sdk. */
+export class RustEngine extends RustEngineCore {
+  constructor(options: RustEngineOptions) {
+    super(lazySdk(), options);
+  }
+}
 
 /**
  * Proof that the native library is loaded and answering: the git revision of the matrix-rust-sdk it was built from, and a

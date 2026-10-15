@@ -9,7 +9,6 @@ src/e2e/test-results
 .changeset/*.md
 src/packages/engine-rust/rust_modules
 src/packages/engine-rust/src/generated
-src/packages/engine-rust/src/bindings.tsx
 src/packages/engine-rust/src/Native*
 src/packages/engine-rust/cpp
 src/packages/engine-rust/android

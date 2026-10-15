@@ -17,6 +17,5 @@ src/packages/engine-rust/android/
 src/packages/engine-rust/ios/
 src/packages/engine-rust/src/generated/
 src/packages/engine-rust/src/Native*
-src/packages/engine-rust/src/bindings.tsx
 src/packages/engine-rust/EngineRust.podspec
 *.so
