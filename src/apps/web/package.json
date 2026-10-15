@@ -17,13 +17,13 @@
     "@ohmatrix/engine-mock": "workspace:*",
     "@ohmatrix/state": "workspace:*",
     "@react-native/assets-registry": "^0.87.1",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native-web": "^0.21.4"
   },
   "devDependencies": {
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
+    "@types/react": "~19.2.0",
+    "@types/react-dom": "~19.2.0",
     "@vitejs/plugin-react": "^6.1.2",
     "fake-indexeddb": "^6.2.5",
     "vite": "^8.3.4",
