@@ -27,7 +27,9 @@ const Ctx = createContext<Theme | null>(null);
 
 /** `themeId` is a registered theme id or "system" (follow the OS). */
 export function ThemeProvider(props: { themeId?: string; children: ReactNode }) {
-  const system = useColorScheme();
+  const scheme = useColorScheme();
+  // "unspecified" is what some React Native versions report when the system has no preference: the same as none.
+  const system = scheme === "light" || scheme === "dark" ? scheme : null;
   return <Ctx.Provider value={resolveTheme(props.themeId ?? "system", system)}>{props.children}</Ctx.Provider>;
 }
 

@@ -40,5 +40,11 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm -s format:check && pnpm -s lint --quiet"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.3",
+      "react-dom": "19.2.3"
+    }
   }
 }
