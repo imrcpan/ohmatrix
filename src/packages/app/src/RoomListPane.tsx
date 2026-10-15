@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor } from "@ohmatrix/ui";
@@ -34,7 +34,11 @@ function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
   return room.isDirect ? body : `${m.senderName}: ${body}`;
 }
 
-export function RoomListItem(props: {
+/**
+ * One row. It is memoised: the list hands the same `room` object back for a room that did not change (the engine reuses
+ * it), and `now` is rounded to the minute and the callbacks are stable, so a row is drawn again only when it has to be.
+ */
+export const RoomListItem = memo(function RoomListItem(props: {
   room: RoomSummary;
   selected: boolean;
   now: number;
@@ -77,7 +81,7 @@ export function RoomListItem(props: {
       }
     />
   );
-}
+});
 
 export function RoomListPane() {
   const { colors } = useTheme();
@@ -97,7 +101,10 @@ export function RoomListPane() {
   const [sheet, setSheet] = useState(false);
   const [query, setQuery] = useState("");
   const space = useAppState((s) => s.spaceId);
-  const now = Date.now();
+  // The time a row shows only changes by the minute, and rows are drawn again only when this does.
+  const now = Math.floor(Date.now() / 60_000) * 60_000;
+  const onMenu = useCallback((room: RoomSummary, a: Anchor) => setRoomMenu({ room, anchor: a }), []);
+  const onOpenSpace = useCallback((id: string) => controller.openSpace(id), [controller]);
 
   const data = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -220,17 +227,7 @@ export function RoomListPane() {
             {query ? t("noResults") : t("noChats")}
           </Text>
         }
-        renderItem={({ item }) => (
-          <RoomListItem
-            room={item}
-            selected={selected === item.id}
-            now={now}
-            onOpenSpace={(id) => controller.openSpace(id)}
-            onMenu={(room, a) => {
-              setRoomMenu({ room, anchor: a });
-            }}
-          />
-        )}
+        renderItem={({ item }) => <RoomListItem room={item} selected={selected === item.id} now={now} onOpenSpace={onOpenSpace} onMenu={onMenu} />}
       />
       <SlideOverSpace open={space !== null} id={space} />
     </View>

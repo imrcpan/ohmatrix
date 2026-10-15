@@ -56,7 +56,7 @@ import { nameOf, notificationPreview, pinnedIds, roomItems, stripReplyFallback, 
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { probeMedia, type Probe } from "./probe.js";
 import { resolveHomeserver } from "./discovery.js";
-import { diffTimeline } from "./diff.js";
+import { diffTimeline, reuseRooms } from "./diff.js";
 import { aliasLocalpart, thresholdsOf } from "./roomSettings.js";
 import { childRooms, isDirectRoom } from "./spaces.js";
 import { mediaKindOf } from "./sharedMedia.js";
@@ -121,6 +121,9 @@ async function keyFingerprint(key: Uint8Array<ArrayBuffer>): Promise<string> {
 /** One crypto store per user *and device*, so a new login can never collide with an old device's keys. */
 /** Custom profile field holding the status line. */
 const STATUS_FIELD = "com.ohmatrix.status";
+
+/** Room list updates closer together than this are worked out as one. */
+const ROOM_EMIT_GAP = 60;
 
 const ROLE_LEVEL: Record<MemberRole, number> = { admin: 100, moderator: 50, member: 0 };
 const roleOf = (power: number): MemberRole => (power >= 100 ? "admin" : power >= 50 ? "moderator" : "member");
@@ -237,6 +240,8 @@ export class JsSdkEngine implements MatrixEngine {
   private syncListeners = new Set<Listener<SyncState>>();
   private roomListeners = new Set<Listener<ListUpdate<RoomSummary>[]>>();
   private roomEmitPending = false;
+  private lastRoomEmit = 0;
+  private lastRooms: RoomSummary[] = [];
   private lastSync: SyncState = "stopped";
 
   private requireClient(): MatrixClient {
@@ -246,6 +251,7 @@ export class JsSdkEngine implements MatrixEngine {
 
   private attach(client: MatrixClient) {
     this.client = client;
+    this.lastRooms = []; // a new client is a new account or device: nothing of the old list is reused
     const schedule = () => this.scheduleRoomEmit();
     this.caughtUp = false;
     this.startedAt = Date.now();
@@ -715,26 +721,38 @@ export class JsSdkEngine implements MatrixEngine {
     this.syncListeners.forEach((cb) => cb(s));
   }
 
+  /**
+   * The room list is worked out again when something about a room changes, and a sync changes dozens of things at once
+   * (the first one, hundreds). So a change only marks it as due, and it is worked out once, a moment later, for all of
+   * them. The first change after a quiet spell goes out at once (a sent message should show up now); the ones that
+   * follow close behind it wait for the end of the burst.
+   */
   private scheduleRoomEmit() {
     if (this.roomEmitPending) return;
     this.roomEmitPending = true;
-    queueMicrotask(() => {
+    const now = Date.now();
+    const quiet = now - this.lastRoomEmit > ROOM_EMIT_GAP;
+    const run = () => {
       this.roomEmitPending = false;
+      this.lastRoomEmit = Date.now();
       this.emitRooms(this.roomListeners);
-    });
+    };
+    if (quiet) queueMicrotask(run);
+    else setTimeout(run, ROOM_EMIT_GAP);
   }
 
   private roomList(): RoomSummary[] {
     const c = this.client;
     if (!c) return [];
-    return (
-      c
-        .getVisibleRooms()
-        .filter((r) => ["join", "invite"].includes(r.getMyMembership()))
-        .map((r) => toRoomSummary(c, r))
-        // Invitations first (like Telegram's pending requests), then pinned chats, then by recent activity.
-        .sort((a, b) => Number(!!b.invite) - Number(!!a.invite) || Number(!!b.pinned) - Number(!!a.pinned) || b.lastActivityTs - a.lastActivityTs)
-    );
+    const next = c
+      .getVisibleRooms()
+      .filter((r) => ["join", "invite"].includes(r.getMyMembership()))
+      .map((r) => toRoomSummary(c, r))
+      // Invitations first (like Telegram's pending requests), then pinned chats, then by recent activity.
+      .sort((a, b) => Number(!!b.invite) - Number(!!a.invite) || Number(!!b.pinned) - Number(!!a.pinned) || b.lastActivityTs - a.lastActivityTs);
+    // A room that did not change keeps the object it had, so the list draws only the rows that did.
+    this.lastRooms = reuseRooms(this.lastRooms, next);
+    return this.lastRooms;
   }
 
   private emitRooms(targets: Iterable<Listener<ListUpdate<RoomSummary>[]>>) {
@@ -816,6 +834,7 @@ export class JsSdkEngine implements MatrixEngine {
         await c.store.deleteAllData().catch(() => {}); // the cached rooms and events belong to this login
         c.removeAllListeners();
         this.client = null;
+        this.lastRooms = [];
         // The device is gone from the server, so its local encryption keys are useless: remove them.
         const prefix = this.cryptoPrefix;
         this.cryptoPrefix = null;

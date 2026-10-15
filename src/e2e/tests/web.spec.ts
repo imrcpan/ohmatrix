@@ -3107,3 +3107,51 @@ test("settings: Language and Zoom are rows of one section, as close as any other
   const note = (await page.getByText("Scales the whole interface").boundingBox())!;
   expect(note.y - (zoom.y + zoom.height)).toBeLessThan(12);
 });
+
+test("the chat list keeps up with the rooms: a new message, the unread count, the room's name and its place all show at once", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const [alice, me] = [await apiLogin("alice"), await apiLogin("test")];
+  const name = `Live ${Date.now().toString(36)}`;
+  const { room_id } = await api(alice, "POST", "/createRoom", { name, preset: "private_chat", invite: ["@test:localhost"] });
+  await api(me, "POST", `/join/${encodeURIComponent(room_id)}`, {});
+  const send = (body: string) =>
+    api(alice, "PUT", `/rooms/${encodeURIComponent(room_id)}/send/m.room.message/l${Date.now()}${Math.random().toString(36).slice(2, 6)}`, {
+      msgtype: "m.text",
+      body,
+    });
+  const row = (n: string) => page.getByRole("button", { name: new RegExp(n) }).filter({ hasNot: page.getByRole("button", { name: "Profile" }) });
+  await page.getByPlaceholder("Search").fill(name);
+  await expect(row(name).first()).toBeVisible({ timeout: 20000 });
+
+  // A message from someone else: its text is the preview and it counts as unread.
+  await send("first hello");
+  await expect(row(name).first()).toContainText("first hello", { timeout: 15000 });
+  await expect(row(name).first()).toContainText("1");
+  // Another one replaces the preview and the count goes up. (Rows are redrawn only when their room changed.)
+  await send("second hello");
+  await expect(row(name).first()).toContainText("second hello", { timeout: 15000 });
+  await expect(row(name).first()).toContainText("2");
+
+  // Renamed in the room: the row has the new name.
+  const renamed = `${name} renamed`;
+  await api(alice, "PUT", `/rooms/${encodeURIComponent(room_id)}/state/m.room.name`, { name: renamed });
+  await expect(row(renamed).first()).toBeVisible({ timeout: 15000 });
+
+  // Read: opening it clears the count.
+  await row(renamed).first().click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Back", exact: true })
+    .click({ timeout: 2000 })
+    .catch(() => {});
+  await expect(row(renamed).first()).not.toContainText(/\b2\b/, { timeout: 15000 });
+
+  // Rooms that did not change are not disturbed by one that did: a search shows several rooms at once.
+  await page.getByPlaceholder("Search").fill("");
+  await page.getByPlaceholder("Search").fill("Live ");
+  const before = await page.getByRole("button").filter({ hasText: /Live / }).count();
+  await send("while others are listed");
+  await expect(row(renamed).first()).toContainText("while others are listed", { timeout: 15000 });
+  expect(await page.getByRole("button").filter({ hasText: /Live / }).count()).toBe(before);
+});
