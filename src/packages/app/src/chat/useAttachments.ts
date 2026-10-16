@@ -13,7 +13,14 @@ import type { Translate } from "./types.js";
  */
 export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate) {
   const services = useServices();
-  const sendFile = useCallback((f: AttachmentSource) => handle.current?.sendAttachment(f).catch(() => {}) ?? Promise.resolve(), [handle]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!failed) return;
+    const timer = setTimeout(() => setFailed(false), 5000);
+    return () => clearTimeout(timer);
+  }, [failed]);
+  // A file that could not go out says so (the composer's notice line), rather than just not appearing.
+  const sendFile = useCallback((f: AttachmentSource) => handle.current?.sendAttachment(f).catch(() => setFailed(true)) ?? Promise.resolve(), [handle]);
   const voice = useVoiceRecording(sendFile, services, t);
   const [recordingVideo, setRecordingVideo] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -21,7 +28,7 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
   useEffect(() => services.receiveFiles?.((files) => setPending((p) => [...p, ...files]), setDropping), [services]);
 
   const composerProps: Partial<ComposerProps> = {
-    notice: voice.notice,
+    notice: voice.notice ?? (failed ? t("attach.failed") : undefined),
     recording: voice.bar,
     record: services.recordMedia
       ? { onVoice: () => void voice.start(), onVideo: () => setRecordingVideo(true), voiceLabel: t("record.voice"), videoLabel: t("record.video") }
