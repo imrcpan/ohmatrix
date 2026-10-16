@@ -541,7 +541,11 @@ export function Composer(props: {
   return (
     <View
       ref={barRef}
-      onLayout={(e) => setBox((b) => ({ ...b, width: e.nativeEvent.layout.width }))}
+      onLayout={(e) => {
+        // Read it now: the updater runs later, and by then React has let go of the event.
+        const width = e.nativeEvent.layout.width;
+        setBox((b) => ({ ...b, width }));
+      }}
       style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator, zIndex: 4 }}
     >
       {props.context && (
