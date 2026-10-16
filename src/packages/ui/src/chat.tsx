@@ -692,9 +692,9 @@ export function Composer(props: {
         </View>
       ) : (
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, paddingHorizontal: 10 }}>
-          {(props.onEmoji || props.onAttach || props.record) && (
-            // The buttons sit close together, and a little closer to the field than the row's gap.
-            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 2, marginRight: -2 }}>
+          {(props.onEmoji || props.onAttach || props.record?.onVideo) && (
+            // The buttons touch (their icons sit 12 px apart inside the 38 px boxes), and a little closer to the field than the row's gap.
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 0, marginRight: -2 }}>
               {props.onEmoji && (
                 <View>
                   <Pressable
@@ -731,41 +731,22 @@ export function Composer(props: {
                   <Icon name="attach" size={26} color={colors.textSecondary} />
                 </Pressable>
               )}
-              {props.record && (
-                <>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={props.record.voiceLabel}
-                    onPress={props.record.onVoice}
-                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                      width: 38,
-                      height: 38,
-                      borderRadius: 19,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                    })}
-                  >
-                    <Icon name="mic" size={26} color={colors.textSecondary} />
-                  </Pressable>
-                  {props.record.onVideo && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={props.record.videoLabel ?? "Record a video"}
-                      onPress={props.record.onVideo}
-                      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                        width: 38,
-                        height: 38,
-                        borderRadius: 19,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                      })}
-                    >
-                      <Icon name="camera" size={26} color={colors.textSecondary} />
-                    </Pressable>
-                  )}
-                </>
+              {props.record?.onVideo && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={props.record.videoLabel ?? "Record a video"}
+                  onPress={props.record.onVideo}
+                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                  })}
+                >
+                  <Icon name="camera" size={26} color={colors.textSecondary} />
+                </Pressable>
               )}
             </View>
           )}
@@ -778,53 +759,75 @@ export function Composer(props: {
               borderWidth: 1,
               borderColor: colors.separator,
               backgroundColor: colors.bg,
-              paddingHorizontal: 14,
+              paddingLeft: 14,
+              paddingRight: props.record && text.length === 0 ? 6 : 14,
               paddingVertical: 7,
-              justifyContent: "center",
+              flexDirection: "row",
+              alignItems: "flex-end",
             }}
           >
-            <TextInput
-              ref={inputRef}
-              onSelectionChange={(e) => props.onCaretChange?.(e.nativeEvent.selection.end)}
-              multiline
-              value={text}
-              onChangeText={change}
-              onBlur={() => props.onTyping?.(false)}
-              placeholder={props.placeholder}
-              placeholderTextColor={colors.textSecondary}
-              onContentSizeChange={(e) => setHeight(Math.min(120, Math.max(22, e.nativeEvent.contentSize.height)))}
-              onKeyPress={(e) => {
-                const ne = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
-                if (Platform.OS === "web" && menuOpen) {
-                  const last = suggestions.length - 1;
-                  if (ne.key === "ArrowUp") {
-                    e.preventDefault();
-                    move(active < 0 ? last : Math.max(0, active - 1)); // the menu sits above the field: Up climbs into it from the bottom row
-                    return;
+            <View style={{ flex: 1, minHeight: 24, justifyContent: "center" }}>
+              <TextInput
+                ref={inputRef}
+                onSelectionChange={(e) => props.onCaretChange?.(e.nativeEvent.selection.end)}
+                multiline
+                value={text}
+                onChangeText={change}
+                onBlur={() => props.onTyping?.(false)}
+                placeholder={props.placeholder}
+                placeholderTextColor={colors.textSecondary}
+                onContentSizeChange={(e) => setHeight(Math.min(120, Math.max(22, e.nativeEvent.contentSize.height)))}
+                onKeyPress={(e) => {
+                  const ne = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
+                  if (Platform.OS === "web" && menuOpen) {
+                    const last = suggestions.length - 1;
+                    if (ne.key === "ArrowUp") {
+                      e.preventDefault();
+                      move(active < 0 ? last : Math.max(0, active - 1)); // the menu sits above the field: Up climbs into it from the bottom row
+                      return;
+                    }
+                    if (ne.key === "ArrowDown" && active >= 0) {
+                      e.preventDefault();
+                      move(active >= last ? -1 : active + 1); // past the bottom row: back to the field
+                      return;
+                    }
+                    if ((ne.key === "Enter" || ne.key === "Tab") && active >= 0) {
+                      e.preventDefault();
+                      pick(active);
+                      return;
+                    }
+                    if (ne.key === "Escape") {
+                      e.preventDefault();
+                      props.onDismissSuggestions?.();
+                      return;
+                    }
                   }
-                  if (ne.key === "ArrowDown" && active >= 0) {
+                  if (Platform.OS === "web" && ne.key === "Enter" && !ne.shiftKey) {
                     e.preventDefault();
-                    move(active >= last ? -1 : active + 1); // past the bottom row: back to the field
-                    return;
+                    send();
                   }
-                  if ((ne.key === "Enter" || ne.key === "Tab") && active >= 0) {
-                    e.preventDefault();
-                    pick(active);
-                    return;
-                  }
-                  if (ne.key === "Escape") {
-                    e.preventDefault();
-                    props.onDismissSuggestions?.();
-                    return;
-                  }
-                }
-                if (Platform.OS === "web" && ne.key === "Enter" && !ne.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              style={[{ height, fontSize: 16, lineHeight: 21, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
-            />
+                }}
+                style={[{ height, fontSize: 16, lineHeight: 21, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
+              />
+            </View>
+            {props.record && text.length === 0 && (
+              // Voice sits inside the field, at its right edge, and goes away once something is typed.
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={props.record.voiceLabel}
+                onPress={props.record.onVoice}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                  width: 30,
+                  height: 24,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pressed ? 0.6 : hovered ? 0.8 : 1,
+                })}
+              >
+                <Icon name="mic" size={22} color={colors.textSecondary} />
+              </Pressable>
+            )}
           </View>
           <Pressable
             accessibilityRole="button"
