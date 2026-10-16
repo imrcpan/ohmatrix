@@ -23,6 +23,8 @@ export function Bubble(props: {
   /** Pinned in the room; a pin marker goes into the meta row. */
   pinned?: boolean | undefined;
   time: string;
+  /** Long press on a photo, video, file or quote: those are buttons and would otherwise keep the press from the bubble's menu. */
+  onLongPress?: ((e: { nativeEvent: object }) => void) | undefined;
   senderName?: string | undefined;
   senderId?: string | undefined;
   /** Image message; with no `text` the image fills the bubble and the time sits on it (Telegram style). */
@@ -152,6 +154,8 @@ export function Bubble(props: {
         <Pressable
           accessibilityRole="button"
           onPress={props.reply.onPress}
+          onLongPress={props.onLongPress}
+          delayLongPress={350}
           style={{ flexDirection: "row", gap: 8, marginBottom: 4, ...(imageOnly ? { padding: 8 } : {}) }}
         >
           <View style={{ width: 2, borderRadius: 1, backgroundColor: props.own ? "rgba(255,255,255,0.8)" : peerColor(props.reply.senderId) }} />
@@ -175,6 +179,7 @@ export function Bubble(props: {
           accessibilityLabel="Open photo"
           disabled={!props.image.onPress}
           onPress={props.image.onPress}
+          onLongPress={props.onLongPress}
           style={[
             {
               width: props.image.width,
@@ -196,6 +201,7 @@ export function Bubble(props: {
           accessibilityLabel="Open video"
           disabled={!props.video.onPress || !!props.upload}
           onPress={props.video.onPress}
+          onLongPress={props.onLongPress}
           style={[
             {
               width: props.video.width,
@@ -232,6 +238,8 @@ export function Bubble(props: {
           accessibilityRole="button"
           accessibilityLabel={props.file.name}
           onPress={props.file.onPress}
+          onLongPress={props.onLongPress}
+          delayLongPress={350}
           style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingRight: 8, paddingBottom: 14, minWidth: 190 }}
         >
           {props.upload ? (
@@ -310,12 +318,21 @@ function PressableOrView(props: {
   accessibilityLabel: string;
   disabled: boolean;
   onPress?: (() => void) | undefined;
+  onLongPress?: ((e: { nativeEvent: object }) => void) | undefined;
   style: object;
   children: React.ReactNode;
 }) {
   if (props.plain) return <View style={props.style}>{props.children}</View>;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={props.accessibilityLabel} disabled={props.disabled} onPress={props.onPress} style={props.style}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={props.accessibilityLabel}
+      disabled={props.disabled}
+      onPress={props.onPress}
+      onLongPress={props.onLongPress}
+      delayLongPress={350}
+      style={props.style}
+    >
       {props.children}
     </Pressable>
   );
