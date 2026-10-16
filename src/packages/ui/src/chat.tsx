@@ -414,7 +414,7 @@ export function Composer(props: {
   /** Called while the user types (true) and when they stop or send (false). */
   onTyping?: ((typing: boolean) => void) | undefined;
   /** Record buttons (camera, microphone) shown instead of Send while the field is empty. */
-  record?: { onVoice: () => void; onVideo: () => void; voiceLabel: string; videoLabel: string } | undefined;
+  record?: { onVoice: () => void; onVideo?: (() => void) | undefined; voiceLabel: string; videoLabel?: string | undefined } | undefined;
   /** A voice recording in progress replaces the field with a recording bar. */
   recording?:
     { seconds: string; levels: number[]; sendLabel: string; cancelLabel: string; recordingLabel: string; onSend: () => void; onCancel: () => void } | undefined;
@@ -722,6 +722,42 @@ export function Composer(props: {
               <Icon name="attach" size={22} color={colors.textSecondary} />
             </Pressable>
           )}
+          {props.record && (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={props.record.voiceLabel}
+                onPress={props.record.onVoice}
+                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                })}
+              >
+                <Icon name="mic" size={22} color={colors.textSecondary} />
+              </Pressable>
+              {props.record.onVideo && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={props.record.videoLabel ?? "Record a video"}
+                  onPress={props.record.onVideo}
+                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                  })}
+                >
+                  <Icon name="camera" size={22} color={colors.textSecondary} />
+                </Pressable>
+              )}
+            </>
+          )}
           <View
             onLayout={(e) => setField({ x: e.nativeEvent.layout.x })}
             style={{
@@ -779,58 +815,23 @@ export function Composer(props: {
               style={[{ height, fontSize: 16, lineHeight: 21, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
             />
           </View>
-          {!canSend && props.record ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={props.record.videoLabel}
-                onPress={props.record.onVideo}
-                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                })}
-              >
-                <Icon name="camera" size={22} color={colors.textSecondary} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={props.record.voiceLabel}
-                onPress={props.record.onVoice}
-                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                })}
-              >
-                <Icon name="mic" size={22} color={colors.accent} />
-              </Pressable>
-            </>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Send"
-              disabled={!canSend}
-              onPress={send}
-              style={({ pressed }) => ({
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: canSend ? colors.accent : colors.bgSecondary,
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Icon name="send" size={20} strokeWidth={2.5} color={canSend ? colors.onAccent : colors.textTertiary} />
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send"
+            disabled={!canSend}
+            onPress={send}
+            style={({ pressed }) => ({
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: canSend ? colors.accent : colors.bgSecondary,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Icon name="send" size={20} strokeWidth={2.5} color={canSend ? colors.onAccent : colors.textTertiary} />
+          </Pressable>
         </View>
       )}
     </View>

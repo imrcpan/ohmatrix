@@ -85,6 +85,8 @@ export interface PlatformServices {
   notifications?: SystemNotifications;
   /** Record a voice message or a short video. Absent = the record buttons are hidden. Rejects with RecordError. */
   recordMedia?(kind: "audio" | "video"): Promise<Recorder>;
+  /** What `recordMedia` can record; absent = both. A platform that cannot record video leaves it out and the button is hidden. */
+  recordKinds?: ReadonlyArray<"audio" | "video">;
   /** Make a player for an audio file at `url`. Absent = the browser's own `Audio` is used. */
   createAudio?(url: string): AudioClip;
   /** Absent = preferences live only for this run. */

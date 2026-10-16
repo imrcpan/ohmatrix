@@ -261,6 +261,7 @@ export function phoneServices(base: Pick<PlatformServices, "sessionStore">): Pla
     preferences: filePreferences(),
     pickFiles,
     recordMedia,
+    recordKinds: ["audio"],
     createAudio,
     async copyText(text) {
       const Clipboard = await import("expo-clipboard");
