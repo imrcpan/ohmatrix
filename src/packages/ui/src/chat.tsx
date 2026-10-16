@@ -640,6 +640,8 @@ export function Composer(props: {
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
               width: 38,
               height: 38,
+              // The icon floats inside its button: pull the bar in so the gap to the icon looks as wide as the one to Send.
+              marginRight: -10,
               borderRadius: 19,
               alignItems: "center",
               justifyContent: "center",
@@ -690,64 +692,33 @@ export function Composer(props: {
         </View>
       ) : (
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, paddingHorizontal: 10 }}>
-          {props.onEmoji && (
-            <View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={props.emojiLabel ?? "Emoji"}
-                onPress={() => setEmojiOpen((v) => !v)}
-                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                })}
-              >
-                <Icon name="smile" size={22} color={emojiOpen ? colors.accent : colors.textSecondary} />
-              </Pressable>
-            </View>
-          )}
-          {props.onAttach && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Attach"
-              onPress={props.onAttach}
-              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-              })}
-            >
-              <Icon name="attach" size={22} color={colors.textSecondary} />
-            </Pressable>
-          )}
-          {props.record && (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={props.record.voiceLabel}
-                onPress={props.record.onVoice}
-                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                })}
-              >
-                <Icon name="mic" size={22} color={colors.textSecondary} />
-              </Pressable>
-              {props.record.onVideo && (
+          {(props.onEmoji || props.onAttach || props.record) && (
+            // The buttons sit close together, and a little closer to the field than the row's gap.
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 2, marginRight: -2 }}>
+              {props.onEmoji && (
+                <View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={props.emojiLabel ?? "Emoji"}
+                    onPress={() => setEmojiOpen((v) => !v)}
+                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                    })}
+                  >
+                    <Icon name="smile" size={26} color={emojiOpen ? colors.accent : colors.textSecondary} />
+                  </Pressable>
+                </View>
+              )}
+              {props.onAttach && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={props.record.videoLabel ?? "Record a video"}
-                  onPress={props.record.onVideo}
+                  accessibilityLabel="Attach"
+                  onPress={props.onAttach}
                   style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
                     width: 38,
                     height: 38,
@@ -757,10 +728,46 @@ export function Composer(props: {
                     backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                   })}
                 >
-                  <Icon name="camera" size={22} color={colors.textSecondary} />
+                  <Icon name="attach" size={26} color={colors.textSecondary} />
                 </Pressable>
               )}
-            </>
+              {props.record && (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={props.record.voiceLabel}
+                    onPress={props.record.onVoice}
+                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                    })}
+                  >
+                    <Icon name="mic" size={26} color={colors.textSecondary} />
+                  </Pressable>
+                  {props.record.onVideo && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={props.record.videoLabel ?? "Record a video"}
+                      onPress={props.record.onVideo}
+                      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                        width: 38,
+                        height: 38,
+                        borderRadius: 19,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                      })}
+                    >
+                      <Icon name="camera" size={26} color={colors.textSecondary} />
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
           )}
           <View
             onLayout={(e) => setField({ x: e.nativeEvent.layout.x })}
