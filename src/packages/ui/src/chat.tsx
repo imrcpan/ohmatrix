@@ -240,10 +240,11 @@ export function Bubble(props: {
           onPress={props.file.onPress}
           onLongPress={props.onLongPress}
           delayLongPress={350}
-          style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingRight: 8, paddingBottom: 14, minWidth: 190 }}
+          style={{ flexDirection: "row", alignItems: "center", gap: 10, minWidth: 190 }}
         >
           {props.upload ? (
             <ProgressRing
+              size={38}
               progress={props.upload.progress}
               failed={props.upload.failed}
               onCancel={props.upload.onCancel}
@@ -253,22 +254,24 @@ export function Bubble(props: {
           ) : (
             <View
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
+                width: 38,
+                height: 38,
+                borderRadius: 10,
                 backgroundColor: props.own ? "rgba(255,255,255,0.22)" : colors.accent,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Icon name="file" size={22} color={colors.onAccent} />
+              <Icon name="file" size={20} color={colors.onAccent} />
             </View>
           )}
           <View style={{ flexShrink: 1 }}>
-            <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "500", fontFamily, color: fg }}>
+            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "500", fontFamily, color: fg }}>
               {props.file.name}
             </Text>
-            <Text style={{ fontSize: 13, fontFamily, color: meta }}>{props.upload ? props.upload.label : props.file.sizeLabel}</Text>
+            <Text style={{ fontSize: 12, fontFamily, color: meta, paddingRight: props.own ? 62 : 44 }}>
+              {props.upload ? props.upload.label : props.file.sizeLabel}
+            </Text>
           </View>
         </Pressable>
       )}
