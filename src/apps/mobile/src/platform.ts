@@ -3,6 +3,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import {
   RecordError,
   type AttachmentSource,
+  type AudioClip,
   type NotificationPermission,
   type PlatformServices,
   type PreferencesStore,
@@ -75,6 +76,83 @@ async function pickFiles(): Promise<AttachmentSource[]> {
       return size ? { ...f, ...size } : f;
     }),
   );
+}
+
+/**
+ * A player for one audio file, with the face of an audio element so the shared code plays it the way it does in a
+ * browser. The native module is loaded on first use; the clip reports through the events the shared code listens to.
+ */
+function createAudio(url: string): AudioClip {
+  type Player = ReturnType<typeof import("expo-audio").createAudioPlayer>;
+  let player: Player | null = null;
+  let released = false;
+  let time = 0;
+  let length = NaN;
+  let paused = true;
+  const listeners = new Map<string, Set<() => void>>();
+  const emit = (type: string) => listeners.get(type)?.forEach((cb) => cb());
+  const ready = import("expo-audio").then(async (Audio) => {
+    await Audio.setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    if (released) return null;
+    const p = Audio.createAudioPlayer({ uri: url }, { updateInterval: 200 });
+    p.addListener("playbackStatusUpdate", (st) => {
+      time = st.currentTime;
+      if (st.isLoaded && st.duration > 0 && st.duration !== length) {
+        length = st.duration;
+        emit("durationchange");
+      }
+      const was = paused;
+      paused = !st.playing;
+      if (st.didJustFinish) {
+        paused = true;
+        emit("ended");
+      } else if (was !== paused) emit(paused ? "pause" : "play");
+      emit("timeupdate");
+    });
+    player = p;
+    return p;
+  });
+  return {
+    get currentTime() {
+      return time;
+    },
+    set currentTime(seconds: number) {
+      time = seconds;
+      void ready.then((p) => p?.seekTo(seconds));
+    },
+    get duration() {
+      return length;
+    },
+    get paused() {
+      return paused;
+    },
+    async play() {
+      const p = await ready;
+      if (!p) return;
+      p.play();
+      paused = false;
+      emit("play");
+    },
+    pause() {
+      player?.pause();
+      paused = true;
+      emit("pause");
+    },
+    addEventListener(type, cb) {
+      const set = listeners.get(type) ?? new Set();
+      set.add(cb);
+      listeners.set(type, set);
+    },
+    removeEventListener(type, cb) {
+      listeners.get(type)?.delete(cb);
+    },
+    release() {
+      released = true;
+      listeners.clear();
+      player?.remove();
+      player = null;
+    },
+  };
 }
 
 /** A voice message: the microphone is opened (permission asked) and ready; recording begins with `start()`. */
@@ -183,6 +261,7 @@ export function phoneServices(base: Pick<PlatformServices, "sessionStore">): Pla
     preferences: filePreferences(),
     pickFiles,
     recordMedia,
+    createAudio,
     async copyText(text) {
       const Clipboard = await import("expo-clipboard");
       await Clipboard.setStringAsync(text);

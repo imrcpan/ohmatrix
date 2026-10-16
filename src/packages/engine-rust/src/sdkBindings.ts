@@ -141,12 +141,8 @@ export function sdkFromBindings(b: Bindings): Sdk {
             ? t.sendVideo(params, undefined, { ...common, ...dims, ...duration, blurhash })
             : f.kind === "audio"
               ? f.voice
-                ? t.sendVoiceMessage(
-                    params,
-                    { ...common, ...duration },
-                    // The event's waveform is whole numbers up to 1024; ours are levels from 0 to 1.
-                    (f.waveform ?? []).map((n) => Math.round(Math.max(0, Math.min(1, n)) * 1024)),
-                  )
+                ? // The SDK takes levels from 0 to 1 and writes the event's whole numbers (up to 1024) itself.
+                  t.sendVoiceMessage(params, { ...common, ...duration }, f.waveform ?? [])
                 : t.sendAudio(params, { ...common, ...duration })
               : t.sendFile(params, common);
       await call(() => handle.join());

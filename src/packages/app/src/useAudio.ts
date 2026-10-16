@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServices } from "./context.js";
 
 /** The small part of the browser's audio element we use (shared code is compiled without the DOM library). */
 interface AudioLike {
-  src: string;
+  src?: string;
   currentTime: number;
-  duration: number;
-  paused: boolean;
-  preload: string;
+  readonly duration: number;
+  readonly paused: boolean;
+  preload?: string;
   play(): Promise<void>;
   pause(): void;
   addEventListener(type: string, cb: () => void): void;
   removeEventListener(type: string, cb: () => void): void;
+  release?(): void;
 }
 
 /** Only one thing plays at a time: starting a clip pauses whichever was playing. */
@@ -30,6 +32,7 @@ export interface AudioState {
  * `load` returns a playable URL; `announcedMs` is the length the message states, shown until the real one is known.
  */
 export function useAudioPlayer(load: () => Promise<string>, announcedMs?: number) {
+  const services = useServices();
   const el = useRef<AudioLike | null>(null);
   const [state, setState] = useState<AudioState>({ status: "idle", progress: 0, positionMs: 0, durationMs: announcedMs });
   const mounted = useRef(true);
@@ -37,6 +40,7 @@ export function useAudioPlayer(load: () => Promise<string>, announcedMs?: number
     () => () => {
       mounted.current = false;
       el.current?.pause();
+      el.current?.release?.();
       if (active && active === handle.current) active = null;
     },
     [],
@@ -58,13 +62,17 @@ export function useAudioPlayer(load: () => Promise<string>, announcedMs?: number
   const ensure = useCallback(async (): Promise<AudioLike | null> => {
     if (el.current) return el.current;
     const Ctor = (globalThis as { Audio?: new () => AudioLike }).Audio;
-    if (!Ctor) return null;
+    if (!Ctor && !services.createAudio) return null;
     setState((s) => ({ ...s, status: "loading" }));
     try {
       const url = await load();
-      const a = new Ctor();
-      a.preload = "auto";
-      a.src = url;
+      let a: AudioLike;
+      if (services.createAudio) a = services.createAudio(url);
+      else {
+        a = new Ctor!();
+        a.preload = "auto";
+        a.src = url;
+      }
       for (const ev of ["timeupdate", "play", "pause", "ended", "loadedmetadata", "durationchange"]) a.addEventListener(ev, sync);
       a.addEventListener("ended", () => {
         a.currentTime = 0;
@@ -76,7 +84,7 @@ export function useAudioPlayer(load: () => Promise<string>, announcedMs?: number
       if (mounted.current) setState((s) => ({ ...s, status: "error" }));
       return null;
     }
-  }, [load, sync]);
+  }, [load, sync, services]);
 
   const toggle = useCallback(async () => {
     const a = await ensure();
