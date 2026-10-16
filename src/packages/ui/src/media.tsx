@@ -1,5 +1,5 @@
 import { Image, Pressable, Text, View } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 import { Icon } from "./Icon.js";
 import { fontFamily, useTheme } from "./theme.js";
 
@@ -238,5 +238,53 @@ export function LinkPreviewCard(props: {
         </View>
       </View>
     </Pressable>
+  );
+}
+
+/** What a file's extension says about its kind: the tile's colour (the families a chat app tells apart at a glance). */
+function tileColor(ext: string): string {
+  if (ext === "pdf") return "#E5483E";
+  if (/^(docx?|rtf|pages|odt)$/.test(ext)) return "#2F6FDE";
+  if (/^(xlsx?|csv|numbers|ods)$/.test(ext)) return "#1F9D57";
+  if (/^(pptx?|key|odp)$/.test(ext)) return "#E8762B";
+  if (/^(zip|rar|7z|tar|gz|tgz|bz2|xz)$/.test(ext)) return "#E0A21C";
+  if (/^(mp3|m4a|aac|ogg|opus|wav|flac)$/.test(ext)) return "#8A63D2";
+  if (/^(mp4|mov|mkv|avi|webm)$/.test(ext)) return "#D6477F";
+  if (/^(apk|ipa|exe|dmg|msi|deb|rpm)$/.test(ext)) return "#3FA34D";
+  return "#8E8E93";
+}
+
+/** A sheet of paper with a folded corner and the file's extension on it, as file cards show a file's kind. */
+export function FileTile(props: { name: string; width?: number; height?: number }) {
+  const w = props.width ?? 36,
+    h = props.height ?? 44;
+  const dot = props.name.lastIndexOf(".");
+  const ext = dot > 0 && dot < props.name.length - 1 ? props.name.slice(dot + 1).toLowerCase() : "";
+  const label = ext.slice(0, 4).toUpperCase();
+  return (
+    <View style={{ width: w, height: h }}>
+      <Svg width={w} height={h} viewBox="0 0 36 44">
+        <Path d="M4 0h19l13 13v27a4 4 0 01-4 4H4a4 4 0 01-4-4V4a4 4 0 014-4z" fill={tileColor(ext)} />
+        <Path d="M23 0l13 13h-9a4 4 0 01-4-4z" fill="rgba(255,255,255,0.42)" />
+      </Svg>
+      {!!label && (
+        <Text
+          numberOfLines={1}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 6,
+            textAlign: "center",
+            fontSize: label.length > 3 ? 9 : 11,
+            fontWeight: "700",
+            fontFamily,
+            color: "#FFFFFF",
+          }}
+        >
+          {label}
+        </Text>
+      )}
+    </View>
   );
 }

@@ -7,6 +7,7 @@ const text = (i: number, body = "hello"): Row => ({
   key: `m${i}`,
   first: true,
   last: true,
+  newSender: false,
   item: { id: `$${i}`, sender: "@a:x", ts: i, isOwn: false, content: { kind: "text", body } } as never,
 });
 const many = (n: number) => Array.from({ length: n }, (_, i) => text(i));

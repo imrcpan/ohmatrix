@@ -60,7 +60,8 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
     onRetry: m.status === "failed" && m.transactionId && !upload ? () => actions.resend(m.transactionId!) : undefined,
     retryLabel: t("resend.failed"),
     readLabel: m.readBy?.length ? t("readBy", { names: m.readBy.map((r) => r.name).join(", ") }) : undefined,
-    senderName: i.showAvatar && i.first ? m.senderName : undefined,
+    // A file card stands alone and carries no name.
+    senderName: i.showAvatar && i.first && c.kind !== "file" ? m.senderName : undefined,
     senderId: m.sender,
     image: i.image
       ? { uri: upload?.previewUrl ?? i.image.uri, width: i.image.width, height: i.image.height, onPress: upload ? undefined : i.openImage }

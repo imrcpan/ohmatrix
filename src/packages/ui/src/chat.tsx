@@ -4,7 +4,7 @@ import { Image, Platform, Pressable, ScrollView, Text, TextInput, View } from "r
 import { Icon } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
 import { useUnzoom, useViewport } from "./viewport.js";
-import { AudioRow, LinkPreviewCard, ProgressRing } from "./media.js";
+import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
 import { fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
 
@@ -90,14 +90,25 @@ export function Bubble(props: {
     : undefined;
   const media = props.image ?? props.video;
   const imageOnly = !!media && !props.text;
-  const fg = props.own ? colors.bubbleOutText : colors.bubbleInText;
-  const meta = imageOnly ? "#FFFFFF" : props.own ? colors.bubbleOutMeta : colors.textSecondary;
+  // A file on its own is a card, the same for both sides (as WeChat shows files): neutral surface, the kind of file on a tile.
+  const fileCard = !!props.file && !props.text && !props.reply;
+  const mine = props.own && !fileCard;
+  const fg = mine ? colors.bubbleOutText : colors.bubbleInText;
+  const meta = imageOnly ? "#FFFFFF" : mine ? colors.bubbleOutMeta : colors.textSecondary;
   const statusIcon = props.status === "sending" ? "clock" : props.status === "failed" ? "alert" : props.status === "read" ? "checks" : "check";
   const failed = props.status === "failed";
   const metaRow = (
     <View
       style={[
-        { position: "absolute", flexShrink: 0, right: imageOnly ? 8 : 12, bottom: imageOnly ? 8 : 6, flexDirection: "row", alignItems: "center", gap: 6 },
+        {
+          position: "absolute",
+          flexShrink: 0,
+          right: imageOnly ? 8 : fileCard ? 14 : 12,
+          bottom: imageOnly ? 8 : 6,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+        },
         imageOnly && { backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3 },
       ]}
     >
@@ -129,8 +140,12 @@ export function Bubble(props: {
         {
           maxWidth: "100%",
           overflow: "hidden",
-          backgroundColor: props.own ? colors.bubbleOut : props.mentionsMe ? colors.mentionBg : colors.bubbleIn,
-          ...(imageOnly ? {} : { paddingHorizontal: 12, paddingTop: 7, paddingBottom: 6 }),
+          backgroundColor: mine ? colors.bubbleOut : props.mentionsMe ? colors.mentionBg : colors.bubbleIn,
+          ...(imageOnly
+            ? {}
+            : fileCard
+              ? { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12 }
+              : { paddingHorizontal: 12, paddingTop: 7, paddingBottom: 6 }),
         },
         corners,
       ]}
@@ -240,39 +255,39 @@ export function Bubble(props: {
           onPress={props.file.onPress}
           onLongPress={props.onLongPress}
           delayLongPress={350}
-          style={{ flexDirection: "row", alignItems: "center", gap: 10, minWidth: 190 }}
+          // A fixed card: the name always has two lines of room (cut with an ellipsis, or blank below a short one), the size sits at the foot, the tile at the right, and the time under the tile.
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 14,
+            height: fileCard ? 64 : undefined,
+            width: fileCard ? 232 : undefined,
+            maxWidth: "100%",
+            ...(fileCard ? {} : { minWidth: 220 }),
+          }}
         >
+          <View style={{ flex: 1, flexShrink: 1, height: fileCard ? 64 : undefined, justifyContent: "space-between" }}>
+            <View style={{ height: 40, overflow: "hidden" }}>
+              <Text numberOfLines={2} ellipsizeMode="tail" style={{ fontSize: 15, lineHeight: 20, fontWeight: "500", fontFamily, color: fg }}>
+                {props.file.name}
+              </Text>
+            </View>
+            <Text numberOfLines={1} style={{ fontSize: 12, lineHeight: 16, fontFamily, color: meta }}>
+              {props.upload ? props.upload.label : props.file.sizeLabel}
+            </Text>
+          </View>
           {props.upload ? (
             <ProgressRing
-              size={38}
+              size={44}
               progress={props.upload.progress}
               failed={props.upload.failed}
               onCancel={props.upload.onCancel}
               label={props.upload.cancelLabel}
-              dark={!props.own}
+              dark
             />
           ) : (
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                backgroundColor: props.own ? "rgba(255,255,255,0.22)" : colors.accent,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon name="file" size={20} color={colors.onAccent} />
-            </View>
+            <FileTile name={props.file.name} />
           )}
-          <View style={{ flexShrink: 1 }}>
-            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "500", fontFamily, color: fg }}>
-              {props.file.name}
-            </Text>
-            <Text style={{ fontSize: 12, fontFamily, color: meta, paddingRight: props.own ? 62 : 44 }}>
-              {props.upload ? props.upload.label : props.file.sizeLabel}
-            </Text>
-          </View>
         </Pressable>
       )}
       {!!props.text && (
