@@ -31,7 +31,11 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
     notice: voice.notice ?? (failed ? t("attach.failed") : undefined),
     recording: voice.bar,
     record: services.recordMedia
-      ? { onVoice: () => void voice.start(), onVideo: () => setRecordingVideo(true), voiceLabel: t("record.voice"), videoLabel: t("record.video") }
+      ? {
+          onVoice: () => void voice.start(),
+          ...(!services.recordKinds || services.recordKinds.includes("video") ? { onVideo: () => setRecordingVideo(true), videoLabel: t("record.video") } : {}),
+          voiceLabel: t("record.voice"),
+        }
       : undefined,
     onAttach: services.pickFiles ? () => void services.pickFiles!().then((files) => files.forEach((f) => void sendFile(f))) : undefined,
   };
