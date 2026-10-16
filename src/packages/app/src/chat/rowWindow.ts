@@ -9,12 +9,18 @@ export const INITIAL_SCREENS = 1.5;
  */
 const SAFETY = 0.8;
 
+/** The space above a message bubble. Bubbles stick by their corners, not by the gap. */
+export const BUBBLE_GAP = 2;
+
+/** The space above a bubble: the plain gap, three times that when the bubble above is someone else's. */
+export const gapAbove = (newSender: boolean) => (newSender ? 3 * BUBBLE_GAP : BUBBLE_GAP);
+
 /** A rough height of a row in px, good enough to choose how many rows to draw first (the real height is measured). */
 export function estimateRowHeight(row: Row, width: number): number {
   if (row.type === "date" || row.type === "unread") return 36;
   if (row.type === "service") return 32;
   const c = row.item.content;
-  const gap = row.first ? 10 : 2;
+  const gap = gapAbove(row.newSender);
   const bubble = 16 + 8; // padding of the bubble, and the time line
   switch (c.kind) {
     case "text": {
@@ -27,9 +33,9 @@ export function estimateRowHeight(row: Row, width: number): number {
     case "video":
       return gap + 8 + fit(c.width, c.height).height;
     case "audio":
-      return gap + 64;
+      return gap + 52;
     case "file":
-      return gap + 64;
+      return gap + 88; // a card of fixed height
     default:
       return gap + 44;
   }

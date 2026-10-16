@@ -19,6 +19,7 @@ import {
 import { useLocale, useServices, useT } from "../context.js";
 import { bubbleProps } from "./bubbleProps.js";
 import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
+import { gapAbove } from "./rowWindow.js";
 import { useMessageMedia } from "./useMessageMedia.js";
 
 const AVATAR = 32;
@@ -28,6 +29,8 @@ export function MessageRow(props: {
   rowKey: string;
   item: TimelineItem;
   first: boolean;
+  /** Directly under a bubble of someone else (the gap is tripled). */
+  newSender: boolean;
   last: boolean;
   isGroup: boolean;
   actions: RowActions;
@@ -84,7 +87,7 @@ export function MessageRow(props: {
         gap: 6,
         paddingHorizontal: 10,
         paddingVertical: props.highlighted ? 4 : 0,
-        marginTop: props.first ? 6 : 2,
+        marginTop: gapAbove(props.newSender),
         justifyContent: m.isOwn ? "flex-end" : "flex-start",
         backgroundColor: props.highlighted ? "rgba(51,144,236,0.22)" : "transparent",
       }}

@@ -36,6 +36,7 @@ export const TimelineRow = memo(function TimelineRow(props: { row: Row; isGroup:
           item={row.item}
           first={row.first}
           last={row.last}
+          newSender={row.newSender}
           isGroup={props.isGroup}
           actions={props.actions}
           highlighted={props.highlighted}

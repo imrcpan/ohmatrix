@@ -69,6 +69,13 @@ test("the sender's name is shown in a group, on the first message of a run only"
   expect(bubbleProps(inputs(item(), { showAvatar: false })).senderName).toBeUndefined();
 });
 
+test("a file stands alone and carries no sender name", () => {
+  const file = item({
+    content: { kind: "file", body: "a.pdf", name: "a.pdf", size: 1, mimeType: "application/pdf", url: "mxc://s/a" } as TimelineItem["content"],
+  });
+  expect(bubbleProps(inputs(file, { showAvatar: true, first: true })).senderName).toBeUndefined();
+});
+
 test("a reply's quote jumps to the original, and mentions and pins carry over", () => {
   const a = actions();
   const m = item({
