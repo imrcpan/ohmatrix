@@ -51,6 +51,8 @@ export interface RustEngineOptions {
   cacheDir: string;
   /** The passphrase of the database, the same every time (see the app's secure storage). */
   passphrase(): Promise<string>;
+  /** How long to wait for a room just made or joined to reach the chat list (ms); 5000 when not given. */
+  roomWaitMs?: number;
   /** Read a file of the device (a picked picture, for a profile picture). */
   readFile?(path: string): Promise<ArrayBuffer>;
   /** For the requests the SDK cannot make (the list of sessions); the platform's `fetch` when not given. */
@@ -269,6 +271,16 @@ export class RustEngineCore implements MatrixEngine {
 
   private readonly noticeListeners = new Set<Listener<IncomingNotification>>();
 
+  /**
+   * A room just made or joined is not in the list until the next sync delivers it, and the app opens it the moment it
+   * has the id: it would show the bare id with no name. So wait (briefly) until the room is listed.
+   */
+  private async listed(roomId: string): Promise<string> {
+    const until = Date.now() + (this.options.roomWaitMs ?? 5000);
+    while (!this.rooms_.get(roomId) && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
+    return roomId;
+  }
+
   private emitRooms() {
     const items = this.rooms_.list();
     const updates: ListUpdate<RoomSummary>[] = [{ op: "reset", items }];
@@ -297,22 +309,26 @@ export class RustEngineCore implements MatrixEngine {
     createDirect: (userId: string) =>
       guard(async () => {
         const c = this.need();
-        return c.directRoom(userId) ?? (await c.createRoom({ name: "", invite: [userId], encrypted: true, space: false, direct: true }));
+        const known = c.directRoom(userId);
+        if (known) return known;
+        return this.listed(await c.createRoom({ name: "", invite: [userId], encrypted: true, space: false, direct: true }));
       }),
     createGroup: (opts: { name: string; invite: string[] }) =>
-      guard(() => this.need().createRoom({ name: opts.name, invite: opts.invite, encrypted: true, space: false, direct: false })),
+      guard(async () => this.listed(await this.need().createRoom({ name: opts.name, invite: opts.invite, encrypted: true, space: false, direct: false }))),
     createSpace: (opts: { name: string; topic?: string; invite?: string[] }) =>
-      guard(() =>
-        this.need().createRoom({
-          name: opts.name,
-          ...(opts.topic !== undefined && { topic: opts.topic }),
-          invite: opts.invite ?? [],
-          encrypted: false,
-          space: true,
-          direct: false,
-        }),
+      guard(async () =>
+        this.listed(
+          await this.need().createRoom({
+            name: opts.name,
+            ...(opts.topic !== undefined && { topic: opts.topic }),
+            invite: opts.invite ?? [],
+            encrypted: false,
+            space: true,
+            direct: false,
+          }),
+        ),
       ),
-    joinRoom: (idOrAlias: string) => guard(() => this.need().joinRoom(idOrAlias.trim())),
+    joinRoom: (idOrAlias: string) => guard(async () => this.listed(await this.need().joinRoom(idOrAlias.trim()))),
     subscribeDetails: (roomId: string, cb: Listener<RoomDetails>): Unsubscribe => {
       const room = this.room(roomId);
       let live = true;
