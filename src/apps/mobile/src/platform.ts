@@ -1,5 +1,5 @@
 import { AppState, Image, Linking } from "react-native";
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import {
   RecordError,
   type AttachmentSource,
@@ -37,12 +37,30 @@ export function filePreferences(): PreferencesStore {
   };
 }
 
+/**
+ * The picker copies a file to the cache under a made-up name, and the SDK names the message after the file it uploads.
+ * So the copy is moved into a folder of its own under the real name.
+ */
+function withRealName(f: AttachmentSource): AttachmentSource {
+  if (typeof f.data !== "string" || !f.data.startsWith("file://")) return f;
+  try {
+    const from = new File(f.data);
+    const dir = new Directory(Paths.cache, `send-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    dir.create();
+    const to = new File(dir, f.name.replace(/[\\/]/g, "_"));
+    from.move(to);
+    return { ...f, data: to.uri };
+  } catch {
+    return f;
+  }
+}
+
 async function pickFiles(): Promise<AttachmentSource[]> {
   const Documents = await import("expo-document-picker");
   const r = await Documents.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
   if (r.canceled) return [];
   // A picture is sent with its size in pixels, which the picker does not tell: the image component can.
-  const files = fromDocuments(r.assets);
+  const files = fromDocuments(r.assets).map(withRealName);
   return Promise.all(
     files.map(async (f) => {
       if (!f.mimeType.startsWith("image/") || typeof f.data !== "string") return f;

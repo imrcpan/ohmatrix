@@ -277,7 +277,7 @@ export class RustEngineCore implements MatrixEngine {
    */
   private async listed(roomId: string): Promise<string> {
     const until = Date.now() + (this.options.roomWaitMs ?? 5000);
-    while (!this.rooms_.get(roomId) && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
+    while (!this.rooms_.get(roomId) && Date.now() < until) await new Promise<void>((resolve) => setTimeout(() => resolve(), 50));
     return roomId;
   }
 
