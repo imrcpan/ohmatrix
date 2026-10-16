@@ -144,7 +144,7 @@ function mediaContent(msgType: Tagged): ItemContent | null {
         ...(size !== undefined && { size }),
         ...(ms !== undefined && { durationMs: Math.round(Number(ms)) }),
         ...(c.voice ? { voice: true } : {}),
-        ...(c.audio?.waveform?.length ? { waveform: c.audio.waveform } : {}),
+        ...(c.audio?.waveform?.length ? { waveform: c.audio.waveform.map((n) => Math.max(0, Math.min(1, n / 1024))) } : {}),
       };
     }
     case "File":

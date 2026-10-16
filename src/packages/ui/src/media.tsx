@@ -97,9 +97,10 @@ export function AudioRow(props: {
   const circle = props.own ? "rgba(255,255,255,0.24)" : colors.accent;
   const BAR = 150;
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingRight: 6, paddingBottom: 14, minWidth: 220 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minWidth: 200 }}>
       {props.upload ? (
         <ProgressRing
+          size={38}
           progress={props.upload.progress}
           failed={props.upload.failed}
           onCancel={props.upload.onCancel}
@@ -112,9 +113,9 @@ export function AudioRow(props: {
           accessibilityLabel={props.playLabel}
           accessibilityState={{ busy: props.loading }}
           onPress={props.onToggle}
-          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: circle, alignItems: "center", justifyContent: "center" }}
+          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: circle, alignItems: "center", justifyContent: "center" }}
         >
-          <Icon name={props.loading ? "clock" : props.playing ? "pause" : "play"} size={22} strokeWidth={2.4} color={colors.onAccent} />
+          <Icon name={props.loading ? "clock" : props.playing ? "pause" : "play"} size={20} strokeWidth={2.4} color={colors.onAccent} />
         </Pressable>
       )}
       <View style={{ flexShrink: 1 }}>
@@ -138,7 +139,7 @@ export function AudioRow(props: {
           </Pressable>
         ) : (
           <>
-            <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "500", fontFamily, color: fg }}>
+            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "500", fontFamily, color: fg }}>
               {props.name}
             </Text>
             <Pressable
@@ -148,7 +149,7 @@ export function AudioRow(props: {
                 const x = (e.nativeEvent as { locationX?: number }).locationX;
                 if (typeof x === "number") props.onSeek(Math.max(0, Math.min(1, x / BAR)));
               }}
-              style={{ height: 14, justifyContent: "center", width: BAR }}
+              style={{ height: 10, justifyContent: "center", width: BAR }}
             >
               <View style={{ height: 3, borderRadius: 1.5, backgroundColor: props.own ? "rgba(255,255,255,0.35)" : colors.textTertiary }}>
                 <View
@@ -163,7 +164,9 @@ export function AudioRow(props: {
             </Pressable>
           </>
         )}
-        <Text style={{ fontSize: 13, fontFamily, color: meta, marginTop: 2 }}>{props.upload ? props.upload.label : props.timeLabel}</Text>
+        <Text style={{ fontSize: 12, fontFamily, color: meta, marginTop: 1, paddingRight: props.own ? 62 : 44 }}>
+          {props.upload ? props.upload.label : props.timeLabel}
+        </Text>
       </View>
     </View>
   );

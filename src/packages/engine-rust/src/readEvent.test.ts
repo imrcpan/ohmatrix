@@ -129,11 +129,11 @@ test("media messages carry their address, size and, in an encrypted room, the so
     durationMs: 12500,
     thumbnail: { url: "mxc://s/t" },
   });
-  expect(content("Audio", { filename: "v.ogg", source: src("mxc://s/a"), voice: {}, audio: { duration: 3000, waveform: [0.1, 0.5] } })).toMatchObject({
+  expect(content("Audio", { filename: "v.ogg", source: src("mxc://s/a"), voice: {}, audio: { duration: 3000, waveform: [256, 512, 2000] } })).toMatchObject({
     type: "audio",
     voice: true,
     durationMs: 3000,
-    waveform: [0.1, 0.5],
+    waveform: [0.25, 0.5, 1],
   });
 });
 
