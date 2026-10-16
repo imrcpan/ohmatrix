@@ -35,8 +35,8 @@ const PATHS = {
   zoomIn: "M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35M11 8v6M8 11h6",
   zoomOut: "M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35M8 11h6",
   fit: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
-  play: "M8 5.5v13l11-6.5z",
-  pause: "M8 5v14M16 5v14",
+  play: "M8.5 5.8v12.4a.6.6 0 00.9.5l10-6.2a.6.6 0 000-1l-10-6.2a.6.6 0 00-.9.5z",
+  pause: "M7.5 5h2.7v14H7.5zM13.8 5h2.7v14h-2.7z",
   stop: "M7 7h10v10H7z",
   mic: "M12 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3zM19 11a7 7 0 01-14 0M12 18v3",
   video: "M23 7l-7 5 7 5V7zM3 5h13v14H3z",
@@ -52,6 +52,9 @@ export type IconName = keyof typeof PATHS;
 /** Line weight per icon. The three dots of "more" are drawn as round-capped points, so their stroke is their diameter: 2 reads as specks next to outlined icons. */
 const WEIGHT: Partial<Record<IconName, number>> = { more: 4.2 };
 
+/** Solid glyphs (playback controls), as in Telegram and Apple's players: filled, with softened corners, not outlines. */
+const SOLID: ReadonlySet<IconName> = new Set<IconName>(["play", "pause", "stop"]);
+
 export function Icon(props: { name: IconName; size?: number; color: string; strokeWidth?: number }) {
   const s = props.size ?? 22;
   return (
@@ -59,7 +62,8 @@ export function Icon(props: { name: IconName; size?: number; color: string; stro
       <Path
         d={PATHS[props.name]}
         stroke={props.color}
-        strokeWidth={props.strokeWidth ?? WEIGHT[props.name] ?? 2}
+        {...(SOLID.has(props.name) ? { fill: props.color } : {})}
+        strokeWidth={SOLID.has(props.name) ? 1.6 : (props.strokeWidth ?? WEIGHT[props.name] ?? 2)}
         strokeLinecap="round"
         strokeLinejoin="round"
       />

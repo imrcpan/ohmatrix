@@ -60,6 +60,22 @@ export interface PreferencesStore {
   save(prefs: Preferences): Promise<void>;
 }
 
+/** One audio clip being played: the part of a browser audio element the app uses, which a phone's player can stand in for. */
+export interface AudioClip {
+  /** Seconds. Setting it jumps there. */
+  currentTime: number;
+  /** Seconds; not a number until the file is known. */
+  readonly duration: number;
+  readonly paused: boolean;
+  play(): Promise<void>;
+  pause(): void;
+  /** Types used: `timeupdate`, `play`, `pause`, `ended`, `loadedmetadata`, `durationchange`. */
+  addEventListener(type: string, cb: () => void): void;
+  removeEventListener(type: string, cb: () => void): void;
+  /** Let go of the native player. */
+  release?(): void;
+}
+
 /**
  * Capabilities the platform shell injects into the shared app. Grow this only when shared code
  * needs a native capability (e.g. `notifications`, `filePicker`, `openExternal`).
@@ -69,6 +85,8 @@ export interface PlatformServices {
   notifications?: SystemNotifications;
   /** Record a voice message or a short video. Absent = the record buttons are hidden. Rejects with RecordError. */
   recordMedia?(kind: "audio" | "video"): Promise<Recorder>;
+  /** Make a player for an audio file at `url`. Absent = the browser's own `Audio` is used. */
+  createAudio?(url: string): AudioClip;
   /** Absent = preferences live only for this run. */
   preferences?: PreferencesStore;
   /** Let the user choose files to send. Absent = the attach button is hidden. */
