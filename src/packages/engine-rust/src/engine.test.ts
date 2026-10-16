@@ -305,6 +305,7 @@ function make(fetch?: RustEngineOptions["fetch"]) {
     dataDir: "/data",
     cacheDir: "/cache",
     passphrase: async () => "secret",
+    roomWaitMs: 30,
     fetch: fetch ?? (async () => ({ ok: true, status: 200, json: async () => ({}) })),
   });
   return { engine, client, configs };
@@ -913,4 +914,19 @@ test("the encryption state follows the client that signs in later, and goes back
   expect(seen.at(-1)).toBe("unavailable");
   expect(client.secureCb).toBeNull();
   stop();
+});
+
+test("a room just made or joined is handed on only once the chat list has it, so it opens with its name", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  await engine.sync.start();
+  const room = new FakeRoom(info("!joined:s", { displayName: "Joined" }));
+  client.rooms.set("!joined:s", room);
+  // The room arrives with the next sync, a little after the join call returned.
+  setTimeout(() => client.sync.roomsCb?.([{ tag: "Reset", inner: { values: [room] } }]), 10);
+  let list: RoomSummary[] = [];
+  engine.rooms.subscribe((u) => (list = applyUpdates(list, u)));
+  const id = await engine.rooms.joinRoom("#r:s");
+  expect(id).toBe("!joined:s");
+  expect(list.map((r) => r.name)).toEqual(["Joined"]);
 });
