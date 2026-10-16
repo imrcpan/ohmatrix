@@ -51,7 +51,7 @@ export function App(props: {
   insets?: Insets | undefined;
 }) {
   return (
-    <ErrorBoundary onReload={props.onReload}>
+    <ErrorBoundary onReload={props.onReload} copyText={props.services.copyText}>
       <AppProviders controller={props.controller} services={props.services}>
         <Themed>
           <Framed insets={props.insets}>
