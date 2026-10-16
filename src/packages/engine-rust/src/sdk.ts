@@ -236,6 +236,8 @@ export interface SdkClientConfig {
   dataDir: string;
   cacheDir: string;
   passphrase: string;
+  /** Opening a saved session: nothing may need the network (the server's features are already in the session). */
+  restoring?: boolean;
 }
 
 /** The SDK: makes a client. Everything else is reached through it. */

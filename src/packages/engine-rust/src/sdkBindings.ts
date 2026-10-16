@@ -432,7 +432,8 @@ export function sdkFromBindings(b: Bindings): Sdk {
         new b.ClientBuilder()
           .homeserverUrl(config.homeserverUrl)
           .sqliteStore(store)
-          .slidingSyncVersionBuilder(b.SlidingSyncVersionBuilder.DiscoverNative)
+          // Discovery asks the server, which an app opened without a network cannot; the session carries what was found.
+          .slidingSyncVersionBuilder(config.restoring ? b.SlidingSyncVersionBuilder.Native : b.SlidingSyncVersionBuilder.DiscoverNative)
           .build(),
       );
       return clientOf(client);

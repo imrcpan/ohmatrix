@@ -320,7 +320,7 @@ const tickMany = async () => {
 test("signing in makes a client with the database paths and passphrase, and gives back a session we can store", async () => {
   const { engine, client, configs } = make();
   const session = await engine.auth.loginWithPassword("http://s", "alice", "pw");
-  expect(configs[0]).toEqual({ homeserverUrl: "http://s", dataDir: "/data", cacheDir: "/cache", passphrase: "secret" });
+  expect(configs[0]).toEqual({ homeserverUrl: "http://s", dataDir: "/data", cacheDir: "/cache", passphrase: "secret", restoring: false });
   expect(client.loggedIn).toEqual(["alice", "pw", "OhMatrix Android"]);
   expect(session).toMatchObject({ homeserver: "http://s", userId: "@me:s", deviceId: "DEV", accessToken: "tok" });
   expect(typeof session.native).toBe("string");
@@ -342,6 +342,12 @@ test("restoring a session gives the SDK what it needs, with the stored extras", 
     native: JSON.stringify({ slidingSyncVersion: "stored" }),
   });
   expect(client.restored).toMatchObject({ accessToken: "tok", homeserverUrl: "http://s", slidingSyncVersion: "stored" });
+});
+
+test("restoring builds the client without asking the server (the app may be opened offline)", async () => {
+  const { engine, configs } = make();
+  await engine.auth.restore({ homeserver: "http://s", userId: "@me:s", deviceId: "DEV", accessToken: "tok" });
+  expect(configs[0]).toMatchObject({ restoring: true });
 });
 
 test("nothing works before signing in", async () => {

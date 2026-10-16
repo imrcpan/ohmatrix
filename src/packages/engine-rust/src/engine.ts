@@ -105,8 +105,9 @@ export class RustEngineCore implements MatrixEngine {
     this.syncListeners.forEach((cb) => cb(s));
   }
 
-  private async makeClient(homeserver: string): Promise<SdkClient> {
+  private async makeClient(homeserver: string, restoring = false): Promise<SdkClient> {
     return this.sdk.newClient({
+      restoring,
       homeserverUrl: homeserver,
       dataDir: this.options.dataDir,
       cacheDir: this.options.cacheDir,
@@ -173,7 +174,7 @@ export class RustEngineCore implements MatrixEngine {
       }),
     restore: (session: Session) =>
       guard(async () => {
-        const client = await this.makeClient(session.homeserver);
+        const client = await this.makeClient(session.homeserver, true);
         await client.restore(fromSession(session, this.sdk.defaultSlidingSync));
         this.client = client;
         void this.loadProfile();
