@@ -185,3 +185,31 @@ test("back steps out of one layer at a time, topmost first, and says when there 
   expect(st().spaceId).toBeNull();
   expect(app.back()).toBe(false);
 });
+
+const savedSession: Session = { homeserver: "https://chat.example.org", userId: "@test:chat.example.org", deviceId: "D", accessToken: "t" };
+
+test("with no network a saved session stays signed in and the sync state tells; the cache is shown", async () => {
+  const engine = new MockEngine();
+  engine.sync.start = async () => {
+    throw new EngineError("network", "error sending request");
+  };
+  const store = memoryStore();
+  store.saved = savedSession;
+  const app = createAppController(engine, { sessionStore: store });
+  await app.bootstrap();
+  expect(app.store.getState().auth).toBe("signedIn");
+  expect(store.saved).not.toBeNull();
+});
+
+test("only the server's own refusal sends a saved session back to sign-in, and clears it", async () => {
+  const engine = new MockEngine();
+  engine.sync.start = async () => {
+    throw new EngineError("unauthorized", "Unknown token");
+  };
+  const store = memoryStore();
+  store.saved = savedSession;
+  const app = createAppController(engine, { sessionStore: store });
+  await app.bootstrap();
+  expect(app.store.getState().auth).toBe("signedOut");
+  expect(store.saved).toBeNull();
+});

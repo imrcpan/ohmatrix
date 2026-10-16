@@ -249,7 +249,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         if (!session) return signedOut();
         await engine.auth.restore(session);
         set({ auth: "signedIn", userId: session.userId, homeserver: session.homeserver });
-        await engine.sync.start();
+        // The saved session is trusted until the server says otherwise: with no network the chats show from the cache,
+        // and the sync state says offline. Only an answer from the server (a dead token) sends the user to sign in.
+        await engine.sync.start().catch((e) => {
+          if (e instanceof EngineError && (e.code === "unauthorized" || e.code === "keys_lost")) throw e;
+        });
       } catch (e) {
         const forced = e instanceof EngineError && (e.code === "unauthorized" || e.code === "keys_lost");
         if (forced) await services.sessionStore.clear();
