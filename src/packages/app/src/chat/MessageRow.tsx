@@ -106,7 +106,13 @@ export function MessageRow(props: {
             },
           } as object)}
         >
-          <Bubble {...bubble} />
+          <Bubble
+            {...bubble}
+            onLongPress={(e) => {
+              const n = e.nativeEvent as { pageX?: number; pageY?: number };
+              open(n.pageX ?? 0, n.pageY ?? 0);
+            }}
+          />
         </Pressable>
         {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn} onToggle={(k) => actions.react(m.id, k)} />}
       </View>
