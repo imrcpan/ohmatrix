@@ -88,66 +88,81 @@ export function sdkFromBindings(b: Bindings): Sdk {
       ? new b.EventOrTransactionId.EventId({ eventId: ref.eventId })
       : new b.EventOrTransactionId.TransactionId({ transactionId: ref.transactionId });
 
-  const timelineOf = (t: Ffi.TimelineLike): SdkTimeline => ({
-    async onChanges(cb) {
-      const handle = await t.addListener({
-        onUpdate: (diffs) =>
-          cb(
-            diffs.map((d) => {
-              const x = d as unknown as {
-                tag: string;
-                inner?: { values?: Ffi.TimelineItemLike[]; value?: Ffi.TimelineItemLike; index?: number; length?: number };
-              };
-              const inner = x.inner;
-              return {
-                tag: x.tag,
-                inner: inner && {
-                  ...(inner.values && { values: inner.values.map(entryOf) }),
-                  ...(inner.value && { value: entryOf(inner.value) }),
-                  ...(inner.index !== undefined && { index: inner.index }),
-                  ...(inner.length !== undefined && { length: inner.length }),
-                },
-              } satisfies ListChange<TimelineEntry>;
-            }),
-          ),
-      });
-      return task(handle);
-    },
-    paginateBackwards: (count) => call(() => t.paginateBackwards(count)),
-    async sendText(body, mentions) {
-      await call(() => t.send(contentOf(body, mentions)));
-    },
-    reply: (eventId, body, mentions) => call(() => t.sendReply(contentOf(body, mentions), eventId)),
-    edit: (ref, body) => call(() => t.edit(idOf(ref), new b.EditedContent.RoomMessage({ content: contentOf(body) }))),
-    redact: (ref) => call(() => t.redactEvent(idOf(ref), undefined)),
-    react: async (ref, key) => void (await call(() => t.toggleReaction(idOf(ref), key))),
-    pin: async (eventId, pinned) => void (await call(() => (pinned ? t.pinEvent(eventId) : t.unpinEvent(eventId)))),
-    markRead: () => call(() => t.markAsRead(b.ReceiptType.Read)),
-    item: async (eventId) => readEvent((await call(() => t.getEventTimelineItemByEventId(eventId))) as unknown as RawEvent),
-    async sendMedia(f) {
-      const params: Ffi.UploadParameters = { source: new b.UploadSource.File({ filename: f.path }) };
-      const dims = {
-        ...(f.width !== undefined && { width: BigInt(Math.round(f.width)) }),
-        ...(f.height !== undefined && { height: BigInt(Math.round(f.height)) }),
-      };
-      // The SDK insists on a blurhash for a picture and a video; one the sender could not compute is a flat grey.
-      const blurhash = f.blurhash ?? "L00000fQfQfQfQfQfQfQfQfQfQfQ";
-      const common = { mimetype: f.mimeType, size: BigInt(Math.round(f.size)) };
-      const duration = f.durationMs !== undefined ? { duration: f.durationMs } : {};
-      const handle =
-        f.kind === "image"
-          ? t.sendImage(params, undefined, { ...common, ...dims, blurhash })
-          : f.kind === "video"
-            ? t.sendVideo(params, undefined, { ...common, ...dims, ...duration, blurhash })
-            : f.kind === "audio"
-              ? f.voice
-                ? // The SDK takes levels from 0 to 1 and writes the event's whole numbers (up to 1024) itself.
-                  t.sendVoiceMessage(params, { ...common, ...duration }, f.waveform ?? [])
-                : t.sendAudio(params, { ...common, ...duration })
-              : t.sendFile(params, common);
-      await call(() => handle.join());
-    },
-  });
+  const timelineOf = (t: Ffi.TimelineLike): SdkTimeline => {
+    // What a reply quotes is not fetched with the reply: the SDK reports it as unavailable until it is asked to load
+    // it, and then sends the reply again with the quote filled in. So each reply with no quote yet is asked about once.
+    const asked = new Set<string>();
+    const read = (item: Ffi.TimelineItemLike): TimelineEntry => {
+      const entry = entryOf(item);
+      const ev = entry.event;
+      const reply = (ev?.content as { replyTo?: { original?: unknown } } | undefined)?.replyTo;
+      if (ev?.eventId && reply && !reply.original && !asked.has(ev.eventId)) {
+        asked.add(ev.eventId);
+        void t.fetchDetailsForEvent(ev.eventId).catch(() => {});
+      }
+      return entry;
+    };
+    return {
+      async onChanges(cb) {
+        const handle = await t.addListener({
+          onUpdate: (diffs) =>
+            cb(
+              diffs.map((d) => {
+                const x = d as unknown as {
+                  tag: string;
+                  inner?: { values?: Ffi.TimelineItemLike[]; value?: Ffi.TimelineItemLike; index?: number; length?: number };
+                };
+                const inner = x.inner;
+                return {
+                  tag: x.tag,
+                  inner: inner && {
+                    ...(inner.values && { values: inner.values.map(read) }),
+                    ...(inner.value && { value: read(inner.value) }),
+                    ...(inner.index !== undefined && { index: inner.index }),
+                    ...(inner.length !== undefined && { length: inner.length }),
+                  },
+                } satisfies ListChange<TimelineEntry>;
+              }),
+            ),
+        });
+        return task(handle);
+      },
+      paginateBackwards: (count) => call(() => t.paginateBackwards(count)),
+      async sendText(body, mentions) {
+        await call(() => t.send(contentOf(body, mentions)));
+      },
+      reply: (eventId, body, mentions) => call(() => t.sendReply(contentOf(body, mentions), eventId)),
+      edit: (ref, body) => call(() => t.edit(idOf(ref), new b.EditedContent.RoomMessage({ content: contentOf(body) }))),
+      redact: (ref) => call(() => t.redactEvent(idOf(ref), undefined)),
+      react: async (ref, key) => void (await call(() => t.toggleReaction(idOf(ref), key))),
+      pin: async (eventId, pinned) => void (await call(() => (pinned ? t.pinEvent(eventId) : t.unpinEvent(eventId)))),
+      markRead: () => call(() => t.markAsRead(b.ReceiptType.Read)),
+      item: async (eventId) => readEvent((await call(() => t.getEventTimelineItemByEventId(eventId))) as unknown as RawEvent),
+      async sendMedia(f) {
+        const params: Ffi.UploadParameters = { source: new b.UploadSource.File({ filename: f.path }) };
+        const dims = {
+          ...(f.width !== undefined && { width: BigInt(Math.round(f.width)) }),
+          ...(f.height !== undefined && { height: BigInt(Math.round(f.height)) }),
+        };
+        // The SDK insists on a blurhash for a picture and a video; one the sender could not compute is a flat grey.
+        const blurhash = f.blurhash ?? "L00000fQfQfQfQfQfQfQfQfQfQfQ";
+        const common = { mimetype: f.mimeType, size: BigInt(Math.round(f.size)) };
+        const duration = f.durationMs !== undefined ? { duration: f.durationMs } : {};
+        const handle =
+          f.kind === "image"
+            ? t.sendImage(params, undefined, { ...common, ...dims, blurhash })
+            : f.kind === "video"
+              ? t.sendVideo(params, undefined, { ...common, ...dims, ...duration, blurhash })
+              : f.kind === "audio"
+                ? f.voice
+                  ? // The SDK takes levels from 0 to 1 and writes the event's whole numbers (up to 1024) itself.
+                    t.sendVoiceMessage(params, { ...common, ...duration }, f.waveform ?? [])
+                  : t.sendAudio(params, { ...common, ...duration })
+                : t.sendFile(params, common);
+        await call(() => handle.join());
+      },
+    };
+  };
 
   const roomOf = (r: Ffi.RoomLike): SdkRoom => ({
     id: () => r.id(),
