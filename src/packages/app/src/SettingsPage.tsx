@@ -6,6 +6,8 @@ import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
 import { ThemeGrid } from "./ThemeGrid.js";
 
+/** The project page, opened outside the app from the About group. */
+const REPOSITORY = "https://github.com/imrcpan/ohmatrix";
 const SCALES = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
 
 export function SettingsPage() {
@@ -109,6 +111,7 @@ export function SettingsPage() {
           <Item label={t("signOut")} icon="signOut" danger onPress={() => setConfirm(true)} chevron={false} />
         </Group>
         <Group title={t("about")}>
+          <Item label="GitHub" value={REPOSITORY.replace("https://", "")} icon="external" onPress={() => services.openLink?.(REPOSITORY)} />
           <Item label="OhMatrix" value={`${t("version")} 0.1.0`} icon="info" />
         </Group>
         <Text style={{ textAlign: "center", marginTop: 24, fontSize: 12, fontFamily, color: colors.textSecondary }}>OhMatrix · GPL-3.0</Text>

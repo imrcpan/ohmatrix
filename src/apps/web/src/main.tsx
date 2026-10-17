@@ -34,6 +34,7 @@ const services: PlatformServices = {
   recordMedia: openRecorder,
   // The input bar offers voice messages only; a video is sent as a file.
   recordKinds: ["audio"],
+  openLink: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
   receiveFiles,
   copyText: (text) => navigator.clipboard.writeText(text),
   pickFiles: () =>
