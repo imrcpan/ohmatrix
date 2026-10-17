@@ -339,6 +339,10 @@ const en = {
   "sec.done": "I have saved it",
   cancel: "Cancel",
   undecryptable: "Waiting for this message. Verify this device to read it.",
+  switchAccount: "Switch Account",
+  accounts: "Accounts",
+  addAccount: "Add account",
+  "accounts.footer": "Adding and switching between accounts is not available yet.",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -681,6 +685,10 @@ const zh: Record<MessageKey, string> = {
   "sec.done": "我已保存",
   cancel: "取消",
   undecryptable: "等待此消息。验证此设备后即可阅读。",
+  switchAccount: "切换账号",
+  accounts: "账号",
+  addAccount: "添加账号",
+  "accounts.footer": "添加和切换账号的功能暂未开放。",
 };
 
 const catalogs: Record<Locale, Record<MessageKey, string>> = { en, "zh-CN": zh };

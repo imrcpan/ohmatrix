@@ -30,7 +30,7 @@ import {
   type UserId,
 } from "@ohmatrix/core";
 
-export type SidebarPage = "chats" | "profile" | "settings" | "sessions";
+export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts";
 
 export type AuthStatus = "booting" | "signedOut" | "signingIn" | "signedIn";
 
