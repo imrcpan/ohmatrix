@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import type { TimelineItem } from "@ohmatrix/core";
+import { EngineError, type TimelineItem } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
-import { useController, useServices } from "../context.js";
+import { useController, useServices, useT } from "../context.js";
 import type { RowActions } from "./rowActions.js";
 import { useLatest } from "./useLatest.js";
 
@@ -15,10 +15,13 @@ export function useRowActions(opts: {
   startEdit(item: TimelineItem): void;
   forward(item: TimelineItem): void;
   jump(eventId: string): void;
+  /** Say, at the top of the chat, that something did not work. */
+  fail(message: string): void;
 }): RowActions {
   const controller = useController();
   const services = useServices();
-  const latest = useLatest({ ...opts, controller, services });
+  const t = useT();
+  const latest = useLatest({ ...opts, controller, services, t });
   return useMemo<RowActions>(
     () => ({
       react: (id, key) => void latest.current.handle.current?.react(id, key).catch(() => {}),
@@ -30,7 +33,11 @@ export function useRowActions(opts: {
         void latest.current.controller
           .resolveMedia(f.url, { ...(f.encryption ? { encryption: f.encryption } : {}), ...(f.mimeType && { mimeType: f.mimeType }) })
           .then((url) => latest.current.services.saveFile?.({ url, name: f.name }))
-          .catch(() => {}),
+          .catch((e: unknown) => {
+            const code = e instanceof EngineError ? e.code : "unknown";
+            const { t, fail } = latest.current;
+            fail(t(code === "not_found" ? "file.missing" : code === "network" ? "file.offline" : "file.failed"));
+          }),
       remove: (id) => void latest.current.handle.current?.redact(id).catch(() => {}),
       cancelUpload: (id) => latest.current.handle.current?.cancelUpload(id),
       resend: (id) => void latest.current.handle.current?.resend(id).catch(() => {}),
