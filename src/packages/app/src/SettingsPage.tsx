@@ -29,7 +29,7 @@ export function SettingsPage() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <PageHeader title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
+      <PageHeader title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("accounts")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <Group title={t("appearance")}>
           <ThemeGrid />

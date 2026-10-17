@@ -55,6 +55,27 @@ export function ProfilePage(props: { homeserver: string }) {
             </Text>
           )}
         </View>
+        {/* The Account group brings its own 18 above it; the negative margin takes 6 of that back so the button sits nearer the group below. */}
+        <View style={{ alignItems: "center", marginTop: 14, marginBottom: -6 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("switchAccount")}
+            onPress={() => controller.openSidebarPage("accounts")}
+            style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 4,
+              borderRadius: 100,
+              borderWidth: 1,
+              borderColor: colors.separator,
+              backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+            })}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "500", fontFamily, color: colors.text }}>{t("switchAccount")}</Text>
+          </Pressable>
+        </View>
         <Group title={t("account")}>
           {services.pickFiles && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
           <Item
