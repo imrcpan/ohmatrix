@@ -31,6 +31,9 @@ export function MessageRow(props: {
   first: boolean;
   /** Directly under a bubble of someone else (the gap is tripled). */
   newSender: boolean;
+  /** Plain text bubbles that sit against their neighbours by the corners. */
+  stickAbove: boolean;
+  stickBelow: boolean;
   last: boolean;
   isGroup: boolean;
   actions: RowActions;
@@ -61,6 +64,8 @@ export function MessageRow(props: {
     item: m,
     first: props.first,
     last: props.last,
+    stickAbove: props.stickAbove,
+    stickBelow: props.stickBelow,
     showAvatar,
     t,
     locale,

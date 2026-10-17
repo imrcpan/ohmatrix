@@ -8,6 +8,8 @@ const text = (i: number, body = "hello"): Row => ({
   first: true,
   last: true,
   newSender: false,
+  stickAbove: false,
+  stickBelow: false,
   item: { id: `$${i}`, sender: "@a:x", ts: i, isOwn: false, content: { kind: "text", body } } as never,
 });
 const many = (n: number) => Array.from({ length: n }, (_, i) => text(i));

@@ -33,6 +33,8 @@ const inputs = (m: TimelineItem, over: Partial<BubbleInputs> = {}): BubbleInputs
   item: m,
   first: true,
   last: true,
+  stickAbove: false,
+  stickBelow: false,
   showAvatar: false,
   t,
   locale: "en",

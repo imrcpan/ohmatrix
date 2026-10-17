@@ -8,7 +8,10 @@ import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
 import { fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
 
-/** Message bubble: large continuous radii, the same shape alone or in a run, time + state inside. */
+/** Message bubble: large continuous radii, joined corners inside a run of plain text, time + state inside. */
+/** Which corners of a bubble touch a neighbour: they are tight there (only plain text bubbles do). */
+export type BubbleStuck = { above: boolean; below: boolean };
+
 export function Bubble(props: {
   own: boolean;
   text: string;
@@ -62,6 +65,8 @@ export function Bubble(props: {
       }[]
     | undefined;
   onOpenLink?: ((url: string) => void) | undefined;
+  /** Corners that touch a neighbouring plain text bubble. */
+  stuck?: BubbleStuck | undefined;
   /** Quoted message shown at the top; press jumps to the original. */
   reply?: { senderName: string; senderId: string; preview: string; onPress: () => void } | undefined;
   /** Localised "edited" marker shown before the time. */
@@ -74,8 +79,13 @@ export function Bubble(props: {
   muted?: boolean;
 }) {
   const { colors } = useTheme();
-  // Every bubble has the same shape, whether or not it sits against its neighbours.
-  const corners = { borderRadius: radius.bubble };
+  const R = radius.bubble,
+    r = radius.bubbleTight;
+  const { above, below } = props.stuck ?? { above: false, below: false };
+  // The tail side shrinks on the corners that touch a neighbouring bubble; the other side keeps the full radius.
+  const corners = props.own
+    ? { borderTopLeftRadius: R, borderBottomLeftRadius: R, borderTopRightRadius: above ? r : R, borderBottomRightRadius: below ? r : R }
+    : { borderTopRightRadius: R, borderBottomRightRadius: R, borderTopLeftRadius: above ? r : R, borderBottomLeftRadius: below ? r : R };
   // Only take the rich path when there is something to style: plain text keeps the plain node (and its DOM shape).
   const richRuns = props.runs?.some((r) => r.bold || r.italic || r.underline || r.strike || r.code || r.href || r.userId || r.spoiler || r.prefix || r.br)
     ? props.runs

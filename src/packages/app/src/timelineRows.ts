@@ -6,7 +6,7 @@ export type Row =
   | { type: "date"; key: string; label: string }
   | { type: "service"; key: string; text: string }
   | { type: "unread"; key: string }
-  | { type: "message"; key: string; item: TimelineItem; first: boolean; last: boolean; newSender: boolean };
+  | { type: "message"; key: string; item: TimelineItem; first: boolean; last: boolean; newSender: boolean; stickAbove: boolean; stickBelow: boolean };
 
 const GROUP_GAP_MS = 5 * 60_000;
 const dayKey = (ts: number) => new Date(ts).toDateString();
@@ -24,6 +24,10 @@ export function buildRows(items: readonly TimelineItem[], now: number, locale: L
     dayKey(a.ts) === dayKey(b.ts) &&
     Math.abs(b.ts - a.ts) <= GROUP_GAP_MS;
 
+  // Only a text bubble (a quote in it does not matter) sticks to its neighbours by the corners: any other kind neither
+  // sticks to one nor is stuck to.
+  const plain = (i: TimelineItem) => i.content.kind === "text";
+
   items.forEach((item, i) => {
     const prev = items[i - 1],
       next = items[i + 1];
@@ -40,6 +44,8 @@ export function buildRows(items: readonly TimelineItem[], now: number, locale: L
         item,
         first: !prev || !groupable(prev, item) || item.id === firstUnreadId,
         last: !next || !groupable(item, next) || next.id === firstUnreadId,
+        stickAbove: !!prev && item.id !== firstUnreadId && groupable(prev, item) && plain(prev) && plain(item),
+        stickBelow: !!next && next.id !== firstUnreadId && groupable(item, next) && plain(item) && plain(next),
         // Directly under a bubble of someone else: the gap is tripled.
         newSender: !!prev && prev.content.kind !== "service" && prev.sender !== item.sender && dayKey(prev.ts) === dayKey(item.ts),
       });

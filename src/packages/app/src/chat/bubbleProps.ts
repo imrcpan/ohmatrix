@@ -16,6 +16,9 @@ export interface BubbleInputs {
   item: TimelineItem;
   first: boolean;
   last: boolean;
+  /** The bubble above / below is a plain text bubble too, and this one is: the corners that touch are tight. */
+  stickAbove: boolean;
+  stickBelow: boolean;
   /** A group chat shows who wrote each message; a one-to-one chat does not. */
   showAvatar: boolean;
   t: Translate;
@@ -62,6 +65,7 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
     readLabel: m.readBy?.length ? t("readBy", { names: m.readBy.map((r) => r.name).join(", ") }) : undefined,
     // A file card stands alone and carries no name.
     senderName: i.showAvatar && i.first && c.kind !== "file" ? m.senderName : undefined,
+    stuck: { above: i.stickAbove, below: i.stickBelow },
     senderId: m.sender,
     image: i.image
       ? { uri: upload?.previewUrl ?? i.image.uri, width: i.image.width, height: i.image.height, onPress: upload ? undefined : i.openImage }
