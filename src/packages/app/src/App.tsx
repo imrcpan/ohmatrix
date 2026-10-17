@@ -1,5 +1,5 @@
 import { ActivityIndicator, View } from "react-native";
-import { ScaleProvider, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
+import { InsetsContext, ScaleProvider, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
 import type { ReactNode } from "react";
 import type { PlatformServices } from "@ohmatrix/core";
 import type { AppController } from "@ohmatrix/state";
@@ -81,12 +81,15 @@ function Framed(props: { insets: Insets | undefined; children: ReactNode }) {
   const un = useUnzoom();
   const i = props.insets;
   if (!i) return <>{props.children}</>;
+  const inner = { top: un(i.top), right: un(i.right), bottom: un(i.bottom), left: un(i.left) };
   return (
-    <View
-      style={{ flex: 1, backgroundColor: colors.bg, paddingTop: un(i.top), paddingRight: un(i.right), paddingBottom: un(i.bottom), paddingLeft: un(i.left) }}
-    >
-      {props.children}
-    </View>
+    <InsetsContext.Provider value={inner}>
+      <View
+        style={{ flex: 1, backgroundColor: colors.bg, paddingTop: inner.top, paddingRight: inner.right, paddingBottom: inner.bottom, paddingLeft: inner.left }}
+      >
+        {props.children}
+      </View>
+    </InsetsContext.Provider>
   );
 }
 

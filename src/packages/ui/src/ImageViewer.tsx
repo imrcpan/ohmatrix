@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, PanResponder, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
-import { useScale } from "./viewport.js";
-import { useViewport } from "./viewport.js";
+import { useInsets, useScale, useViewport } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
-import { fontFamily } from "./theme.js";
+import { fontFamily, useTheme } from "./theme.js";
+import { clamp, MAX, MIN, pinchedScale } from "./viewerMath.js";
 
-const MIN = 0.25;
-const MAX = 8;
 const STEP = 1.25;
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 /** Size an image is first shown at: it fits inside the window with a margin and is never blown up past its own size. */
 export function fitSize(natural: { width: number; height: number }, area: { width: number; height: number }) {
@@ -17,11 +14,13 @@ export function fitSize(natural: { width: number; height: number }, area: { widt
   return { width: Math.round(natural.width * k), height: Math.round(natural.height * k) };
 }
 
-function Control(props: { icon: IconName; label: string; onPress: () => void }) {
+function Control(props: { icon: IconName; label: string; onPress: () => void; disabled?: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={props.label}
+      accessibilityState={{ disabled: !!props.disabled }}
+      disabled={props.disabled}
       onPress={props.onPress}
       hitSlop={6}
       style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
@@ -30,6 +29,7 @@ function Control(props: { icon: IconName; label: string; onPress: () => void }) 
         borderRadius: 19,
         alignItems: "center",
         justifyContent: "center",
+        opacity: props.disabled ? 0.4 : 1,
         backgroundColor: pressed ? "rgba(255,255,255,0.28)" : hovered ? "rgba(255,255,255,0.18)" : "transparent",
       })}
     >
@@ -55,7 +55,14 @@ export function ImageViewer(props: {
   width?: number | undefined;
   height?: number | undefined;
   labels?: { close: string; zoomIn: string; zoomOut: string; fit: string };
+  /** A save button first in the toolbar: shown when given, dimmed while `disabled` (the picture is not there yet). */
+  save?: { label: string; onPress: () => void; disabled?: boolean } | undefined;
+  /** A short message above the toolbar, e.g. that the picture was saved. */
+  notice?: string | undefined;
 }) {
+  const { colors } = useTheme();
+  // A Modal draws edge to edge: its corner controls must stay clear of the status bar and the navigation bar.
+  const inset = useInsets();
   const win = useViewport();
   const uiScale = useScale();
   const [scale, setScale] = useState(1);
@@ -107,18 +114,44 @@ export function ImageViewer(props: {
   const latest = useRef({ pan, scale });
   latest.current = { pan, scale };
   const start = useRef({ x: 0, y: 0 });
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => latest.current.scale > 1,
-        onMoveShouldSetPanResponder: () => latest.current.scale > 1,
-        onPanResponderGrant: () => {
-          start.current = latest.current.pan;
-        },
-        onPanResponderMove: (_, g) => setPan({ x: start.current.x + g.dx, y: start.current.y + g.dy }),
-      }),
-    [],
-  );
+  const pinch = useRef<{ distance: number; scale: number } | null>(null);
+  const distanceOf = (touches: ReadonlyArray<{ pageX: number; pageY: number }>) =>
+    Math.hypot(touches[0]!.pageX - touches[1]!.pageX, touches[0]!.pageY - touches[1]!.pageY);
+  const responder = useMemo(() => {
+    // Two fingers pinch; one finger drags a picture that is zoomed in. The capture phase takes the touch from the
+    // picture's own press, so a pinch that begins on it still works.
+    const wants = (touches: ReadonlyArray<unknown>) => touches.length >= 2 || latest.current.scale > 1;
+    return PanResponder.create({
+      onStartShouldSetPanResponderCapture: (e) => e.nativeEvent.touches.length >= 2,
+      onMoveShouldSetPanResponderCapture: (e) => wants(e.nativeEvent.touches),
+      onPanResponderGrant: (e) => {
+        start.current = latest.current.pan;
+        const t = e.nativeEvent.touches;
+        pinch.current = t.length >= 2 ? { distance: distanceOf(t), scale: latest.current.scale } : null;
+      },
+      onPanResponderMove: (e, g) => {
+        const t = e.nativeEvent.touches;
+        if (t.length >= 2) {
+          pinch.current ??= { distance: distanceOf(t), scale: latest.current.scale };
+          setScale(pinchedScale(pinch.current.scale, pinch.current.distance, distanceOf(t)));
+          return;
+        }
+        // One finger again after a pinch: carry on dragging from where the picture is now.
+        if (pinch.current) {
+          pinch.current = null;
+          start.current = { x: latest.current.pan.x - g.dx, y: latest.current.pan.y - g.dy };
+        }
+        setPan({ x: start.current.x + g.dx, y: start.current.y + g.dy });
+      },
+      onPanResponderRelease: () => {
+        pinch.current = null;
+        if (latest.current.scale <= 1) setPan({ x: 0, y: 0 });
+      },
+      onPanResponderTerminate: () => {
+        pinch.current = null;
+      },
+    });
+  }, []);
 
   const lastTap = useRef(0);
   const onImagePress = () => {
@@ -147,48 +180,83 @@ export function ImageViewer(props: {
             { cursor: "default" } as object,
           ]}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Photo: ${props.title ?? ""}`}
-            onPress={onImagePress}
+          {/* The responder sits on a plain view: a Pressable keeps the touch handlers of its own. */}
+          <View
             {...responder.panHandlers}
             style={[
               { width: base.width, height: base.height, transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] },
               { cursor: scale > 1 ? "grab" : "zoom-in" } as object,
             ]}
           >
-            {props.previewUri && !ready && (
-              <Image source={{ uri: props.previewUri }} resizeMode="contain" style={{ position: "absolute", width: "100%", height: "100%" }} />
-            )}
-            {props.uri && (
-              <Image
-                source={{ uri: props.uri }}
-                resizeMode="contain"
-                style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
-                onLoad={(e) => {
-                  const s = e.nativeEvent.source as { width?: number; height?: number } | undefined;
-                  if (!natural && s?.width && s?.height) setNatural({ width: s.width, height: s.height });
-                  setReady(true);
-                }}
-              />
-            )}
-            {!ready && !props.previewUri && (
-              <View style={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" } as object}>
-                <ActivityIndicator color="#FFFFFF" />
-              </View>
-            )}
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Photo: ${props.title ?? ""}`}
+              onPress={onImagePress}
+              style={{ width: "100%", height: "100%" }}
+            >
+              {props.previewUri && !ready && (
+                <Image source={{ uri: props.previewUri }} resizeMode="contain" style={{ position: "absolute", width: "100%", height: "100%" }} />
+              )}
+              {props.uri && (
+                <Image
+                  source={{ uri: props.uri }}
+                  resizeMode="contain"
+                  style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
+                  onLoad={(e) => {
+                    const s = e.nativeEvent.source as { width?: number; height?: number } | undefined;
+                    if (!natural && s?.width && s?.height) setNatural({ width: s.width, height: s.height });
+                    setReady(true);
+                  }}
+                />
+              )}
+              {!ready && !props.previewUri && (
+                <View style={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" } as object}>
+                  <ActivityIndicator color="#FFFFFF" />
+                </View>
+              )}
+            </Pressable>
+          </View>
 
-          <View style={{ position: "absolute", top: 16, right: 16 }}>
+          <View style={{ position: "absolute", top: 16 + inset.top, right: 16 + inset.right }}>
             <View style={{ borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
               <Control icon="close" label={labels.close} onPress={props.onClose} />
             </View>
           </View>
+          {!!props.notice && (
+            // A banner at the top, in plain sight: the theme's own surface (light or dark) with an outline, and a check mark.
+            <View
+              accessibilityLiveRegion="polite"
+              style={{
+                position: "absolute",
+                top: 56 + inset.top,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingLeft: 12,
+                paddingRight: 18,
+                paddingVertical: 10,
+                borderRadius: 24,
+                backgroundColor: colors.bg,
+                borderWidth: 1,
+                borderColor: "rgba(128,128,128,0.5)",
+                shadowColor: "#000000",
+                shadowOpacity: 0.35,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 8,
+              }}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#34C759", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="check" size={16} strokeWidth={3} color="#FFFFFF" />
+              </View>
+              <Text style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>{props.notice}</Text>
+            </View>
+          )}
           <Pressable
             onPress={() => {}}
             style={{
               position: "absolute",
-              bottom: 22,
+              bottom: 22 + inset.bottom,
               flexDirection: "row",
               alignItems: "center",
               gap: 2,
@@ -198,6 +266,7 @@ export function ImageViewer(props: {
               backgroundColor: "rgba(0,0,0,0.5)",
             }}
           >
+            {props.save && <Control icon="download" label={props.save.label} onPress={props.save.onPress} disabled={!!props.save.disabled} />}
             <Control icon="zoomOut" label={labels.zoomOut} onPress={() => zoom(1 / STEP)} />
             <Text accessibilityLabel="Zoom level" style={{ minWidth: 52, textAlign: "center", fontSize: 14, fontFamily, color: "#FFFFFF" }}>
               {Math.round(scale * 100)}%

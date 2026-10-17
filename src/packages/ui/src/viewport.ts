@@ -20,3 +20,18 @@ export function useUnzoom(): (v: number) => number {
 export function useScale(): number {
   return useContext(ScaleContext);
 }
+
+/** What the platform draws over the window (the status bar, the navigation bar), in layout px. Zero where there is none. */
+export interface SystemInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export const InsetsContext = createContext<SystemInsets>({ top: 0, right: 0, bottom: 0, left: 0 });
+
+/** The room a full-window layer (a Modal draws edge to edge) must leave clear of the system bars. */
+export function useInsets(): SystemInsets {
+  return useContext(InsetsContext);
+}
