@@ -28,7 +28,14 @@
         }
       ],
       "expo-sharing",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "OhMatrix saves the pictures you choose to your photos.",
+          "granularPermissions": ["photo"]
+        }
+      ]
     ]
   }
 }

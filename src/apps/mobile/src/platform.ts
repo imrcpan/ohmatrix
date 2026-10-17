@@ -12,6 +12,7 @@ import {
   type SystemNotifications,
 } from "@ohmatrix/core";
 import { fromDocuments, levelOfDb, waveformOf } from "./attachments.js";
+import { sniffImageExtension } from "./imageFormat.js";
 
 /**
  * What the phone gives the shared app: a file picker, the camera, voice recording, the clipboard, notifications. Each
@@ -253,6 +254,55 @@ export function phoneNotifications(): SystemNotifications {
   };
 }
 
+const MIME_OF_EXTENSION: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  heic: "image/heic",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  zip: "application/zip",
+};
+
+/**
+ * Keep a file on the phone. A picture goes into the photo gallery; anything else is handed to the system's share sheet,
+ * which can put it into Files. The cached copy has a temporary name, so it is copied under the real one first.
+ */
+async function saveToDevice(file: { url: string; name: string }): Promise<"saved" | void> {
+  let name = file.name.replace(/[\\/]/g, "_");
+  let uri = file.url;
+  if (uri.startsWith("file://")) {
+    // A name with no extension of a known kind (an avatar has none): the file's own first bytes say what it is.
+    if (!MIME_OF_EXTENSION[/\.([A-Za-z0-9]+)$/.exec(name)?.[1]?.toLowerCase() ?? ""]) {
+      const found = sniffImageExtension(new Uint8Array((await new File(uri).arrayBuffer()).slice(0, 16)));
+      if (found) name = `${name}.${found}`;
+    }
+    const dir = new Directory(Paths.cache, `save-${Date.now()}`);
+    dir.create();
+    const copy = new File(dir, name);
+    new File(uri).copy(copy);
+    uri = copy.uri;
+  }
+  const mimeType = MIME_OF_EXTENSION[/\.([A-Za-z0-9]+)$/.exec(name)?.[1]?.toLowerCase() ?? ""] ?? "application/octet-stream";
+  if (mimeType.startsWith("image/")) {
+    try {
+      const Library = await import("expo-media-library");
+      const asked = await Library.requestPermissionsAsync(true, ["photo"]);
+      if (asked.granted) {
+        await Library.Asset.create(uri);
+        return "saved";
+      }
+    } catch (e) {
+      // A build without the module, or no permission: the share sheet is the way left.
+      console.warn("saving to the gallery failed:", e);
+    }
+  }
+  const Sharing = await import("expo-sharing");
+  await Sharing.shareAsync(uri, { mimeType, dialogTitle: name });
+}
+
 /** Everything the shared app can use on a phone, on top of the session store. */
 export function phoneServices(base: Pick<PlatformServices, "sessionStore">): PlatformServices {
   return {
@@ -268,9 +318,6 @@ export function phoneServices(base: Pick<PlatformServices, "sessionStore">): Pla
       await Clipboard.setStringAsync(text);
     },
     openLink: (url) => void Linking.openURL(url).catch(() => {}),
-    async saveFile(file) {
-      const Sharing = await import("expo-sharing");
-      await Sharing.shareAsync(file.url, { dialogTitle: file.name });
-    },
+    saveFile: saveToDevice,
   };
 }
