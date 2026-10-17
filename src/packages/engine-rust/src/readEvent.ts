@@ -203,6 +203,10 @@ function itemContent(raw: Tagged): ItemContent {
       const change: StateChange = { kind: state?.tag ?? "", value };
       return { type: "state", state: change };
     }
+    case "ProfileChange":
+      // Someone's name or picture changed: the other engine shows nothing for it, and neither do we (a state of a kind
+      // `stateText` has no line for).
+      return { type: "state", state: { kind: "ProfileChange" } };
     default:
       return { type: "unsupported", description: raw.tag };
   }

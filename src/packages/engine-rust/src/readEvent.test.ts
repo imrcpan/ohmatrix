@@ -84,6 +84,8 @@ test("a message that cannot be decrypted, one that was removed, and one of a kin
   expect(readEvent(kind({ tag: "Redacted" })).content).toEqual({ type: "redacted" });
   expect(readEvent(kind({ tag: "Poll" })).content).toEqual({ type: "unsupported", description: "Poll" });
   expect(readEvent(raw({ content: { tag: "CallInvite" } })).content).toEqual({ type: "unsupported", description: "CallInvite" });
+  // A change of someone's name or picture is no message and has no line: it reads as a state the chat does not show.
+  expect(readEvent(raw({ content: { tag: "ProfileChange" } })).content).toEqual({ type: "state", state: { kind: "ProfileChange" } });
 });
 
 test("membership changes arrive as numbers in the order the SDK declares them", () => {
