@@ -3,7 +3,8 @@ import { ActivityIndicator, Image, Modal, PanResponder, Pressable, Text, View } 
 import { ScaleRoot } from "./Scale.js";
 import { useInsets, useScale, useViewport } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
-import { fontFamily, useTheme } from "./theme.js";
+import { fontFamily } from "./theme.js";
+import { TopNotice } from "./TopNotice.js";
 import { clamp, MAX, MIN, pinchedScale } from "./viewerMath.js";
 
 const STEP = 1.25;
@@ -60,7 +61,6 @@ export function ImageViewer(props: {
   /** A short message above the toolbar, e.g. that the picture was saved. */
   notice?: string | undefined;
 }) {
-  const { colors } = useTheme();
   // A Modal draws edge to edge: its corner controls must stay clear of the status bar and the navigation bar.
   const inset = useInsets();
   const win = useViewport();
@@ -224,36 +224,7 @@ export function ImageViewer(props: {
                   <Control icon="close" label={labels.close} onPress={props.onClose} />
                 </View>
               </View>
-              {!!props.notice && (
-                // A banner at the top, in plain sight: the theme's own surface (light or dark) with an outline, and a check mark.
-                <View
-                  accessibilityLiveRegion="polite"
-                  style={{
-                    position: "absolute",
-                    top: 56 + inset.top,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    paddingLeft: 12,
-                    paddingRight: 18,
-                    paddingVertical: 10,
-                    borderRadius: 24,
-                    backgroundColor: colors.bg,
-                    borderWidth: 1,
-                    borderColor: "rgba(128,128,128,0.5)",
-                    shadowColor: "#000000",
-                    shadowOpacity: 0.35,
-                    shadowRadius: 12,
-                    shadowOffset: { width: 0, height: 4 },
-                    elevation: 8,
-                  }}
-                >
-                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#34C759", alignItems: "center", justifyContent: "center" }}>
-                    <Icon name="check" size={16} strokeWidth={3} color="#FFFFFF" />
-                  </View>
-                  <Text style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>{props.notice}</Text>
-                </View>
-              )}
+              {!!props.notice && <TopNotice message={props.notice} top={56 + inset.top} />}
               <Pressable
                 onPress={() => {}}
                 style={{
