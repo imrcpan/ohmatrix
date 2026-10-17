@@ -43,7 +43,7 @@ const inputs = (m: TimelineItem, over: Partial<BubbleInputs> = {}): BubbleInputs
   openLink: vi.fn(),
   image: undefined,
   video: undefined,
-  audio: { state: { status: "idle", progress: 0, positionMs: 0, durationMs: 4000 }, toggle: vi.fn(), seek: vi.fn() },
+  audio: { state: { status: "idle", progress: 0, positionMs: 0, durationMs: 4000 }, toggle: vi.fn() },
   previews: [],
   previewImageUrl: undefined,
   openImage: vi.fn(),
@@ -117,11 +117,9 @@ test("a finished picture opens in the viewer", () => {
 test("audio shows its length when idle and position / length while playing", () => {
   const m = item({ content: { kind: "audio", url: "mxc://a/b", name: "v.ogg", voice: true } });
   const idle = bubbleProps(inputs(m));
-  expect(idle.audio).toMatchObject({ voice: true, playing: false, timeLabel: "0:04", playLabel: "play" });
-  const playing = bubbleProps(
-    inputs(m, { audio: { state: { status: "playing", progress: 0.25, positionMs: 1000, durationMs: 4000 }, toggle: vi.fn(), seek: vi.fn() } }),
-  );
-  expect(playing.audio).toMatchObject({ playing: true, timeLabel: "0:01 / 0:04", playLabel: "pause", progress: 0.25 });
+  expect(idle.audio).toMatchObject({ voice: true, timeLabel: "0:04", playLabel: "play" });
+  const playing = bubbleProps(inputs(m, { audio: { state: { status: "playing", progress: 0.25, positionMs: 1000, durationMs: 4000 }, toggle: vi.fn() } }));
+  expect(playing.audio).toMatchObject({ timeLabel: "0:01 / 0:04", playLabel: "pause", progress: 0.25 });
 });
 
 test("only the first link preview gets the resolved picture", () => {

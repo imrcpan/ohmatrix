@@ -73,9 +73,13 @@ export function Waveform(props: {
   );
 }
 
+/** Width of the content of an audio bubble, the same for every one. */
+const AUDIO_WIDTH = 220;
+
 /**
- * Audio inside a bubble: play/pause circle, then the waveform (voice messages) or the name with a thin progress bar
- * (audio files), and the time. Press the bar to jump.
+ * Audio inside a bubble: the waveform (voice messages) or the name with a thin progress bar (audio files), and the
+ * time. There is no play button and no seeking: pressing the bubble plays and pauses it, so the row is only drawn. While
+ * a file is still going up, its progress ring stands where a button would, since it can be cancelled.
  */
 export function AudioRow(props: {
   own: boolean;
@@ -83,22 +87,18 @@ export function AudioRow(props: {
   name: string;
   samples?: number[] | undefined;
   progress: number;
-  playing: boolean;
-  loading: boolean;
   timeLabel: string;
-  playLabel: string;
-  onToggle: () => void;
-  onSeek: (fraction: number) => void;
   upload?: { progress: number; failed?: boolean | undefined; label: string; cancelLabel: string; onCancel: () => void } | undefined;
 }) {
   const { colors } = useTheme();
   const fg = props.own ? colors.bubbleOutText : colors.bubbleInText;
   const meta = props.own ? colors.bubbleOutMeta : colors.textSecondary;
-  const circle = props.own ? "rgba(255,255,255,0.24)" : colors.accent;
-  const BAR = 150;
+  // Every audio bubble is the same width and the waveform (or the bar) runs the whole of it; a ring still going up takes
+  // its own share from the left.
+  const BAR = props.upload ? AUDIO_WIDTH - 38 - 10 : AUDIO_WIDTH;
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minWidth: 200 }}>
-      {props.upload ? (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, width: AUDIO_WIDTH }}>
+      {props.upload && (
         <ProgressRing
           size={38}
           progress={props.upload.progress}
@@ -107,50 +107,23 @@ export function AudioRow(props: {
           label={props.upload.cancelLabel}
           dark={!props.own}
         />
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={props.playLabel}
-          accessibilityState={{ busy: props.loading }}
-          onPress={props.onToggle}
-          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: circle, alignItems: "center", justifyContent: "center" }}
-        >
-          <Icon name={props.loading ? "clock" : props.playing ? "pause" : "play"} size={20} strokeWidth={2.4} color={colors.onAccent} />
-        </Pressable>
       )}
-      <View style={{ flexShrink: 1 }}>
+      <View style={{ width: BAR }}>
         {props.voice ? (
-          <Pressable
-            accessibilityRole="adjustable"
-            accessibilityLabel="Seek"
-            onPress={(e) => {
-              const x = (e.nativeEvent as { locationX?: number }).locationX;
-              if (typeof x === "number") props.onSeek(Math.max(0, Math.min(1, x / BAR)));
-            }}
-          >
-            <Waveform
-              samples={props.samples}
-              seed={props.name}
-              progress={props.progress}
-              played={props.own ? "#FFFFFF" : colors.accent}
-              rest={props.own ? "rgba(255,255,255,0.45)" : colors.textTertiary}
-              width={BAR}
-            />
-          </Pressable>
+          <Waveform
+            samples={props.samples}
+            seed={props.name}
+            progress={props.progress}
+            played={props.own ? "#FFFFFF" : colors.accent}
+            rest={props.own ? "rgba(255,255,255,0.45)" : colors.textTertiary}
+            width={BAR}
+          />
         ) : (
           <>
             <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "500", fontFamily, color: fg }}>
               {props.name}
             </Text>
-            <Pressable
-              accessibilityRole="adjustable"
-              accessibilityLabel="Seek"
-              onPress={(e) => {
-                const x = (e.nativeEvent as { locationX?: number }).locationX;
-                if (typeof x === "number") props.onSeek(Math.max(0, Math.min(1, x / BAR)));
-              }}
-              style={{ height: 10, justifyContent: "center", width: BAR }}
-            >
+            <View style={{ height: 10, justifyContent: "center", width: BAR }}>
               <View style={{ height: 3, borderRadius: 1.5, backgroundColor: props.own ? "rgba(255,255,255,0.35)" : colors.textTertiary }}>
                 <View
                   style={{
@@ -161,7 +134,7 @@ export function AudioRow(props: {
                   }}
                 />
               </View>
-            </Pressable>
+            </View>
           </>
         )}
         <Text style={{ fontSize: 12, fontFamily, color: meta, marginTop: 1, paddingRight: props.own ? 62 : 44 }}>

@@ -28,7 +28,7 @@ export interface BubbleInputs {
   openLink(url: string): void;
   image: { uri: string | undefined; width: number; height: number } | undefined;
   video: { poster: string | undefined; width: number; height: number } | undefined;
-  audio: { state: AudioState; toggle(): void; seek(fraction: number): void };
+  audio: { state: AudioState; toggle(): void };
   previews: { url: string; title?: string; description?: string; siteName?: string; image?: string; imageWidth?: number; imageHeight?: number }[];
   previewImageUrl: string | undefined;
   openImage(): void;
@@ -87,15 +87,12 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
             name: c.name,
             samples: c.waveform,
             progress: i.audio.state.progress,
-            playing: i.audio.state.status === "playing",
-            loading: i.audio.state.status === "loading",
             timeLabel:
               i.audio.state.status === "idle"
                 ? formatDuration(i.audio.state.durationMs)
                 : `${formatDuration(i.audio.state.positionMs)} / ${formatDuration(i.audio.state.durationMs)}`,
             playLabel: i.audio.state.status === "playing" ? t("pause") : t("play"),
             onToggle: i.audio.toggle,
-            onSeek: i.audio.seek,
           }
         : undefined,
     upload: upload

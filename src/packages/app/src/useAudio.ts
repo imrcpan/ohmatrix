@@ -103,20 +103,7 @@ export function useAudioPlayer(load: () => Promise<string>, announcedMs?: number
     sync();
   }, [ensure, sync]);
 
-  const seek = useCallback(
-    async (fraction: number) => {
-      const a = await ensure();
-      if (!a) return;
-      const total = Number.isFinite(a.duration) && a.duration > 0 ? a.duration : (announcedMs ?? 0) / 1000;
-      if (total > 0) {
-        a.currentTime = fraction * total;
-        sync();
-      }
-    },
-    [ensure, sync, announcedMs],
-  );
-
-  return { state, toggle, seek };
+  return { state, toggle };
 }
 
 /** "0:07", "12:03", "1:02:03". */
