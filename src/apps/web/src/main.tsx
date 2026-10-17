@@ -32,6 +32,8 @@ const services: PlatformServices = {
   preferences,
   notifications: createWebNotifications(),
   recordMedia: openRecorder,
+  // The input bar offers voice messages only; a video is sent as a file.
+  recordKinds: ["audio"],
   receiveFiles,
   copyText: (text) => navigator.clipboard.writeText(text),
   pickFiles: () =>
