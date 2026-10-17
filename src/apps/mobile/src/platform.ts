@@ -74,7 +74,10 @@ async function pickFiles(): Promise<AttachmentSource[]> {
           () => resolve(null),
         ),
       );
-      return size ? { ...f, ...size } : f;
+      const withSize = size ? { ...f, ...size } : f;
+      // A blurhash stands in for the picture while it loads; if it cannot be made, the SDK's grey is used.
+      const blurhash = await import("expo-image").then((m) => m.Image.generateBlurhashAsync(uri, [4, 3])).catch(() => null);
+      return blurhash ? { ...withSize, blurhash } : withSize;
     }),
   );
 }
