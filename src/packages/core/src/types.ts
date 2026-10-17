@@ -164,6 +164,8 @@ export interface AttachmentSource {
   voice?: boolean;
   width?: number;
   height?: number;
+  /** A blurhash of a picture, for the placeholder shown while it loads; the phone computes it, the browser leaves it out. */
+  blurhash?: string;
 }
 
 /** A file being uploaded: shown in the timeline until the message is sent. */
