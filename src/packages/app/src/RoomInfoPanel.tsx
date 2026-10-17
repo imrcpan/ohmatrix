@@ -183,7 +183,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               {(!!d.topic || canEdit) && !direct && (
                 <Item label={t("topic")} value={d.topic ?? t("room.noTopic")} onPress={canEdit ? () => setEdit("topic") : undefined} chevron={canEdit} />
               )}
-              <Item label={t("address")} value={d.alias ?? d.id} />
+              <Item label={t("address")} value={d.alias ?? d.id} copyable />
               {/* A space is a container with no conversation of its own to encrypt. */}
               {!forSpace && (
                 <Item

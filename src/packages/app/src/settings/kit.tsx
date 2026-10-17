@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { fontFamily, Icon, IconButton, useTheme, type IconName } from "@ohmatrix/ui";
+import { Dialog, fontFamily, Icon, IconButton, Menu, PrimaryButton, useTheme, type Anchor, type IconName } from "@ohmatrix/ui";
+import { useServices, useT } from "../context.js";
 
 /**
  * The look of the profile, settings and sessions pages, kept here on purpose: the rest of the app keeps using the
@@ -57,8 +58,22 @@ export function Item(props: {
   onPress?: (() => void) | undefined;
   chevron?: boolean;
   right?: ReactNode;
+  /** A long value (an address): cut with an ellipsis, shown whole in a preview on press, copied from a long press or right click. */
+  copyable?: boolean;
 }) {
   const { colors } = useTheme();
+  const t = useT();
+  const services = useServices();
+  const [menu, setMenu] = useState<Anchor | null>(null);
+  const [preview, setPreview] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    const text = props.value ?? "";
+    const done = () => setCopied(true);
+    if (services.copyText) void services.copyText(text).then(done, () => {});
+    else
+      void (globalThis as { navigator?: { clipboard?: { writeText(t: string): Promise<void> } } }).navigator?.clipboard?.writeText(text).then(done, () => {});
+  };
   const body = (hovered?: boolean, pressed?: boolean) => (
     <View
       style={{
@@ -74,7 +89,7 @@ export function Item(props: {
       }}
     >
       {props.icon && <Icon name={props.icon} size={21} color={props.danger ? colors.danger : colors.textSecondary} />}
-      <View style={{ flexShrink: props.subtitle ? 1 : 0, flexGrow: props.subtitle ? 1 : 0 }}>
+      <View style={{ flexShrink: props.subtitle || props.copyable ? 1 : 0, flexGrow: props.subtitle ? 1 : 0 }}>
         <Text numberOfLines={1} style={{ fontSize: 16, fontFamily, color: props.danger ? colors.danger : colors.text }}>
           {props.label}
         </Text>
@@ -87,7 +102,12 @@ export function Item(props: {
       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0 }}>
         {props.valueIcon && <Icon name={props.valueIcon} size={19} color={colors.textSecondary} />}
         {!!props.value && (
-          <Text numberOfLines={1} selectable style={{ fontSize: 15, fontFamily, color: colors.textSecondary, flexShrink: 1, textAlign: "right" }}>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            selectable={!props.copyable}
+            style={{ fontSize: 15, fontFamily, color: colors.textSecondary, flexShrink: 1, textAlign: "right" }}
+          >
             {props.value}
           </Text>
         )}
@@ -100,6 +120,41 @@ export function Item(props: {
       )}
     </View>
   );
+  if (props.copyable && props.value && !props.onPress) {
+    const at = (x: number, y: number) => setMenu({ x, y, width: 0, height: 0 });
+    return (
+      <>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={props.label}
+          onPress={() => {
+            setCopied(false);
+            setPreview(true);
+          }}
+          onLongPress={(e) => {
+            const n = e.nativeEvent as { pageX?: number; pageY?: number };
+            at(n.pageX ?? 0, n.pageY ?? 0);
+          }}
+          delayLongPress={350}
+          {...({
+            onContextMenu: (e: { preventDefault(): void; clientX: number; clientY: number }) => {
+              e.preventDefault();
+              at(e.clientX, e.clientY);
+            },
+          } as object)}
+        >
+          {({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => body(hovered, pressed)}
+        </Pressable>
+        <Menu width={130} visible={!!menu} anchor={menu} onClose={() => setMenu(null)} items={[{ label: t("copy"), icon: "copy", onPress: copy }]} />
+        <Dialog visible={preview} title={props.label} onClose={() => setPreview(false)}>
+          <Text selectable style={{ fontSize: 16, lineHeight: 22, fontFamily, color: colors.text, textAlign: "center" }}>
+            {props.value}
+          </Text>
+          <PrimaryButton title={copied ? t("error.copied") : t("copy")} onPress={copy} />
+        </Dialog>
+      </>
+    );
+  }
   if (!props.onPress) return body();
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={props.label} onPress={props.onPress}>
