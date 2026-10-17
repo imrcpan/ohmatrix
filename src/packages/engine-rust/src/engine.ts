@@ -121,6 +121,7 @@ export class RustEngineCore implements MatrixEngine {
     this.roomsTask?.cancel();
     this.roomsTask = null;
     this.syncService = null;
+    this.client?.releaseMedia?.();
     this.client = null;
     this.rooms_ = new RoomList();
     this.lastProfile = null;
@@ -862,6 +863,7 @@ class RustTimeline implements TimelineHandle {
         size: file.size,
         ...(file.width !== undefined && { width: file.width }),
         ...(file.height !== undefined && { height: file.height }),
+        ...(file.blurhash && { blurhash: file.blurhash }),
         ...(file.durationMs !== undefined && { durationMs: file.durationMs }),
         ...(file.waveform && { waveform: file.waveform }),
         ...(file.voice && { voice: true }),

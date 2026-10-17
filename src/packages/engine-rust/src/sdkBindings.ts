@@ -130,8 +130,8 @@ export function sdkFromBindings(b: Bindings): Sdk {
         ...(f.width !== undefined && { width: BigInt(Math.round(f.width)) }),
         ...(f.height !== undefined && { height: BigInt(Math.round(f.height)) }),
       };
-      // The SDK insists on a blurhash for a picture and a video; there is no decoder here, so a flat grey stands in.
-      const blurhash = "L00000fQfQfQfQfQfQfQfQfQfQfQ";
+      // The SDK insists on a blurhash for a picture and a video; one the sender could not compute is a flat grey.
+      const blurhash = f.blurhash ?? "L00000fQfQfQfQfQfQfQfQfQfQfQ";
       const common = { mimetype: f.mimeType, size: BigInt(Math.round(f.size)) };
       const duration = f.durationMs !== undefined ? { duration: f.durationMs } : {};
       const handle =
@@ -414,10 +414,16 @@ export function sdkFromBindings(b: Bindings): Sdk {
         const bytes = await call(() => c.getMediaThumbnail(source, BigInt(o.width ?? 0), BigInt(o.height ?? 0)));
         return `data:${o.mimeType ?? "image/jpeg"};base64,${toBase64(bytes)}`;
       }
-      const handle = await call(() => c.getMediaFile(source, undefined, o.mimeType ?? "application/octet-stream", true, undefined));
+      const handle = await call(() => c.getMediaFile(source, undefined, o.mimeType ?? "application/octet-stream", true, undefined)).finally(() =>
+        (source as { uniffiDestroy?: () => void }).uniffiDestroy?.(),
+      );
       // The file goes away with its handle, so the handles are kept for as long as the client lives.
       files.push(handle);
       return `file://${handle.path()}`;
+    },
+    releaseMedia() {
+      // Dropping a handle deletes its file; the pictures on screen are gone with the session.
+      for (const h of files.splice(0)) (h as { uniffiDestroy?: () => void }).uniffiDestroy?.();
     },
     room: (id) => {
       const r = c.getRoom(id);
