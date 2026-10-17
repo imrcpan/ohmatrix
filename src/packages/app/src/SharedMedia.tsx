@@ -128,7 +128,7 @@ export function SharedMedia(props: { roomId: string }) {
 
   const items = list?.items ?? [];
   const grid = kind === "image" || kind === "video";
-  const tile = Math.max(60, Math.floor((width - 20 - 12) / 3));
+  const tile = Math.max(60, Math.floor((width - 36 - 12) / 3));
 
   // The picture or video being looked at, with the viewers the chat uses.
   const vc = viewing?.content;
@@ -137,7 +137,7 @@ export function SharedMedia(props: { roomId: string }) {
 
   return (
     <Group title={t("sharedMedia")}>
-      <View accessibilityRole="tablist" style={{ flexDirection: "row", padding: 6, gap: 4 }}>
+      <View accessibilityRole="tablist" style={{ flexDirection: "row", paddingVertical: 6, paddingHorizontal: 18, gap: 4 }}>
         {KINDS.map((k) => (
           <Pressable
             key={k.kind}
@@ -162,7 +162,10 @@ export function SharedMedia(props: { roomId: string }) {
         ))}
       </View>
       {grid ? (
-        <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, padding: 10 }}>
+        <View
+          onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+          style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingVertical: 10, paddingHorizontal: 18 }}
+        >
           {items.map((i) => (
             <Tile key={i.id} item={i} size={tile} onOpen={() => setViewing(i)} />
           ))}
