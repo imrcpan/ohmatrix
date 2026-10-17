@@ -51,6 +51,10 @@ export function SlidePanel(props: { open: boolean; mode: "dock" | "overlay"; wid
         bottom: 0,
         left: 0,
         right: 0,
+        // Above everything the chat draws (its composer has a zIndex of its own, and when the chat's wrapper view is
+        // flattened that composer is a sibling of this panel and would show through).
+        zIndex: 100,
+        elevation: 100,
         backgroundColor: colors.bgSecondary,
         transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [full || 400, 0] }) }],
       }}
