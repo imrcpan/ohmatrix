@@ -130,6 +130,18 @@ const ROOM_EMIT_GAP = 60;
 const ROLE_LEVEL: Record<MemberRole, number> = { admin: 100, moderator: 50, member: 0 };
 const roleOf = (power: number): MemberRole => (power >= 100 ? "admin" : power >= 50 ? "moderator" : "member");
 
+/**
+ * The crypto library's WebAssembly is set up once for the whole page, by whichever client asks first. Two clients asking
+ * together (several accounts starting at once) race, and one of them fails with "reading 'getMigrationState'". So they go one
+ * after the other. This is the one piece of module state here, and it is the page's, not an account's.
+ */
+let cryptoTurn: Promise<unknown> = Promise.resolve();
+function inTurn<T>(fn: () => Promise<T>): Promise<T> {
+  const run = cryptoTurn.then(fn);
+  cryptoTurn = run.catch(() => {});
+  return run;
+}
+
 const syncDbName = (s: Session) => `${cryptoBase(s)}-sync`;
 const cryptoBase = (s: Session) => `ohmatrix-${s.userId}-${s.deviceId}`;
 
@@ -811,7 +823,7 @@ export class JsSdkEngine implements MatrixEngine {
         const prefix = key ? `${base}-${await keyFingerprint(key)}` : base;
         if (useIndexedDB) await this.checkDeviceStores(base, prefix, keyProvider);
         try {
-          await client.initRustCrypto({ useIndexedDB, cryptoDatabasePrefix: prefix, ...(key && { storageKey: key }) });
+          await inTurn(() => client.initRustCrypto({ useIndexedDB, cryptoDatabasePrefix: prefix, ...(key && { storageKey: key }) }));
         } catch (e) {
           if (useIndexedDB && /account in the store doesn't match|store cipher|decrypt|MAC/i.test(String((e as Error)?.message))) {
             void deleteCryptoStores(base);

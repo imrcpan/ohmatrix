@@ -2,8 +2,8 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type React from "react";
 import { useStore } from "zustand";
 import { detectLocale, t, type Locale, type MessageKey } from "@ohmatrix/i18n";
-import type { PlatformServices } from "@ohmatrix/core";
-import type { AppController, AppState } from "@ohmatrix/state";
+import type { AppServices } from "@ohmatrix/core";
+import type { AccountManager, AccountsState, AppController, AppState } from "@ohmatrix/state";
 
 /**
  * One context object per page, however many times this module is evaluated. A development server that hot-reloads
@@ -16,17 +16,21 @@ const shared = <T,>(name: string, make: () => React.Context<T>): React.Context<T
 };
 const Ctx = shared<AppController | null>("controller", () => createContext<AppController | null>(null));
 const LocaleCtx = shared<Locale>("locale", () => createContext<Locale>("en"));
-const ServicesCtx = shared<PlatformServices | null>("services", () => createContext<PlatformServices | null>(null));
+const ServicesCtx = shared<AppServices | null>("services", () => createContext<AppServices | null>(null));
 
-export function AppProviders(props: { controller: AppController; services: PlatformServices; children: ReactNode }) {
+const AccountsCtx = shared<AccountManager | null>("accounts", () => createContext<AccountManager | null>(null));
+
+export function AppProviders(props: { controller: AppController; manager: AccountManager; services: AppServices; children: ReactNode }) {
   const preferred = useStore(props.controller.store, (s) => s.prefs.locale);
   const locale: Locale =
     preferred ?? detectLocale((globalThis as { navigator?: { language?: string } }).navigator?.language ?? Intl.DateTimeFormat().resolvedOptions().locale);
   return (
     <Ctx.Provider value={props.controller}>
-      <ServicesCtx.Provider value={props.services}>
-        <LocaleCtx.Provider value={locale}>{props.children}</LocaleCtx.Provider>
-      </ServicesCtx.Provider>
+      <AccountsCtx.Provider value={props.manager}>
+        <ServicesCtx.Provider value={props.services}>
+          <LocaleCtx.Provider value={locale}>{props.children}</LocaleCtx.Provider>
+        </ServicesCtx.Provider>
+      </AccountsCtx.Provider>
     </Ctx.Provider>
   );
 }
@@ -35,6 +39,16 @@ export function useController(): AppController {
   const c = useContext(Ctx);
   if (!c) throw new Error("useController outside AppProviders");
   return c;
+}
+
+export function useAccountManager(): AccountManager {
+  const m = useContext(AccountsCtx);
+  if (!m) throw new Error("useAccountManager outside AppProviders");
+  return m;
+}
+
+export function useAccountsState<T>(selector: (s: AccountsState) => T): T {
+  return useStore(useAccountManager().store, selector);
 }
 
 export function useAppState<T>(selector: (s: AppState) => T): T {
@@ -50,7 +64,7 @@ export function useT() {
   return useMemo(() => (key: MessageKey, params?: Record<string, string | number>) => t(locale, key, params), [locale]);
 }
 
-export function useServices(): PlatformServices {
+export function useServices(): AppServices {
   const s = useContext(ServicesCtx);
   if (!s) throw new Error("useServices outside AppProviders");
   return s;

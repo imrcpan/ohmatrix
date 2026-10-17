@@ -5,7 +5,7 @@ import {
   type AttachmentSource,
   type AudioClip,
   type NotificationPermission,
-  type PlatformServices,
+  type AppServices,
   type PreferencesStore,
   type RecordedMedia,
   type Recorder,
@@ -308,10 +308,9 @@ async function saveToDevice(file: { url: string; name: string }): Promise<"saved
   await Sharing.shareAsync(uri, { mimeType, dialogTitle: name });
 }
 
-/** Everything the shared app can use on a phone, on top of the session store. */
-export function phoneServices(base: Pick<PlatformServices, "sessionStore">): PlatformServices {
+/** Everything the shared app can use on a phone. */
+export function phoneServices(): AppServices {
   return {
-    ...base,
     notifications: phoneNotifications(),
     preferences: filePreferences(),
     pickFiles,

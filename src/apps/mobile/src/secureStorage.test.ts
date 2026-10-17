@@ -1,6 +1,14 @@
 import { expect, test } from "vitest";
 import type { Session } from "@ohmatrix/core";
-import { createSessionStore, databasePassphrase, forgetDatabasePassphrase, pathOfFileUri, type SecureKeyValue } from "./secureStorage.js";
+import {
+  createAccountStore,
+  createSessionStore,
+  inAccountDir,
+  databasePassphrase,
+  forgetDatabasePassphrase,
+  pathOfFileUri,
+  type SecureKeyValue,
+} from "./secureStorage.js";
 
 const memory = (): SecureKeyValue & { data: Map<string, string> } => {
   const data = new Map<string, string>();
@@ -58,4 +66,44 @@ test("a file:// folder becomes the plain path the SDK opens", () => {
   expect(pathOfFileUri("/already/plain")).toBe("/already/plain");
   expect(pathOfFileUri("file:///100%/x")).toBe("/100%/x"); // not valid percent-encoding: left alone
   expect(pathOfFileUri("file:///")).toBe("/");
+});
+
+test("accounts keep their order, each under a key the Keystore accepts, and the active one is forgotten when removed", async () => {
+  const kv = memory();
+  const store = createAccountStore(kv);
+  await store.upsert({ session });
+  await store.upsert({ session: { ...session, userId: "@b:h.example", accessToken: "other" }, dir: "acct-b" });
+  await store.upsert({ session: { ...session, accessToken: "fresh" } }); // replaced in place
+  await store.setActive("@b:h.example");
+  for (const key of kv.data.keys()) expect(key).toMatch(/^[A-Za-z0-9._-]+$/);
+  const list = await createAccountStore(kv).list(); // a restart
+  expect(list.map((a) => a.session.userId)).toEqual(["@a:h", "@b:h.example"]);
+  expect(list[0]!.session.accessToken).toBe("fresh");
+  expect(list[1]!.dir).toBe("acct-b");
+  expect(await store.activeId()).toBe("@b:h.example");
+  await store.remove("@b:h.example");
+  expect(await store.activeId()).toBeNull();
+  expect([...kv.data.keys()].some((k) => k.includes("b_3ah") || k.includes("_40b"))).toBe(false);
+});
+
+test("an account that cannot be read back is dropped from the list and removed", async () => {
+  const kv = memory();
+  const store = createAccountStore(kv);
+  await store.upsert({ session });
+  await store.upsert({ session: { ...session, userId: "@bad:h" } });
+  const badKey = [...kv.data.keys()].find((k) => k.includes("bad"))!;
+  kv.data.set(badKey, "{not json");
+  expect((await store.list()).map((a) => a.session.userId)).toEqual(["@a:h"]);
+  expect(kv.data.has(badKey)).toBe(false);
+});
+
+test("saving several accounts at once loses none", async () => {
+  const store = createAccountStore(memory());
+  await Promise.all(["a", "b", "c"].map((u) => store.upsert({ session: { ...session, userId: `@${u}:h` } })));
+  expect((await store.list()).map((a) => a.session.userId)).toEqual(["@a:h", "@b:h", "@c:h"]);
+});
+
+test("an account's data folder is its own, except for the first one, which keeps the app's folder", () => {
+  expect(inAccountDir("/data/files", undefined)).toBe("/data/files");
+  expect(inAccountDir("/data/files/", "acct-1a2b")).toBe("/data/files/acct-1a2b");
 });

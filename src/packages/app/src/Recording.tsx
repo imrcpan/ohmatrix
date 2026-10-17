@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { RecordError, type AttachmentSource, type PlatformServices, type Recorder } from "@ohmatrix/core";
+import { RecordError, type AttachmentSource, type AppServices, type Recorder } from "@ohmatrix/core";
 import { Dialog, fontFamily, Icon, LivePreview, TextButton, useTheme } from "@ohmatrix/ui";
 import { useServices, useT } from "./context.js";
 import { formatDuration } from "./useAudio.js";
@@ -33,7 +33,7 @@ function useElapsed(running: boolean) {
  * Voice messages: the microphone opens, recording starts at once (the browser asks for permission the first time),
  * a bar with timer and live loudness replaces the text field, and Send or Discard end it.
  */
-export function useVoiceRecording(send: (file: AttachmentSource) => Promise<void>, services: PlatformServices, t: Translate) {
+export function useVoiceRecording(send: (file: AttachmentSource) => Promise<void>, services: AppServices, t: Translate) {
   const recorder = useRef<Recorder | null>(null);
   const [active, setActive] = useState(false);
   const [levels, setLevels] = useState<number[]>([]);

@@ -4,7 +4,8 @@ import { Icon, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme,
 import { useAppState, useController, useLocale, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 
-export function LoginScreen(props: { defaultHomeserver: string }) {
+/** `back`: another account to go to (this screen is for adding one, or for an account that could not start), with the button's label. */
+export function LoginScreen(props: { defaultHomeserver: string; back?: { label: string; onPress(): void } | undefined }) {
   const { colors } = useTheme();
   const t = useT();
   const controller = useController();
@@ -39,7 +40,9 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
               : rawError
         : errorCode === "forbidden" || errorCode === "unauthorized"
           ? t("login.rejected")
-          : rawError;
+          : errorCode === "conflict"
+            ? t("login.exists")
+            : rawError;
   const mismatch = creating && !!confirm && confirm !== password;
   const ready = !!homeserver.trim() && !!username.trim() && !!password && (!creating || (!!confirm && !mismatch));
   const submit = () => {
@@ -91,6 +94,7 @@ export function LoginScreen(props: { defaultHomeserver: string }) {
             <PrimaryButton title={creating ? t("register.submit") : t("signIn")} onPress={submit} loading={busy} disabled={!ready} />
           </View>
           <TextButton title={creating ? t("register.back") : t("register.toggle")} onPress={toggle} />
+          {props.back && !busy && <TextButton title={props.back.label} onPress={props.back.onPress} />}
         </View>
       </ScrollView>
       {/* The language, at the bottom right: a borderless name and arrow that opens a menu upwards. */}

@@ -51,6 +51,7 @@ const en = {
   "error.copied": "Copied",
   "login.network": "Cannot reach {server}. Check how the address is spelled and your network connection.",
   "login.rejected": "Wrong username or password.",
+  "login.exists": "This account has already been added.",
   "register.title": "Create a Matrix account",
   "register.submit": "Create account",
   "register.toggle": "No account yet? Create one",
@@ -342,7 +343,9 @@ const en = {
   switchAccount: "Switch Account",
   accounts: "Accounts",
   addAccount: "Add account",
-  "accounts.footer": "Adding and switching between accounts is not available yet.",
+  "account.signOut": "Sign out of this account",
+  "account.signOut.title": "Sign out of {name}?",
+  "account.current": "In use",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -398,6 +401,7 @@ const zh: Record<MessageKey, string> = {
   "error.copied": "已复制",
   "login.network": "无法连接到 {server}。请检查服务器地址的拼写和网络连接。",
   "login.rejected": "用户名或密码错误。",
+  "login.exists": "这个账号已经添加过了。",
   "register.title": "创建 Matrix 账号",
   "register.submit": "创建账号",
   "register.toggle": "还没有账号？创建一个",
@@ -688,7 +692,9 @@ const zh: Record<MessageKey, string> = {
   switchAccount: "切换账号",
   accounts: "账号",
   addAccount: "添加账号",
-  "accounts.footer": "添加和切换账号的功能暂未开放。",
+  "account.signOut": "退出此账号",
+  "account.signOut.title": "退出 {name}？",
+  "account.current": "使用中",
 };
 
 const catalogs: Record<Locale, Record<MessageKey, string>> = { en, "zh-CN": zh };

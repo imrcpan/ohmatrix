@@ -4,4 +4,5 @@ export * from "./listDiff.js";
 export * from "./errors.js";
 export * from "./engine.js";
 export * from "./platform.js";
+export * from "./accounts.js";
 export * from "./discovery.js";

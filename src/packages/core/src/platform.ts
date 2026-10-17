@@ -108,3 +108,6 @@ export interface PlatformServices {
    */
   saveFile?(file: { url: string; name: string }): Promise<"saved" | void>;
 }
+
+/** What the screens get of the platform: everything but the session store, which belongs to the controllers (one per account). */
+export type AppServices = Omit<PlatformServices, "sessionStore">;

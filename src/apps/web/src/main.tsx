@@ -1,11 +1,11 @@
 import { createRoot } from "react-dom/client";
-import type { AttachmentSource, PlatformServices, Preferences } from "@ohmatrix/core";
+import type { AppServices, AttachmentSource, Preferences } from "@ohmatrix/core";
 import { JsSdkEngine } from "@ohmatrix/engine-js";
-import { createAppController } from "@ohmatrix/state";
+import { createAccountManager } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
 import { createCryptoKeyProvider } from "./cryptoKeys.js";
 import { createSecureBox } from "./secureBox.js";
-import { createSecureSessionStore } from "./secureSession.js";
+import { createSecureAccountStore, createSecureSessionStore } from "./secureSession.js";
 import { createWebNotifications } from "./notifications.js";
 import { receiveFiles } from "./receiveFiles.js";
 import { openRecorder } from "./recorder.js";
@@ -13,7 +13,8 @@ import { installRouter } from "./router.js";
 
 // The session (access token) is encrypted with a non-extractable WebCrypto key before it is stored.
 const secureBox = createSecureBox();
-const sessionStore = createSecureSessionStore(secureBox);
+const accounts = createSecureAccountStore(secureBox);
+const legacySessions = createSecureSessionStore(secureBox); // the one session saved before there were several accounts
 
 const PREFS_KEY = "ohmatrix.prefs.v1";
 const preferences = {
@@ -27,8 +28,7 @@ const preferences = {
   save: async (p: Preferences) => localStorage.setItem(PREFS_KEY, JSON.stringify(p)),
 };
 
-const services: PlatformServices = {
-  sessionStore,
+const services: AppServices = {
   preferences,
   notifications: createWebNotifications(),
   recordMedia: openRecorder,
@@ -67,22 +67,34 @@ const services: PlatformServices = {
 /** Prefilled on the sign-in screen. Override at build time with VITE_DEFAULT_HOMESERVER (e.g. a local test server). */
 const DEFAULT_HOMESERVER = "matrix.org";
 
-const controller = createAppController(new JsSdkEngine({ storageKey: createCryptoKeyProvider(secureBox) }), services);
+// One engine per account: the browser databases it uses are named after the account and device, so they never meet.
+const manager = createAccountManager({
+  accounts,
+  legacySessions,
+  services,
+  makeEngine: () => new JsSdkEngine({ storageKey: createCryptoKeyProvider(secureBox) }),
+});
 
-// Development only: lets tests and the console poke the running app.
-if (import.meta.env.DEV) (window as unknown as { __ohmatrix: unknown; __ohmatrix_root: string }).__ohmatrix = { controller };
+// Development only: lets tests and the console poke the running app (`controller` is always the one on screen).
+if (import.meta.env.DEV)
+  (window as unknown as { __ohmatrix: unknown }).__ohmatrix = {
+    manager,
+    get controller() {
+      return manager.current();
+    },
+  };
 if (import.meta.env.DEV)
   (window as unknown as { __ohmatrix_root: string }).__ohmatrix_root = new URL("../../../../", import.meta.url).pathname.replace(
     /\/$/,
     "",
   ); /* e.g. /@fs/home/.../repo in dev */
 
-installRouter(controller);
-void controller.bootstrap();
+await manager.start();
+installRouter(manager);
 
 createRoot(document.getElementById("root")!).render(
   <App
-    controller={controller}
+    manager={manager}
     services={services}
     onReload={() => location.reload()}
     defaultHomeserver={import.meta.env.VITE_DEFAULT_HOMESERVER ?? DEFAULT_HOMESERVER}
