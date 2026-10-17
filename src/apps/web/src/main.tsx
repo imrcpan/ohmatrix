@@ -45,9 +45,19 @@ const services: PlatformServices = {
       input.click();
     }),
   saveFile: async ({ url, name }) => {
+    // A name with no extension (an avatar has none): the file's own type says what to add.
+    let filename = name;
+    if (!/\.[A-Za-z0-9]{2,5}$/.test(name)) {
+      const type = await fetch(url).then(
+        async (r) => (await r.blob()).type,
+        () => "",
+      );
+      const ext = ({ "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" } as Record<string, string>)[type];
+      if (ext) filename = `${name}.${ext}`;
+    }
     const a = document.createElement("a");
     a.href = url;
-    a.download = name;
+    a.download = filename;
     a.click();
   },
 };

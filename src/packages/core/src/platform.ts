@@ -102,6 +102,9 @@ export interface PlatformServices {
   copyText?(text: string): Promise<void>;
   /** Open a link outside the app (a browser tab). Absent = links are inert. */
   openLink?(url: string): void;
-  /** Save/open a resolved file URL (e.g. trigger a browser download). */
-  saveFile?(file: { url: string; name: string }): Promise<void>;
+  /**
+   * Save/open a resolved file URL (e.g. trigger a browser download). Resolves to "saved" when the file went into the
+   * device's own library (the photo gallery), so the app can say so; a download or a share sheet shows itself.
+   */
+  saveFile?(file: { url: string; name: string }): Promise<"saved" | void>;
 }
