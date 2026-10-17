@@ -149,6 +149,7 @@ export interface SdkTimeline {
     size: number;
     width?: number;
     height?: number;
+    blurhash?: string;
     durationMs?: number;
     waveform?: number[];
     voice?: boolean;
@@ -229,6 +230,8 @@ export interface SdkClient {
    * open an encrypted file; a size asks for a thumbnail.
    */
   mediaUrl(mxc: string, opts: { source?: string; width?: number; height?: number; mimeType?: string }): Promise<string>;
+  /** Let go of the files `mediaUrl` kept on disk; their URLs stop working. */
+  releaseMedia?(): void;
 }
 
 export interface SdkClientConfig {
