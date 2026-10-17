@@ -108,6 +108,8 @@ function createAudio(url: string): AudioClip {
       const was = paused;
       paused = !st.playing;
       if (st.didJustFinish) {
+        // The player keeps "play when ready" on after the end, so the shared code's rewind to 0 would start it again.
+        p.pause();
         paused = true;
         emit("ended");
       } else if (was !== paused) emit(paused ? "pause" : "play");
