@@ -1103,7 +1103,8 @@ test("notifications: opt in from Settings; system notification for other chats; 
   const first = `ping ${Date.now()}`;
   await say(first);
   await expect.poll(async () => (await notes(page)).length, { timeout: 15000 }).toBe(1);
-  expect((await notes(page))[0]).toMatchObject({ title: "alice", body: first, tag: dm });
+  // The tag carries the account too, so two accounts in the same room do not replace each other's notification.
+  expect((await notes(page))[0]).toMatchObject({ title: "alice", body: first, tag: `@test:localhost${dm}` });
   await expect.poll(() => page.title(), { timeout: 10000 }).toMatch(/^\((\d+|99\+)\) OhMatrix$/);
 
   // Clicking the notification opens that chat.
@@ -3160,4 +3161,80 @@ test("the chat list keeps up with the rooms: a new message, the unread count, th
   await send("while others are listed");
   await expect(row(renamed).first()).toContainText("while others are listed", { timeout: 15000 });
   expect(await page.getByRole("button").filter({ hasText: /Live / }).count()).toBe(before);
+});
+
+test("several accounts: add one, both stay signed in after a reload, switch between them, sign one out", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const shown = () =>
+    page.evaluate(
+      () => (window as unknown as { __ohmatrix: { controller: { store: { getState(): { userId: string } } } } }).__ohmatrix.controller.store.getState().userId,
+    );
+  const openAccounts = async () => {
+    await page.evaluate(() =>
+      (window as unknown as { __ohmatrix: { controller: { openSidebarPage(p: string): void } } }).__ohmatrix.controller.openSidebarPage("profile"),
+    );
+    await page.getByRole("button", { name: "Switch Account" }).click();
+    await expect(page.getByText("Accounts", { exact: true })).toBeVisible();
+  };
+  expect(await shown()).toBe("@test:localhost");
+
+  // Add alice from the accounts page.
+  await openAccounts();
+  await page.getByRole("button", { name: "Add account" }).click();
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill("alice");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  expect(await shown()).toBe("@alice:localhost");
+  await shot(page, "accounts-added");
+
+  // Both are still there after a reload, and the last one shown is shown again.
+  await page.reload();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  expect(await shown()).toBe("@alice:localhost");
+  await openAccounts();
+  await expect(page.getByRole("button", { name: "test", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "alice", exact: true })).toBeVisible();
+  await shot(page, "accounts-list");
+
+  // Switch to test; the chat list is its own.
+  await page.getByRole("button", { name: "test", exact: true }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
+  expect(await shown()).toBe("@test:localhost");
+
+  // Adding an account that is already there is refused and changes nothing.
+  await openAccounts();
+  await page.getByRole("button", { name: "Add account" }).click();
+  await inputs.nth(1).fill("alice");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByText("This account has already been added.")).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  expect(await shown()).toBe("@test:localhost");
+
+  // An account that could not start shows its sign-in screen: with another account there, that screen offers a way over to it.
+  await page.evaluate(() =>
+    (window as unknown as { __ohmatrix: { controller: { store: { setState(p: object): void } } } }).__ohmatrix.controller.store.setState({ auth: "signedOut" }),
+  );
+  await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
+  await page.getByRole("button", { name: "Switch Account" }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
+  expect(await shown()).toBe("@alice:localhost");
+  await openAccounts(); // back to test through the account list
+  await page.getByRole("button", { name: "test", exact: true }).click();
+  expect(await shown()).toBe("@test:localhost");
+
+  // Sign alice out from the list: test stays.
+  await openAccounts();
+  await page.getByRole("button", { name: "alice", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Sign out of this account" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).last().click();
+  await expect(page.getByRole("button", { name: "alice", exact: true })).toHaveCount(0);
+  expect(await shown()).toBe("@test:localhost");
+  await page.reload();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  expect(await shown()).toBe("@test:localhost");
 });

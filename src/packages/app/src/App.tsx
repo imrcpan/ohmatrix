@@ -1,9 +1,10 @@
 import { ActivityIndicator, View } from "react-native";
 import { InsetsContext, ScaleProvider, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
 import type { ReactNode } from "react";
-import type { PlatformServices } from "@ohmatrix/core";
-import type { AppController } from "@ohmatrix/state";
-import { AppProviders, useAppState, useController } from "./context.js";
+import { useStore } from "zustand";
+import type { AppServices } from "@ohmatrix/core";
+import type { AccountManager } from "@ohmatrix/state";
+import { AppProviders, useAccountManager, useAccountsState, useAppState, useController, useT } from "./context.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LoginScreen } from "./LoginScreen.js";
 import { MainScreen } from "./MainScreen.js";
@@ -20,10 +21,14 @@ function BackBridge() {
 function Root(props: { defaultHomeserver: string }) {
   const { colors } = useTheme();
   const auth = useAppState((s) => s.auth);
+  const manager = useAccountManager();
+  const t = useT();
+  const adding = useAccountsState((s) => s.adding && s.accounts.length > 0);
+  // Another account that is there to go to, when the one showing has no sign-in of its own to offer (it could not start).
+  const other = useAccountsState((s) => s.accounts.find((a) => a.userId !== s.currentKey)?.userId);
   if (auth === "signedIn")
     return (
       <>
-        <NotificationsBridge />
         <BackBridge />
         <MainScreen />
       </>
@@ -35,16 +40,23 @@ function Root(props: { defaultHomeserver: string }) {
       </View>
     );
   }
-  return <LoginScreen defaultHomeserver={props.defaultHomeserver} />;
+  // Never a dead end while there is another account: adding one has a way back to the account that was showing, and an account
+  // that could not start (no network, a store that would not open) has a way over to another one.
+  const back = adding
+    ? { label: t("back"), onPress: () => manager.cancelAdd() }
+    : other
+      ? { label: t("switchAccount"), onPress: () => manager.switchTo(other) }
+      : undefined;
+  return <LoginScreen defaultHomeserver={props.defaultHomeserver} back={back} />;
 }
 
 /**
  * Shared application shell (screens, navigation, wiring). Platform apps only choose the engine,
- * build `PlatformServices`, call `controller.bootstrap()`, and render this.
+ * build the platform services and an `AccountManager` (and `start()` it), and render this.
  */
 export function App(props: {
-  controller: AppController;
-  services: PlatformServices;
+  manager: AccountManager;
+  services: AppServices;
   defaultHomeserver?: string;
   onReload?: () => void;
   /** Room the platform takes for itself, in px of the window: what it draws over the app (system bars, the keyboard). */
@@ -52,14 +64,29 @@ export function App(props: {
 }) {
   return (
     <ErrorBoundary onReload={props.onReload} copyText={props.services.copyText}>
-      <AppProviders controller={props.controller} services={props.services}>
+      <Showing manager={props.manager} services={props.services}>
         <Themed>
           <Framed insets={props.insets}>
             <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
           </Framed>
         </Themed>
-      </AppProviders>
+      </Showing>
     </ErrorBoundary>
+  );
+}
+
+/**
+ * The account on screen. Switching accounts gives everything below a new controller and mounts it afresh (keyed), so
+ * nothing open in one account (a chat, a draft, a panel) carries over into another.
+ */
+function Showing(props: { manager: AccountManager; services: AppServices; children: ReactNode }) {
+  const key = useStore(props.manager.store, (s) => s.currentKey);
+  return (
+    <AppProviders key={key} controller={props.manager.current()} manager={props.manager} services={props.services}>
+      {/* Outside the screens, so any account can notify whatever is showing, the sign-in screen of a new account included. */}
+      <NotificationsBridge />
+      {props.children}
+    </AppProviders>
   );
 }
 

@@ -2,7 +2,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { expect, test } from "vitest";
 import type { Session } from "@ohmatrix/core";
 import { createSecureBox } from "./secureBox.js";
-import { createSecureSessionStore } from "./secureSession.js";
+import { createSecureAccountStore, createSecureSessionStore } from "./secureSession.js";
 
 const memStorage = () => {
   const m = new Map<string, string>();
@@ -65,4 +65,37 @@ test("corrupt or foreign data is discarded instead of crashing", async () => {
   const store = createSecureSessionStore(createSecureBox({ idb: new IDBFactory() }), storage);
   expect(await store.load()).toBeNull();
   expect(storage.getItem("ohmatrix.session.v2")).toBeNull();
+});
+
+test("accounts are stored sealed, keep their order, and survive a reload; the active one is forgotten when it is removed", async () => {
+  const storage = memStorage();
+  const box = createSecureBox({ idb: new IDBFactory() });
+  const store = createSecureAccountStore(box, storage);
+  await store.upsert({ session });
+  await store.upsert({ session: { ...session, userId: "@v:hs", accessToken: "syt_other_secret" }, dir: "acct-v" });
+  await store.setActive("@v:hs");
+  const raw = [...storage.m.values()].join("");
+  expect(raw).not.toContain("syt_super_secret_token");
+  expect(raw).not.toContain("syt_other_secret");
+  const again = createSecureAccountStore(box, storage); // a "reload"
+  expect((await again.list()).map((a) => a.session.userId)).toEqual(["@u:hs", "@v:hs"]);
+  expect((await again.list())[1]!.dir).toBe("acct-v");
+  expect(await again.activeId()).toBe("@v:hs");
+  await again.remove("@v:hs");
+  expect(await again.activeId()).toBeNull();
+  expect(await again.list()).toHaveLength(1);
+});
+
+test("accounts saving at the same moment do not lose each other", async () => {
+  const store = createSecureAccountStore(createSecureBox({ idb: new IDBFactory() }), memStorage());
+  await Promise.all(["a", "b", "c", "d"].map((u) => store.upsert({ session: { ...session, userId: `@${u}:hs` } })));
+  expect((await store.list()).map((a) => a.session.userId).sort()).toEqual(["@a:hs", "@b:hs", "@c:hs", "@d:hs"]);
+});
+
+test("accounts that cannot be unsealed are dropped, so the user signs in again", async () => {
+  const storage = memStorage();
+  await createSecureAccountStore(createSecureBox({ idb: new IDBFactory() }), storage).upsert({ session });
+  const other = createSecureAccountStore(createSecureBox({ idb: new IDBFactory() }), storage); // another key
+  expect(await other.list()).toEqual([]);
+  expect(storage.m.size).toBe(0);
 });

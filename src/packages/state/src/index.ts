@@ -32,6 +32,9 @@ import {
 
 export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts";
 
+/** The page a sidebar page was opened from, which is where back goes. */
+const sidebarParent = (page: SidebarPage): SidebarPage => (page === "sessions" ? "settings" : page === "settings" || page === "accounts" ? "profile" : "chats");
+
 export type AuthStatus = "booting" | "signedOut" | "signingIn" | "signedIn";
 
 export interface AppState {
@@ -287,12 +290,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       if (s.spaceInfoOpen) set({ spaceInfoOpen: false });
       else if (s.roomInfoOpen) set({ roomInfoOpen: false });
       else if (s.selectedRoomId !== null) select(null);
-      else if (s.sidebarPage !== "chats") set({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" });
+      else if (s.sidebarPage !== "chats") set({ sidebarPage: sidebarParent(s.sidebarPage) });
       else if (s.spaceId !== null) set({ spaceId: null, spaceInfoOpen: false });
       else return false;
       return true;
     },
-    sidebarBack: () => set((s) => ({ sidebarPage: s.sidebarPage === "sessions" ? "settings" : s.sidebarPage === "settings" ? "profile" : "chats" })),
+    sidebarBack: () => set((s) => ({ sidebarPage: sidebarParent(s.sidebarPage) })),
     openRoomInfo: (roomInfoOpen) =>
       set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null, ...(roomInfoOpen ? { spaceInfoOpen: false } : {}) })),
     selectRoom: select,
@@ -393,3 +396,5 @@ export function totalUnread(rooms: readonly RoomSummary[]): number {
   }
   return n;
 }
+
+export * from "./accounts.js";
