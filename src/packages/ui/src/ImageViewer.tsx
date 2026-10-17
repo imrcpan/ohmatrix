@@ -170,120 +170,122 @@ export function ImageViewer(props: {
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
       <ScaleRoot scale={uiScale}>
-        {/* The mask: dims what is behind instead of covering it with a flat colour. */}
-        <Pressable
-          accessibilityLabel="Viewer backdrop"
-          onPress={props.onClose}
-          {...({ onWheel: (e: { deltaY: number; preventDefault?: () => void }) => zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1) } as object)}
-          style={[
-            { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-            { cursor: "default" } as object,
-          ]}
-        >
-          {/* The responder sits on a plain view that fills the page, so a pinch or drag counts anywhere, not only over the
-              picture; a Pressable would keep the touch handlers of its own. */}
-          <View {...responder.panHandlers} style={{ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center" }}>
-            <View
-              style={[
-                { width: base.width, height: base.height, transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] },
-                { cursor: scale > 1 ? "grab" : "zoom-in" } as object,
-              ]}
-            >
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Photo: ${props.title ?? ""}`}
-                onPress={onImagePress}
-                style={{ width: "100%", height: "100%" }}
-              >
-                {props.previewUri && !ready && (
-                  <Image source={{ uri: props.previewUri }} resizeMode="contain" style={{ position: "absolute", width: "100%", height: "100%" }} />
-                )}
-                {props.uri && (
-                  <Image
-                    source={{ uri: props.uri }}
-                    resizeMode="contain"
-                    style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
-                    onLoad={(e) => {
-                      const s = e.nativeEvent.source as { width?: number; height?: number } | undefined;
-                      if (!natural && s?.width && s?.height) setNatural({ width: s.width, height: s.height });
-                      setReady(true);
-                    }}
-                  />
-                )}
-                {!ready && !props.previewUri && (
-                  <View style={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" } as object}>
-                    <ActivityIndicator color="#FFFFFF" />
-                  </View>
-                )}
-              </Pressable>
-            </View>
-
-            <View style={{ position: "absolute", top: 16 + inset.top, right: 16 + inset.right }}>
-              <View style={{ borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
-                <Control icon="close" label={labels.close} onPress={props.onClose} />
-              </View>
-            </View>
-            {!!props.notice && (
-              // A banner at the top, in plain sight: the theme's own surface (light or dark) with an outline, and a check mark.
+        {/* The touch responder is the outermost view: a responder can only be taken over by an ancestor, so were it inside
+            the mask's Pressable, a pinch that begins on the bare mask (which holds the touch) would never reach it. */}
+        <View {...responder.panHandlers} style={{ flex: 1 }}>
+          {/* The mask: dims what is behind instead of covering it with a flat colour. */}
+          <Pressable
+            accessibilityLabel="Viewer backdrop"
+            onPress={props.onClose}
+            {...({ onWheel: (e: { deltaY: number; preventDefault?: () => void }) => zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1) } as object)}
+            style={[
+              { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+              { cursor: "default" } as object,
+            ]}
+          >
+            <View style={{ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center" }}>
               <View
-                accessibilityLiveRegion="polite"
+                style={[
+                  { width: base.width, height: base.height, transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] },
+                  { cursor: scale > 1 ? "grab" : "zoom-in" } as object,
+                ]}
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Photo: ${props.title ?? ""}`}
+                  onPress={onImagePress}
+                  style={{ width: "100%", height: "100%" }}
+                >
+                  {props.previewUri && !ready && (
+                    <Image source={{ uri: props.previewUri }} resizeMode="contain" style={{ position: "absolute", width: "100%", height: "100%" }} />
+                  )}
+                  {props.uri && (
+                    <Image
+                      source={{ uri: props.uri }}
+                      resizeMode="contain"
+                      style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0 }}
+                      onLoad={(e) => {
+                        const s = e.nativeEvent.source as { width?: number; height?: number } | undefined;
+                        if (!natural && s?.width && s?.height) setNatural({ width: s.width, height: s.height });
+                        setReady(true);
+                      }}
+                    />
+                  )}
+                  {!ready && !props.previewUri && (
+                    <View style={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" } as object}>
+                      <ActivityIndicator color="#FFFFFF" />
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+
+              <View style={{ position: "absolute", top: 16 + inset.top, right: 16 + inset.right }}>
+                <View style={{ borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
+                  <Control icon="close" label={labels.close} onPress={props.onClose} />
+                </View>
+              </View>
+              {!!props.notice && (
+                // A banner at the top, in plain sight: the theme's own surface (light or dark) with an outline, and a check mark.
+                <View
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    position: "absolute",
+                    top: 56 + inset.top,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    paddingLeft: 12,
+                    paddingRight: 18,
+                    paddingVertical: 10,
+                    borderRadius: 24,
+                    backgroundColor: colors.bg,
+                    borderWidth: 1,
+                    borderColor: "rgba(128,128,128,0.5)",
+                    shadowColor: "#000000",
+                    shadowOpacity: 0.35,
+                    shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 4 },
+                    elevation: 8,
+                  }}
+                >
+                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#34C759", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name="check" size={16} strokeWidth={3} color="#FFFFFF" />
+                  </View>
+                  <Text style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>{props.notice}</Text>
+                </View>
+              )}
+              <Pressable
+                onPress={() => {}}
                 style={{
                   position: "absolute",
-                  top: 56 + inset.top,
+                  bottom: 22 + inset.bottom,
                   flexDirection: "row",
                   alignItems: "center",
-                  gap: 8,
-                  paddingLeft: 12,
-                  paddingRight: 18,
-                  paddingVertical: 10,
-                  borderRadius: 24,
-                  backgroundColor: colors.bg,
-                  borderWidth: 1,
-                  borderColor: "rgba(128,128,128,0.5)",
-                  shadowColor: "#000000",
-                  shadowOpacity: 0.35,
-                  shadowRadius: 12,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 8,
+                  gap: 2,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 26,
+                  backgroundColor: "rgba(0,0,0,0.5)",
                 }}
               >
-                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#34C759", alignItems: "center", justifyContent: "center" }}>
-                  <Icon name="check" size={16} strokeWidth={3} color="#FFFFFF" />
-                </View>
-                <Text style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>{props.notice}</Text>
-              </View>
-            )}
-            <Pressable
-              onPress={() => {}}
-              style={{
-                position: "absolute",
-                bottom: 22 + inset.bottom,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 2,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 26,
-                backgroundColor: "rgba(0,0,0,0.5)",
-              }}
-            >
-              {props.save && <Control icon="download" label={props.save.label} onPress={props.save.onPress} disabled={!!props.save.disabled} />}
-              <Control icon="zoomOut" label={labels.zoomOut} onPress={() => zoom(1 / STEP)} />
-              <Text accessibilityLabel="Zoom level" style={{ minWidth: 52, textAlign: "center", fontSize: 14, fontFamily, color: "#FFFFFF" }}>
-                {Math.round(scale * 100)}%
-              </Text>
-              <Control icon="zoomIn" label={labels.zoomIn} onPress={() => zoom(STEP)} />
-              <Control
-                icon="fit"
-                label={labels.fit}
-                onPress={() => {
-                  setScale(1);
-                  setPan({ x: 0, y: 0 });
-                }}
-              />
-            </Pressable>
-          </View>
-        </Pressable>
+                {props.save && <Control icon="download" label={props.save.label} onPress={props.save.onPress} disabled={!!props.save.disabled} />}
+                <Control icon="zoomOut" label={labels.zoomOut} onPress={() => zoom(1 / STEP)} />
+                <Text accessibilityLabel="Zoom level" style={{ minWidth: 52, textAlign: "center", fontSize: 14, fontFamily, color: "#FFFFFF" }}>
+                  {Math.round(scale * 100)}%
+                </Text>
+                <Control icon="zoomIn" label={labels.zoomIn} onPress={() => zoom(STEP)} />
+                <Control
+                  icon="fit"
+                  label={labels.fit}
+                  onPress={() => {
+                    setScale(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                />
+              </Pressable>
+            </View>
+          </Pressable>
+        </View>
       </ScaleRoot>
     </Modal>
   );
