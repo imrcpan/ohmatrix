@@ -5,6 +5,7 @@ import { EngineError } from "@ohmatrix/core";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { SecuritySheet } from "./SecuritySheet.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
+import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
 
 export function ProfilePage(props: { homeserver: string }) {
@@ -17,6 +18,7 @@ export function ProfilePage(props: { homeserver: string }) {
   const userId = useAppState((s) => s.userId) ?? "";
   const security = useAppState((s) => s.security);
   const avatar = useMediaUrl(profile?.avatar, { width: 192, height: 192, fit: "crop" });
+  const [viewing, setViewing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingStatus, setEditingStatus] = useState(false);
   const [statusText, setStatusText] = useState("");
@@ -39,9 +41,11 @@ export function ProfilePage(props: { homeserver: string }) {
       <PageHeader title={t("profile")} onBack={() => controller.sidebarBack()} backLabel={t("chats")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4, gap: 2 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t("changePhoto")} onPress={() => void changePhoto()} disabled={!services.pickFiles}>
+          {/* Pressing the picture looks at it; changing it has its own row below. */}
+          <Pressable accessibilityRole="button" accessibilityLabel={t("viewPhoto")} disabled={!profile?.avatar} onPress={() => setViewing(true)}>
             <Avatar id={profile?.userId ?? userId} name={displayName || "?"} size={72} src={avatar} />
           </Pressable>
+          <AvatarViewer visible={viewing} onClose={() => setViewing(false)} title={displayName} avatar={profile?.avatar} preview={avatar} />
           {!!displayName && (
             <Text style={{ fontSize: 22, fontWeight: "700", letterSpacing: -0.3, fontFamily, color: colors.text, marginTop: 8 }}>{displayName}</Text>
           )}

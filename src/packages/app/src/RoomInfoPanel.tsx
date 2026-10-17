@@ -8,6 +8,7 @@ import { PromptDialog } from "./PromptDialog.js";
 import { levelLabel, RoomSettingsSections } from "./RoomSettings.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
 import { SharedMedia } from "./SharedMedia.js";
+import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const ROLE_POWER: Record<MemberRole, number> = { member: 0, moderator: 50, admin: 100 };
@@ -86,6 +87,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
+  const [viewing, setViewing] = useState(false);
   const items = useAppState((s) => s.timelines[props.roomId]);
 
   useEffect(() => {
@@ -150,14 +152,11 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         {d && (
           <>
             <View style={{ alignItems: "center", paddingTop: 12, paddingHorizontal: 20, gap: 2 }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("room.changePhoto")}
-                disabled={!canEdit || !services.pickFiles}
-                onPress={() => void changePhoto()}
-              >
+              {/* Pressing the picture looks at it; changing it has its own row below. */}
+              <Pressable accessibilityRole="button" accessibilityLabel={t("viewPhoto")} disabled={!d.avatar} onPress={() => setViewing(true)}>
                 <Avatar id={d.id} name={d.name} size={72} src={avatar} />
               </Pressable>
+              <AvatarViewer visible={viewing} onClose={() => setViewing(false)} title={d.name} avatar={d.avatar} preview={avatar} />
               <Text
                 numberOfLines={2}
                 style={{ marginTop: 8, fontSize: 22, fontWeight: "700", letterSpacing: -0.3, fontFamily, color: colors.text, textAlign: "center" }}
