@@ -1,12 +1,13 @@
 import { Pressable, Text, View } from "react-native";
 import type { RoomSummary } from "@ohmatrix/core";
-import { fontFamily, IconButton, useTheme } from "@ohmatrix/ui";
+import { Avatar, fontFamily, IconButton, useTheme } from "@ohmatrix/ui";
 import { useT } from "../context.js";
 import { typingLabel } from "../format.js";
+import { useMediaUrl } from "../useMedia.js";
 
-export const HEADER_HEIGHT = 56;
+export const HEADER_HEIGHT = 64;
 
-/** The bar above a chat: back (portrait), who it is with, search, and the info button. */
+/** The bar above a chat: back (portrait), the room's avatar and name, search, and the info button. */
 export function ChatHeader(props: {
   room: RoomSummary | undefined;
   typing: string[];
@@ -18,6 +19,7 @@ export function ChatHeader(props: {
   const { colors } = useTheme();
   const t = useT();
   const { room, typing } = props;
+  const avatar = useMediaUrl(room?.avatar, { width: 80, height: 80, fit: "crop" });
   return (
     <View
       style={{
@@ -27,14 +29,14 @@ export function ChatHeader(props: {
         gap: 10,
         paddingRight: 12,
         // The back button brings its own space in portrait; without it (landscape) the name needs some of its own.
-        paddingLeft: props.onBack ? 12 : 20,
+        paddingLeft: props.onBack ? 8 : 20,
         backgroundColor: colors.bg,
         borderBottomWidth: 1,
         borderBottomColor: colors.separator,
       }}
     >
       {props.onBack && <IconButton icon="back" label="Back" size={26} onPress={props.onBack} />}
-      {/* Name and member count open the chat info, exactly like the info button. Only that small block is
+      {/* Avatar, name and member count open the chat info, exactly like the info button. Only that small block is
           clickable (not the whole title bar), with no background feedback: the name just dims while pressed. */}
       <Pressable
         accessibilityRole={props.onInfo ? "button" : undefined}
@@ -44,12 +46,13 @@ export function ChatHeader(props: {
       >
         {({ pressed }: { pressed: boolean }) => (
           <>
+            {room && <Avatar id={room.id} name={room.name} size={38} src={avatar} shape={room.isSpace ? "square" : "circle"} />}
             <View style={{ flexShrink: 1 }}>
-              <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.text, opacity: props.onInfo && pressed ? 0.5 : 1 }}>
+              <Text numberOfLines={1} style={{ fontSize: 17, fontWeight: "600", fontFamily, color: colors.text, opacity: props.onInfo && pressed ? 0.5 : 1 }}>
                 {room?.name ?? ""}
               </Text>
               {room && (
-                <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: typing.length ? colors.accent : colors.textSecondary }}>
+                <Text numberOfLines={1} style={{ fontSize: 14, fontFamily, color: typing.length ? colors.accent : colors.textSecondary }}>
                   {typing.length
                     ? typingLabel(typing, t, room.isDirect)
                     : room.isDirect
