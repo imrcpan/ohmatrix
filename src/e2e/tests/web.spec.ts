@@ -1549,6 +1549,12 @@ test("photo viewer: hand cursor and click to open; translucent mask over the who
   await expect.poll(async () => parseInt(await zoomText())).toBeGreaterThan(80);
   await page.getByRole("button", { name: "Fit to window" }).click();
   expect(await zoomText()).toBe("100%");
+  // The wheel counts anywhere on the page, not only over the picture.
+  await page.mouse.move(40, 400);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => parseInt(await zoomText())).toBeGreaterThan(100);
+  await page.getByRole("button", { name: "Fit to window" }).click();
+  expect(await zoomText()).toBe("100%");
   await viewer.dblclick();
   expect(await zoomText()).toBe("200%");
   const zoomed = (await viewer.boundingBox())!;
