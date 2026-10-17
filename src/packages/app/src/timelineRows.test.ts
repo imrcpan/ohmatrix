@@ -70,3 +70,36 @@ test("a message directly under someone else's bubble is marked, so its gap can b
   // the first has nothing above it; the file is the same person's; "2" follows another sender; "3" follows a service chip
   expect(msgs.map((r) => r.newSender)).toEqual([false, false, true, false]);
 });
+
+test("only text bubbles stick to each other by the corners, quoted or not", () => {
+  const withReply = (t: TimelineItem): TimelineItem => ({ ...t, replyTo: { id: "$x", senderName: "b", sender: "b", preview: "hi" } });
+  const msgs = (items: TimelineItem[]) =>
+    buildRows(items, T + 9000, "en").filter((r) => r.type === "message") as { stickAbove: boolean; stickBelow: boolean }[];
+  // Three plain texts in a row: the middle one sticks both ways, the ends only inwards.
+  const a = msgs([m("1", "a", T), m("2", "a", T + 1000), m("3", "a", T + 2000)]);
+  expect(a.map((r) => [r.stickAbove, r.stickBelow])).toEqual([
+    [false, true],
+    [true, true],
+    [true, false],
+  ]);
+  // A quote does not change that: a quoted bubble sticks like any other text.
+  const b = msgs([m("1", "a", T), withReply(m("2", "a", T + 1000)), m("3", "a", T + 2000)]);
+  expect(b.map((r) => [r.stickAbove, r.stickBelow])).toEqual([
+    [false, true],
+    [true, true],
+    [true, false],
+  ]);
+  // A file in the middle sticks to nothing and nothing sticks to it.
+  const d = msgs([m("1", "a", T), m("f", "a", T + 1000, "file"), m("3", "a", T + 2000)]);
+  expect(d.map((r) => [r.stickAbove, r.stickBelow])).toEqual([
+    [false, false],
+    [false, false],
+    [false, false],
+  ]);
+  // Different senders do not stick either.
+  const c = msgs([m("1", "a", T), m("2", "b", T + 1000)]);
+  expect(c.map((r) => [r.stickAbove, r.stickBelow])).toEqual([
+    [false, false],
+    [false, false],
+  ]);
+});

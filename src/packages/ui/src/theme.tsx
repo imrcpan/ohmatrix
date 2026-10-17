@@ -15,7 +15,7 @@ export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
 export const popoverShadow = (dark: boolean) =>
   ({ boxShadow: dark ? "0 6px 22px rgba(0,0,0,0.55)" : "0 4px 18px rgba(0,0,0,0.16), 0 0 1px rgba(0,0,0,0.12)" }) as object;
 
-export const radius = { control: 10, bubble: 18, pill: 999 } as const;
+export const radius = { control: 10, bubble: 18, bubbleTight: 5, pill: 999 } as const;
 
 /** System UI fonts: SF on Apple, Segoe UI (Variable) on Windows, platform default elsewhere. */
 export const fontFamily = Platform.select({
