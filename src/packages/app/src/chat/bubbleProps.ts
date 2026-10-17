@@ -129,7 +129,6 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
     mentionsMe: c.kind === "text" && c.mentionsMe,
     pinned: m.pinned,
     editedLabel: m.edited ? t("edited") : undefined,
-    position: { first: i.first, last: i.last },
     muted: c.kind === "unsupported" || c.kind === "undecryptable",
   };
 }

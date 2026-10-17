@@ -8,9 +8,7 @@ import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
 import { fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
 
-export type BubblePosition = { first: boolean; last: boolean };
-
-/** Message bubble: large continuous radii, joined corners inside a sender run, time + state inside. */
+/** Message bubble: large continuous radii, the same shape alone or in a run, time + state inside. */
 export function Bubble(props: {
   own: boolean;
   text: string;
@@ -68,7 +66,6 @@ export function Bubble(props: {
   reply?: { senderName: string; senderId: string; preview: string; onPress: () => void } | undefined;
   /** Localised "edited" marker shown before the time. */
   editedLabel?: string | undefined;
-  position: BubblePosition;
   status?: "sending" | "sent" | "read" | "failed" | undefined;
   readLabel?: string | undefined;
   /** A message that could not be sent: the alert mark in its status is a button that sends it again. */
@@ -77,13 +74,8 @@ export function Bubble(props: {
   muted?: boolean;
 }) {
   const { colors } = useTheme();
-  const R = radius.bubble,
-    r = radius.bubbleTight;
-  const { first, last } = props.position;
-  // The tail side shrinks on the corners that touch neighbouring bubbles.
-  const corners = props.own
-    ? { borderTopLeftRadius: R, borderBottomLeftRadius: R, borderTopRightRadius: first ? R : r, borderBottomRightRadius: last ? R : r }
-    : { borderTopRightRadius: R, borderBottomRightRadius: R, borderTopLeftRadius: first ? R : r, borderBottomLeftRadius: last ? R : r };
+  // Every bubble has the same shape, whether or not it sits against its neighbours.
+  const corners = { borderRadius: radius.bubble };
   // Only take the rich path when there is something to style: plain text keeps the plain node (and its DOM shape).
   const richRuns = props.runs?.some((r) => r.bold || r.italic || r.underline || r.strike || r.code || r.href || r.userId || r.spoiler || r.prefix || r.br)
     ? props.runs
@@ -171,9 +163,17 @@ export function Bubble(props: {
           onPress={props.reply.onPress}
           onLongPress={props.onLongPress}
           delayLongPress={350}
-          style={{ flexDirection: "row", gap: 8, marginBottom: 4, ...(imageOnly ? { padding: 8 } : {}) }}
+          // At the very top of a bubble the quote's bar would sit in the rounded corner; it starts a little lower, so the bar is not squeezed into the curve.
+          style={{ flexDirection: "row", gap: 8, marginBottom: 4, ...(imageOnly ? { padding: 8 } : props.senderName ? {} : { marginTop: 4.5 }) }}
         >
-          <View style={{ width: 2, borderRadius: 1, backgroundColor: props.own ? "rgba(255,255,255,0.8)" : peerColor(props.reply.senderId) }} />
+          <View
+            style={{
+              width: 3,
+              borderTopLeftRadius: 3,
+              borderBottomLeftRadius: 3,
+              backgroundColor: props.own ? "rgba(255,255,255,0.8)" : peerColor(props.reply.senderId),
+            }}
+          />
           <View style={{ flexShrink: 1 }}>
             <Text
               numberOfLines={1}

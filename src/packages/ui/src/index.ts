@@ -4,7 +4,7 @@ export { Icon, type IconName } from "./Icon.js";
 export { Avatar } from "./Avatar.js";
 export { PrimaryButton, TextField, IconButton, SearchField, Dialog, TextButton, Banner } from "./controls.js";
 export { RoomRow } from "./RoomRow.js";
-export { Bubble, Chip, Composer, type BubblePosition } from "./chat.js";
+export { Bubble, Chip, Composer } from "./chat.js";
 export { MessageMenu, ReactionChips, type SheetAction, type MenuPoint } from "./ActionSheet.js";
 export { Section, Row, NavBar } from "./lists.js";
 export { Menu, type MenuItem, type Anchor } from "./Menu.js";
