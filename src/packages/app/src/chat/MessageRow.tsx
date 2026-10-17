@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { PixelRatio, Pressable, View } from "react-native";
 import type { TimelineItem } from "@ohmatrix/core";
 import {
   parseFormatted,
@@ -87,7 +87,8 @@ export function MessageRow(props: {
         gap: 6,
         paddingHorizontal: 10,
         paddingVertical: props.highlighted ? 4 : 0,
-        marginTop: gapAbove(props.newSender),
+        // Whole device pixels: a gap of 2 dp is 7.52 px on a phone, which the screen would round to 7 or 8 from one gap to the next.
+        marginTop: PixelRatio.roundToNearestPixel(gapAbove(props.newSender)),
         justifyContent: m.isOwn ? "flex-end" : "flex-start",
         backgroundColor: props.highlighted ? "rgba(51,144,236,0.22)" : "transparent",
       }}
