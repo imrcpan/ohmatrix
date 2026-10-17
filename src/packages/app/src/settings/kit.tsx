@@ -51,6 +51,8 @@ export function Item(props: {
   value?: string | undefined;
   subtitle?: string | undefined;
   icon?: IconName;
+  /** An icon at the right, just before the value (or the chevron): for a mark that belongs to the value, not to the label. */
+  valueIcon?: IconName;
   danger?: boolean;
   onPress?: (() => void) | undefined;
   chevron?: boolean;
@@ -83,6 +85,7 @@ export function Item(props: {
         )}
       </View>
       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 0 }}>
+        {props.valueIcon && <Icon name={props.valueIcon} size={19} color={colors.textSecondary} />}
         {!!props.value && (
           <Text numberOfLines={1} selectable style={{ fontSize: 15, fontFamily, color: colors.textSecondary, flexShrink: 1, textAlign: "right" }}>
             {props.value}

@@ -172,7 +172,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               <Text style={{ marginTop: 12, marginHorizontal: 20, textAlign: "center", fontSize: 14, fontFamily, color: colors.danger }}>{problem}</Text>
             )}
             <Group title={t("about")}>
-              {canEdit && !!services.pickFiles && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
+              {canEdit && !!services.pickFiles && <Item label={t("changePhoto")} valueIcon="camera" onPress={() => void changePhoto()} />}
               {!direct && (
                 <Item
                   label={t(forSpace ? "space.name" : "room.editName")}
@@ -186,7 +186,13 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               )}
               <Item label={t("address")} value={d.alias ?? d.id} />
               {/* A space is a container with no conversation of its own to encrypt. */}
-              {!forSpace && <Item label={t("encryption")} icon="lock" value={d.isEncrypted ? t("enc.on") : t("enc.off")} />}
+              {!forSpace && (
+                <Item
+                  label={t("encryption")}
+                  {...(d.isEncrypted ? { valueIcon: "lock" as const } : {})}
+                  value={d.isEncrypted ? t("room.encrypted") : t("room.notEncrypted")}
+                />
+              )}
             </Group>
             {forSpace && (
               <Group title={`${t("space.rooms")} · ${children.length}`}>
