@@ -7,7 +7,6 @@ import {
   Avatar,
   Bubble,
   Dialog,
-  ImageViewer,
   MessageMenu,
   PrimaryButton,
   ReactionChips,
@@ -17,6 +16,7 @@ import {
   type Run,
 } from "@ohmatrix/ui";
 import { useLocale, useServices, useT } from "../context.js";
+import { PhotoViewer } from "../PhotoViewer.js";
 import { bubbleProps } from "./bubbleProps.js";
 import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
 import { gapAbove } from "./rowWindow.js";
@@ -120,15 +120,15 @@ export function MessageRow(props: {
         {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn} onToggle={(k) => actions.react(m.id, k)} />}
       </View>
       {c.kind === "image" && (
-        <ImageViewer
+        <PhotoViewer
           visible={media.viewingImage}
           onClose={() => media.setViewingImage(false)}
           title={c.body}
+          fileName={c.body}
           uri={media.original}
           previewUri={media.image}
           width={c.width}
           height={c.height}
-          labels={{ close: t("viewer.close"), zoomIn: t("viewer.zoomIn"), zoomOut: t("viewer.zoomOut"), fit: t("viewer.fit") }}
         />
       )}
       {c.kind === "video" && (

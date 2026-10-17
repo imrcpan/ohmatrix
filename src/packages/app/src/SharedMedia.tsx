@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import type { MediaKind, TimelineItem } from "@ohmatrix/core";
-import { fontFamily, Icon, ImageViewer, TextButton, useTheme, VideoViewer } from "@ohmatrix/ui";
+import { fontFamily, Icon, TextButton, useTheme, VideoViewer } from "@ohmatrix/ui";
 import { useController, useServices, useT } from "./context.js";
 import { formatBytes } from "./format.js";
 import { formatDuration, useAudioPlayer } from "./useAudio.js";
+import { PhotoViewer } from "./PhotoViewer.js";
 import { Group, Item } from "./settings/kit.js";
 import { useMediaUrl } from "./useMedia.js";
 
@@ -197,15 +198,7 @@ export function SharedMedia(props: { roomId: string }) {
         </View>
       )}
       {vc?.kind === "image" && (
-        <ImageViewer
-          visible
-          onClose={() => setViewing(null)}
-          title={vc.body}
-          uri={full}
-          width={vc.width}
-          height={vc.height}
-          labels={{ close: t("viewer.close"), zoomIn: t("viewer.zoomIn"), zoomOut: t("viewer.zoomOut"), fit: t("viewer.fit") }}
-        />
+        <PhotoViewer visible onClose={() => setViewing(null)} title={vc.body} fileName={vc.body} uri={full} width={vc.width} height={vc.height} />
       )}
       {vc?.kind === "video" && (
         <VideoViewer visible onClose={() => setViewing(null)} uri={full} poster={poster} width={vc.width} height={vc.height} closeLabel={t("viewer.close")} />
