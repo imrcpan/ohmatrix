@@ -119,14 +119,14 @@ export function Bubble(props: {
       {props.own &&
         (failed && props.onRetry ? (
           <Pressable accessibilityRole="button" accessibilityLabel={props.retryLabel ?? "Send again"} onPress={props.onRetry} hitSlop={8}>
-            <Icon name={statusIcon} size={18} strokeWidth={2.4} color={colors.danger} />
+            <Icon name={statusIcon} size={18} strokeWidth={2} color={colors.danger} />
           </Pressable>
         ) : (
           <View accessibilityLabel={props.status === "read" ? (props.readLabel ?? "Read") : undefined}>
             <Icon
               name={statusIcon}
               size={props.status === "read" ? 20 : 18}
-              strokeWidth={2.4}
+              strokeWidth={2}
               color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
             />
           </View>
