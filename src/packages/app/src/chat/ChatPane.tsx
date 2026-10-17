@@ -1,13 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
 import type { TimelineItem } from "@ohmatrix/core";
-import { Composer, useTheme } from "@ohmatrix/ui";
+import { Composer, TopNotice, useTheme } from "@ohmatrix/ui";
 import { ForwardDialog } from "../ForwardDialog.js";
 import { useLocale, useT } from "../context.js";
 import { formatDayLabel } from "../format.js";
+import { useNotice } from "../useNotice.js";
 import type { Row } from "../timelineRows.js";
 import { AttachmentDialogs } from "./AttachmentDialogs.js";
-import { ChatHeader } from "./ChatHeader.js";
+import { ChatHeader, HEADER_HEIGHT } from "./ChatHeader.js";
 import { ChatSearch } from "./ChatSearch.js";
 import { MessageList } from "./MessageList.js";
 import type { MessageListHandle } from "./messageList.js";
@@ -78,12 +79,14 @@ function Chat(props: ChatPaneProps) {
   const composer = useComposer(props.roomId, handle, t);
   const attachments = useAttachments(handle, t);
   const nw = useNewWhileAway(items);
+  const notice = useNotice();
   const actions = useRowActions({
     handle,
     startReply: composer.startReply,
     startEdit: composer.startEdit,
     forward: setForwarding,
     jump: (id) => void reveal.reveal(id),
+    fail: (message) => notice.show(message, "error"),
   });
 
   const { highlightId } = reveal;
@@ -144,6 +147,7 @@ function Chat(props: ChatPaneProps) {
       {attachments.dropping && <DropOverlay label={t("drop.hint")} />}
       {forwarding && <ForwardDialog visible fromRoomId={props.roomId} eventId={forwarding.id} onClose={() => setForwarding(null)} />}
       <AttachmentDialogs a={attachments} />
+      {notice.notice && <TopNotice message={notice.notice.message} kind={notice.notice.kind} top={HEADER_HEIGHT + 10} />}
     </View>
   );
 }
