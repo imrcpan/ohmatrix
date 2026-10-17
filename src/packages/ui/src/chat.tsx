@@ -39,12 +39,9 @@ export function Bubble(props: {
         name: string;
         samples?: number[] | undefined;
         progress: number;
-        playing: boolean;
-        loading: boolean;
         timeLabel: string;
         playLabel: string;
         onToggle: () => void;
-        onSeek: (fraction: number) => void;
       }
     | undefined;
   /** The file is still uploading: a progress ring with a cancel cross replaces the play button / sits on the picture. */
@@ -136,8 +133,15 @@ export function Bubble(props: {
         ))}
     </View>
   );
+  // An audio message is played and paused by pressing anywhere on its bubble (there is no play button and no seeking).
+  const onTapAudio = props.audio && !props.upload ? props.audio.onToggle : undefined;
+  const Root: React.ElementType = onTapAudio ? Pressable : View;
+  const rootProps = onTapAudio
+    ? { accessibilityRole: "button", accessibilityLabel: props.audio?.playLabel, onPress: onTapAudio, onLongPress: props.onLongPress, delayLongPress: 350 }
+    : {};
   return (
-    <View
+    <Root
+      {...rootProps}
       style={[
         {
           maxWidth: "100%",
@@ -336,7 +340,7 @@ export function Bubble(props: {
         />
       ))}
       {metaRow}
-    </View>
+    </Root>
   );
 }
 

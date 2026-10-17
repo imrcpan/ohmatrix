@@ -74,7 +74,7 @@ export function MessageRow(props: {
     openLink: (url) => services.openLink?.(url),
     image: media.imageDims ? { uri: media.image, ...media.imageDims } : undefined,
     video: media.videoDims ? { poster: media.poster, ...media.videoDims } : undefined,
-    audio: { state: media.audio.state, toggle: () => void media.audio.toggle(), seek: (f) => void media.audio.seek(f) },
+    audio: { state: media.audio.state, toggle: () => void media.audio.toggle() },
     previews: media.previews,
     previewImageUrl: media.previewImage,
     openImage: () => media.setViewingImage(true),
