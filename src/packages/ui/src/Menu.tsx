@@ -21,14 +21,22 @@ export interface Anchor {
   height: number;
 }
 
-const MENU_WIDTH = 220;
+const DEFAULT_WIDTH = 220;
 const ROW = 36;
 
 /**
  * Popover menu anchored to a point or rectangle (Fluent flyout / macOS context menu): opens below the
  * anchor (or above it with `up`), flips above near the bottom edge, and is clamped inside the window.
  */
-export function Menu(props: { visible: boolean; anchor: Anchor | null; items: MenuItem[]; onClose: () => void; alignRight?: boolean; up?: boolean }) {
+export function Menu(props: {
+  visible: boolean;
+  anchor: Anchor | null;
+  items: MenuItem[];
+  onClose: () => void;
+  alignRight?: boolean;
+  up?: boolean;
+  width?: number;
+}) {
   const { colors, dark } = useTheme();
   const win = useViewport();
   const scale = useScale();
@@ -39,6 +47,7 @@ export function Menu(props: { visible: boolean; anchor: Anchor | null; items: Me
   const raw = props.anchor ?? last.current ?? { x: 0, y: 0, width: 0, height: 0 };
   const a = { x: un(raw.x), y: un(raw.y), width: un(raw.width), height: un(raw.height) };
   const h = props.items.length * ROW + 4;
+  const MENU_WIDTH = props.width ?? DEFAULT_WIDTH;
   const rawLeft = props.alignRight ? a.x + a.width - MENU_WIDTH : a.x;
   const left = Math.max(8, Math.min(rawLeft, win.width - MENU_WIDTH - 8));
   const below = a.y + a.height + 6;
