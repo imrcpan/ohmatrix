@@ -13,6 +13,7 @@ export { truncateWithDots } from "./truncate.js";
 export { Toggle } from "./Toggle.js";
 export { ImageViewer, fitSize } from "./ImageViewer.js";
 export { VideoViewer } from "./VideoViewer.js";
+export { TopNotice } from "./TopNotice.js";
 export { LivePreview } from "./VideoSurface.js";
 export { AudioRow, ProgressRing, Waveform, LinkPreviewCard } from "./media.js";
 export { ScaleProvider } from "./Scale.js";
