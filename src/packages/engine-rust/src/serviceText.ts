@@ -65,7 +65,7 @@ export function stateText(change: StateChange, by: string): string | null {
     case "RoomName":
       return change.value ? `${by} changed the room name to “${change.value}”` : `${by} removed the room name`;
     case "RoomTopic":
-      return `${by} changed the topic`;
+      return `${by} changed the description`;
     default:
       return null;
   }
