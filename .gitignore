@@ -20,3 +20,10 @@ src/packages/engine-rust/src/generated/
 src/packages/engine-rust/src/Native*
 src/packages/engine-rust/EngineRust.podspec
 *.so
+
+# made at build time from the SVG logo (apps/mobile/scripts/makeIcons.mjs): the repository keeps the SVG only
+src/apps/mobile/.generated/
+
+# `expo prebuild` writes the native projects (the build makes them; they are not kept)
+src/apps/mobile/android/
+src/apps/mobile/ios/

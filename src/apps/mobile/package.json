@@ -5,6 +5,7 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
+    "icons": "node scripts/makeIcons.mjs",
     "start": "expo start",
     "typecheck": "tsc -p .",
     "test": "vitest run"
@@ -33,6 +34,7 @@
     "react-native-safe-area-context": "~5.7.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@types/react": "~19.2.0",
     "vitest": "^5.0.3"
   },
