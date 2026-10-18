@@ -1,7 +1,7 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { Icon, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
-import { useAppState, useController, useLocale, useT } from "./context.js";
+import { Icon, Logo, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 
 /** `back`: another account to go to (this screen is for adding one, or for an account that could not start), with the button's label. */
@@ -9,6 +9,7 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
   const { colors } = useTheme();
   const nav = useNavBottom();
   const t = useT();
+  const logo = useServices().appLogo?.();
   const controller = useController();
   const busy = useAppState((s) => s.auth === "signingIn");
   const rawError = useAppState((s) => s.authError);
@@ -61,9 +62,14 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 24 }} keyboardShouldPersistTaps="handled">
         <View style={{ width: "100%", maxWidth: 380, gap: 16 }}>
           <View style={{ alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-              <Icon name="chat" size={52} strokeWidth={1.8} color={colors.onAccent} />
-            </View>
+            {logo ? (
+              // The app's own logo (the icon chosen on a phone, the page's icon on the web), in its SVG form.
+              <Logo xml={logo} size={104} />
+            ) : (
+              <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
+                <Icon name="chat" size={52} strokeWidth={1.8} color={colors.onAccent} />
+              </View>
+            )}
             <Text style={{ fontSize: 30, fontWeight: "700", fontFamily, color: colors.text, marginTop: 8 }}>{t("welcome.title")}</Text>
             <Text style={{ fontSize: 16, fontFamily, color: colors.textSecondary, textAlign: "center" }}>
               {creating ? t("register.title") : t("welcome.subtitle")}
