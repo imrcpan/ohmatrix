@@ -1051,7 +1051,7 @@ export class JsSdkEngine implements MatrixEngine {
   };
 
   readonly media = {
-    sharedPage: (roomId: string, o: { kind: MediaKind; from?: string; want?: number }) =>
+    sharedPage: (roomId: string, o: { kind: MediaKind; from?: string; want?: number; scan?: number }) =>
       guard(async (): Promise<SharedMediaPage> => {
         const c = this.requireClient();
         const room = c.getRoom(roomId);
@@ -1069,7 +1069,7 @@ export class JsSdkEngine implements MatrixEngine {
         let from: string | null = o.from ?? null;
         let next: string | undefined = o.from;
         // A page is a batch of the room's history, however many of it are the kind asked for; keep going until enough are.
-        for (let round = 0; round < 12 && items.length < want; round++) {
+        for (let round = 0; round < Math.min(12, Math.max(1, o.scan ?? 12)) && items.length < want; round++) {
           const res = await c.createMessagesRequest(roomId, from, 100, Direction.Backward, filter);
           for (const raw of res.chunk) {
             const ev = map(raw);
@@ -1150,22 +1150,24 @@ export class JsSdkEngine implements MatrixEngine {
       const room = c.getRoom(roomId);
       if (!room) throw new EngineError("not_found", `unknown room ${roomId}`);
       let live = true,
-        pending = false;
-      const build = async () => {
-        await room.loadMembersIfNeeded().catch(() => {});
-        const members: RoomMember[] = [...room.getMembersWithMembership("join"), ...room.getMembersWithMembership("invite")]
-          .map((m) => {
-            const avatar = m.getMxcAvatarUrl();
-            return {
-              userId: m.userId,
-              name: nameOf(m, m.userId),
-              ...(avatar && { avatar }),
-              role: roleOf(m.powerLevel),
-              power: m.powerLevel,
-              ...(m.membership === "invite" && { invited: true }),
-            } as RoomMember;
-          })
-          .sort((a, b) => Number(a.invited ?? false) - Number(b.invited ?? false) || a.name.localeCompare(b.name));
+        pending = false,
+        first = true;
+      // `people: false` leaves the members and the banned out (and does not wait for the server to send them): the info page does not hold
+      // its first look for a room of thousands. They follow in a second, full build.
+      const build = async (people = true) => {
+        if (people) await room.loadMembersIfNeeded().catch(() => {});
+        const members: RoomMember[] = (people ? [...room.getMembersWithMembership("join"), ...room.getMembersWithMembership("invite")] : []).map((m) => {
+          const avatar = m.getMxcAvatarUrl();
+          return {
+            userId: m.userId,
+            name: nameOf(m, m.userId),
+            ...(avatar && { avatar }),
+            role: roleOf(m.powerLevel),
+            power: m.powerLevel,
+            ...(m.membership === "invite" && { invited: true }),
+          } as RoomMember;
+        });
+        // Not sorted here: whoever shows the people orders them (the page shows ten, or sorts the rest after it has opened).
         const topic = room.currentState.getStateEvents("m.room.topic" as never, "")?.getContent().topic as string | undefined;
         const avatar = room.getMxcAvatarUrl() ?? undefined;
         const { main, aliases } = aliasState(room);
@@ -1175,7 +1177,7 @@ export class JsSdkEngine implements MatrixEngine {
         const joinRule: JoinRule = rule === "public" || rule === "invite" || rule === "knock" || rule === "restricted" ? rule : "other";
         const hv = room.currentState.getStateEvents(EventType.RoomHistoryVisibility, "")?.getContent().history_visibility as string | undefined;
         const historyVisibility: HistoryVisibility = hv === "invited" || hv === "joined" || hv === "world_readable" ? hv : "shared";
-        const banned = room.getMembersWithMembership("ban").map((m) => {
+        const banned = (people ? room.getMembersWithMembership("ban") : []).map((m) => {
           const reason = m.events.member?.getContent().reason as string | undefined;
           return { userId: m.userId, name: nameOf(m, m.userId), ...(reason && { reason }) };
         });
@@ -1190,6 +1192,7 @@ export class JsSdkEngine implements MatrixEngine {
           isDirect: summary.isDirect,
           isEncrypted: c.isRoomEncrypted(roomId),
           members,
+          ...(!people && { peopleLoading: true }),
           muted: !!summary.muted,
           me,
           myRole: roleOf(myPower),
@@ -1218,9 +1221,15 @@ export class JsSdkEngine implements MatrixEngine {
         pending = true;
         queueMicrotask(() => {
           pending = false;
-          void build().then((d) => {
-            if (live) cb(d);
-          });
+          void (async () => {
+            if (first) {
+              first = false;
+              const basics = await build(false);
+              if (live) cb(basics);
+            }
+            const full = await build();
+            if (live) cb(full);
+          })();
         });
       };
       c.on(RoomEvent.Name, refresh as never);

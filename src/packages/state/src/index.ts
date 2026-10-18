@@ -30,6 +30,9 @@ import {
   type UserId,
 } from "@ohmatrix/core";
 
+/** A page that slides in over the chat info: the shared media, all the members, all the banned people. */
+export type InfoPage = "media" | "members" | "banned";
+
 export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts";
 
 /** The page a sidebar page was opened from, which is where back goes. */
@@ -60,6 +63,8 @@ export interface AppState {
   sidebarPage: SidebarPage;
   /** Chat-info panel of the selected room is open (slides in from the right). */
   roomInfoOpen: boolean;
+  /** The page that slides in over the open room's chat info, if one is open. It closes with the info panel and with the room. */
+  infoPage: InfoPage | null;
   /** A message to scroll to once its chat is open (set by search results). */
   focusEvent: { roomId: RoomId; eventId: string } | null;
 }
@@ -122,6 +127,8 @@ export interface AppController {
    */
   back(): boolean;
   openRoomInfo(open: boolean): void;
+  /** Open a page over the open room's chat info, or close it with null; there is one only while the chat info is open. */
+  openInfoPage(page: InfoPage | null): void;
   selectRoom(roomId: RoomId | null): void;
   acceptInvite(roomId: RoomId): Promise<void>;
   declineInvite(roomId: RoomId): Promise<void>;
@@ -167,7 +174,7 @@ export interface AppController {
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
   openRoom(roomId: RoomId): OpenRoom;
   /** A page of the room's shared media of one kind, newest first (see MediaApi.sharedPage). */
-  sharedMedia(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number }): Promise<SharedMediaPage>;
+  sharedMedia(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number; scan?: number }): Promise<SharedMediaPage>;
   /** Forward a message into another room, copying text, mentions and attachments. */
   forwardMessage(fromRoomId: RoomId, eventId: EventId, toRoomId: RoomId): Promise<void>;
   /** Resolve an mxc:// URI to a loadable image URL (cached by the engine). */
@@ -193,6 +200,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     prefs: DEFAULT_PREFERENCES,
     sidebarPage: "chats",
     roomInfoOpen: false,
+    infoPage: null,
     focusEvent: null,
     spaceId: null,
     spaceInfoOpen: false,
@@ -207,7 +215,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
 
   // Opening a chat closes the space's info panel: the one panel on the right belongs to what is on screen.
   const select = (selectedRoomId: RoomId | null) =>
-    set((s) => (s.selectedRoomId === selectedRoomId ? { spaceInfoOpen: false } : { selectedRoomId, roomInfoOpen: false, spaceInfoOpen: false }));
+    set((s) =>
+      s.selectedRoomId === selectedRoomId ? { spaceInfoOpen: false } : { selectedRoomId, roomInfoOpen: false, infoPage: null, spaceInfoOpen: false },
+    );
 
   const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
 
@@ -223,6 +233,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       selectedRoomId: null,
       sidebarPage: "chats",
       roomInfoOpen: false,
+      infoPage: null,
     });
 
   /** Signing in and registering end the same way: keep the session, remember the server, start syncing. */
@@ -289,10 +300,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     setAvatar: (file) => engine.profile.setAvatar(file),
     openSidebarPage: (sidebarPage) => set({ sidebarPage }),
     openSpace: (spaceId) => set({ spaceId, spaceInfoOpen: false }),
-    openSpaceInfo: (open) => set((s) => ({ spaceInfoOpen: open && s.spaceId !== null, ...(open ? { roomInfoOpen: false } : {}) })),
+    openSpaceInfo: (open) => set((s) => ({ spaceInfoOpen: open && s.spaceId !== null, ...(open ? { roomInfoOpen: false, infoPage: null } : {}) })),
     back() {
       const s = store.getState();
       if (s.spaceInfoOpen) set({ spaceInfoOpen: false });
+      else if (s.infoPage) set({ infoPage: null });
       else if (s.roomInfoOpen) set({ roomInfoOpen: false });
       else if (s.selectedRoomId !== null) select(null);
       else if (s.sidebarPage !== "chats") set({ sidebarPage: sidebarParent(s.sidebarPage) });
@@ -302,7 +314,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     },
     sidebarBack: () => set((s) => ({ sidebarPage: sidebarParent(s.sidebarPage) })),
     openRoomInfo: (roomInfoOpen) =>
-      set((s) => ({ roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null, ...(roomInfoOpen ? { spaceInfoOpen: false } : {}) })),
+      set((s) => ({
+        roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null,
+        ...(roomInfoOpen ? { spaceInfoOpen: false } : { infoPage: null }),
+      })),
+    openInfoPage: (infoPage) => set((s) => ({ infoPage: s.roomInfoOpen ? infoPage : null })),
     selectRoom: select,
     async acceptInvite(roomId) {
       await engine.rooms.acceptInvite(roomId);
@@ -328,7 +344,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);
       set((s) => ({
-        ...(s.selectedRoomId === roomId ? { selectedRoomId: null, roomInfoOpen: false } : {}),
+        ...(s.selectedRoomId === roomId ? { selectedRoomId: null, roomInfoOpen: false, infoPage: null } : {}),
         // Leaving the space that is open closes it (and its info panel) rather than leaving a pane for a room that is gone.
         ...(s.spaceId === roomId ? { spaceId: null, spaceInfoOpen: false } : {}),
       }));

@@ -304,6 +304,11 @@ export interface RoomDetails {
   historyVisibility: HistoryVisibility;
   levels: PowerThresholds;
   banned: BannedMember[];
+  /**
+   * The people are still being read: `members` and `banned` are empty for now, and the details are sent again with them. In a room of
+   * thousands that takes a while, and the rest of the chat info does not wait for it.
+   */
+  peopleLoading?: boolean;
   isDirect: boolean;
   isEncrypted: boolean;
   members: RoomMember[];

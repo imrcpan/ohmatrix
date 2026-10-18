@@ -23,7 +23,7 @@ test("a power level reads as the nearest role at or below it", () => {
   expect([0, 25, 50, 99, 100, 200].map(roleOf)).toEqual(["member", "member", "moderator", "moderator", "admin", "admin"]);
 });
 
-test("members are joined first then invited, by name; banned ones are listed apart with the reason", () => {
+test("joined and invited people are listed, in the order the SDK gave them; banned ones are listed apart with the reason", () => {
   const d = toRoomDetails(
     raw({
       members: [
@@ -36,7 +36,7 @@ test("members are joined first then invited, by name; banned ones are listed apa
       ],
     }),
   );
-  expect(d.members.map((m) => m.name)).toEqual(["@ann:s", "Bob", "Me", "Zed"]);
+  expect(d.members.map((m) => m.name)).toEqual(["Me", "Zed", "Bob", "@ann:s"]); // not sorted here: whoever shows them orders them
   expect(d.members.find((m) => m.userId === "@zed:s")?.invited).toBe(true);
   expect(d.members.find((m) => m.userId === "@bob:s")).toMatchObject({ role: "moderator", power: 50 });
   expect(d.banned).toEqual([{ userId: "@eve:s", name: "Eve", reason: "spam" }]);

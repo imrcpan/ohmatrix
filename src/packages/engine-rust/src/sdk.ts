@@ -40,7 +40,8 @@ export interface SdkRoom {
   typingNotice(typing: boolean): Promise<void>;
   timeline(): Promise<SdkTimeline>;
   /** What the chat-info panel shows, read now. */
-  details(): Promise<RawRoomDetails>;
+  /** `people: false` leaves out the members (reading thousands of them takes a while); `members` is then empty. */
+  details(opts?: { people?: boolean }): Promise<RawRoomDetails>;
   leave(): Promise<void>;
   setName(name: string): Promise<void>;
   setTopic(topic: string): Promise<void>;

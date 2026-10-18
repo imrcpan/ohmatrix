@@ -343,6 +343,7 @@ export class RustEngineCore implements MatrixEngine {
       let busy = false;
       let again = false;
       // Changes arrive in bursts (a member joins: info, members, levels); one read at a time, and one more after it.
+      let first = true;
       const refresh = async () => {
         if (busy) {
           again = true;
@@ -350,6 +351,12 @@ export class RustEngineCore implements MatrixEngine {
         }
         busy = true;
         try {
+          if (first) {
+            // The page does not wait for the people: what is not about them goes out at once, marked as still loading them.
+            first = false;
+            const basics = toRoomDetails({ ...(await room.details({ people: false })), members: [] }, true);
+            if (live) cb(basics);
+          }
           do {
             again = false;
             const details = toRoomDetails(await room.details());
@@ -398,7 +405,7 @@ export class RustEngineCore implements MatrixEngine {
       }
       return url;
     },
-    sharedPage: (roomId: string, opts: { kind: MediaKind; from?: string; want?: number }): Promise<SharedMediaPage> =>
+    sharedPage: (roomId: string, opts: { kind: MediaKind; from?: string; want?: number; scan?: number }): Promise<SharedMediaPage> =>
       guard(async () => {
         let gallery = this.galleries.get(roomId);
         if (!gallery) {
@@ -415,7 +422,8 @@ export class RustEngineCore implements MatrixEngine {
             .reverse();
         await gallery.ready();
         // Ask the room for more until it has what the page needs (and one more, to know whether there is a next page).
-        for (let n = 0; found().length <= offset + want && !gallery.atStart && n < 40; n++) await gallery.paginateBackwards();
+        for (let n = 0; found().length <= offset + want && !gallery.atStart && n < Math.min(40, Math.max(1, opts.scan ?? 40)); n++)
+          await gallery.paginateBackwards();
         const all = found();
         const more = all.length > offset + want || !gallery.atStart;
         return { items: all.slice(offset, offset + want), ...(more && { next: String(offset + want) }) };

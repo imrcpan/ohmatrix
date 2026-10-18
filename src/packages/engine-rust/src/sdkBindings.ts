@@ -187,7 +187,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
     onTyping: (cb) => task(r.subscribeToTypingNotifications({ call: cb })),
     typingNotice: (typing) => call(() => r.typingNotice(typing)),
     timeline: async () => timelineOf(await call(() => r.timeline())),
-    details: () => detailsOf(r),
+    details: (opts) => detailsOf(r, opts?.people !== false),
     leave: () => call(() => r.leave()),
     setName: (name) => call(() => r.setName(name)),
     setTopic: (topic) => call(() => r.setTopic(topic)),
@@ -239,13 +239,15 @@ export function sdkFromBindings(b: Bindings): Sdk {
     return tag === "Join" || tag === "Invite" || tag === "Ban" ? tag : "Other";
   };
 
-  const detailsOf = async (r: Ffi.RoomLike): Promise<RawRoomDetails> => {
+  const detailsOf = async (r: Ffi.RoomLike, people = true): Promise<RawRoomDetails> => {
     const info = await call(() => r.roomInfo());
     const levels = await call(() => r.getPowerLevels());
     // The people: the SDK hands them over in chunks.
-    const iter = await call(() => r.members());
     const members: RawMember[] = [];
-    for (let chunk = iter.nextChunk(200); chunk && chunk.length; chunk = iter.nextChunk(200)) {
+    const iter = people ? await call(() => r.members()) : null;
+    for (let chunk = iter?.nextChunk(200); chunk && chunk.length; chunk = iter?.nextChunk(200)) {
+      // Each chunk is a lot of calls across to the SDK, on the thread that draws the screen: let it draw between them.
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 0));
       for (const m of chunk) {
         members.push({
           userId: m.userId,

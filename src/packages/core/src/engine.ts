@@ -96,7 +96,12 @@ export interface MediaApi {
    * engine keeps asking the server until it has found `want` items (default 30) or reached the room's beginning,
    * so a kind that is rare does not come back as a series of empty pages. Pass `next` of the last page as `from`.
    */
-  sharedPage(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number }): Promise<SharedMediaPage>;
+  /**
+   * `scan`: at most this many rounds of the room's history are looked through for the page (a round is a batch the server hands out,
+   * or a back-pagination of the timeline). A preview of a few items sets it low, so a room with none of the kind is not read through to
+   * its beginning; without it the page keeps going until it is full or the history ends (within the engine's own limit).
+   */
+  sharedPage(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number; scan?: number }): Promise<SharedMediaPage>;
 }
 
 /** Spaces: containers that hold other rooms (MSC1772). */

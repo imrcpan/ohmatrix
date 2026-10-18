@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import type { MediaKind, TimelineItem } from "@ohmatrix/core";
-import { fontFamily, Icon, TextButton, useTheme, VideoViewer } from "@ohmatrix/ui";
+import { fontFamily, Icon, Spinner, TextButton, useNavBottom, useTheme, VideoViewer } from "@ohmatrix/ui";
 import { useController, useServices, useT } from "./context.js";
 import { formatBytes } from "./format.js";
 import { formatDuration, useAudioPlayer } from "./useAudio.js";
 import { PhotoViewer } from "./PhotoViewer.js";
-import { Group, Item } from "./settings/kit.js";
+import { Group, Item, PageHeader } from "./settings/kit.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const KINDS: { kind: MediaKind; label: "media.photos" | "media.videos" | "media.audio" | "media.files" }[] = [
@@ -56,6 +56,55 @@ function Tile(props: { item: TimelineItem; size: number; onOpen: () => void }) {
   );
 }
 
+/**
+ * A row of the audio and files tabs: an icon block like a picture's tile, so its left edge is the same 18 as the grid's, then the name and a
+ * line below it, to 18 from the right edge. (The general list row keeps its icon inside a little margin of its own, which put the left edge of
+ * these a few px off the grid's.) The pressed or hovered shade is a rounded band, a little wider than the content.
+ */
+const ROW_BLOCK = 44;
+function MediaRow(props: { icon: "play" | "pause" | "file"; title: string; subtitle: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={props.title} onPress={props.onPress}>
+      {({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            minHeight: 60,
+            marginHorizontal: 6,
+            paddingHorizontal: 12,
+            borderRadius: 12,
+            backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+          }}
+        >
+          <View
+            style={{
+              width: ROW_BLOCK,
+              height: ROW_BLOCK,
+              borderRadius: 8,
+              backgroundColor: colors.bgSecondary,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name={props.icon} size={20} color={colors.textSecondary} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ fontSize: 16, fontFamily, color: colors.text }}>
+              {props.title}
+            </Text>
+            <Text numberOfLines={1} style={{ fontSize: 13, lineHeight: 17, fontFamily, color: colors.textSecondary, marginTop: 2 }}>
+              {props.subtitle}
+            </Text>
+          </View>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 /** One audio file or voice message, playable in place. */
 function AudioItem(props: { item: TimelineItem }) {
   const t = useT();
@@ -64,26 +113,122 @@ function AudioItem(props: { item: TimelineItem }) {
   const audio = useAudioPlayer(() => controller.resolveMedia(c.url, enc(c)), c.durationMs);
   const playing = audio.state.status === "playing";
   return (
-    <Item
-      label={c.voice ? t("voiceMessage") : c.name}
+    <MediaRow
+      title={c.voice ? t("voiceMessage") : c.name}
       subtitle={`${props.item.senderName} · ${playing ? `${formatDuration(audio.state.positionMs)} / ` : ""}${formatDuration(audio.state.durationMs) || formatBytes(c.size)}`}
       icon={playing ? "pause" : "play"}
-      chevron={false}
       onPress={() => void audio.toggle()}
     />
   );
 }
 
+/** A picture or video opened in the viewers the chat uses. */
+function MediaViewer(props: { item: TimelineItem | null; onClose: () => void }) {
+  const t = useT();
+  const vc = props.item?.content;
+  const full = useMediaUrl(props.item && vc && (vc.kind === "image" || vc.kind === "video") ? vc.url : undefined, vc && "encryption" in vc ? enc(vc) : {});
+  const poster = useMediaUrl(vc?.kind === "video" ? vc.thumbnail?.url : undefined, vc?.kind === "video" && vc.thumbnail ? { width: 400, height: 400 } : {});
+  return (
+    <>
+      {vc?.kind === "image" && (
+        <PhotoViewer visible onClose={props.onClose} title={vc.body} fileName={vc.body} uri={full} width={vc.width} height={vc.height} />
+      )}
+      {vc?.kind === "video" && (
+        <VideoViewer visible onClose={props.onClose} uri={full} poster={poster} width={vc.width} height={vc.height} closeLabel={t("viewer.close")} />
+      )}
+    </>
+  );
+}
+
+/** How many previews the one row of the chat info holds. */
+const PREVIEW_COUNT = 4;
+const PREVIEW_GAP = 6;
+/** Long enough for the info panel to finish sliding in before the scan starts (see SlidePanel). */
+const PREVIEW_START_DELAY_MS = 350;
+
 /**
- * A room's shared media, in tabs by kind. Each tab reaches back through the room's whole history a page at a time
- * (not only what the chat has loaded), shows pictures and videos as a grid and audio and files as a list, and opens
- * pictures and videos in the same viewers the chat uses.
+ * The room's shared media in the chat info: one row of the newest pictures and videos, of a height that does not change (so the page does
+ * not jump as they arrive), and a View more row that opens the whole gallery. Only what the row shows is fetched: one short page of
+ * pictures and one of videos, looking through a little of the history; the rest waits for View more.
  */
-export function SharedMedia(props: { roomId: string }) {
+export function SharedMediaPreview(props: { roomId: string; onMore: () => void }) {
+  const t = useT();
+  const { colors } = useTheme();
+  const controller = useController();
+  const [items, setItems] = useState<TimelineItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [width, setWidth] = useState(300);
+  const [viewing, setViewing] = useState<TimelineItem | null>(null);
+  const tile = Math.max(48, Math.floor((width - 36 - PREVIEW_GAP * (PREVIEW_COUNT - 1)) / PREVIEW_COUNT));
+
+  // The scan never holds up the chat info: it starts only after the panel has slid in (its own animation is 260 ms; on the web the
+  // history is read and decrypted on the same thread), it asks for pictures and then videos one after the other, and each answer is shown
+  // as it comes. The row has its final height from the first frame, so nothing moves when they arrive.
+  useEffect(() => {
+    let live = true;
+    setItems(null);
+    setFailed(false);
+    const found: TimelineItem[] = [];
+    const timer = setTimeout(() => {
+      void (async () => {
+        let errors = 0;
+        for (const kind of ["image", "video"] as const) {
+          try {
+            const page = await controller.sharedMedia(props.roomId, { kind, want: PREVIEW_COUNT, scan: 2 });
+            found.push(...page.items);
+          } catch {
+            errors++;
+          }
+          if (!live) return;
+          setItems([...found].sort((x, y) => y.ts - x.ts).slice(0, PREVIEW_COUNT));
+        }
+        if (live && errors === 2) setFailed(true);
+      })();
+    }, PREVIEW_START_DELAY_MS);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [controller, props.roomId, attempt]);
+
+  return (
+    <Group title={t("sharedMedia")}>
+      <View
+        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        style={{ height: tile + 20, paddingVertical: 10, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: PREVIEW_GAP }}
+      >
+        {items === null && !failed ? (
+          <View style={{ flex: 1, alignItems: "center" }}>
+            <Spinner size={28} />
+          </View>
+        ) : failed ? (
+          <Pressable accessibilityRole="button" onPress={() => setAttempt((n) => n + 1)} style={{ flex: 1, alignItems: "center" }}>
+            <Text style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("media.failed")}</Text>
+          </Pressable>
+        ) : items && items.length === 0 ? (
+          <Text style={{ flex: 1, textAlign: "center", fontSize: 14, fontFamily, color: colors.textTertiary }}>{t("media.noneVisual")}</Text>
+        ) : (
+          items?.map((i) => <Tile key={i.id} item={i} size={tile} onOpen={() => setViewing(i)} />)
+        )}
+      </View>
+      <Item label={t("media.viewMore")} onPress={props.onMore} />
+      <MediaViewer item={viewing} onClose={() => setViewing(null)} />
+    </Group>
+  );
+}
+
+/**
+ * The whole gallery, a page of its own: tabs by kind. Each tab reaches back through the room's history a page at a time (not only
+ * what the chat has loaded), shows pictures and videos as a grid and audio and files as a list, and opens pictures and videos in the
+ * viewers the chat uses. It is mounted only while the page is open, so nothing here is fetched before View more is pressed.
+ */
+export function SharedMediaPage(props: { roomId: string; onBack: () => void }) {
   const t = useT();
   const { colors } = useTheme();
   const controller = useController();
   const services = useServices();
+  const nav = useNavBottom();
   const [kind, setKind] = useState<MediaKind>("image");
   const [lists, setLists] = useState<Partial<Record<MediaKind, { items: TimelineItem[]; next?: string | undefined; done: boolean }>>>({});
   const [loading, setLoading] = useState(false);
@@ -117,11 +262,7 @@ export function SharedMedia(props: { roomId: string }) {
     [controller, props.roomId, lists],
   );
 
-  // A new room starts empty; the first look at a tab loads its first page.
-  useEffect(() => {
-    setLists({});
-    setKind("image");
-  }, [props.roomId]);
+  // The first look at a tab loads its first page.
   useEffect(() => {
     if (!lists[kind] && !busy.current) void more(kind);
   }, [kind, lists, more]);
@@ -130,82 +271,74 @@ export function SharedMedia(props: { roomId: string }) {
   const grid = kind === "image" || kind === "video";
   const tile = Math.max(60, Math.floor((width - 36 - 12) / 3));
 
-  // The picture or video being looked at, with the viewers the chat uses.
-  const vc = viewing?.content;
-  const full = useMediaUrl(viewing && vc && (vc.kind === "image" || vc.kind === "video") ? vc.url : undefined, vc && "encryption" in vc ? enc(vc) : {});
-  const poster = useMediaUrl(vc?.kind === "video" ? vc.thumbnail?.url : undefined, vc?.kind === "video" && vc.thumbnail ? { width: 400, height: 400 } : {});
-
   return (
-    <Group title={t("sharedMedia")}>
-      <View accessibilityRole="tablist" style={{ flexDirection: "row", paddingVertical: 6, paddingHorizontal: 18, gap: 4 }}>
-        {KINDS.map((k) => (
-          <Pressable
-            key={k.kind}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: k.kind === kind }}
-            aria-selected={k.kind === kind}
-            accessibilityLabel={t(k.label)}
-            onPress={() => setKind(k.kind)}
-            style={({ hovered }: { hovered?: boolean; pressed: boolean }) => ({
-              flex: 1,
-              height: 30,
-              borderRadius: 8,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: k.kind === kind ? colors.accent : hovered ? colors.hover : "transparent",
-            })}
-          >
-            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "600", fontFamily, color: k.kind === kind ? colors.onAccent : colors.textSecondary }}>
-              {t(k.label)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {grid ? (
-        <View
-          onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-          style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingVertical: 10, paddingHorizontal: 18 }}
-        >
-          {items.map((i) => (
-            <Tile key={i.id} item={i} size={tile} onOpen={() => setViewing(i)} />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <PageHeader title={t("sharedMedia")} onBack={props.onBack} backLabel={t("chatInfo")} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 28 + nav }}>
+        <View accessibilityRole="tablist" style={{ flexDirection: "row", paddingVertical: 6, paddingHorizontal: 18, gap: 4 }}>
+          {KINDS.map((k) => (
+            <Pressable
+              key={k.kind}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: k.kind === kind }}
+              aria-selected={k.kind === kind}
+              accessibilityLabel={t(k.label)}
+              onPress={() => setKind(k.kind)}
+              style={({ hovered }: { hovered?: boolean; pressed: boolean }) => ({
+                flex: 1,
+                height: 30,
+                borderRadius: 8,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: k.kind === kind ? colors.accent : hovered ? colors.hover : "transparent",
+              })}
+            >
+              <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "600", fontFamily, color: k.kind === kind ? colors.onAccent : colors.textSecondary }}>
+                {t(k.label)}
+              </Text>
+            </Pressable>
           ))}
         </View>
-      ) : (
-        items.map((i) =>
-          i.content.kind === "audio" ? (
-            <AudioItem key={i.id} item={i} />
-          ) : i.content.kind === "file" ? (
-            <Item
-              key={i.id}
-              label={i.content.name}
-              subtitle={`${i.senderName}${i.content.size ? ` · ${formatBytes(i.content.size)}` : ""}`}
-              icon="file"
-              chevron={false}
-              onPress={() => {
-                const c = i.content as Content<"file">;
-                void controller
-                  .resolveMedia(c.url, enc(c))
-                  .then((url) => services.saveFile?.({ url, name: c.name }))
-                  .catch(() => {});
-              }}
-            />
-          ) : null,
-        )
-      )}
-      {list && items.length === 0 && !loading && !failed && <Item label={t("media.none")} chevron={false} />}
-      {failed && <Item label={t("media.failed")} chevron={false} onPress={() => void more(kind)} />}
-      {loading && <Item label={t("media.loading")} chevron={false} />}
-      {!!list?.next && !loading && !failed && (
-        <View style={{ alignItems: "center", paddingVertical: 4 }}>
-          <TextButton title={t("media.more")} onPress={() => void more(kind)} />
-        </View>
-      )}
-      {vc?.kind === "image" && (
-        <PhotoViewer visible onClose={() => setViewing(null)} title={vc.body} fileName={vc.body} uri={full} width={vc.width} height={vc.height} />
-      )}
-      {vc?.kind === "video" && (
-        <VideoViewer visible onClose={() => setViewing(null)} uri={full} poster={poster} width={vc.width} height={vc.height} closeLabel={t("viewer.close")} />
-      )}
-    </Group>
+        {grid ? (
+          <View
+            onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingVertical: 10, paddingHorizontal: 18 }}
+          >
+            {items.map((i) => (
+              <Tile key={i.id} item={i} size={tile} onOpen={() => setViewing(i)} />
+            ))}
+          </View>
+        ) : (
+          items.map((i) =>
+            i.content.kind === "audio" ? (
+              <AudioItem key={i.id} item={i} />
+            ) : i.content.kind === "file" ? (
+              <MediaRow
+                key={i.id}
+                icon="file"
+                title={i.content.name}
+                subtitle={`${i.senderName}${i.content.size ? ` · ${formatBytes(i.content.size)}` : ""}`}
+                onPress={() => {
+                  const c = i.content as Content<"file">;
+                  void controller
+                    .resolveMedia(c.url, enc(c))
+                    .then((url) => services.saveFile?.({ url, name: c.name }))
+                    .catch(() => {});
+                }}
+              />
+            ) : null,
+          )
+        )}
+        {list && items.length === 0 && !loading && !failed && <Item label={t("media.none")} chevron={false} />}
+        {failed && <Item label={t("media.failed")} chevron={false} onPress={() => void more(kind)} />}
+        {loading && <Item label={t("media.loading")} chevron={false} />}
+        {!!list?.next && !loading && !failed && (
+          <View style={{ alignItems: "center", paddingVertical: 4 }}>
+            <TextButton title={t("media.more")} onPress={() => void more(kind)} />
+          </View>
+        )}
+      </ScrollView>
+      <MediaViewer item={viewing} onClose={() => setViewing(null)} />
+    </View>
   );
 }
