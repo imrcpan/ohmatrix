@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { fontFamily, Icon, popoverShadow, useTheme } from "@ohmatrix/ui";
+import { Pressable, Text, View } from "react-native";
+import { fontFamily, Icon, popoverShadow, Spinner, useTheme } from "@ohmatrix/ui";
 import { HEADER_HEIGHT } from "./ChatHeader.js";
 
 /** The composer bar's resting height: things that float above the list sit just over it. */
@@ -8,7 +8,6 @@ export const COMPOSER_HEIGHT = 62;
 
 /** Shown in place of the list while a room's messages come in and the list settles on the newest one. */
 export function LoadingOverlay({ label }: { label: string }) {
-  const { colors } = useTheme();
   return (
     <View
       pointerEvents="none"
@@ -25,7 +24,7 @@ export function LoadingOverlay({ label }: { label: string }) {
         zIndex: 2,
       }}
     >
-      <ActivityIndicator size="large" color={colors.textSecondary} />
+      <Spinner />
     </View>
   );
 }
