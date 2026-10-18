@@ -1,6 +1,6 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 /**
@@ -27,8 +27,28 @@ function webPlatformFiles() {
   };
 }
 
+/**
+ * The page's icon is the project's logo, logo/main.svg, served at /favicon.svg and written into the build: the repository keeps the SVG
+ * once, in logo/, and nothing made from it. (Every current browser takes an SVG as a favicon; there is no .ico or .png to make.)
+ */
+function faviconFromLogo(): Plugin {
+  const logo = resolve(__dirname, "../../../logo/main.svg");
+  return {
+    name: "ohmatrix-favicon",
+    configureServer(server) {
+      server.middlewares.use("/favicon.svg", (_req, res) => {
+        res.setHeader("content-type", "image/svg+xml");
+        res.end(readFileSync(logo));
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "favicon.svg", source: readFileSync(logo) });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [webPlatformFiles(), react()],
+  plugins: [faviconFromLogo(), webPlatformFiles(), react()],
   resolve: {
     alias: [{ find: /^react-native$/, replacement: "react-native-web" }],
     // Prefer *.web.* platform files (react-native-svg, our own platform splits).
