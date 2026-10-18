@@ -130,6 +130,7 @@ export function SettingsPage() {
           </View>
           <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>{t("zoom.footer")}</Text>
           <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
+          {services.appIcons && <Item label={t("appIcon")} icon="image" onPress={() => controller.openSidebarPage("appIcon")} />}
         </Group>
         <Group title={t("sessions")}>
           <Item label={t("sessions")} icon="device" onPress={() => controller.openSidebarPage("sessions")} />

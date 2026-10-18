@@ -10,6 +10,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/build/**",
       "**/.expo/**",
+      "src/apps/mobile/.generated/**", // made at build time from the logo, not written by hand
       "src/e2e/.out/**",
       "src/e2e/test-results/**",
       "src/dev/synapse/data/**",
@@ -21,8 +22,8 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // Tool configuration files that the tools load as CommonJS.
-    files: ["**/*.config.js", "**/react-native.config.js"],
+    // Tool configuration files that the tools load as CommonJS (an Expo config plugin is one too).
+    files: ["**/*.config.js", "**/react-native.config.js", "src/apps/mobile/plugins/*.js"],
     languageOptions: { sourceType: "commonjs", globals: { module: "writable", require: "readonly", __dirname: "readonly" } },
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },

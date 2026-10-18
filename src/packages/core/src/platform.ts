@@ -104,6 +104,15 @@ export interface PlatformServices {
   receiveFiles?(onFiles: (files: AttachmentSource[]) => void, onHover: (over: boolean) => void): () => void;
   /** Put text on the system clipboard. Absent = the app falls back to the browser's clipboard, if any. */
   copyText?(text: string): Promise<void>;
+  /**
+   * Icons the app can show on the device's home screen, to choose from in Settings. `preview` is a picture for the list (what the app has,
+   * for a React Native `Image`, as `require()` gives it); `set` changes the home-screen icon. Absent = there is nothing to choose.
+   */
+  appIcons?: {
+    list(): { id: string; preview: number }[];
+    current(): string;
+    set(id: string): void;
+  };
   /** Open a link outside the app (a browser tab). Absent = links are inert. */
   openLink?(url: string): void;
   /**

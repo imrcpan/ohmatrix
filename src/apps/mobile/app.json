@@ -36,7 +36,8 @@
           "savePhotosPermission": "OhMatrix saves the pictures you choose to your photos.",
           "granularPermissions": ["photo"]
         }
-      ]
+      ],
+      "./plugins/withAppIcons"
     ]
   }
 }
