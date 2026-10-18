@@ -113,6 +113,11 @@ export interface PlatformServices {
     current(): string;
     set(id: string): void;
   };
+  /**
+   * The app's logo as SVG markup, as it is now (on a phone: the icon chosen in Settings; on the web: the page's icon), for the sign-in
+   * screen. It is the plain logo (the rounded shape), not the full-square one made for a launcher. Absent = the screen draws a mark of its own.
+   */
+  appLogo?(): string;
   /** Open a link outside the app (a browser tab). Absent = links are inert. */
   openLink?(url: string): void;
   /**

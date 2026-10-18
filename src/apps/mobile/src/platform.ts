@@ -13,7 +13,7 @@ import {
 } from "@ohmatrix/core";
 import { fromDocuments, levelOfDb, waveformOf } from "./attachments.js";
 import { requireOptionalNativeModule } from "expo";
-import { phoneAppIcons, type AppIconNative } from "./appIcons.js";
+import { appLogoOf, generatedList, phoneAppIcons, type AppIconNative } from "./appIcons.js";
 import { sniffImageExtension } from "./imageFormat.js";
 
 /**
@@ -313,9 +313,11 @@ async function saveToDevice(file: { url: string; name: string }): Promise<"saved
 
 /** Everything the shared app can use on a phone. */
 /** The icons to choose from, when this build has them (see appIcons.ts); nothing otherwise. */
-function appIconsService(): Pick<AppServices, "appIcons"> {
+function appIconsService(): Pick<AppServices, "appIcons" | "appLogo"> {
   const icons = phoneAppIcons(requireOptionalNativeModule<AppIconNative>("OhMatrixAppIcon"));
-  return icons ? { appIcons: icons } : {};
+  if (!icons) return {};
+  const list = generatedList();
+  return { appIcons: icons, appLogo: () => appLogoOf(list, icons) ?? "" };
 }
 
 export function phoneServices(): AppServices {

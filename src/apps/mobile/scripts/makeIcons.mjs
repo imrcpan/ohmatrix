@@ -102,13 +102,27 @@ export function makeIcons(outDir) {
       }
     }
     write(join(outDir, "appIcons", "preview", `${id}.png`), renderSquare(read(preview), PREVIEW_SIZE, false).png);
-    list.push({ id, resource: id === DEFAULT_ID ? "ic_launcher" : names.resource, alias: id === DEFAULT_ID ? "MainActivityDefault" : names.alias });
+    list.push({
+      id,
+      resource: id === DEFAULT_ID ? "ic_launcher" : names.resource,
+      alias: id === DEFAULT_ID ? "MainActivityDefault" : names.alias,
+      svg: read(preview)
+        .replace(/\s*\n\s*/g, " ")
+        .trim(),
+    });
   }
-  write(join(outDir, "appIcons.json"), `${JSON.stringify(list, null, 2)}\n`);
+  write(
+    join(outDir, "appIcons.json"),
+    `${JSON.stringify(
+      list.map(({ id, resource, alias }) => ({ id, resource, alias })),
+      null,
+      2,
+    )}\n`,
+  );
   write(
     join(outDir, "appIcons.ts"),
     `// Made by scripts/makeIcons.mjs; not kept in the repository.\nexport const APP_ICONS = [\n${list
-      .map((i) => `  { id: ${JSON.stringify(i.id)}, preview: require("./appIcons/preview/${i.id}.png") as number },`)
+      .map((i) => `  { id: ${JSON.stringify(i.id)}, preview: require("./appIcons/preview/${i.id}.png") as number, svg: ${JSON.stringify(i.svg)} },`)
       .join("\n")}\n];\n`,
   );
   return { file: icon, width: main.width, height: main.height, choices: list.length };

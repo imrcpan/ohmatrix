@@ -6,7 +6,7 @@ export interface AppIconNative {
   setIcon(id: string): void;
 }
 
-type Choice = { id: string; preview: number };
+type Choice = { id: string; preview: number; svg?: string };
 
 /**
  * The icons to choose from: only when this build has both the list (made when the app is built, from the logo: .generated/appIcons.ts)
@@ -36,12 +36,19 @@ export function createAppIcons(list: readonly Choice[] | null | undefined, nativ
 declare const require: (id: string) => unknown;
 
 /** The list made at build time. Read in a try, which Metro takes as optional: no file, no list, and the app still starts. */
-function generatedList(): Choice[] | null {
+export function generatedList(): Choice[] | null {
   try {
     return (require("../.generated/appIcons") as { APP_ICONS?: Choice[] }).APP_ICONS ?? null;
   } catch {
     return null;
   }
+}
+
+/** The logo to draw in the app: the plain (not full-square) logo of the icon that is showing; nothing when this build has no list. */
+export function appLogoOf(list: readonly Choice[] | null | undefined, icons: AppServices["appIcons"] | undefined): string | undefined {
+  if (!list?.length || !icons) return undefined;
+  const id = icons.current();
+  return (list.find((i) => i.id === id) ?? list[0])?.svg;
 }
 
 /** With the native module found by the caller (`requireOptionalNativeModule("OhMatrixAppIcon")` in the phone's services). */
