@@ -1,7 +1,7 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { EngineError, type Preferences, type Session, type SessionStore } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
-import { createAppController, totalUnread } from "./index.js";
+import { createAppController, totalUnread, ZOOM_TRIAL_MS } from "./index.js";
 
 const memoryStore = (): SessionStore & { saved: Session | null } => {
   const s = {
@@ -214,20 +214,42 @@ test("only the server's own refusal sends a saved session back to sign-in, and c
   expect(store.saved).toBeNull();
 });
 
-test("previewPreferences applies a setting without saving it; setPreferences saves it", async () => {
-  const saves: Preferences[] = [];
-  const app = createAppController(new MockEngine(), {
-    sessionStore: memoryStore(),
-    preferences: { load: async () => ({}), save: async (p) => void saves.push(p) },
-  });
-  await app.bootstrap();
-  app.previewPreferences({ uiScale: 2 });
-  await Promise.resolve();
-  expect(app.store.getState().prefs.uiScale).toBe(2);
-  expect(saves).toEqual([]);
-  app.previewPreferences({ uiScale: 1 }); // reverted: nothing was ever written
-  expect(saves).toEqual([]);
-  app.setPreferences({ uiScale: 1.5 });
-  await Promise.resolve();
-  expect(saves.map((p) => p.uiScale)).toEqual([1.5]);
+test("a zoom being tried is not a preference: never saved, undone by itself, and kept only when kept", async () => {
+  vi.useFakeTimers();
+  try {
+    const saves: Preferences[] = [];
+    const app = createAppController(new MockEngine(), {
+      sessionStore: memoryStore(),
+      preferences: { load: async () => ({}), save: async (p) => void saves.push(p) },
+    });
+    await app.bootstrap();
+    app.tryZoom(2);
+    expect(app.store.getState().zoomTrial).toMatchObject({ from: 1, to: 2 });
+    expect(app.store.getState().prefs.uiScale).toBe(1); // what is kept is untouched
+    // Anything else saved meanwhile (the server remembered at sign-in, a language) does not carry the trial with it.
+    app.setPreferences({ locale: "zh-CN" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saves.map((p) => p.uiScale)).toEqual([1]);
+    // Not kept: it goes back by itself when the time is up, and nothing was written.
+    await vi.advanceTimersByTimeAsync(ZOOM_TRIAL_MS + 10);
+    expect(app.store.getState().zoomTrial).toBeNull();
+    expect(saves).toHaveLength(1);
+    // Kept: saved, and the timer no longer ends anything.
+    app.tryZoom(1.5);
+    app.keepZoom();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(app.store.getState().zoomTrial).toBeNull();
+    expect(app.store.getState().prefs.uiScale).toBe(1.5);
+    expect(saves.at(-1)?.uiScale).toBe(1.5);
+    // Choosing the size that is kept ends a trial; going back does too.
+    app.tryZoom(2);
+    app.tryZoom(1.5);
+    expect(app.store.getState().zoomTrial).toBeNull();
+    app.tryZoom(2);
+    app.revertZoom();
+    expect(app.store.getState().zoomTrial).toBeNull();
+    expect(app.store.getState().prefs.uiScale).toBe(1.5);
+  } finally {
+    vi.useRealTimers();
+  }
 });

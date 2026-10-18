@@ -1,70 +1,50 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useController } from "./context.js";
-
-/** How long a new zoom is tried before it goes back by itself. */
-export const ZOOM_CONFIRM_SECONDS = 15;
+import { useAppState, useController } from "./context.js";
 
 /** Whole seconds left until `until` (a time in ms), counting a started second as left; 0 once it has passed. */
 export function secondsLeft(until: number, now: number): number {
   return Math.max(0, Math.ceil((until - now) / 1000));
 }
 
+/** How long after the menu is pressed the trial starts: the menu is a window of its own, and one opened while it is still going is sometimes not shown (Android). */
+export const START_AFTER_MENU_MS = 80;
+
 /**
- * Changing the zoom is tried before it is kept: it is applied at once, but not saved, and unless it is confirmed within
- * ZOOM_CONFIRM_SECONDS it goes back (a size that cannot be read cannot be confirmed either, so the way back must not need the
- * screen). Saving happens only on `keep`.
+ * Changing the zoom is tried before it is kept: the interface is drawn at the new size and a dialog asks to keep it, and unless it is
+ * confirmed in time the size goes back. All of that is in the controller (`tryZoom`, `keepZoom`, `revertZoom`), not here: drawing at another
+ * size rebuilds the screens, this page with them, and anything held in it would be lost at the moment it was needed. What this keeps is
+ * the count of seconds shown, and the short wait that lets the menu close first.
  */
 export function useZoomChange() {
   const controller = useController();
-  const [trial, setTrial] = useState<{ from: number; to: number; until: number } | null>(null);
+  const trial = useAppState((s) => s.zoomTrial);
   const [left, setLeft] = useState(0);
-  const trialRef = useRef(trial);
-  trialRef.current = trial;
+  const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const revert = useCallback(() => {
-    const t = trialRef.current;
-    if (!t) return;
-    trialRef.current = null;
-    setTrial(null);
-    controller.previewPreferences({ uiScale: t.from });
-  }, [controller]);
-
-  const keep = useCallback(() => {
-    const t = trialRef.current;
-    if (!t) return;
-    trialRef.current = null;
-    setTrial(null);
-    controller.setPreferences({ uiScale: t.to });
-  }, [controller]);
-
-  /** Try `to`. A second change while one is being tried goes back to the size from before the first. */
   const start = useCallback(
     (to: number) => {
-      const from = trialRef.current?.from ?? controller.store.getState().prefs.uiScale;
-      if (to === from) {
-        revert();
-        return;
-      }
-      const until = Date.now() + ZOOM_CONFIRM_SECONDS * 1000;
-      controller.previewPreferences({ uiScale: to });
-      setTrial({ from, to, until });
-      setLeft(ZOOM_CONFIRM_SECONDS);
+      if (waiting.current) clearTimeout(waiting.current);
+      waiting.current = setTimeout(() => {
+        waiting.current = null;
+        controller.tryZoom(to);
+      }, START_AFTER_MENU_MS);
     },
-    [controller, revert],
+    [controller],
   );
 
   useEffect(() => {
     if (!trial) return;
-    const id = setInterval(() => {
-      const n = secondsLeft(trial.until, Date.now());
-      setLeft(n);
-      if (n <= 0) revert();
-    }, 250);
+    setLeft(secondsLeft(trial.until, Date.now()));
+    const id = setInterval(() => setLeft(secondsLeft(trial.until, Date.now())), 250);
     return () => clearInterval(id);
-  }, [trial, revert]);
+  }, [trial]);
 
-  // Leaving the page with a trial open must not leave the new size applied without having been kept.
-  useEffect(() => () => revert(), [revert]);
+  useEffect(
+    () => () => {
+      if (waiting.current) clearTimeout(waiting.current);
+    },
+    [],
+  );
 
-  return { trial, left, start, keep, revert };
+  return { trial, left, start, keep: controller.keepZoom, revert: controller.revertZoom };
 }

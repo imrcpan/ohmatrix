@@ -152,6 +152,7 @@ export function SettingsPage() {
         items={LANGUAGES.map((l) => ({ label: l.label, checked: l.id === locale, onPress: () => controller.setPreferences({ locale: l.id }) }))}
       />
       <Menu
+        fade={false}
         visible={scaleMenu}
         anchor={scaleAnchor}
         alignRight

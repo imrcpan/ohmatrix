@@ -60,6 +60,12 @@ export interface AppState {
   /** The info panel of the open space (members, settings) is showing. It is independent of the selected chat. */
   spaceInfoOpen: boolean;
   prefs: Preferences;
+  /**
+   * A zoom being tried: the interface is drawn at `to` while Settings asks to keep it, and it goes back to `from` when `until` (ms) comes.
+   * It is here, not in a page, because drawing at another size rebuilds the screens, and a trial held by one of them would be lost with it.
+   * It is not a preference: it is never saved, and no other account takes it over; `prefs.uiScale` stays what is kept.
+   */
+  zoomTrial: { from: number; to: number; until: number } | null;
   /** What the left pane shows: the chat list, my profile, or settings (settings sits above profile). */
   sidebarPage: SidebarPage;
   /** Chat-info panel of the selected room is open (slides in from the right). */
@@ -106,8 +112,12 @@ export interface AppController {
   logout(): Promise<void>;
   /** Update and persist preferences (theme, language, sidebar width...). */
   setPreferences(patch: Partial<Preferences>): void;
-  /** Applies preferences without saving them: to try a setting (the zoom) before it is kept. `setPreferences` saves what is applied. */
-  previewPreferences(patch: Partial<Preferences>): void;
+  /** Draw the interface at `scale` without keeping it: it goes back by itself after ZOOM_TRIAL_MS unless `keepZoom` is called. The size already kept ends any trial. */
+  tryZoom(scale: number): void;
+  /** Keep the size being tried: saved as the preference. */
+  keepZoom(): void;
+  /** Go back to the size that was kept. */
+  revertZoom(): void;
   setDisplayName(name: string): Promise<void>;
   setStatus(status: string): Promise<void>;
   listDevices(): Promise<DeviceInfo[]>;
@@ -185,6 +195,12 @@ export interface AppController {
 
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** How long a new zoom is tried before it goes back by itself. */
+export const ZOOM_TRIAL_MS = 15000;
+
+/** The platform's timers (this package knows no platform, so they are reached through `globalThis`). */
+const timers = globalThis as unknown as { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(id: unknown): void };
+
 export function createAppController(engine: MatrixEngine, services: PlatformServices): AppController {
   const store = createStore<AppState>(() => ({
     auth: "booting",
@@ -199,6 +215,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     timelines: {},
     selectedRoomId: null,
     prefs: DEFAULT_PREFERENCES,
+    zoomTrial: null,
     sidebarPage: "chats",
     roomInfoOpen: false,
     infoPage: null,
@@ -256,7 +273,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     }
   };
 
-  return {
+  let zoomTimer: unknown;
+
+  const controller: AppController = {
     store,
     async bootstrap() {
       try {
@@ -287,8 +306,23 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         signedOut();
       }
     },
-    previewPreferences(patch) {
-      set((s) => ({ prefs: { ...s.prefs, ...patch } }));
+    tryZoom(to) {
+      const from = store.getState().prefs.uiScale;
+      timers.clearTimeout(zoomTimer);
+      if (to === from) return set({ zoomTrial: null });
+      set({ zoomTrial: { from, to, until: Date.now() + ZOOM_TRIAL_MS } });
+      zoomTimer = timers.setTimeout(() => set({ zoomTrial: null }), ZOOM_TRIAL_MS);
+    },
+    keepZoom() {
+      const trial = store.getState().zoomTrial;
+      if (!trial) return;
+      timers.clearTimeout(zoomTimer);
+      set({ zoomTrial: null });
+      controller.setPreferences({ uiScale: trial.to });
+    },
+    revertZoom() {
+      timers.clearTimeout(zoomTimer);
+      set({ zoomTrial: null });
     },
     setPreferences(patch) {
       set((s) => ({ prefs: { ...s.prefs, ...patch } }));
@@ -405,8 +439,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         },
       };
     },
-    dispose: () => offs.forEach((off) => off()),
+    dispose: () => {
+      timers.clearTimeout(zoomTimer);
+      offs.forEach((off) => off());
+    },
   };
+  return controller;
 }
 
 /** Unread badge total across chats: counts of notifying chats, a manual "unread" mark counts as one; muted chats and invites are skipped. */
