@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, contentText } from "@ohmatrix/core";
-import { Avatar, Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem, useNavBottom } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
@@ -73,6 +73,7 @@ function MemberRow(props: { member: RoomMember; onPress?: ((anchor: Anchor) => v
 /** Chat info: avatar, name, topic, address, encryption, mute, members (with management), shared media, leave/delete. */
 export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" }) {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const controller = useController();
   const services = useServices();
@@ -148,7 +149,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* The same back arrow whether the panel is docked beside the chat or covers the screen. */}
       <PageHeader title={title} onBack={close} backLabel={t("close")} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 28 + nav }}>
         {d && (
           <>
             <View style={{ alignItems: "center", paddingTop: 12, paddingHorizontal: 20, gap: 2 }}>

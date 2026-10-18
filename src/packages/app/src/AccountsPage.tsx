@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Avatar, Dialog, fontFamily, Menu, PrimaryButton, TextButton, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Menu, PrimaryButton, TextButton, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import type { AccountSummary } from "@ohmatrix/state";
 import { useAccountManager, useAccountsState, useController, useT } from "./context.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
@@ -82,6 +82,7 @@ function AccountRow(props: { account: AccountSummary; current: boolean; onPress(
 /** The accounts page, opened from "Switch Account" on the profile: every account (all of them keep syncing), and a way to add one. */
 export function AccountsPage() {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const controller = useController();
   const manager = useAccountManager();
@@ -93,7 +94,7 @@ export function AccountsPage() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <PageHeader title={t("accounts")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 + nav }}>
         <Group>
           {accounts.map((a) => (
             <AccountRow

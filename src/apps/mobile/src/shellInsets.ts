@@ -1,10 +1,17 @@
-/** Window px on each side. */
+/** Window px on each side. `navBottom`: see SystemInsets in @ohmatrix/ui. */
 export interface Insets {
   top: number;
   right: number;
   bottom: number;
   left: number;
+  navBottom?: number;
 }
+
+/**
+ * The tallest bottom inset that is a gesture bar (the thin pill, about 15 to 24 dp) and not three buttons (48 dp). With a gesture bar
+ * the app is drawn under it, and with buttons it is not: buttons would cover what is drawn there and take its touches.
+ */
+export const GESTURE_BAR_MAX = 32;
 
 /** How tall a status bar needs to be for its icons (dp). Anything above this is empty space the system keeps below them. */
 const ICON_BAND = 32;
@@ -30,5 +37,7 @@ export function topInset(statusBar: number): number {
 export function shellInsets(system: Insets, keyboardHeight: number, platform: "android" | "ios"): Insets {
   const keyboard = Math.max(0, keyboardHeight);
   const bottom = platform === "android" ? system.bottom + keyboard : keyboard > 0 ? keyboard : system.bottom;
-  return { ...system, top: topInset(system.top), bottom };
+  // Under the gesture bar, unless the keyboard is up (then the keyboard is what the app stops above, and it covers the bar).
+  const navBottom = keyboard === 0 && system.bottom > 0 && system.bottom <= GESTURE_BAR_MAX ? system.bottom : 0;
+  return { ...system, top: topInset(system.top), bottom, navBottom };
 }

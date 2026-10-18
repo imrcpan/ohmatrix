@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Avatar, Dialog, fontFamily, Icon, PrimaryButton, TextButton, TextField, useTheme } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, PrimaryButton, TextButton, TextField, useTheme, useNavBottom } from "@ohmatrix/ui";
 import { EngineError } from "@ohmatrix/core";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { SecuritySheet } from "./SecuritySheet.js";
@@ -10,6 +10,7 @@ import { useMediaUrl } from "./useMedia.js";
 
 export function ProfilePage(props: { homeserver: string }) {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const controller = useController();
   const services = useServices();
@@ -110,7 +111,8 @@ export function ProfilePage(props: { homeserver: string }) {
           borderTopColor: colors.separator,
           backgroundColor: colors.bg,
           paddingHorizontal: 8,
-          paddingVertical: 6,
+          paddingTop: 6,
+          paddingBottom: 6 + nav,
           alignItems: "flex-start",
         }}
       >
