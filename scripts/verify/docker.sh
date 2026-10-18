@@ -8,6 +8,7 @@
 #
 #   --entry    which build to run (default both)
 #   --version  the version to build (default 9.9.9); the result is checked for it
+#   --keep DIR keep what is built: DIR (on this machine) is where the container's release folder is written, instead of vanishing with it
 #   --image    the base image (default debian:bookworm-slim, the older of the two current Debians)
 #   --cpus     limit the container to this many CPUs  (GitHub's runners: 4 for public repositories, 2 for private)
 #   --memory   limit its memory, e.g. 16g              (GitHub's runners: 16g for public repositories, 8g for private)
@@ -20,6 +21,7 @@ root=$(cd "$here/../.." && pwd)
 
 entry=both
 version=9.9.9
+keep=
 image=debian:bookworm-slim
 cpus=
 memory=
@@ -32,6 +34,10 @@ while [ $# -gt 0 ]; do
       ;;
     --version)
       version=$2
+      shift
+      ;;
+    --keep)
+      keep=$2
       shift
       ;;
     --image)
@@ -63,6 +69,7 @@ case "$entry" in web | android | both) ;; *)
   exit 2
   ;;
 esac
+[ -z "$keep" ] || mkdir -p "$keep"
 command -v docker >/dev/null || {
   echo "docker is not installed here" >&2
   exit 1
@@ -120,4 +127,4 @@ tar -c \
   --exclude='./src/packages/engine-rust/src/generated' --exclude='./src/apps/mobile/android' --exclude='./src/apps/mobile/ios' \
   --exclude='./src/dev/synapse/data' --exclude='./src/e2e/.out' \
   . |
-  docker run --rm -i "${limits[@]}" -e ENTRIES="$entries" -e VERSION="$version" -e EXTRA="${extra[*]}" "$image" bash -c "$inside"
+  docker run --rm -i "${limits[@]}" ${keep:+-v "$keep:/out" -e OHM_RELEASE_DIR=/out} -e ENTRIES="$entries" -e VERSION="$version" -e EXTRA="${extra[*]}" "$image" bash -c "$inside"
