@@ -2337,13 +2337,36 @@ test("forward: a message is copied into another chat", async ({ page }) => {
   await expect(msg).toBeVisible({ timeout: 20000 });
   await msg.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Forward", exact: true }).click();
-  await expect(page.getByText("Forward to")).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Forward to", { exact: true })).toBeVisible();
+  // Nothing is sent by choosing: Forward waits for a pick, and a pick only ticks the chat.
+  await expect(dialog.getByRole("button", { name: "Forward", exact: true })).toBeDisabled();
+  await dialog.getByRole("checkbox", { name: "alice", exact: true }).first().click();
+  await dialog.getByRole("checkbox", { name: "OhMatrix Dev", exact: true }).first().click();
+  await expect(dialog.getByRole("checkbox", { name: "alice", exact: true }).first()).toBeChecked();
   await shot(page, "61-forward");
-  // Forward into "alice"; the copy carries who wrote it.
-  await page.getByRole("dialog").getByRole("button", { name: "alice", exact: true }).first().click();
-  await expect(page.getByText("Forward to")).toHaveCount(0, { timeout: 20000 });
+  await dialog.getByRole("button", { name: "Forward (2)", exact: true }).click();
+
+  // It asks once more, with only the two ticked chats, both ticked to begin with.
+  await expect(dialog.getByText("Forward to these chats?")).toBeVisible();
+  await expect(dialog.getByRole("checkbox")).toHaveCount(2);
+  await expect(dialog.getByRole("checkbox", { name: "alice", exact: true })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "OhMatrix Dev", exact: true })).toBeChecked();
+  await shot(page, "61b-forward-confirm");
+  // Back keeps the picks; one can be taken off here, and then Forward really sends: to alice only.
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Forward (2)", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Forward (2)", exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "OhMatrix Dev", exact: true }).click();
+  await expect(dialog.getByRole("checkbox", { name: "OhMatrix Dev", exact: true })).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20000 });
   await openRoom(page, "alice");
   await expect(page.getByText(text, { exact: false }).last()).toBeVisible({ timeout: 20000 });
+  await openRoom(page, "OhMatrix Dev");
+  await expect(page.locator("[data-row-key]").getByText(/Backlog message #30/)).toBeVisible(); // the same place is searched, and it holds messages
+  // (Only the messages of the open chat: the chat list's previews of the other chats carry the text too.)
+  await expect(page.locator("[data-row-key]").getByText(text, { exact: false })).toHaveCount(0);
 });
 
 test("mention autocomplete: floating menu at the @, titled, keyboard-driven, capped below the top bar", async ({ page }) => {
