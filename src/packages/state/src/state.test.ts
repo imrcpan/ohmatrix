@@ -213,3 +213,21 @@ test("only the server's own refusal sends a saved session back to sign-in, and c
   expect(app.store.getState().auth).toBe("signedOut");
   expect(store.saved).toBeNull();
 });
+
+test("previewPreferences applies a setting without saving it; setPreferences saves it", async () => {
+  const saves: Preferences[] = [];
+  const app = createAppController(new MockEngine(), {
+    sessionStore: memoryStore(),
+    preferences: { load: async () => ({}), save: async (p) => void saves.push(p) },
+  });
+  await app.bootstrap();
+  app.previewPreferences({ uiScale: 2 });
+  await Promise.resolve();
+  expect(app.store.getState().prefs.uiScale).toBe(2);
+  expect(saves).toEqual([]);
+  app.previewPreferences({ uiScale: 1 }); // reverted: nothing was ever written
+  expect(saves).toEqual([]);
+  app.setPreferences({ uiScale: 1.5 });
+  await Promise.resolve();
+  expect(saves.map((p) => p.uiScale)).toEqual([1.5]);
+});

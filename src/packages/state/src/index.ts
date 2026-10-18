@@ -100,6 +100,8 @@ export interface AppController {
   logout(): Promise<void>;
   /** Update and persist preferences (theme, language, sidebar width...). */
   setPreferences(patch: Partial<Preferences>): void;
+  /** Applies preferences without saving them: to try a setting (the zoom) before it is kept. `setPreferences` saves what is applied. */
+  previewPreferences(patch: Partial<Preferences>): void;
   setDisplayName(name: string): Promise<void>;
   setStatus(status: string): Promise<void>;
   listDevices(): Promise<DeviceInfo[]>;
@@ -272,6 +274,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         await services.sessionStore.clear();
         signedOut();
       }
+    },
+    previewPreferences(patch) {
+      set((s) => ({ prefs: { ...s.prefs, ...patch } }));
     },
     setPreferences(patch) {
       set((s) => ({ prefs: { ...s.prefs, ...patch } }));
