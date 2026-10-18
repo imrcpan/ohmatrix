@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
-import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
 import { NewSpaceDialog, SpaceScreen } from "./SpaceScreen.js";
 import { MessageResults } from "./MessageResults.js";
@@ -85,6 +85,7 @@ export const RoomListItem = memo(function RoomListItem(props: {
 
 export function RoomListPane() {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const controller = useController();
   const rooms = useAppState((s) => s.rooms);
@@ -211,7 +212,7 @@ export function RoomListPane() {
       <FlatList
         data={data}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={{ paddingVertical: 4 }}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
         ListFooterComponent={
           query.trim().length >= 2 ? (
             <View style={{ marginTop: 8 }}>

@@ -114,6 +114,8 @@ export interface Insets {
   right: number;
   bottom: number;
   left: number;
+  /** Of `bottom`, what is a gesture bar the app is drawn under (the screens leave room for it themselves). */
+  navBottom?: number;
 }
 
 /**
@@ -126,11 +128,18 @@ function Framed(props: { insets: Insets | undefined; children: ReactNode }) {
   const un = useUnzoom();
   const i = props.insets;
   if (!i) return <>{props.children}</>;
-  const inner = { top: un(i.top), right: un(i.right), bottom: un(i.bottom), left: un(i.left) };
+  const inner = { top: un(i.top), right: un(i.right), bottom: un(i.bottom), left: un(i.left), navBottom: un(i.navBottom ?? 0) };
   return (
     <InsetsContext.Provider value={inner}>
       <View
-        style={{ flex: 1, backgroundColor: colors.bg, paddingTop: inner.top, paddingRight: inner.right, paddingBottom: inner.bottom, paddingLeft: inner.left }}
+        style={{
+          flex: 1,
+          backgroundColor: colors.bg,
+          paddingTop: inner.top,
+          paddingRight: inner.right,
+          paddingBottom: inner.bottom - inner.navBottom,
+          paddingLeft: inner.left,
+        }}
       >
         {props.children}
       </View>

@@ -21,4 +21,4 @@ export { ScaleProvider } from "./Scale.js";
 export { RichText } from "./richtext.js";
 export { parseFormatted, plainRuns, type Run } from "./richtextModel.js";
 export { EmojiPicker, useRecentEmoji } from "./EmojiPicker.js";
-export { useViewport, useUnzoom, useInsets, InsetsContext, type SystemInsets } from "./viewport.js";
+export { useViewport, useUnzoom, useInsets, useNavBottom, InsetsContext, type SystemInsets } from "./viewport.js";

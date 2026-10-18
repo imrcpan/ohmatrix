@@ -1,6 +1,6 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
@@ -13,6 +13,7 @@ const SCALES = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
 
 export function SettingsPage() {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const locale = useLocale();
   const controller = useController();
@@ -32,7 +33,7 @@ export function SettingsPage() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <PageHeader title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 + nav }}>
         <Group title={t("appearance")}>
           <ThemeGrid />
         </Group>

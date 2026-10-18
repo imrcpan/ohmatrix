@@ -15,6 +15,7 @@ import {
   useTheme,
   type Anchor,
   type MenuItem,
+  useNavBottom,
 } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { RoomListItem } from "./RoomListPane.js";
@@ -27,6 +28,7 @@ import { InviteDialog } from "./InviteDialog.js";
 /** A space's own contents, styled exactly like the main chat list but showing the space's children. */
 export function SpaceScreen(props: { id: string; onClose: () => void }) {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const controller = useController();
   const spaceId = props.id;
@@ -117,7 +119,7 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
       <FlatList
         data={rows}
         keyExtractor={(r) => r.id}
-        contentContainerStyle={{ paddingVertical: 4 }}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
         ListEmptyComponent={
           <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
             {query ? t("noResults") : t("space.empty")}

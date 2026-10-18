@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { EngineError, type DeviceInfo } from "@ohmatrix/core";
-import { Dialog, fontFamily, PrimaryButton, TextButton, TextField, useTheme } from "@ohmatrix/ui";
+import { Dialog, fontFamily, PrimaryButton, TextButton, TextField, useTheme, useNavBottom } from "@ohmatrix/ui";
 import { useController, useLocale, useT } from "./context.js";
 import { formatRelative } from "./format.js";
 import { Item, PageHeader } from "./settings/kit.js";
@@ -11,6 +11,7 @@ type Pending = { ids: string[]; all: boolean } | null;
 /** Where the account is signed in; other sessions can be signed out after confirming the password. */
 export function SessionsPage() {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const locale = useLocale();
   const controller = useController();
@@ -75,7 +76,7 @@ export function SessionsPage() {
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingBottom: 32 + nav }}
           ListHeaderComponent={
             <View>
               {current && (

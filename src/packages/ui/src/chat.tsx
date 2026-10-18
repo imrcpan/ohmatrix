@@ -3,7 +3,7 @@ import type React from "react";
 import { Image, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
-import { useUnzoom, useViewport } from "./viewport.js";
+import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
 import { fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
@@ -552,6 +552,7 @@ export function Composer(props: {
     props.onEmoji?.(emoji);
     setEmojiOpen(false);
   };
+  const navBottom = useNavBottom();
   return (
     <View
       ref={barRef}
@@ -560,7 +561,7 @@ export function Composer(props: {
         const width = e.nativeEvent.layout.width;
         setBox((b) => ({ ...b, width }));
       }}
-      style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator, zIndex: 4 }}
+      style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator, zIndex: 4, paddingBottom: navBottom }}
     >
       {props.context && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingTop: 8 }}>

@@ -1,12 +1,13 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { Icon, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Icon, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 
 /** `back`: another account to go to (this screen is for adding one, or for an account that could not start), with the button's label. */
 export function LoginScreen(props: { defaultHomeserver: string; back?: { label: string; onPress(): void } | undefined }) {
   const { colors } = useTheme();
+  const nav = useNavBottom();
   const t = useT();
   const controller = useController();
   const busy = useAppState((s) => s.auth === "signingIn");
@@ -98,7 +99,7 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
         </View>
       </ScrollView>
       {/* The language, at the bottom right: a borderless name and arrow that opens a menu upwards. */}
-      <View ref={langRef} style={{ position: "absolute", right: 16, bottom: 16 }}>
+      <View ref={langRef} style={{ position: "absolute", right: 16, bottom: 16 + nav }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("language")}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Pressable, Text, View } from "react-native";
-import { fontFamily, Icon, popoverShadow, Spinner, useTheme } from "@ohmatrix/ui";
+import { fontFamily, Icon, popoverShadow, Spinner, useNavBottom, useTheme } from "@ohmatrix/ui";
 import { HEADER_HEIGHT } from "./ChatHeader.js";
 
 /** The composer bar's resting height: things that float above the list sit just over it. */
@@ -8,6 +8,7 @@ export const COMPOSER_HEIGHT = 62;
 
 /** Shown in place of the list while a room's messages come in and the list settles on the newest one. */
 export function LoadingOverlay({ label }: { label: string }) {
+  const nav = useNavBottom();
   return (
     <View
       pointerEvents="none"
@@ -18,7 +19,7 @@ export function LoadingOverlay({ label }: { label: string }) {
         top: HEADER_HEIGHT,
         left: 0,
         right: 0,
-        bottom: COMPOSER_HEIGHT,
+        bottom: COMPOSER_HEIGHT + nav,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 2,
@@ -88,8 +89,9 @@ export function DatePill(props: { controls: MutableRefObject<DatePillControls | 
 /** The round button at the bottom right that returns to the newest message, with a count of what came meanwhile. */
 export function ScrollToLatest(props: { label: string; countLabel: string; count: number; onPress(): void }) {
   const { colors, dark } = useTheme();
+  const nav = useNavBottom();
   return (
-    <View style={{ position: "absolute", right: 14, bottom: COMPOSER_HEIGHT + 12, zIndex: 3 }}>
+    <View style={{ position: "absolute", right: 14, bottom: COMPOSER_HEIGHT + 12 + nav, zIndex: 3 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={props.label}
