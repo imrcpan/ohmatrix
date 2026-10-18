@@ -326,6 +326,29 @@ test("signing in makes a client with the database paths and passphrase, and give
   expect(typeof session.native).toBe("string");
 });
 
+test("a bare server name is signed in to over https, after its .well-known; http only when typed", async () => {
+  const asked: string[] = [];
+  const fetch: RustEngineOptions["fetch"] = async (url) => {
+    asked.push(url);
+    return url.startsWith("https://example.org/")
+      ? { ok: true, status: 200, json: async () => ({ "m.homeserver": { base_url: "https://matrix.example.org/" } }) }
+      : { ok: false, status: 404, json: async () => ({}) };
+  };
+  const urlFor = async (typed: string) => {
+    const { engine, configs } = make(fetch);
+    await engine.auth.loginWithPassword(typed, "alice", "pw");
+    return (configs[0] as { homeserverUrl: string } | undefined)?.homeserverUrl;
+  };
+  expect(await urlFor("example.org")).toBe("https://matrix.example.org");
+  expect(await urlFor("no-wellknown.example")).toBe("https://no-wellknown.example"); // none published: the name itself, over https
+  expect(await urlFor("localhost:8008")).toBe("https://localhost:8008"); // not assumed to be http either
+  expect(await urlFor("http://s")).toBe("http://s");
+  expect(asked.filter((u) => u.includes(".well-known") && !u.includes("localhost"))).toEqual([
+    "https://example.org/.well-known/matrix/client",
+    "https://no-wellknown.example/.well-known/matrix/client",
+  ]);
+});
+
 test("a failed sign-in is an EngineError with the right code", async () => {
   const { engine, client } = make();
   client.failLogin = { tag: "MatrixApi", inner: { msg: "Invalid password", code: "M_FORBIDDEN", kind: { tag: "Forbidden" } } };
