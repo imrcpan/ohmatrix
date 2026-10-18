@@ -29,6 +29,8 @@ const preferences = {
 };
 
 const services: AppServices = {
+  // Set by the build (scripts/build-web.sh --version a.b.c); a development server has none.
+  ...(import.meta.env.VITE_APP_VERSION ? { appVersion: import.meta.env.VITE_APP_VERSION as string } : {}),
   preferences,
   notifications: createWebNotifications(),
   recordMedia: openRecorder,

@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# Builds the Android app, one APK for each ABI, into ~/release/android. On a bare Debian this is one command: it installs what is
+# missing (system packages, Node, pnpm, a JDK, Rust with the Android targets, the Android SDK and NDK), builds the Rust Matrix SDK
+# bindings, and then the app. What is already there is used as it is. The compile settings follow what the machine, or the
+# container, really has.
+#
+#   scripts/build-android.sh --version a.b.c [--targets ABIS] [--release-dir DIR] [--debug|--release]
+#                            [--check] [--skip-setup] [--jobs N] [--save-disk|--no-save-disk]
+#
+#   --version      the version of this build, like 1.2.3 (required, except with --check). It is the APK's version name, and what
+#                  Settings shows; each ABI gets its own version code from it.
+#   --targets      the ABIs to build, comma separated (default arm64-v8a,armeabi-v7a,x86_64: phones, older 32-bit phones, the emulator)
+#   --release-dir  where the result goes: DIR/android/OhMatrix_android_<version>_<abi>.apk (default ~/release)
+#   --release      the default; --debug builds the debug variant (the file names then end in _debug)
+#   --check        only report what is missing (and whether the machine is big enough); install and build nothing
+#   --skip-setup   do not install anything, use what is on the machine
+#   --jobs N       parallel compile jobs, instead of what the machine's CPUs and memory allow
+#   --save-disk    delete the Rust build output of each ABI once its library is built, and the crates at the end (about 5 GB). The
+#                  default is to do it when less than 30 GB are free, which is what a GitHub runner has; --no-save-disk never does.
+#
+# A release build compiles the Rust library with the "dist" profile of the Matrix SDK and one codegen unit (lib/versions.sh): the
+# library is 42 MB instead of 84, and takes longer to build. The libraries are stored compressed in the APK and unpacked when it is
+# installed (useLegacyPackaging in app.json): the APK is smaller, and the installed app takes the same room as before.
+# The ABIs are built one after the other (the biggest compile needs 7.3 GB, so two at once would not fit): the time is about the
+# same for each. The APKs are signed with the debug key (what `expo prebuild` sets up): fine for installing, not for publishing.
+# Environment: OHM_TOOLS (where tools are installed, default ~/.ohmatrix-tools), OHM_OUT (caches and logs, default build-out),
+# OHM_RELEASE_DIR (default ~/release), EXPO_PUBLIC_DEFAULT_HOMESERVER (the server offered on the sign-in screen).
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=lib/common.sh
+source "$here/lib/common.sh"
+source "$here/lib/versions.sh"
+source "$here/lib/privilege.sh"
+source "$here/lib/resources.sh"
+source "$here/lib/release.sh"
+source "$here/lib/args.sh"
+source "$here/setup/apt.sh"
+source "$here/setup/node.sh"
+source "$here/setup/java.sh"
+source "$here/setup/rust.sh"
+source "$here/setup/android-sdk.sh"
+
+variant=release
+targets=$DEFAULT_ABIS
+save_disk=auto
+ohm_parse_common "$@"
+set -- "${OHM_REST[@]+"${OHM_REST[@]}"}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --release) variant=release ;;
+    --debug) variant=debug ;;
+    --targets)
+      [ $# -ge 2 ] || die "--targets needs a list of ABIs"
+      targets=$2
+      shift
+      ;;
+    --targets=*) targets=${1#--targets=} ;;
+    --save-disk) save_disk=1 ;;
+    --no-save-disk) save_disk=0 ;;
+    *) die "unknown option: $1 (see the top of $0)" ;;
+  esac
+  shift
+done
+require_version
+rust_targets=()
+IFS=',' read -r -a abis <<<"$targets"
+for abi in "${abis[@]}"; do
+  rust_targets+=("$(rust_target_of "$abi")") || die "unknown ABI '$abi' (arm64-v8a, armeabi-v7a, x86_64, x86)"
+done
+
+resources_init
+if [ "$save_disk" = auto ]; then
+  if [ "$OHM_DISK_GB" -lt 30 ]; then save_disk=1; else save_disk=0; fi
+fi
+resources_summary
+[ "$save_disk" = 1 ] && note "saving disk: the Rust build output is deleted once the library is built"
+# What a build takes, from a bare machine (measured in a container): about 19 GB of disk, or about 14 GB when the Rust output is deleted
+# along the way. Memory: after shrinkBinding the biggest compile is 1.8 GB, Gradle holds about 2.4 GB and the Kotlin daemon about 1.2 GB;
+# the most the programs held in a run was 5.7 GB (in a container held to 8 GB with no swap, where it passed). The minimum is set to 6 GB
+# on that: it is not tested below 8 GB.
+if [ "$save_disk" = 1 ]; then resources_require android 6144 15 18; else resources_require android 6144 20 24; fi
+
+if [ "$OHM_SKIP_SETUP" = 0 ]; then
+  step "tools"
+  setup_apt "${APT_BASE[@]}" "${APT_ANDROID[@]}"
+  setup_node
+  setup_pnpm
+  setup_java
+  setup_rust "${rust_targets[@]}"
+  setup_android_sdk
+fi
+if [ "$OHM_CHECK" = 1 ]; then
+  step "result"
+  if [ "$OHM_MISSING" -eq 0 ]; then
+    ok "everything is in place"
+    exit 0
+  fi
+  log "  $OHM_MISSING thing(s) missing: run without --check to install them"
+  exit 1
+fi
+for tool in node pnpm java cargo; do have "$tool" || die "$tool is needed (run without --skip-setup)"; done
+[ -n "${ANDROID_NDK_HOME:-}" ] || die "ANDROID_NDK_HOME is not set (run without --skip-setup, or set ANDROID_HOME)"
+
+cd "$OHM_ROOT"
+export CI=1 CARGO_BUILD_JOBS="$OHM_JOBS" CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$OHM_OUT/cargo-target}"
+# The version goes into the APK (app.config.js: versionName and versionCode) and into the JavaScript (Settings shows it).
+export EXPO_PUBLIC_NATIVE_SELFTEST=0 NODE_ENV=production NODE_OPTIONS="--max-old-space-size=$OHM_NODE_HEAP_MB" EXPO_PUBLIC_APP_VERSION="$OHM_VERSION"
+
+run_step "install dependencies" pnpm install --frozen-lockfile --filter '@ohmatrix/mobile...'
+
+# The NDK set up above is the one React Native asks for; if it asks for another, Gradle would fetch that one itself.
+rn_dir=$(cd src/apps/mobile && node -p "require('path').dirname(require.resolve('react-native/package.json'))") || die "cannot find react-native in the installed dependencies"
+rn_ndk=$(awk -F'"' '/^ndkVersion/ {print $2}' "$rn_dir/gradle/libs.versions.toml")
+[ "$rn_ndk" = "$ANDROID_NDK" ] || die "react-native wants NDK $rn_ndk but scripts/lib/versions.sh pins $ANDROID_NDK: update ANDROID_NDK there"
+ok "react-native's NDK ($rn_ndk) is the one installed"
+
+jni_libs=src/packages/engine-rust/android/src/main/jniLibs
+task=":app:assemble$(tr '[:lower:]' '[:upper:]' <<<"${variant:0:1}")${variant:1}"
+# ubrn takes the profile by name (and it wins over --release); the library ends up in target/<triple>/<profile>.
+engine_flags=()
+if [ "$variant" = release ]; then
+  engine_flags+=(--profile "$RUST_RELEASE_PROFILE")
+  profile_var="CARGO_PROFILE_$(tr '[:lower:]-' '[:upper:]_' <<<"$RUST_RELEASE_PROFILE")_CODEGEN_UNITS"
+  export "$profile_var=$RUST_RELEASE_CODEGEN_UNITS"
+fi
+suffix=""
+[ "$variant" = debug ] && suffix="_debug"
+
+# What the aapt of the SDK says an APK is: name, version, and which ABIs have native code. Stops if it is not what was asked for.
+check_apk() {
+  local apk=$1 abi=$2 aapt badging code want_code
+  aapt=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n1)
+  [ -n "$aapt" ] || die "no aapt in the Android SDK's build-tools"
+  badging=$("$aapt" dump badging "$apk")
+  want_code=$(node -p "require('./src/apps/mobile/version.cjs').versionCodeOf('$OHM_VERSION', '$abi')")
+  grep -q "versionName='$OHM_VERSION'" <<<"$badging" || die "$(basename "$apk"): its version name is not $OHM_VERSION"
+  grep -q "versionCode='$want_code'" <<<"$badging" || die "$(basename "$apk"): its version code is not $want_code"
+  [ "$(grep '^native-code:' <<<"$badging")" = "native-code: '$abi'" ] || die "$(basename "$apk"): its native code is not only $abi ($(grep '^native-code:' <<<"$badging"))"
+  code=$want_code
+  ok "$(basename "$apk"): version $OHM_VERSION, code $code, native code $abi only"
+}
+
+build_abi() {
+  local abi=$1 first=$2 triple apk dir name clean=() lib
+  triple=$(rust_target_of "$abi")
+  step "== $abi, version $OHM_VERSION"
+  export OHM_ABI=$abi
+
+  # The Rust Matrix SDK, its bindings and the TurboModule (the existing script does the checkout, the patch and ubrn).
+  run_step "Rust library and bindings ($abi, $variant${engine_flags[1]:+, profile ${engine_flags[1]}})" bash -c 'cd src/packages/engine-rust && ./scripts/build-android.sh "$@"' _ --targets "$abi" "${engine_flags[@]+"${engine_flags[@]}"}"
+  # This APK takes the libraries of this ABI only: the ones of an ABI built before are not packed into it.
+  for lib in "$jni_libs"/*/; do
+    [ -d "$lib" ] || continue
+    [ "$(basename "$lib")" = "$abi" ] || rm -rf "$lib"
+  done
+  if [ "$save_disk" = 1 ]; then
+    rm -rf "${CARGO_TARGET_DIR:?}/$triple"
+    note "free disk $(free_disk_gb) GB after deleting the Rust build output of $abi"
+  fi
+
+  # The first one starts the Android project afresh; the others only update it (the version code), which keeps Gradle's work.
+  [ "$first" = 1 ] && clean=(--clean)
+  run_step "generate the Android project ($abi)" bash -c 'cd src/apps/mobile && pnpm exec expo prebuild --platform android --no-install "$@"' _ "${clean[@]+"${clean[@]}"}"
+
+  # shellcheck disable=SC2016 # the variables are read by the inner shell, which has them from the environment
+  run_step "Gradle $task ($abi)" bash -c 'cd src/apps/mobile/android && ./gradlew --no-daemon \
+    "-Dorg.gradle.jvmargs=-Xmx${OHM_GRADLE_XMX_MB}m -XX:MaxMetaspaceSize=512m" \
+    "-Dkotlin.daemon.jvm.options=-Xmx${OHM_KOTLIN_XMX_MB}m" \
+    "-Dorg.gradle.workers.max=${OHM_GRADLE_WORKERS}" "-PreactNativeArchitectures=$1" "$0" -x lint' "$task" "$abi"
+
+  apk="$OHM_ROOT/src/apps/mobile/android/app/build/outputs/apk/$variant/app-$variant.apk"
+  [ -f "$apk" ] || die "Gradle finished but there is no $apk"
+  check_apk "$apk" "$abi"
+  dir="$OHM_RELEASE_DIR/android"
+  name="OhMatrix_android_${OHM_VERSION}_${abi}${suffix}.apk"
+  mkdir -p "$dir"
+  cp "$apk" "$dir/$name"
+  ok "$dir/$name ($(du -h "$dir/$name" | cut -f1), sha256 $(sha256sum "$dir/$name" | cut -d' ' -f1))"
+}
+
+first=1
+for abi in "${abis[@]}"; do
+  build_abi "$abi" "$first"
+  first=0
+done
+
+if [ "$save_disk" = 1 ] && [ -d "$OHM_TOOLS/cargo/registry" ]; then
+  rm -rf "$OHM_TOOLS/cargo/registry" "$OHM_TOOLS/cargo/git"
+  note "free disk $(free_disk_gb) GB after deleting the crates"
+fi
+step "done"
+for apk in "$OHM_RELEASE_DIR"/android/OhMatrix_android_"$OHM_VERSION"_*; do note "$apk ($(du -h "$apk" | cut -f1))"; done
+warn "signed with the debug key: fine to install, not to publish"

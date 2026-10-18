@@ -24,6 +24,11 @@ export default defineConfig({
     url: process.env.OHMATRIX_NATIVE_LIST === "1" ? "http://localhost:5175" : "http://localhost:5174",
     reuseExistingServer: process.env.OHMATRIX_NATIVE_LIST !== "1",
     cwd: "..",
-    env: { VITE_DEFAULT_HOMESERVER: "http://localhost:8008", OHMATRIX_NATIVE_LIST: process.env.OHMATRIX_NATIVE_LIST ?? "" },
+    env: {
+      VITE_DEFAULT_HOMESERVER: "http://localhost:8008",
+      OHMATRIX_NATIVE_LIST: process.env.OHMATRIX_NATIVE_LIST ?? "",
+      // What a release build gets from `scripts/build-web.sh --version`: the Settings test reads it back.
+      VITE_APP_VERSION: "9.9.9",
+    },
   },
 });

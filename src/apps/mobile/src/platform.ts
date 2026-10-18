@@ -311,6 +311,8 @@ async function saveToDevice(file: { url: string; name: string }): Promise<"saved
 /** Everything the shared app can use on a phone. */
 export function phoneServices(): AppServices {
   return {
+    // Set by the build (scripts/build-android.sh --version a.b.c), the same number the APK carries as its versionName.
+    ...(process.env["EXPO_PUBLIC_APP_VERSION"] ? { appVersion: process.env["EXPO_PUBLIC_APP_VERSION"] } : {}),
     notifications: phoneNotifications(),
     preferences: filePreferences(),
     pickFiles,

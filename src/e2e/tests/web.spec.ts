@@ -456,6 +456,15 @@ test("profile and settings: navigation, theme, language, sign out", async ({ pag
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
 });
 
+test("settings: the version of the build is shown under About", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.evaluate(() =>
+    (window as unknown as { __ohmatrix: { controller: { openSidebarPage(p: string): void } } }).__ohmatrix.controller.openSidebarPage("settings"),
+  );
+  await expect(page.getByText("Version 9.9.9", { exact: true })).toBeVisible();
+});
+
 test("add menu: new chat, new group, join room", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);

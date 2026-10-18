@@ -82,6 +82,8 @@ export interface AudioClip {
  */
 export interface PlatformServices {
   sessionStore: SessionStore;
+  /** The version of this build, shown in Settings. The shell sets it from the build; absent in development. */
+  appVersion?: string;
   notifications?: SystemNotifications;
   /** Record a voice message or a short video. Absent = the record buttons are hidden. Rejects with RecordError. */
   recordMedia?(kind: "audio" | "video"): Promise<Recorder>;
