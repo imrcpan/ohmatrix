@@ -25,10 +25,10 @@ test("what the chat does not show gives no line", () => {
   expect(stateText({ kind: "RoomAvatar" }, "alice")).toBeNull();
 });
 
-test("state changes: the room is created, named, renamed, its name removed, its topic changed", () => {
+test("state changes: the room is created, named, renamed, its name removed, its description changed", () => {
   expect(stateText({ kind: "RoomCreate" }, "alice")).toBe("alice created the room");
   expect(stateText({ kind: "RoomName", value: "Team" }, "alice")).toBe("alice changed the room name to “Team”");
   expect(stateText({ kind: "RoomName", value: "" }, "alice")).toBe("alice removed the room name");
   expect(stateText({ kind: "RoomName" }, "alice")).toBe("alice removed the room name");
-  expect(stateText({ kind: "RoomTopic", value: "x" }, "alice")).toBe("alice changed the topic");
+  expect(stateText({ kind: "RoomTopic", value: "x" }, "alice")).toBe("alice changed the description");
 });

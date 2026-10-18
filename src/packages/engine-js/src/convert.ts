@@ -13,7 +13,7 @@ function serviceText(ev: MatrixEvent, name: string): string | null {
     case EventType.RoomName:
       return c.name ? `${name} changed the room name to “${c.name}”` : `${name} removed the room name`;
     case EventType.RoomTopic:
-      return `${name} changed the topic`;
+      return `${name} changed the description`;
     case EventType.RoomMember: {
       const target = (c.displayname as string | undefined) ?? localpart(ev.getStateKey() ?? "");
       const prev = ev.getPrevContent()?.membership as string | undefined;
