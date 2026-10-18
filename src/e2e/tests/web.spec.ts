@@ -1129,9 +1129,9 @@ test("notifications: opt in from Settings; system notification for other chats; 
   expect(await page.evaluate(() => (window as unknown as { __perm: string }).__perm)).toBe("default");
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect(page.getByRole("switch", { name: "Desktop notifications" })).not.toBeChecked();
-  await page.getByRole("switch", { name: "Desktop notifications" }).click();
-  await expect(page.getByRole("switch", { name: "Desktop notifications" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Message notifications" })).not.toBeChecked();
+  await page.getByRole("switch", { name: "Message notifications" }).click();
+  await expect(page.getByRole("switch", { name: "Message notifications" })).toBeChecked();
   await expect(page.getByRole("switch", { name: "Show message text" })).toBeChecked();
   await shot(page, "35-notification-settings");
   await page.getByRole("button", { name: "Profile", exact: true }).last().click();
@@ -1178,7 +1178,7 @@ test("notifications: opt in from Settings; system notification for other chats; 
   // Turning the switch off stops notifications.
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("switch", { name: "Desktop notifications" }).click();
+  await page.getByRole("switch", { name: "Message notifications" }).click();
   await page.getByRole("button", { name: "Profile", exact: true }).last().click();
   await page.getByRole("button", { name: "Chats", exact: true }).click();
   const after = (await notes(page)).length;
@@ -1194,8 +1194,8 @@ test("notifications: a blocked browser permission is explained and cannot be swi
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText(/Notifications are blocked/)).toBeVisible();
-  await page.getByRole("switch", { name: "Desktop notifications" }).click();
-  await expect(page.getByRole("switch", { name: "Desktop notifications" })).not.toBeChecked();
+  await page.getByRole("switch", { name: "Message notifications" }).click();
+  await expect(page.getByRole("switch", { name: "Message notifications" })).not.toBeChecked();
 });
 
 test("profile status and sessions", async ({ page }) => {

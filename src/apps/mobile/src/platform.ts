@@ -238,6 +238,7 @@ export function phoneNotifications(): SystemNotifications {
     }));
   void load().catch(() => (permission = "unsupported"));
   return {
+    kind: "system",
     permission: () => permission,
     async request() {
       try {
