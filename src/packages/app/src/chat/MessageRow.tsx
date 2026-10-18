@@ -54,6 +54,12 @@ export function MessageRow(props: {
   const open = (x: number, y: number) => {
     if (!unsent || failed) setMenu({ x, y });
   };
+  const copyText = (text: string) =>
+    services.copyText
+      ? services.copyText(text).catch(() => {})
+      : (
+          (globalThis as { navigator?: { clipboard?: { writeText(t: string): Promise<void> } } }).navigator?.clipboard?.writeText(text) ?? Promise.resolve()
+        ).catch(() => {});
   const mineKeys = (m.reactions ?? []).filter((r) => r.mine).map((r) => r.key);
   // A message that has not reached the server has no event to reply to, pin, edit or react on, and nothing to delete
   // there: it can only be sent again or dropped. One that is still being sent has nothing to offer yet.
@@ -162,6 +168,8 @@ export function MessageRow(props: {
                 { label: t("delete"), icon: "trash" as const, danger: true, onPress: () => actions.discard(m.transactionId!) },
               ]
             : [
+                // First for text: the message's own words, without what it quotes (the quote is `m.replyTo`, not part of the body).
+                ...(c.kind === "text" ? [{ label: t("copy"), icon: "copy" as const, onPress: () => void copyText(c.body) }] : []),
                 { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
                 { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
                 { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },

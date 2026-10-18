@@ -255,6 +255,41 @@ test("replies: reply from the context menu shows a quote in the bubble", async (
   await shot(page, "14-reply");
 });
 
+test("copy: a text message's menu starts with Copy, and a reply copies its own words, not the quote", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const stamp = Date.now();
+  const q = `to quote ${stamp}`,
+    a = `my words ${stamp}`;
+  const box = page.getByPlaceholder("Message");
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+  await box.fill(q);
+  await box.press("Enter");
+  // A message that is still being sent has no menu: try again until it has gone out.
+  await expect(async () => {
+    await page.keyboard.press("Escape"); // a menu left by the last try would be a second Copy
+    await page.getByText(q, { exact: true }).click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "Copy", exact: true })).toHaveCount(1, { timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  expect(await page.getByRole("menuitem").first().innerText()).toBe("Copy"); // the first item
+  await page.getByRole("menuitem", { name: "Copy", exact: true }).click();
+  expect(await clipboard()).toBe(q);
+
+  await page.getByText(q, { exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Reply", exact: true }).click();
+  await box.fill(a);
+  await box.press("Enter");
+  await expect(page.getByText(q, { exact: true })).toHaveCount(2, { timeout: 10000 }); // the quote is in the reply bubble
+  await expect(async () => {
+    await page.keyboard.press("Escape"); // a menu left by the last try would be a second Copy
+    await page.getByText(a, { exact: true }).click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "Copy", exact: true })).toHaveCount(1, { timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await page.getByRole("menuitem", { name: "Copy", exact: true }).click();
+  expect(await clipboard()).toBe(a); // not "to quote ...\nmy words ...", not the quote alone
+});
+
 test("edit and delete own messages", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
