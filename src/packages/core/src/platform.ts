@@ -11,6 +11,8 @@ export type NotificationPermission = "granted" | "denied" | "default" | "unsuppo
 
 /** System notifications (Web Notification API, Electron, APNs/FCM local display...). */
 export interface SystemNotifications {
+  /** Where the permission is asked and changed: in a browser (per site) or in the system's settings (an installed app). Words the hints. */
+  readonly kind: "browser" | "system";
   permission(): NotificationPermission;
   /** Ask the OS/browser for permission; must be called from a user gesture on the web. */
   request(): Promise<NotificationPermission>;

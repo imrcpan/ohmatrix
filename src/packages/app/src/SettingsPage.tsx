@@ -19,6 +19,7 @@ export function SettingsPage() {
   const controller = useController();
   const services = useServices();
   const prefs = useAppState((s) => s.prefs);
+  const system = services.notifications?.kind === "system";
   const [permission, setPermission] = useState(() => services.notifications?.permission() ?? "unsupported");
   const [confirm, setConfirm] = useState(false);
   const langRef = useRef<ComponentRef<typeof View>>(null);
@@ -71,15 +72,25 @@ export function SettingsPage() {
         </Group>
         <Group
           title={t("notifications")}
-          footer={t(permission === "denied" ? "notif.footer.denied" : permission === "unsupported" ? "notif.footer.unsupported" : "notif.footer.default")}
+          footer={t(
+            permission === "denied"
+              ? system
+                ? "notif.footer.deniedSystem"
+                : "notif.footer.denied"
+              : permission === "unsupported"
+                ? system
+                  ? "notif.footer.unsupportedSystem"
+                  : "notif.footer.unsupported"
+                : "notif.footer.default",
+          )}
         >
           <Item
-            label={t("notif.desktop")}
+            label={t("notif.messages")}
             icon="bell"
             chevron={false}
             right={
               <Toggle
-                label={t("notif.desktop")}
+                label={t("notif.messages")}
                 value={prefs.notifications && permission === "granted"}
                 disabled={permission === "unsupported"}
                 onChange={(on) => {

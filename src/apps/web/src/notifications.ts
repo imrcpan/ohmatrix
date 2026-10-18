@@ -4,6 +4,7 @@ import type { NotificationPermission, SystemNotifications } from "@ohmatrix/core
 export function createWebNotifications(): SystemNotifications {
   const supported = typeof Notification !== "undefined";
   return {
+    kind: "browser",
     permission: () => (supported ? (Notification.permission as NotificationPermission) : "unsupported"),
     request: async () => (supported ? ((await Notification.requestPermission()) as NotificationPermission) : "unsupported"),
     isActive: () => document.visibilityState === "visible" && document.hasFocus(),
