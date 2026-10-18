@@ -1,5 +1,5 @@
-import { ActivityIndicator, View } from "react-native";
-import { InsetsContext, ScaleProvider, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
+import { View } from "react-native";
+import { InsetsContext, ScaleProvider, Spinner, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
 import type { ReactNode } from "react";
 import { useStore } from "zustand";
 import type { AppServices } from "@ohmatrix/core";
@@ -36,7 +36,7 @@ function Root(props: { defaultHomeserver: string }) {
   if (auth === "booting") {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.textSecondary} />
+        <Spinner />
       </View>
     );
   }
@@ -87,6 +87,24 @@ function Showing(props: { manager: AccountManager; services: AppServices; childr
       <NotificationsBridge />
       {props.children}
     </AppProviders>
+  );
+}
+
+/** Before the app is there (a phone is still reading its accounts): the theme's background and a big circle in its colour. */
+export function BootScreen() {
+  return (
+    <ThemeProvider themeId="system">
+      <Booting />
+    </ThemeProvider>
+  );
+}
+
+function Booting() {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
+      <Spinner />
+    </View>
   );
 }
 

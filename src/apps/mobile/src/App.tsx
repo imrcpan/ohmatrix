@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
 import { Directory, File, Paths } from "expo-file-system";
@@ -7,7 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import type { AppServices } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAccountManager, type AccountManager } from "@ohmatrix/state";
-import { App as SharedApp } from "@ohmatrix/app";
+import { App as SharedApp, BootScreen } from "@ohmatrix/app";
 import { createAccountStore, createSessionStore, databasePassphrase, inAccountDir, pathOfFileUri } from "./secureStorage.js";
 import { phoneServices } from "./platform.js";
 import { shellInsets } from "./shellInsets.js";
@@ -74,12 +74,7 @@ function Boot() {
   useEffect(() => {
     void getManager().then(setManager);
   }, []);
-  if (!manager)
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+  if (!manager) return <BootScreen />;
   // EXPO_PUBLIC_DEFAULT_HOMESERVER: a development server to offer on the sign-in screen (the way the web app does).
   return (
     <SharedApp

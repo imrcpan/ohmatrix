@@ -11,6 +11,7 @@ export { Menu, type MenuItem, type Anchor } from "./Menu.js";
 export { EllipsisText } from "./EllipsisText.js";
 export { truncateWithDots } from "./truncate.js";
 export { Toggle } from "./Toggle.js";
+export { Spinner } from "./Spinner.js";
 export { ImageViewer, fitSize } from "./ImageViewer.js";
 export { VideoViewer } from "./VideoViewer.js";
 export { TopNotice } from "./TopNotice.js";

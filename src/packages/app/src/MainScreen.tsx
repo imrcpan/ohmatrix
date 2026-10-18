@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
-import { Icon, TextButton, fontFamily, useTheme, useViewport } from "@ohmatrix/ui";
+import { Text, View } from "react-native";
+import { Icon, Spinner, TextButton, fontFamily, useTheme, useViewport } from "@ohmatrix/ui";
 import { ChatPane } from "./chat/ChatPane.js";
 import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
@@ -42,7 +42,7 @@ function RoomGate({ roomId, children }: { roomId: string; children: ReactNode })
           <TextButton title={t("backToChats")} onPress={() => controller.selectRoom(null)} />
         </>
       ) : (
-        <ActivityIndicator color={colors.textSecondary} />
+        <Spinner />
       )}
     </View>
   );
