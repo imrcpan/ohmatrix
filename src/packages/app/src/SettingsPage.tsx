@@ -112,7 +112,7 @@ export function SettingsPage() {
         </Group>
         <Group title={t("about")}>
           <Item label="GitHub" value={REPOSITORY.replace("https://", "")} icon="external" onPress={() => services.openLink?.(REPOSITORY)} />
-          <Item label="OhMatrix" value={`${t("version")} 0.1.0`} icon="info" />
+          <Item label="OhMatrix" value={`${t("version")} ${services.appVersion ?? "dev"}`} icon="info" />
         </Group>
         <Text style={{ textAlign: "center", marginTop: 24, fontSize: 12, fontFamily, color: colors.textSecondary }}>OhMatrix · GPL-3.0</Text>
       </ScrollView>

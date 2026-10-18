@@ -3,8 +3,9 @@
 # instead of aws-lc (aws-lc's symbols clash with React Native's Folly at run time), and builds the shared libraries
 # for the targets in ubrn.yaml. Needs: rustup with the android targets, cargo-ndk, the Android NDK, cmake, clang.
 #
-#   ANDROID_NDK_HOME=... scripts/build-android.sh [--release] [--targets arm64-v8a] [--no-cargo]
-#   (--targets: build for fewer than the targets in ubrn.yaml; --no-cargo: only redo the bindings)
+#   ANDROID_NDK_HOME=... scripts/build-android.sh [--release | --profile NAME] [--targets arm64-v8a] [--no-cargo]
+#   (--profile: a cargo profile of the SDK's Cargo.toml, such as "dist", which is smaller than --release; it wins over --release.
+#    --targets: build for fewer than the targets in ubrn.yaml; --no-cargo: only redo the bindings)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME to the NDK directory}"
@@ -28,3 +29,7 @@ npx ubrn build android --config ubrn.yaml --and-generate "$@"
 # second step, over the same namespaces. The JS entry that installs them is src/bindings.tsx, which is written by hand.
 namespaces=$(cd src/generated && ls *.ts | sed 's/\.ts$//' | grep -v -- '-ffi$')
 npx ubrn generate jsi turbo-module --config ubrn.yaml $namespaces
+
+# The generated C++ of the SDK is one huge constructor with a lambda for each of its 1,400 functions, which takes 7 GB to compile.
+# This turns it into a table and a loop (1.5 GB), registering the same functions. See scripts/shrinkBinding.mjs.
+node scripts/shrinkBinding.mjs cpp/generated
