@@ -122,13 +122,17 @@ export function SearchField(props: { value: string; onChangeText: (v: string) =>
 }
 
 /** Centered dialog card over a dimmed backdrop (iOS alert / Fluent ContentDialog), not a Material sheet. */
-export function Dialog(props: { visible: boolean; title: string; message?: string; children?: ReactNode; onClose: () => void }) {
+/** `onClose` is also what the system's back and Esc do. With `modal`, pressing the dim area around the dialog does not close it: it needs an answer. */
+export function Dialog(props: { visible: boolean; title: string; message?: string; children?: ReactNode; onClose: () => void; modal?: boolean }) {
   const { colors } = useTheme();
   const scale = useScale();
   return (
     <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>
-        <Pressable onPress={props.onClose} style={{ flex: 1, backgroundColor: colors.overlay, alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <Pressable
+          onPress={props.modal ? undefined : props.onClose}
+          style={{ flex: 1, backgroundColor: colors.overlay, alignItems: "center", justifyContent: "center", padding: 24 }}
+        >
           <Pressable onPress={() => {}} style={{ width: "100%", maxWidth: 400, borderRadius: 16, backgroundColor: colors.bg, padding: 20, gap: 14 }}>
             <Text style={{ fontSize: 19, fontWeight: "700", fontFamily, color: colors.text, textAlign: "center" }}>{props.title}</Text>
             {!!props.message && (

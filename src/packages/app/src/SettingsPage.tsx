@@ -5,6 +5,7 @@ import { useAppState, useController, useLocale, useServices, useT } from "./cont
 import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
 import { ThemeGrid } from "./ThemeGrid.js";
+import { useZoomChange } from "./useZoomChange.js";
 
 /** The project page, opened outside the app from the About group. */
 const REPOSITORY = "https://github.com/imrcpan/ohmatrix";
@@ -25,6 +26,7 @@ export function SettingsPage() {
   const scaleRef = useRef<ComponentRef<typeof View>>(null);
   const [scaleAnchor, setScaleAnchor] = useState<Anchor | null>(null);
   const [scaleMenu, setScaleMenu] = useState(false);
+  const zoom = useZoomChange();
   const current = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
 
   return (
@@ -131,9 +133,20 @@ export function SettingsPage() {
         items={SCALES.map((v) => ({
           label: `${Math.round(v * 100)}%`,
           checked: v === prefs.uiScale,
-          onPress: () => controller.setPreferences({ uiScale: v }),
+          onPress: () => zoom.start(v),
         }))}
       />
+      {/* Not saved until Keep: left alone, the zoom goes back by itself when the time is up. */}
+      <Dialog
+        visible={!!zoom.trial}
+        title={t("zoom.confirm.title")}
+        message={t("zoom.confirm.body", { n: zoom.left, from: `${Math.round((zoom.trial?.from ?? 1) * 100)}%` })}
+        onClose={zoom.revert}
+        modal
+      >
+        <PrimaryButton title={t("zoom.confirm.keep")} onPress={zoom.keep} />
+        <TextButton title={t("zoom.confirm.revert")} onPress={zoom.revert} />
+      </Dialog>
       <Dialog visible={confirm} title={t("signOut.title")} message={t("signOut.body")} onClose={() => setConfirm(false)}>
         <PrimaryButton
           title={t("signOut")}
