@@ -93,7 +93,6 @@ export function RoomSettingsSections(props: {
   const [aliasPrompt, setAliasPrompt] = useState(false);
   const [levelPrompt, setLevelPrompt] = useState<keyof PowerThresholds | null>(null);
   const [aliasMenu, setAliasMenu] = useState<{ alias: string; anchor: Anchor } | null>(null);
-  const [bannedMenu, setBannedMenu] = useState<{ userId: string; anchor: Anchor } | null>(null);
 
   const act = (p: Promise<unknown>) => void p.catch(report);
   const thresholds = props.space ? THRESHOLDS.filter((x) => x.key !== "sendMessages" && x.key !== "redact") : THRESHOLDS;
@@ -153,18 +152,10 @@ export function RoomSettingsSections(props: {
         ))}
       </Group>
 
+      {/* Nobody is listed here (there can be thousands): the page behind View all lists them. */}
       {d.banned.length > 0 && (
         <Group title={`${t("banned.title")} · ${d.banned.length}`}>
-          {d.banned.map((b) => (
-            <AnchoredPress
-              key={b.userId}
-              label={b.name}
-              subtitle={[b.name !== b.userId ? b.userId : "", b.reason ?? ""].filter(Boolean).join(" · ") || undefined}
-              icon="close"
-              disabled={!d.can.ban}
-              onOpen={(anchor) => setBannedMenu({ userId: b.userId, anchor })}
-            />
-          ))}
+          <Item label={t("viewAll")} onPress={() => controller.openInfoPage("banned")} />
         </Group>
       )}
 
@@ -182,12 +173,6 @@ export function RoomSettingsSections(props: {
               ]
             : []
         }
-      />
-      <Menu
-        visible={!!bannedMenu}
-        anchor={bannedMenu?.anchor ?? null}
-        onClose={() => setBannedMenu(null)}
-        items={bannedMenu ? [{ label: t("unban"), icon: "user" as const, onPress: () => act(admin.unban(d.id, bannedMenu.userId)) }] : []}
       />
       <PromptDialog
         visible={aliasPrompt}

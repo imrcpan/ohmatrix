@@ -1,74 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, contentText } from "@ohmatrix/core";
-import { Avatar, Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem, useNavBottom } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Menu, Spinner, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem, useNavBottom } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
-import { levelLabel, RoomSettingsSections } from "./RoomSettings.js";
+import { MEMBERS_SHOWN, topMembers } from "./memberOrder.js";
+import { BannedPage, MemberRow, MembersPage } from "./RoomPeople.js";
+import { RoomSettingsSections } from "./RoomSettings.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
-import { SharedMedia } from "./SharedMedia.js";
+import { SharedMediaPage, SharedMediaPreview } from "./SharedMedia.js";
+import { SlidePanel } from "./SlidePanel.js";
 import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const ROLE_POWER: Record<MemberRole, number> = { member: 0, moderator: 50, admin: 100 };
-
-function MemberRow(props: { member: RoomMember; onPress?: ((anchor: Anchor) => void) | undefined }) {
-  const { colors } = useTheme();
-  const t = useT();
-  const m = props.member;
-  const avatar = useMediaUrl(m.avatar, { width: 72, height: 72, fit: "crop" });
-  const tag = m.invited
-    ? t("invited")
-    : m.power === 100 || !Number.isFinite(m.power)
-      ? t("role.admin")
-      : m.power === 50
-        ? t("role.moderator")
-        : m.power > 100
-          ? levelLabel(m.power, t)
-          : m.power > 0
-            ? t("level.custom", { n: m.power })
-            : null;
-  const body = (hovered?: boolean, pressed?: boolean) => (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        minHeight: 54,
-        marginHorizontal: 6,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-      }}
-    >
-      <Avatar id={m.userId} name={m.name} size={36} src={avatar} />
-      <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={{ fontSize: 16, fontFamily, color: colors.text }}>
-          {m.name}
-        </Text>
-        <Text numberOfLines={1} selectable style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
-          {m.userId}
-        </Text>
-      </View>
-      {tag && <Text style={{ fontSize: 13, fontFamily, color: m.invited ? colors.textSecondary : colors.accent }}>{tag}</Text>}
-      {props.onPress && <Icon name="more" size={18} color={colors.textTertiary} />}
-    </View>
-  );
-  if (!props.onPress) return body();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={m.name}
-      onPress={(e) => {
-        const n = e.nativeEvent as { pageX?: number; pageY?: number };
-        props.onPress!({ x: n.pageX ?? 0, y: n.pageY ?? 0, width: 0, height: 0 });
-      }}
-    >
-      {({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => body(hovered, pressed)}
-    </Pressable>
-  );
-}
 
 /** Chat info: avatar, name, topic, address, encryption, mute, members (with management), shared media, leave/delete. */
 export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" }) {
@@ -111,6 +57,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
 
   const direct = d?.isDirect ?? false;
   const joined = d?.members.filter((m) => !m.invited).length ?? 0;
+  // The most powerful few; the rest is behind View all. One pass over the members, however many there are.
+  const firstMembers = useMemo(() => topMembers(d?.members ?? []), [d?.members]);
   const title = direct ? t("userInfo") : forSpace ? t("spaceInfo") : t("groupInfo");
   const close = () => (forSpace ? controller.openSpaceInfo(false) : controller.openRoomInfo(false));
   const report = (e: unknown) => setProblem(e instanceof EngineError && e.code === "forbidden" ? t("notAllowed") : e instanceof Error ? e.message : String(e));
@@ -139,11 +87,15 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     return out;
   };
 
+  const actionable = useCallback((m: RoomMember) => manageable(m) && memberMenu(m).length > 0, [d, myPower]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onMemberAction = useCallback((member: RoomMember, anchor: Anchor) => setMenu({ member, anchor }), []);
+
   const changePhoto = async () => {
     const [file] = (await services.pickFiles?.()) ?? [];
     if (file && d) await controller.roomAdmin.setAvatar(d.id, file).catch(report);
   };
   const canEdit = !!d?.can.editInfo;
+  const infoPage = useAppState((st) => st.infoPage);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -165,7 +117,13 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 {d.name}
               </Text>
               <Text style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
-                {direct ? t("directChat") : `${forSpace ? `${t("space")} · ` : ""}${joined === 1 ? t("member.one") : t("members", { n: joined })}`}
+                {direct
+                  ? t("directChat")
+                  : d.peopleLoading
+                    ? forSpace
+                      ? t("space")
+                      : "\u00A0" // the count follows when the people have been read: the line keeps its height meanwhile
+                    : `${forSpace ? `${t("space")} · ` : ""}${joined === 1 ? t("member.one") : t("members", { n: joined })}`}
               </Text>
             </View>
             {!!problem && (
@@ -181,9 +139,6 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                   chevron={canEdit}
                 />
               )}
-              {(!!d.topic || canEdit) && !direct && (
-                <Item label={t("topic")} value={d.topic ?? t("room.noTopic")} onPress={canEdit ? () => setEdit("topic") : undefined} chevron={canEdit} />
-              )}
               <Item label={t("address")} value={d.alias ?? d.id} copyable />
               {/* A space is a container with no conversation of its own to encrypt. */}
               {!forSpace && (
@@ -192,6 +147,33 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                   {...(d.isEncrypted ? { valueIcon: "lock" as const } : {})}
                   value={d.isEncrypted ? t("room.encrypted") : t("room.notEncrypted")}
                 />
+              )}
+              {!direct && (
+                <>
+                  {/* The text can be long, so it does not sit in the row's value (one line, cut): the row only says Edit, and the text is spread out under it. */}
+                  <Item
+                    label={t("topic")}
+                    {...(canEdit ? { value: t("modify") } : {})}
+                    onPress={canEdit ? () => setEdit("topic") : undefined}
+                    chevron={canEdit}
+                  />
+                  {/* A card in the grouped-surface colour (like the share link and the recovery key), as far in as the group's title. */}
+                  <View
+                    style={{
+                      marginHorizontal: 18, // the same as the group's title (About)
+                      marginTop: 2,
+                      marginBottom: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      backgroundColor: colors.bgSecondary,
+                    }}
+                  >
+                    <Text selectable style={{ fontSize: 15, lineHeight: 21, fontFamily, color: d.topic?.trim() ? colors.text : colors.textTertiary }}>
+                      {d.topic?.trim() ? d.topic : t("room.noTopic")}
+                    </Text>
+                  </View>
+                </>
               )}
             </Group>
             {forSpace && (
@@ -219,7 +201,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 />
               </Group>
             )}
-            {!forSpace && <SharedMedia roomId={d.id} />}
+            {!forSpace && <SharedMediaPreview roomId={d.id} onMore={() => controller.openInfoPage("media")} />}
             {!forSpace && pinned.length > 0 && (
               <Group title={t("pinned.title")}>
                 {pinned.map((m) => (
@@ -233,11 +215,18 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 ))}
               </Group>
             )}
-            <Group title={direct ? t("participant") : `${t("membersTitle")} · ${d.members.length}`}>
+            <Group title={direct ? t("participant") : d.peopleLoading ? t("membersTitle") : `${t("membersTitle")} · ${d.members.length}`}>
               {d.can.invite && <Item label={t("room.invite")} icon="userPlus" chevron={false} onPress={() => setInviting(true)} />}
-              {d.members.map((m) => (
-                <MemberRow key={m.userId} member={m} onPress={manageable(m) && memberMenu(m).length ? (anchor) => setMenu({ member: m, anchor }) : undefined} />
+              {/* The people are read after the page is up (a room can have thousands): a row of the same height as one of them waits for them. */}
+              {d.peopleLoading && (
+                <View style={{ height: 54, alignItems: "center", justifyContent: "center" }}>
+                  <Spinner size={26} />
+                </View>
+              )}
+              {firstMembers.map((m) => (
+                <MemberRow key={m.userId} member={m} actionable={actionable(m)} onAction={onMemberAction} />
               ))}
+              {d.members.length > MEMBERS_SHOWN && <Item label={t("viewAll")} onPress={() => controller.openInfoPage("members")} />}
             </Group>
             <Group>
               <Item label={direct ? t("deleteChat") : forSpace ? t("space.leave") : t("leaveGroup")} danger chevron={false} onPress={() => setConfirm(true)} />
@@ -337,6 +326,23 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         />
         <TextButton title={t("cancel")} onPress={() => setConfirm(false)} />
       </Dialog>
+      {/* Pages that slide in from the right over this panel; each is mounted only while it is open. */}
+      {!forSpace && !!d && (
+        <SlidePanel mode="overlay" open={infoPage === "members"}>
+          <MembersPage d={d} onBack={() => controller.openInfoPage(null)} actionable={actionable} onAction={onMemberAction} />
+        </SlidePanel>
+      )}
+      {!forSpace && !!d && (
+        <SlidePanel mode="overlay" open={infoPage === "banned"}>
+          <BannedPage d={d} onBack={() => controller.openInfoPage(null)} report={report} />
+        </SlidePanel>
+      )}
+      {/* The whole gallery slides in from the right over this panel; it is mounted only while it is open. */}
+      {!forSpace && !!d && (
+        <SlidePanel mode="overlay" open={infoPage === "media"}>
+          <SharedMediaPage roomId={d.id} onBack={() => controller.openInfoPage(null)} />
+        </SlidePanel>
+      )}
     </View>
   );
 }

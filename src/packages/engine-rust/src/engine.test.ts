@@ -142,7 +142,7 @@ class FakeRoom implements SdkRoom {
     levels: { invite: 0, kick: 50, ban: 50, redact: 50, eventsDefault: 0, stateDefault: 50 },
     can: { invite: true, kick: true, ban: true, pin: true, editName: true, editTopic: true, joinRules: true, history: true, levels: true },
   };
-  async details() {
+  async details(_opts?: { people?: boolean }) {
     return this.detailsNow;
   }
   private record =
@@ -530,15 +530,46 @@ test("the chat info is read when subscribed and again when the room changes, one
   const seen: string[] = [];
   const stop = engine.rooms.subscribeDetails("!r", (d) => seen.push(d.name));
   await tickMany();
-  expect(seen).toEqual(["Room"]);
+  expect(seen).toEqual(["Room", "Room"]); // the basics, then the same with the people
   room.detailsNow = { ...room.detailsNow, name: "Renamed" };
   room.infoCb?.(info("!r"));
   await tickMany();
-  expect(seen).toEqual(["Room", "Renamed"]);
+  expect(seen).toEqual(["Room", "Room", "Renamed"]); // a change does not send the people-less version again
   stop();
   room.infoCb?.(info("!r"));
   await tickMany();
-  expect(seen).toHaveLength(2);
+  expect(seen).toHaveLength(3);
+});
+
+test("the chat info goes out at once without the people, which follow when they have been read", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  const person = { userId: "@a:s", displayName: "Ann", power: 0, membership: "Join" as const };
+  room.detailsNow = { ...room.detailsNow, members: [person] };
+  client.rooms.set("!r", room);
+  // The people take as long as they take: the full read does not finish until it is let.
+  let finish!: () => void;
+  const finished = new Promise<void>((r) => (finish = r));
+  const asked: Array<{ people?: boolean } | undefined> = [];
+  const original = room.details.bind(room);
+  room.details = async (opts) => {
+    asked.push(opts);
+    if (opts?.people !== false) await finished;
+    return original();
+  };
+  const seen: Array<{ loading: boolean; people: number }> = [];
+  const stop = engine.rooms.subscribeDetails("!r", (d) => seen.push({ loading: !!d.peopleLoading, people: d.members.length }));
+  await tickMany();
+  expect(seen).toEqual([{ loading: true, people: 0 }]); // out already, with nobody yet
+  expect(asked[0]).toEqual({ people: false });
+  finish();
+  await tickMany();
+  expect(seen).toEqual([
+    { loading: true, people: 0 },
+    { loading: false, people: 1 },
+  ]);
+  stop();
 });
 
 test("subscribing to an unknown room fails as not found", async () => {

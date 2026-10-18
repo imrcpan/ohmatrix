@@ -255,6 +255,105 @@ test("replies: reply from the context menu shows a quote in the bubble", async (
   await shot(page, "14-reply");
 });
 
+test("performance: a group of 5,000 members and 5,000 banned people lists ten, and the full lists are virtual pages", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openFreshGroup(page, "Big");
+
+  // A server with ten thousand accounts is not on hand: the room's details are replaced, as the engine would give them, by 5,000 members
+  // (the room's creator, 4 admins, 20 moderators and the rest) and 5,000 banned people. Everything from there on is the real interface.
+  await page.evaluate(() => {
+    type D = { members: unknown[]; banned: unknown[]; can: Record<string, boolean> } & Record<string, unknown>;
+    const w = window as unknown as { __ohmatrix: { controller: { subscribeRoomDetails(id: string, cb: (d: D) => void): () => void } } };
+    const c = w.__ohmatrix.controller;
+    const original = c.subscribeRoomDetails.bind(c);
+    const pad = (n: number) => String(n).padStart(5, "0");
+    const members = Array.from({ length: 4999 }, (_, i) => ({
+      userId: `@member${pad(i)}:localhost`,
+      name: `Member ${pad(i)}`,
+      role: i < 4 ? "admin" : i < 24 ? "moderator" : "member",
+      power: i < 4 ? 100 : i < 24 ? 50 : 0,
+    }));
+    const banned = Array.from({ length: 5000 }, (_, i) => ({ userId: `@banned${pad(i)}:localhost`, name: `Banned ${pad(i)}`, reason: `reason ${i}` }));
+    // As the engines now do: the basics go out at once without the people, and the people follow when they have been read (here 1.5 s,
+    // far more than reading 10,000 people should take, so that what is on screen before then is plain to see).
+    c.subscribeRoomDetails = (id, cb) => {
+      const since = Date.now();
+      return original(id, (d) => {
+        if (d.peopleLoading) return cb({ ...d, members: [], banned: [] }); // the engine's own first, people-less version
+        const full = { ...d, members: [...d.members.slice(0, 1), ...members], banned, can: { ...d.can, ban: true, kick: true, changeRoles: true } };
+        setTimeout(() => cb(full), Math.max(0, 1500 - (Date.now() - since)));
+      });
+    };
+    // What stalls the page for long is written down, to be sure nothing here holds it up.
+    const longest = { ms: 0 };
+    (window as unknown as { __long: typeof longest }).__long = longest;
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) longest.ms = Math.max(longest.ms, e.duration);
+    }).observe({ entryTypes: ["longtask"] });
+  });
+  const longest = async () => page.evaluate(() => (window as unknown as { __long: { ms: number } }).__long.ms);
+  const rows = (re: RegExp) => page.getByRole("button", { name: re });
+
+  // The chat info is up at once, before the people have been read, with a circle where they will be.
+  const opened = Date.now();
+  await page.getByRole("button", { name: "Chat info", exact: true }).click();
+  await expect(page.getByText("Group info", { exact: true })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText("Members", { exact: true })).toBeVisible();
+  const upAfter = Date.now() - opened;
+  console.log(`chat info up, people not read yet: ${upAfter} ms`);
+  expect(upAfter).toBeLessThan(1000);
+  expect(await rows(/^Member \d{5}$/).count()).toBe(0);
+  // When the people arrive: the ten most powerful members, in order, one View all under them, and one under Banned with nobody listed.
+  await expect(page.getByText("Members · 5000", { exact: true })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("button", { name: "View all" })).toHaveCount(2);
+  console.log(`chat info with the people: ${Date.now() - opened} ms`);
+  expect(await rows(/^Member \d{5}$/).count()).toBeLessThanOrEqual(10);
+  const first = await rows(/^Member \d{5}$/).evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  expect(first.slice(0, 4)).toEqual(["Member 00000", "Member 00001", "Member 00002", "Member 00003"]); // admins before moderators before members
+  expect(first.at(-1)).toBe("Member 00008"); // the first nine after the creator are four admins and five moderators
+  await expect(page.getByText("Banned · 5000", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Banned 0000\d/)).toHaveCount(0); // nobody banned is listed
+
+  // The members page: a virtual list. Only the rows near the screen exist, and the end is reachable.
+  const list = (id: string) => page.locator(`[data-testid="${id}"]`);
+  let t = Date.now();
+  // (in the chat info the Banned section is above the Members one)
+  await page.getByRole("button", { name: "View all" }).last().click();
+  await expect(page.getByText("Members · 5000", { exact: true }).last()).toBeVisible();
+  await expect(list("members-list").getByRole("button", { name: "Member 00000" })).toBeVisible({ timeout: 10000 });
+  console.log(`members page: ${Date.now() - t} ms`);
+  expect(Date.now() - t).toBeLessThan(3000);
+  const inDom = await rows(/^Member \d{5}$/).count();
+  expect(inDom).toBeGreaterThan(5);
+  expect(inDom).toBeLessThan(90); // not 5,000
+  t = Date.now();
+  await list("members-list").evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await expect(rows(/^Member 04998$/)).toBeVisible({ timeout: 10000 });
+  console.log(`members page scrolled to the end: ${Date.now() - t} ms`);
+  expect(await rows(/^Member \d{5}$/).count()).toBeLessThan(90);
+  // The page's back button is named after what is under it, so it shares its name with the chat header's button (which comes first).
+  await page.getByRole("button", { name: "Chat info", exact: true }).last().click();
+
+  // The banned page, the same.
+  await expect(list("members-list")).toHaveCount(0, { timeout: 5000 });
+  t = Date.now();
+  await page.getByRole("button", { name: "View all" }).first().click();
+  await expect(list("banned-list").getByRole("button", { name: "Banned 00000" })).toBeVisible({ timeout: 10000 });
+  console.log(`banned page: ${Date.now() - t} ms`);
+  expect(Date.now() - t).toBeLessThan(3000);
+  expect(await rows(/^Banned \d{5}$/).count()).toBeLessThan(90);
+  await list("banned-list").evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await expect(rows(/^Banned 04999$/)).toBeVisible({ timeout: 10000 });
+  expect(await rows(/^Banned \d{5}$/).count()).toBeLessThan(90);
+  await page.getByRole("button", { name: "Chat info", exact: true }).last().click();
+
+  const stall = await longest();
+  console.log(`longest stall of the page: ${Math.round(stall)} ms`);
+  expect(stall).toBeLessThan(800);
+});
+
 test("copy: a text message's menu starts with Copy, and a reply copies its own words, not the quote", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
@@ -1282,10 +1381,12 @@ test("room administration UI: edit name and topic, invite, roles, remove, mute",
   await page.locator("input").last().fill(renamed);
   await page.getByRole("button", { name: "Save", exact: true }).last().click();
   await expect(page.getByText(renamed).first()).toBeVisible({ timeout: 15000 });
-  await page.getByRole("button", { name: "Topic", exact: true }).click();
+  await expect(page.getByText("No description", { exact: true })).toBeVisible(); // nothing written yet
+  await page.getByRole("button", { name: "Description", exact: true }).click();
   await page.locator("textarea").last().fill("Only shipping on Fridays");
   await page.getByRole("button", { name: "Save", exact: true }).last().click();
   await expect(page.getByText("Only shipping on Fridays")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("No description", { exact: true })).toBeHidden(); // replaced by it
   await shot(page, "38-room-admin");
 
   // Invite another person through the picker.
@@ -1338,8 +1439,11 @@ test("room administration UI: members without rights see no editing; shared medi
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Invite people" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "alice", exact: true })).toHaveCount(0);
-  // Shared media has a tab per kind and reaches back through the room's history, not only the loaded messages.
+  // The chat info shows one row of previews and View more; the page behind it has a tab per kind and reaches back through the room's
+  // history, not only the loaded messages.
   await expect(page.getByText("Shared media", { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await page.getByRole("button", { name: "View more", exact: true }).click();
   for (const tab of ["Photos", "Videos", "Audio", "Files"]) await expect(page.getByRole("tab", { name: tab })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Photos" })).toHaveAttribute("aria-selected", "true");
   await shot(page, "39-shared-media");
@@ -2415,12 +2519,16 @@ test("room settings: access, history, addresses, permission levels, custom power
   await expect(page.getByRole("dialog").locator("input")).toHaveValue("");
   await page.getByRole("dialog").locator("input").fill("spam");
   await page.getByRole("button", { name: "Ban", exact: true }).click();
+  // The chat info only counts the banned people; they are listed on the page behind View all.
   await expect(page.getByText(/^Banned · 1$/)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("@bob:localhost · spam")).toHaveCount(0);
+  await page.getByRole("button", { name: "View all" }).first().click();
   await expect(page.getByText("@bob:localhost · spam")).toBeVisible();
   await shot(page, "66-room-banned");
   await page.getByRole("button", { name: /^bob/ }).filter({ hasText: "spam" }).click();
   await page.getByRole("menuitem", { name: "Unban" }).click();
-  await expect(page.getByText(/^Banned/)).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByText("@bob:localhost · spam")).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByText(/^Banned · 1$/)).toHaveCount(0);
   await ctx.close();
 });
 
@@ -2814,24 +2922,49 @@ test("shared media: tabs by kind reach the whole history, open in the viewers, a
 
   await login(page);
   await openRoom(page, `Gallery ${tag}`, new RegExp(`Gallery ${tag}`));
+  // What is asked of the room's history is written down, to see that the chat info alone does not read it all.
+  await page.evaluate(() => {
+    const w = window as unknown as { __sm: unknown[]; __ohmatrix: { controller: { sharedMedia: (r: string, o: unknown) => Promise<unknown> } } };
+    const c = w.__ohmatrix.controller;
+    const original = c.sharedMedia.bind(c);
+    w.__sm = [];
+    c.sharedMedia = (r, o) => (w.__sm.push(o), original(r, o));
+  });
   await page.getByRole("button", { name: "Chat info", exact: true }).click();
   await expect(page.getByText("Shared media", { exact: true })).toBeVisible({ timeout: 15000 });
 
-  // Photos: a first page, then "Load more" until the very first message of the room turns up.
+  // In the chat info: a single row of at most four previews of a fixed height, and only that much was asked for.
   const tiles = () => page.getByRole("button", { name: /\.png$/ });
   await expect(tiles().first()).toBeVisible({ timeout: 15000 });
-  const first = await tiles().count();
+  expect(await tiles().count()).toBe(4);
+  const strip = await tiles().evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(strip).size).toBe(1); // one row
+  const asked = await page.evaluate(() => (window as unknown as { __sm: { kind: string; want?: number; scan?: number }[] }).__sm);
+  expect(asked.length).toBeGreaterThan(0);
+  for (const a of asked) expect(a).toMatchObject({ want: 4, scan: 2 }); // short pages, a little history: not "everything"
+  expect(asked.every((a) => a.kind === "image" || a.kind === "video")).toBe(true);
+  await expect(page.getByRole("tab")).toHaveCount(0);
+
+  // View more opens the gallery as a page of its own, and only now does it load a whole page.
+  await page.getByRole("button", { name: "View more", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Photos" })).toBeVisible();
+  // The four previews are still there under the page: the page's own tiles are the rest.
+  const shown = async () => (await tiles().count()) - 4;
+
+  // Photos: a first page, then "Load more" until the very first message of the room turns up.
+  await expect.poll(shown, { timeout: 15000 }).toBeGreaterThan(0);
+  const first = await shown();
   expect(first).toBeGreaterThan(0);
   await expect(page.getByRole("button", { name: "oldest.png" })).toHaveCount(0);
   expect(first).toBeLessThan(131); // one page is not the whole room
   for (let i = 0; i < 6 && (await page.getByRole("button", { name: "oldest.png" }).count()) === 0; i++) {
-    const before = await tiles().count();
+    const before = await shown();
     await page.getByRole("button", { name: "Load more" }).click();
-    await expect.poll(() => tiles().count(), { timeout: 15000 }).toBeGreaterThan(before);
+    await expect.poll(shown, { timeout: 15000 }).toBeGreaterThan(before);
   }
   await page.getByRole("button", { name: "oldest.png" }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("button", { name: "oldest.png" })).toBeVisible();
-  expect(await tiles().count()).toBe(131);
+  expect(await shown()).toBe(131);
   await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(0); // the room's beginning: nothing left
   await shot(page, "74-shared-photos");
 
@@ -2844,7 +2977,7 @@ test("shared media: tabs by kind reach the whole history, open in the viewers, a
   // Files, video and audio each have their own list, found through the chat and pictures in between.
   await page.getByRole("tab", { name: "Files" }).click();
   await expect(page.getByRole("button", { name: /report\.txt/ })).toBeVisible({ timeout: 15000 });
-  await expect(tiles()).toHaveCount(0);
+  await expect.poll(shown).toBe(0);
   await page.getByRole("tab", { name: "Videos" }).click();
   await expect(page.getByRole("button", { name: "clip.mp4" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("0:03")).toBeVisible();
@@ -2852,7 +2985,7 @@ test("shared media: tabs by kind reach the whole history, open in the viewers, a
   await page.getByRole("tab", { name: "Audio" }).click();
   await expect(page.getByRole("button", { name: /Voice message/ })).toBeVisible({ timeout: 15000 });
   await page.getByRole("tab", { name: "Photos" }).click();
-  expect(await tiles().count()).toBe(131); // switching back keeps what was loaded
+  expect(await shown()).toBe(131); // switching back keeps what was loaded
 });
 
 test("message list: a reply's quote jumps to an original that is not loaded; scroll-to-latest button; date pill", async ({ page }) => {

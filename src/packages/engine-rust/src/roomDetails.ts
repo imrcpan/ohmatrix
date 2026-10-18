@@ -18,13 +18,11 @@ const memberOf = (m: RawMember): RoomMember => ({
 
 /**
  * The chat-info panel's details from what the SDK holds. One-to-one chats have nothing to administer, so nothing is
- * allowed there (as in the other engine). Joined people come first, then invited ones, each by name.
+ * allowed there (as in the other engine). The people are in the order the SDK gave them: whoever shows them puts them in the order it
+ * wants (sorting thousands of names here is time the info page waits for, and the page sorts what it shows anyway).
  */
-export function toRoomDetails(raw: RawRoomDetails): RoomDetails {
-  const members = raw.members
-    .filter((m) => m.membership === "Join" || m.membership === "Invite")
-    .map(memberOf)
-    .sort((a, b) => Number(a.invited ?? false) - Number(b.invited ?? false) || a.name.localeCompare(b.name));
+export function toRoomDetails(raw: RawRoomDetails, peopleLoading = false): RoomDetails {
+  const members = raw.members.filter((m) => m.membership === "Join" || m.membership === "Invite").map(memberOf);
   const banned = raw.members
     .filter((m) => m.membership === "Ban")
     .map((m) => ({ userId: m.userId, name: m.displayName || m.userId, ...(m.reason && { reason: m.reason }) }));
@@ -49,6 +47,7 @@ export function toRoomDetails(raw: RawRoomDetails): RoomDetails {
       changeLevels: levels.stateDefault,
     },
     banned,
+    ...(peopleLoading && { peopleLoading: true }),
     isDirect: raw.isDirect,
     isEncrypted: raw.isEncrypted,
     members,
