@@ -3423,6 +3423,7 @@ test("several accounts: add one, both stay signed in after a reload, switch betw
   await inputs.nth(2).press("Enter");
   await expect(page.getByText("This account has already been added.")).toBeVisible({ timeout: 20000 });
   await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible(); // the sign-in slides away first
   expect(await shown()).toBe("@test:localhost");
 
   // An account that could not start shows its sign-in screen: with another account there, that screen offers a way over to it.

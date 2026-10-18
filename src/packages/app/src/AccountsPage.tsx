@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { Avatar, Dialog, fontFamily, Menu, PrimaryButton, TextButton, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import type { AccountSummary } from "@ohmatrix/state";
 import { useAccountManager, useAccountsState, useController, useT } from "./context.js";
-import { Group, Item, PageHeader } from "./settings/kit.js";
+import { Group, PageHeader } from "./settings/kit.js";
 import { useMediaUrl } from "./useMedia.js";
 
 /** One signed-in account: picture, name, address, and either a mark (the one in use) or its unread badge. Press to switch, long press or right click for more. */
@@ -79,6 +79,49 @@ function AccountRow(props: { account: AccountSummary; current: boolean; onPress(
   );
 }
 
+/** The first row of the list: the same shape as an account's, with the add icon where the picture is and one line of text, centred. */
+function AddAccountRow(props: { onPress(): void }) {
+  const { colors, dark } = useTheme();
+  const t = useT();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={t("addAccount")} onPress={props.onPress}>
+      {({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 14,
+            minHeight: 64,
+            marginHorizontal: 6,
+            paddingHorizontal: 12,
+            borderRadius: 12,
+            backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+          }}
+        >
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: dark ? colors.separator : "rgba(60,60,67,0.11)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {/* The glyph's weight is on its left (the person), so it is nudged right to look centred. */}
+            <View style={{ marginLeft: 3 }}>
+              <Icon name="userPlus" size={22} color={colors.textSecondary} />
+            </View>
+          </View>
+          <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>
+            {t("addAccount")}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 /** The accounts page, opened from "Switch Account" on the profile: every account (all of them keep syncing), and a way to add one. */
 export function AccountsPage() {
   const { colors } = useTheme();
@@ -96,6 +139,7 @@ export function AccountsPage() {
       <PageHeader title={t("accounts")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 + nav }}>
         <Group>
+          <AddAccountRow onPress={() => manager.beginAdd()} />
           {accounts.map((a) => (
             <AccountRow
               key={a.userId}
@@ -105,9 +149,6 @@ export function AccountsPage() {
               onMenu={(at) => setMenu({ account: a, at })}
             />
           ))}
-        </Group>
-        <Group>
-          <Item label={t("addAccount")} icon="userPlus" onPress={() => manager.beginAdd()} />
         </Group>
       </ScrollView>
       <Menu

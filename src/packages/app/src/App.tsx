@@ -1,6 +1,6 @@
-import { View } from "react-native";
+import { useEffect, useRef, type ReactNode } from "react";
+import { Animated, Easing, Platform, View, useWindowDimensions } from "react-native";
 import { InsetsContext, ScaleProvider, Spinner, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
-import type { ReactNode } from "react";
 import { useStore } from "zustand";
 import type { AppServices } from "@ohmatrix/core";
 import type { AccountManager } from "@ohmatrix/state";
@@ -18,14 +18,58 @@ function BackBridge() {
   return null;
 }
 
+/**
+ * The add-account screen drops in from the top and, when it is left by going back, goes up again. It is only for adding: a sign-in
+ * that is the first screen of the app, or one that ends in an account, is just swapped.
+ */
+function useDrop(active: boolean) {
+  const height = useWindowDimensions().height;
+  const y = useRef(new Animated.Value(active ? -height : 0)).current;
+  const going = useRef(false);
+  const mounted = useRef(true);
+  const native = Platform.OS !== "web";
+  useEffect(() => {
+    mounted.current = true;
+    if (active) Animated.timing(y, { toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: native }).start();
+    return () => {
+      mounted.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const leave = (done: () => void) => {
+    if (going.current) return;
+    going.current = true;
+    Animated.timing(y, { toValue: -height, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: native }).start(() => {
+      done();
+      // Going back can be refused (the sign-in is still going on): then the screen has to come back down.
+      setTimeout(() => {
+        if (!mounted.current) return;
+        going.current = false;
+        Animated.timing(y, { toValue: 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: native }).start();
+      }, 60);
+    });
+  };
+  return { y, leave };
+}
+
 function Root(props: { defaultHomeserver: string }) {
   const { colors } = useTheme();
   const auth = useAppState((s) => s.auth);
   const manager = useAccountManager();
   const t = useT();
   const adding = useAccountsState((s) => s.adding && s.accounts.length > 0);
+  const drop = useDrop(adding);
   // Another account that is there to go to, when the one showing has no sign-in of its own to offer (it could not start).
   const other = useAccountsState((s) => s.accounts.find((a) => a.userId !== s.currentKey)?.userId);
+  // Never a dead end while there is another account: adding one has a way back to the account that was showing, and an account
+  // that could not start (no network, a store that would not open) has a way over to another one.
+  const back = adding
+    ? { label: t("back"), onPress: () => drop.leave(() => manager.cancelAdd()) }
+    : other
+      ? { label: t("switchAccount"), onPress: () => manager.switchTo(other) }
+      : undefined;
+  // The platform's back takes the same way out as the button on the screen, rather than leaving the app.
+  useBackHandler(auth !== "signedIn" && back ? () => (back.onPress(), true) : null);
   if (auth === "signedIn")
     return (
       <>
@@ -40,14 +84,8 @@ function Root(props: { defaultHomeserver: string }) {
       </View>
     );
   }
-  // Never a dead end while there is another account: adding one has a way back to the account that was showing, and an account
-  // that could not start (no network, a store that would not open) has a way over to another one.
-  const back = adding
-    ? { label: t("back"), onPress: () => manager.cancelAdd() }
-    : other
-      ? { label: t("switchAccount"), onPress: () => manager.switchTo(other) }
-      : undefined;
-  return <LoginScreen defaultHomeserver={props.defaultHomeserver} back={back} />;
+  const login = <LoginScreen defaultHomeserver={props.defaultHomeserver} back={back} />;
+  return adding ? <Animated.View style={{ flex: 1, transform: [{ translateY: drop.y }] }}>{login}</Animated.View> : login;
 }
 
 /**
