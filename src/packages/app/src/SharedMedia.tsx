@@ -140,80 +140,12 @@ function MediaViewer(props: { item: TimelineItem | null; onClose: () => void }) 
   );
 }
 
-/** How many previews the one row of the chat info holds. */
-const PREVIEW_COUNT = 4;
-const PREVIEW_GAP = 6;
-/** Long enough for the info panel to finish sliding in before the scan starts (see SlidePanel). */
-const PREVIEW_START_DELAY_MS = 350;
-
-/**
- * The room's shared media in the chat info: one row of the newest pictures and videos, of a height that does not change (so the page does
- * not jump as they arrive), and a View more row that opens the whole gallery. Only what the row shows is fetched: one short page of
- * pictures and one of videos, looking through a little of the history; the rest waits for View more.
- */
-export function SharedMediaPreview(props: { roomId: string; onMore: () => void }) {
+/** The room's shared media in the chat info: only a View more row, which opens the gallery. Nothing is fetched until it is pressed. */
+export function SharedMediaPreview(props: { onMore: () => void }) {
   const t = useT();
-  const { colors } = useTheme();
-  const controller = useController();
-  const [items, setItems] = useState<TimelineItem[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [width, setWidth] = useState(300);
-  const [viewing, setViewing] = useState<TimelineItem | null>(null);
-  const tile = Math.max(48, Math.floor((width - 36 - PREVIEW_GAP * (PREVIEW_COUNT - 1)) / PREVIEW_COUNT));
-
-  // The scan never holds up the chat info: it starts only after the panel has slid in (its own animation is 260 ms; on the web the
-  // history is read and decrypted on the same thread), it asks for pictures and then videos one after the other, and each answer is shown
-  // as it comes. The row has its final height from the first frame, so nothing moves when they arrive.
-  useEffect(() => {
-    let live = true;
-    setItems(null);
-    setFailed(false);
-    const found: TimelineItem[] = [];
-    const timer = setTimeout(() => {
-      void (async () => {
-        let errors = 0;
-        for (const kind of ["image", "video"] as const) {
-          try {
-            const page = await controller.sharedMedia(props.roomId, { kind, want: PREVIEW_COUNT, scan: 2 });
-            found.push(...page.items);
-          } catch {
-            errors++;
-          }
-          if (!live) return;
-          setItems([...found].sort((x, y) => y.ts - x.ts).slice(0, PREVIEW_COUNT));
-        }
-        if (live && errors === 2) setFailed(true);
-      })();
-    }, PREVIEW_START_DELAY_MS);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [controller, props.roomId, attempt]);
-
   return (
     <Group title={t("sharedMedia")}>
-      <View
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        style={{ height: tile + 20, paddingVertical: 10, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: PREVIEW_GAP }}
-      >
-        {items === null && !failed ? (
-          <View style={{ flex: 1, alignItems: "center" }}>
-            <Spinner size={28} />
-          </View>
-        ) : failed ? (
-          <Pressable accessibilityRole="button" onPress={() => setAttempt((n) => n + 1)} style={{ flex: 1, alignItems: "center" }}>
-            <Text style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("media.failed")}</Text>
-          </Pressable>
-        ) : items && items.length === 0 ? (
-          <Text style={{ flex: 1, textAlign: "center", fontSize: 14, fontFamily, color: colors.textTertiary }}>{t("media.noneVisual")}</Text>
-        ) : (
-          items?.map((i) => <Tile key={i.id} item={i} size={tile} onOpen={() => setViewing(i)} />)
-        )}
-      </View>
       <Item label={t("media.viewMore")} onPress={props.onMore} />
-      <MediaViewer item={viewing} onClose={() => setViewing(null)} />
     </Group>
   );
 }
@@ -331,7 +263,12 @@ export function SharedMediaPage(props: { roomId: string; onBack: () => void }) {
         )}
         {list && items.length === 0 && !loading && !failed && <Item label={t("media.none")} chevron={false} />}
         {failed && <Item label={t("media.failed")} chevron={false} onPress={() => void more(kind)} />}
-        {loading && <Item label={t("media.loading")} chevron={false} />}
+        {loading && (
+          <View style={{ alignItems: "center", gap: 14, paddingTop: items.length === 0 ? 72 : 36, paddingBottom: 24 }}>
+            <Spinner size={48} />
+            <Text style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("media.requesting")}</Text>
+          </View>
+        )}
         {!!list?.next && !loading && !failed && (
           <View style={{ alignItems: "center", paddingVertical: 4 }}>
             <TextButton title={t("media.more")} onPress={() => void more(kind)} />

@@ -75,7 +75,7 @@ const THRESHOLDS: { key: keyof PowerThresholds; label: Parameters<T>[0] }[] = [
 ];
 
 /**
- * Room access, addresses, permission levels and banned people, as sections of the chat-info panel. Everyone
+ * Room access, addresses and permission levels, as sections of the chat-info panel. Everyone
  * sees the current values; only people the room's power levels allow can change them.
  */
 export function RoomSettingsSections(props: {
@@ -151,13 +151,6 @@ export function RoomSettingsSections(props: {
           />
         ))}
       </Group>
-
-      {/* Nobody is listed here (there can be thousands): the page behind View all lists them. */}
-      {d.banned.length > 0 && (
-        <Group title={`${t("banned.title")} · ${d.banned.length}`}>
-          <Item label={t("viewAll")} onPress={() => controller.openInfoPage("banned")} />
-        </Group>
-      )}
 
       <Menu
         visible={!!aliasMenu}

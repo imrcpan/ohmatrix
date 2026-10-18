@@ -201,7 +201,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 />
               </Group>
             )}
-            {!forSpace && <SharedMediaPreview roomId={d.id} onMore={() => controller.openInfoPage("media")} />}
+            {!forSpace && <SharedMediaPreview onMore={() => controller.openInfoPage("media")} />}
             {!forSpace && pinned.length > 0 && (
               <Group title={t("pinned.title")}>
                 {pinned.map((m) => (
@@ -228,6 +228,12 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               ))}
               {d.members.length > MEMBERS_SHOWN && <Item label={t("viewAll")} onPress={() => controller.openInfoPage("members")} />}
             </Group>
+            {/* Nobody is listed here (there can be thousands): the page behind View all lists them. */}
+            {!direct && d.banned.length > 0 && (
+              <Group title={`${t("banned.title")} · ${d.banned.length}`}>
+                <Item label={t("viewAll")} onPress={() => controller.openInfoPage("banned")} />
+              </Group>
+            )}
             <Group>
               <Item label={direct ? t("deleteChat") : forSpace ? t("space.leave") : t("leaveGroup")} danger chevron={false} onPress={() => setConfirm(true)} />
             </Group>

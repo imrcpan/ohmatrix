@@ -319,8 +319,8 @@ test("performance: a group of 5,000 members and 5,000 banned people lists ten, a
   // The members page: a virtual list. Only the rows near the screen exist, and the end is reachable.
   const list = (id: string) => page.locator(`[data-testid="${id}"]`);
   let t = Date.now();
-  // (in the chat info the Banned section is above the Members one)
-  await page.getByRole("button", { name: "View all" }).last().click();
+  // (in the chat info the Members section is above the Banned one)
+  await page.getByRole("button", { name: "View all" }).first().click();
   await expect(page.getByText("Members · 5000", { exact: true }).last()).toBeVisible();
   await expect(list("members-list").getByRole("button", { name: "Member 00000" })).toBeVisible({ timeout: 10000 });
   console.log(`members page: ${Date.now() - t} ms`);
@@ -339,7 +339,7 @@ test("performance: a group of 5,000 members and 5,000 banned people lists ten, a
   // The banned page, the same.
   await expect(list("members-list")).toHaveCount(0, { timeout: 5000 });
   t = Date.now();
-  await page.getByRole("button", { name: "View all" }).first().click();
+  await page.getByRole("button", { name: "View all" }).last().click();
   await expect(list("banned-list").getByRole("button", { name: "Banned 00000" })).toBeVisible({ timeout: 10000 });
   console.log(`banned page: ${Date.now() - t} ms`);
   expect(Date.now() - t).toBeLessThan(3000);
@@ -1449,7 +1449,7 @@ test("room administration UI: members without rights see no editing; shared medi
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Invite people" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "alice", exact: true })).toHaveCount(0);
-  // The chat info shows one row of previews and View more; the page behind it has a tab per kind and reaches back through the room's
+  // The chat info shows only View more; the page behind it has a tab per kind and reaches back through the room's
   // history, not only the loaded messages.
   await expect(page.getByText("Shared media", { exact: true })).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("tab")).toHaveCount(0);
@@ -2966,23 +2966,17 @@ test("shared media: tabs by kind reach the whole history, open in the viewers, a
   await page.getByRole("button", { name: "Chat info", exact: true }).click();
   await expect(page.getByText("Shared media", { exact: true })).toBeVisible({ timeout: 15000 });
 
-  // In the chat info: a single row of at most four previews of a fixed height, and only that much was asked for.
+  // In the chat info: no previews, and nothing of the room's history is read until View more is pressed.
   const tiles = () => page.getByRole("button", { name: /\.png$/ });
-  await expect(tiles().first()).toBeVisible({ timeout: 15000 });
-  expect(await tiles().count()).toBe(4);
-  const strip = await tiles().evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-  expect(new Set(strip).size).toBe(1); // one row
-  const asked = await page.evaluate(() => (window as unknown as { __sm: { kind: string; want?: number; scan?: number }[] }).__sm);
-  expect(asked.length).toBeGreaterThan(0);
-  for (const a of asked) expect(a).toMatchObject({ want: 4, scan: 2 }); // short pages, a little history: not "everything"
-  expect(asked.every((a) => a.kind === "image" || a.kind === "video")).toBe(true);
+  await page.waitForTimeout(1500);
+  expect(await tiles().count()).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { __sm: unknown[] }).__sm.length)).toBe(0);
   await expect(page.getByRole("tab")).toHaveCount(0);
 
   // View more opens the gallery as a page of its own, and only now does it load a whole page.
   await page.getByRole("button", { name: "View more", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Photos" })).toBeVisible();
-  // The four previews are still there under the page: the page's own tiles are the rest.
-  const shown = async () => (await tiles().count()) - 4;
+  const shown = async () => tiles().count();
 
   // Photos: a first page, then "Load more" until the very first message of the room turns up.
   await expect.poll(shown, { timeout: 15000 }).toBeGreaterThan(0);
