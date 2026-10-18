@@ -234,3 +234,18 @@ test("while an account is being removed there is never a moment with nothing to 
   await manager.remove("@b:h");
   expect(seen).toEqual([]);
 });
+
+test("when the last account ends because its keys are lost, the sign-in screen that follows says why", async () => {
+  const lost = new MockEngine();
+  lost.auth.restore = async () => {
+    const { EngineError } = await import("@ohmatrix/core");
+    throw new EngineError("keys_lost", "The encryption keys of this device are unavailable.");
+  };
+  const { accounts, manager } = setup(["a"], { makeEngine: () => lost });
+  await manager.start();
+  await until(() => manager.store.getState().currentKey === NEW_ACCOUNT);
+  const sign = manager.current();
+  await until(() => sign.store.getState().authError !== null);
+  expect(sign.store.getState()).toMatchObject({ auth: "signedOut", authError: expect.stringContaining("keys") });
+  expect(await accounts.list()).toEqual([]);
+});

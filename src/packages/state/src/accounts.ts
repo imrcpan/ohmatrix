@@ -12,7 +12,7 @@ import {
   type SessionStore,
   type UserId,
 } from "@ohmatrix/core";
-import { createAppController, totalUnread, type AppController } from "./index.js";
+import { createAppController, totalUnread, type AppController, type AppState } from "./index.js";
 
 /** What the account list needs to show about one signed-in account. */
 export interface AccountSummary {
@@ -154,6 +154,18 @@ export function createAccountManager(deps: AccountManagerDeps): AccountManager {
     e.controller.dispose();
   };
 
+  /** Puts a message on a sign-in screen once it has started (it clears the message while it starts up). */
+  const carryNotice = (e: Entry, notice: { authError: string | null; authErrorCode: AppState["authErrorCode"] }) => {
+    const apply = () => e.controller.store.setState(notice);
+    if (e.controller.store.getState().auth === "signedOut") return apply();
+    const stop = e.controller.store.subscribe((s) => {
+      if (s.auth !== "signedOut") return;
+      stop();
+      apply();
+    });
+    e.stop.push(stop);
+  };
+
   /** The sign-in of a new account, made if there is none. Returns the state change that shows it, for the caller to apply with its own. */
   const preparePending = (): Pick<AccountsState, "currentKey" | "adding"> => {
     pending ??= (() => {
@@ -234,10 +246,14 @@ export function createAccountManager(deps: AccountManagerDeps): AccountManager {
     const at = before.accounts.findIndex((a) => a.userId === userId);
     const rest = before.accounts.filter((a) => a.userId !== userId);
     const next = rest[Math.min(at, rest.length - 1)];
+    const { authError, authErrorCode } = e.controller.store.getState();
     set({
       accounts: rest,
       ...(before.currentKey === userId ? (next ? { currentKey: next.userId, adding: false } : preparePending()) : {}),
     });
+    // The last account has ended with a reason (the keys of this device are lost, the server refused the session): the sign-in screen
+    // that takes its place says so, instead of showing up as if nothing had happened.
+    if (!next && authError && pending) carryNotice(pending, { authError, authErrorCode });
     await deps.accounts.remove(userId); // already done by the controller's own sign-out, harmless again
     await deps.forget?.({ userId, dir: e.dir }).catch(() => {});
     if (before.currentKey === userId) await deps.accounts.setActive(next?.userId ?? null);

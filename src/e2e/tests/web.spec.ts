@@ -1586,7 +1586,7 @@ test("photo viewer: hand cursor and click to open; translucent mask over the who
   await expect(viewer).toBeHidden();
 });
 
-test("sign-in: an unreachable or mistyped server gets a clear message; a bare local address means http", async ({ page }) => {
+test("sign-in: an unreachable or mistyped server gets a clear message; a local address works with http:// written out", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
   await page.getByText("Sign in to your Matrix account").waitFor();
@@ -1602,8 +1602,8 @@ test("sign-in: an unreachable or mistyped server gets a clear message; a bare lo
   });
   await expect(page.getByText(/NetworkError|CORS|fetch failed/i)).toHaveCount(0);
 
-  // A bare local address works without typing http://, and wrong credentials say so.
-  await inputs.nth(0).fill("localhost:8008");
+  // A local address works when http:// is written out (it is never assumed), and wrong credentials say so.
+  await inputs.nth(0).fill("http://localhost:8008");
   await inputs.nth(2).fill("not-the-password");
   await inputs.nth(2).press("Enter");
   await expect(page.getByText("Wrong username or password.")).toBeVisible({ timeout: 20000 });
@@ -1635,7 +1635,7 @@ test('sign-in failures stay on the sign-in page: server "1", any credentials', a
   expect(errors).toEqual([]);
 
   // A reachable server with the wrong password: the same.
-  await inputs.nth(0).fill("localhost:8008");
+  await inputs.nth(0).fill("http://localhost:8008");
   await inputs.nth(2).fill("nope");
   await inputs.nth(2).press("Enter");
   await expect(page.getByText("Wrong username or password.")).toBeVisible({ timeout: 20000 });
@@ -3011,7 +3011,7 @@ test("sign-in: create an account, and the server signed in to is offered again a
   await expect(inputs).toHaveCount(4);
   const name = `reg${Date.now().toString(36)}`;
   // A server typed differently from the default is what must come back later.
-  await inputs.nth(0).fill("localhost:8008");
+  await inputs.nth(0).fill("http://localhost:8008");
   await inputs.nth(1).fill(name);
   await inputs.nth(2).fill("123456");
   await inputs.nth(3).fill("1234567");
@@ -3028,11 +3028,11 @@ test("sign-in: create an account, and the server signed in to is offered again a
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Sign out" }).last().click();
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
-  await expect(page.locator("input").nth(0)).toHaveValue("localhost:8008");
+  await expect(page.locator("input").nth(0)).toHaveValue("http://localhost:8008");
   // ...also after the page is loaded again.
   await page.reload();
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
-  await expect(page.locator("input").nth(0)).toHaveValue("localhost:8008");
+  await expect(page.locator("input").nth(0)).toHaveValue("http://localhost:8008");
 
   // A username that is taken is refused, with a message that says why.
   await page.getByRole("button", { name: "No account yet? Create one" }).click();

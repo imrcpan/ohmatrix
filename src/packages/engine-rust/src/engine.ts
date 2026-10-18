@@ -105,6 +105,11 @@ export class RustEngineCore implements MatrixEngine {
     this.syncListeners.forEach((cb) => cb(s));
   }
 
+  /** The client API address for what the user typed: https for a bare name, after its .well-known; see `resolveHomeserver`. */
+  private resolve(homeserver: string): Promise<string> {
+    return resolveHomeserver(homeserver, this.options.fetch);
+  }
+
   private async makeClient(homeserver: string, restoring = false): Promise<SdkClient> {
     return this.sdk.newClient({
       restoring,
@@ -160,7 +165,8 @@ export class RustEngineCore implements MatrixEngine {
   readonly auth: AuthApi = {
     loginWithPassword: (homeserver, username, password) =>
       guard(async () => {
-        const client = await this.makeClient(homeserver);
+        // The SDK wants a full address; what was typed (a bare name, a local address) is turned into one the way the web engine does.
+        const client = await this.makeClient(await this.resolve(homeserver));
         await client.login(username, password, DEVICE_NAME);
         this.client = client;
         void this.loadProfile();
@@ -169,7 +175,7 @@ export class RustEngineCore implements MatrixEngine {
       }),
     register: (homeserver: string, username: string, password: string) =>
       guard(async () => {
-        const session = await register(this.fetch(), await resolveHomeserver(homeserver), username, password, DEVICE_NAME);
+        const session = await register(this.fetch(), await this.resolve(homeserver), username, password, DEVICE_NAME);
         await this.auth.restore(session);
         return session;
       }),
