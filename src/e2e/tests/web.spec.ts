@@ -531,6 +531,11 @@ test("profile and settings: navigation, theme, language, sign out", async ({ pag
   await shot(page, "19-profile");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText("Appearance")).toBeVisible();
+  // Settings has a Theme row, not the picker; the picker is a page of its own, opened from it.
+  await expect(page.getByRole("button", { name: "Dark Green", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Theme/ })).toContainText("System");
+  await page.getByRole("button", { name: /^Theme/ }).click();
+  await expect(page.getByText("Theme", { exact: true }).first()).toBeVisible();
   // The picker offers system, light and dark first, then the dark themes, then the light ones; at most four a row.
   const cards = page
     .locator('[role="button"]')
@@ -567,6 +572,9 @@ test("profile and settings: navigation, theme, language, sign out", async ({ pag
   await page.getByRole("button", { name: "Sakura" }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}").theme)).toBe("sakura");
   await shot(page, "20-settings-sakura");
+  // Back to Settings (the back button is named for the page under it, so it is not the first of that name), where the row names the theme chosen.
+  await page.getByRole("button", { name: "Settings", exact: true }).last().click();
+  await expect(page.getByRole("button", { name: /^Theme/ })).toContainText("Sakura");
   // Language is a dropdown: one row showing the current language, options in a menu (native names, never translated).
   await expect(page.getByRole("button", { name: "简体中文" })).toHaveCount(0);
   await page.getByRole("button", { name: "Language", exact: true }).click();
@@ -584,7 +592,9 @@ test("profile and settings: navigation, theme, language, sign out", async ({ pag
   await expect(page.getByText("设置").first()).toBeVisible();
   await page.getByRole("button", { name: "语言", exact: true }).click();
   await page.getByRole("menuitem", { name: "English" }).click();
+  await page.getByRole("button", { name: /^Theme/ }).click();
   await page.getByRole("button", { name: "Light", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).last().click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Sign out" }).last().click();
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();

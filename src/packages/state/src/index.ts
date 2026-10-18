@@ -33,10 +33,11 @@ import {
 /** A page that slides in over the chat info: the shared media, all the members, all the banned people. */
 export type InfoPage = "media" | "members" | "banned";
 
-export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts";
+export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme";
 
 /** The page a sidebar page was opened from, which is where back goes. */
-const sidebarParent = (page: SidebarPage): SidebarPage => (page === "sessions" ? "settings" : page === "settings" || page === "accounts" ? "profile" : "chats");
+const sidebarParent = (page: SidebarPage): SidebarPage =>
+  page === "sessions" || page === "theme" ? "settings" : page === "settings" || page === "accounts" ? "profile" : "chats";
 
 export type AuthStatus = "booting" | "signedOut" | "signingIn" | "signedIn";
 

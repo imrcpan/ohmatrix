@@ -95,7 +95,7 @@ export function SessionsPage() {
           ListFooterComponent={
             others.length > 0 ? (
               <View>
-                <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: 4 }}>
+                <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
                   {t("sessions.footer")}
                 </Text>
                 <View style={{ marginTop: 14 }}>
