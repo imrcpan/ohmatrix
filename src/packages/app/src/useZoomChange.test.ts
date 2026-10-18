@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
-import { secondsLeft, ZOOM_CONFIRM_SECONDS } from "./useZoomChange.js";
+import { secondsLeft } from "./useZoomChange.js";
+
+const ZOOM_CONFIRM_SECONDS = 15; // the controller's ZOOM_TRIAL_MS, in seconds
 
 test("the countdown counts a started second as left, and stops at zero", () => {
   const until = 1_000_000 + ZOOM_CONFIRM_SECONDS * 1000;

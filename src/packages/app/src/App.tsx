@@ -149,7 +149,7 @@ function Framed(props: { insets: Insets | undefined; children: ReactNode }) {
 
 function Themed({ children }: { children: ReactNode }) {
   const themeId = useAppState((s) => s.prefs.theme);
-  const scale = useAppState((s) => s.prefs.uiScale);
+  const scale = useAppState((s) => s.zoomTrial?.to ?? s.prefs.uiScale);
   return (
     <ThemeProvider themeId={themeId}>
       <ScaleProvider scale={scale}>{children}</ScaleProvider>

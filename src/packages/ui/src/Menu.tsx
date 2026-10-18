@@ -36,6 +36,8 @@ export function Menu(props: {
   alignRight?: boolean;
   up?: boolean;
   width?: number;
+  /** The menu fades in and out (the default). A menu that something else follows at once has none. */
+  fade?: boolean;
 }) {
   const { colors, dark } = useTheme();
   const win = useViewport();
@@ -53,7 +55,7 @@ export function Menu(props: {
   const below = a.y + a.height + 6;
   const top = props.up || below + h > win.height - 8 ? Math.max(8, a.y - h - 6) : below;
   return (
-    <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
+    <Modal transparent visible={props.visible} animationType={props.fade === false ? "none" : "fade"} onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>
         <Pressable
           style={{ flex: 1 }}
