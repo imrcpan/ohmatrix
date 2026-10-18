@@ -40,7 +40,7 @@ export function Group(props: { title?: string | undefined; footer?: string | und
       )}
       {props.children}
       {!!props.footer && (
-        <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: 4 }}>{props.footer}</Text>
+        <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>{props.footer}</Text>
       )}
     </View>
   );

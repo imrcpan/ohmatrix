@@ -1,10 +1,23 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import {
+  Dialog,
+  fontFamily,
+  Icon,
+  listThemes,
+  Menu,
+  PrimaryButton,
+  SYSTEM_THEME,
+  TextButton,
+  themeLabel,
+  Toggle,
+  useTheme,
+  type Anchor,
+  useNavBottom,
+} from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
-import { ThemeGrid } from "./ThemeGrid.js";
 import { useZoomChange } from "./useZoomChange.js";
 
 /** The project page, opened outside the app from the About group. */
@@ -29,47 +42,13 @@ export function SettingsPage() {
   const [scaleAnchor, setScaleAnchor] = useState<Anchor | null>(null);
   const [scaleMenu, setScaleMenu] = useState(false);
   const zoom = useZoomChange();
+  const themeName = prefs.theme === SYSTEM_THEME ? t("theme.system") : themeLabel(listThemes().find((x) => x.id === prefs.theme) ?? listThemes()[0]!, locale);
   const current = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <PageHeader title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 32 + nav }}>
-        <Group title={t("appearance")}>
-          <ThemeGrid />
-        </Group>
-        <Group footer={t("zoom.footer")}>
-          <View ref={langRef}>
-            <Item
-              label={t("language")}
-              icon="chat"
-              value={current.label}
-              chevron={false}
-              right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
-              onPress={() =>
-                langRef.current?.measureInWindow((x, y, width, height) => {
-                  setLangAnchor({ x, y, width, height });
-                  setLangMenu(true);
-                })
-              }
-            />
-          </View>
-          <View ref={scaleRef}>
-            <Item
-              label={t("zoom")}
-              icon="zoomIn"
-              value={`${Math.round(prefs.uiScale * 100)}%`}
-              chevron={false}
-              right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
-              onPress={() =>
-                scaleRef.current?.measureInWindow((x, y, width, height) => {
-                  setScaleAnchor({ x, y, width, height });
-                  setScaleMenu(true);
-                })
-              }
-            />
-          </View>
-        </Group>
         <Group
           title={t("notifications")}
           footer={t(
@@ -117,6 +96,40 @@ export function SettingsPage() {
               }
             />
           )}
+        </Group>
+        <Group title={t("appearance")}>
+          <View ref={langRef}>
+            <Item
+              label={t("language")}
+              icon="chat"
+              value={current.label}
+              chevron={false}
+              right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
+              onPress={() =>
+                langRef.current?.measureInWindow((x, y, width, height) => {
+                  setLangAnchor({ x, y, width, height });
+                  setLangMenu(true);
+                })
+              }
+            />
+          </View>
+          <View ref={scaleRef}>
+            <Item
+              label={t("zoom")}
+              icon="zoomIn"
+              value={`${Math.round(prefs.uiScale * 100)}%`}
+              chevron={false}
+              right={<Icon name="chevronDown" size={16} color={colors.textTertiary} />}
+              onPress={() =>
+                scaleRef.current?.measureInWindow((x, y, width, height) => {
+                  setScaleAnchor({ x, y, width, height });
+                  setScaleMenu(true);
+                })
+              }
+            />
+          </View>
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>{t("zoom.footer")}</Text>
+          <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
         </Group>
         <Group title={t("sessions")}>
           <Item label={t("sessions")} icon="device" onPress={() => controller.openSidebarPage("sessions")} />
