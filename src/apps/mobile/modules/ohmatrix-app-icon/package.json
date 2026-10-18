@@ -1,0 +1,6 @@
+{
+  "name": "ohmatrix-app-icon",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Changes the launcher icon of the app on Android by choosing which of its activity aliases is enabled."
+}

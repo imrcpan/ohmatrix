@@ -13,3 +13,4 @@ src/packages/engine-rust/src/Native*
 src/packages/engine-rust/cpp
 src/packages/engine-rust/android
 src/packages/engine-rust/ios
+src/apps/mobile/.generated
