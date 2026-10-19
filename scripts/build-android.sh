@@ -22,7 +22,8 @@
 # library is 42 MB instead of 84, and takes longer to build. The libraries are stored compressed in the APK and unpacked when it is
 # installed (useLegacyPackaging in app.json): the APK is smaller, and the installed app takes the same room as before.
 # The ABIs are built one after the other (the biggest compile needs 7.3 GB, so two at once would not fit): the time is about the
-# same for each. The APKs are signed with the debug key (what `expo prebuild` sets up): fine for installing, not for publishing.
+# same for each. The APKs are signed with the debug key (what `expo prebuild` sets up): fine for installing, not for publishing;
+# sign-android.sh signs them with the release key afterwards (the build never sees that key).
 # Environment: OHM_TOOLS (where tools are installed, default ~/.ohmatrix-tools), OHM_OUT (caches and logs, default build-out),
 # OHM_RELEASE_DIR (default ~/release), EXPO_PUBLIC_DEFAULT_HOMESERVER (the server offered on the sign-in screen).
 set -euo pipefail
