@@ -1,0 +1,6 @@
+{
+  "name": "ohmatrix-push",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shows a notification for a push that arrives while the app is not running: Firebase message service, and the Matrix SDK's Kotlin bindings to fetch and decrypt the message."
+}

@@ -10,13 +10,26 @@ import { createAccountManager, type AccountManager } from "@ohmatrix/state";
 import { App as SharedApp, BootScreen } from "@ohmatrix/app";
 import { createAccountStore, createSessionStore, databasePassphrase, inAccountDir, pathOfFileUri } from "./secureStorage.js";
 import { phoneServices } from "./platform.js";
+import { createPushSync, notifyingAccountStore, type PushNative } from "./pushState.js";
+import { requireOptionalNativeModule } from "expo";
 import { shellInsets } from "./shellInsets.js";
 import { useKeyboardHeight } from "./useKeyboardHeight.js";
 
 // The accounts go in the Android Keystore (iOS Keychain), through expo-secure-store. The one session saved before there were
 // several accounts is read once, by `legacySessions`, and becomes the first account.
-const accounts = createAccountStore(SecureStore);
+const baseAccounts = createAccountStore(SecureStore);
 const legacySessions = createSessionStore(SecureStore);
+
+// What the push service needs while the app is not running (modules/ohmatrix-push) is handed over after each change of the accounts. A
+// build without the module (iOS, development without a native build) has nothing to hand it to.
+const pushNative = requireOptionalNativeModule<PushNative>("OhMatrixPush");
+const pushSync = pushNative
+  ? createPushSync(pushNative, baseAccounts, () => SecureStore.getItemAsync("ohmatrix.db-passphrase.v1").catch(() => null), {
+      documents: Paths.document.uri,
+      cache: Paths.cache.uri,
+    })
+  : null;
+const accounts = pushSync ? notifyingAccountStore(baseAccounts, () => pushSync.refresh()) : baseAccounts;
 const services: AppServices = phoneServices();
 
 /** An account's folder inside one of the app's roots (documents: the SDK's database; cache: its media), made if it is not there yet. */
@@ -61,6 +74,24 @@ async function createManager(): Promise<AccountManager> {
     },
   });
   await manager.start();
+  if (pushSync) {
+    // The settings that decide what the service shows are the device's (every account's controller has the same), so they are read from
+    // the controller that is showing, and followed from the next one when the account changes.
+    let off = () => {};
+    const follow = () => {
+      off();
+      const controller = manager.current();
+      const send = () => {
+        const p = controller.store.getState().prefs;
+        void pushSync.prefs({ pushEnabled: p.pushEnabled, pushContent: p.pushContent, locale: p.locale });
+      };
+      off = controller.store.subscribe(send);
+      send();
+    };
+    void pushSync.refresh();
+    manager.store.subscribe((s, prev) => s.currentKey !== prev.currentKey && follow());
+    follow();
+  }
   return manager;
 }
 
