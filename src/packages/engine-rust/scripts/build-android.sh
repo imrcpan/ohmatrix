@@ -22,8 +22,28 @@ fi
 # x86_64 needs the compiler runtime for 128-bit arithmetic that the NDK does not link by default.
 export CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS="-L$clang_dir"
 # Builds the libraries and, from the same build, the TypeScript and C++ bindings and the TurboModule that loads them.
-# (--native-bindings, which also writes Kotlin bindings, is not used: the module is called from JS only.)
 npx ubrn build android --config ubrn.yaml --and-generate "$@"
+
+# The SDK's Kotlin bindings too, which the push service of the app (apps/mobile/modules/ohmatrix-push) uses to read a message with the
+# app not running. They are made from the library just built (--no-cargo), and by ubrn started inside the SDK's checkout: that step runs
+# `cargo metadata` where it starts, and only there is the workspace.
+root=$(pwd)
+(cd rust_modules/matrix-rust-sdk && "$root/../../../node_modules/.bin/ubrn" build android --config "$root/ubrn.yaml" --no-cargo --native-bindings "$@")
+
+# The Kotlin bindings are the push module's, not this module's (which is called from JavaScript only): there they are compiled with the
+# service that uses them, and this module stays as it was. They are not kept in the repository.
+push_java=../../apps/mobile/modules/ohmatrix-push/android/src/main/java
+rm -rf "$push_java/org/matrix" "$push_java/uniffi"
+mkdir -p "$push_java"
+# Merged into what is there (the module's own sources are under org/ too), not moved over it: `mv org dest/org` would put it inside.
+for d in org uniffi; do
+  if [ -d "android/src/main/java/$d" ]; then
+    mkdir -p "$push_java/$d"
+    cp -a "android/src/main/java/$d/." "$push_java/$d/"
+    rm -rf "android/src/main/java/$d"
+  fi
+done
+[ -f "$push_java/org/matrix/rustcomponents/sdk/matrix_sdk_ffi.kt" ] || { echo "the Kotlin bindings were not made" >&2; exit 1; }
 
 # `--and-generate` writes the bindings; the TurboModule that loads them (cpp/, android/, ios/, src/NativeEngineRust.ts) is a
 # second step, over the same namespaces. The JS entry that installs them is src/bindings.tsx, which is written by hand.

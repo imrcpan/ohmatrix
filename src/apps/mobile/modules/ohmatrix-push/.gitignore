@@ -1,0 +1,3 @@
+# the Matrix SDK's Kotlin bindings: made by scripts/build-android.sh (engine-rust), not kept
+android/src/main/java/org/matrix/
+android/src/main/java/uniffi/

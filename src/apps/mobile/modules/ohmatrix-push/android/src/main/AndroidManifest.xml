@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Before expo-notifications' own service (priority -1), which this one extends: a push that is not a Matrix one goes on to it. -->
+    <service android:name="org.ohmatrix.push.PushService" android:exported="false">
+      <intent-filter android:priority="10">
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+      </intent-filter>
+    </service>
+  </application>
+</manifest>
