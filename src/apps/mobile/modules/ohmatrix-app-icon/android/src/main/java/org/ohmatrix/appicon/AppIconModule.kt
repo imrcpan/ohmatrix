@@ -1,6 +1,7 @@
 package org.ohmatrix.appicon
 
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -22,8 +23,32 @@ class AppIconModule : Module() {
 
   private fun component(alias: String) = ComponentName(context.packageName, "${context.packageName}.$alias")
 
+  /**
+   * The app must always have a launcher entry. A state in which every alias is disabled (the system keeps an alias's setting across
+   * updates, and an alias that was disabled stays so) leaves no icon on the home screen and no way to choose one from there, so on
+   * start, when the system finds no launcher entry for the app, the default alias is enabled. The question is asked the way a launcher
+   * asks it (the activities that answer MAIN/LAUNCHER, which are the enabled ones), not by reading each alias's own setting: an alias
+   * that was never touched has no setting of its own and takes the manifest's.
+   */
+  private fun ensureLauncherEntry() {
+    val pm = context.packageManager
+    val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(context.packageName)
+    if (pm.queryIntentActivities(launcher, 0).isNotEmpty()) return
+    val list = icons()
+    val target = (list.firstOrNull { it.first == DEFAULT_ID } ?: list.first()).second
+    pm.setComponentEnabledSetting(component(target), PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
+  }
+
   override fun definition() = ModuleDefinition {
     Name("OhMatrixAppIcon")
+
+    OnCreate {
+      try {
+        ensureLauncherEntry()
+      } catch (e: Exception) {
+        // Not being able to check must not stop the app from starting.
+      }
+    }
 
     /** The id of the icon that is showing: the first enabled alias. */
     Function("getIcon") {
@@ -49,5 +74,6 @@ class AppIconModule : Module() {
 
   private companion object {
     const val META_KEY = "org.ohmatrix.app.ICONS"
+    const val DEFAULT_ID = "default"
   }
 }
