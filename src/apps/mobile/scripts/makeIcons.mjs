@@ -3,14 +3,13 @@
 //   node scripts/makeIcons.mjs [outDir]      (default: .generated/ in this folder, which git ignores)
 //
 // What it makes:
-//   icon.png                      logo/main-full.svg, 1024 x 1024: Expo's `icon`, the launcher icon the app has by default.
+//   icon.png                      logo/colorful-full/1.svg, 1024 x 1024: Expo's `icon`, the launcher icon the app has by default.
 //   appIcons/launcher/<density>/  the icons the user can choose in Settings, for the launcher: logo/colorful-full/<id>.svg at each density
 //                                 (the full square: the launcher cuts its own shape out of it).
-//   appIcons/preview/<id>.png     the same choices as Settings shows them: logo/colorful/<id>.svg (the rounded shape), and for the
-//                                 default one logo/main.svg.
+//   appIcons/preview/<id>.png     the same choices as Settings shows them: logo/colorful/<id>.svg (the rounded shape).
 //   appIcons.json, appIcons.ts    the list: the ids, the name of the launcher entry and of the picture for each, and the previews.
 //
-// The choices are the files in logo/colorful/, sorted by name, after the default one. A file there without a twin in logo/colorful-full/
+// The choices are the files in logo/colorful/, sorted by name; the first one is the default. A file there without a twin in logo/colorful-full/
 // is an error, said by name.
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -20,14 +19,11 @@ import { Resvg } from "@resvg/resvg-js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const LOGO = resolve(here, "../../../../logo");
-export const LOGO_SVG = join(LOGO, "main-full.svg");
+export const LOGO_SVG = join(LOGO, "colorful-full", "1.svg");
 export const ICON_SIZE = 1024;
 export const PREVIEW_SIZE = 192;
 /** Android's launcher icon sizes (dp 48) at each density. */
 export const DENSITIES = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
-
-/** The id of the icon that is there from the start. */
-export const DEFAULT_ID = "default";
 
 /**
  * Names for an id, the ones Android allows (lower case letters, digits and _ for a picture; a class-like name for the launcher entry).
@@ -88,24 +84,18 @@ export function makeIcons(outDir) {
   writeFileSync(icon, main.png);
 
   // [id, the file of the launcher picture, the file of the preview]
-  const choices = [
-    [DEFAULT_ID, join("main-full.svg"), join("main.svg")],
-    ...listColorful().map((n) => [n, join("colorful-full", `${n}.svg`), join("colorful", `${n}.svg`)]),
-  ];
+  const choices = listColorful().map((n) => [n, join("colorful-full", `${n}.svg`), join("colorful", `${n}.svg`)]);
   const list = [];
   for (const [id, full, preview] of choices) {
     const names = namesOf(id);
-    // The default one is the launcher icon Expo makes itself (ic_launcher): only the others get pictures of their own here.
-    if (id !== DEFAULT_ID) {
-      for (const [density, size] of Object.entries(DENSITIES)) {
-        write(join(outDir, "appIcons", "launcher", `mipmap-${density}`, `${names.resource}.png`), renderSquare(read(full), size).png);
-      }
+    for (const [density, size] of Object.entries(DENSITIES)) {
+      write(join(outDir, "appIcons", "launcher", `mipmap-${density}`, `${names.resource}.png`), renderSquare(read(full), size).png);
     }
     write(join(outDir, "appIcons", "preview", `${id}.png`), renderSquare(read(preview), PREVIEW_SIZE, false).png);
     list.push({
       id,
-      resource: id === DEFAULT_ID ? "ic_launcher" : names.resource,
-      alias: id === DEFAULT_ID ? "MainActivityDefault" : names.alias,
+      resource: names.resource,
+      alias: names.alias,
       svg: read(preview)
         .replace(/\s*\n\s*/g, " ")
         .trim(),

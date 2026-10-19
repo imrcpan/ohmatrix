@@ -3,7 +3,7 @@ import type { AppServices, AttachmentSource, Preferences } from "@ohmatrix/core"
 import { JsSdkEngine } from "@ohmatrix/engine-js";
 import { createAccountManager } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
-import logoSvg from "../../../../logo/main.svg?raw";
+import logoSvg from "../../../../logo/colorful/1.svg?raw";
 import { createCryptoKeyProvider } from "./cryptoKeys.js";
 import { createSecureBox } from "./secureBox.js";
 import { createSecureAccountStore, createSecureSessionStore } from "./secureSession.js";
@@ -30,7 +30,7 @@ const preferences = {
 };
 
 const services: AppServices = {
-  // The sign-in screen draws the page's own icon, logo/main.svg (the same file as the favicon).
+  // The sign-in screen draws the page's own icon, logo/colorful/1.svg (the same file as the favicon).
   appLogo: () => logoSvg,
   // Set by the build (scripts/build-web.sh --version a.b.c); a development server has none.
   ...(import.meta.env.VITE_APP_VERSION ? { appVersion: import.meta.env.VITE_APP_VERSION as string } : {}),

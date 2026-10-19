@@ -28,11 +28,11 @@ function webPlatformFiles() {
 }
 
 /**
- * The page's icon is the project's logo, logo/main.svg, served at /favicon.svg and written into the build: the repository keeps the SVG
+ * The page's icon is the project's logo, logo/colorful/1.svg, served at /favicon.svg and written into the build: the repository keeps the SVG
  * once, in logo/, and nothing made from it. (Every current browser takes an SVG as a favicon; there is no .ico or .png to make.)
  */
 function faviconFromLogo(): Plugin {
-  const logo = resolve(__dirname, "../../../logo/main.svg");
+  const logo = resolve(__dirname, "../../../logo/colorful/1.svg");
   return {
     name: "ohmatrix-favicon",
     configureServer(server) {

@@ -20,7 +20,7 @@ export function AppIconPage() {
   const controller = useController();
   const icons = useServices().appIcons;
   const nav = useNavBottom();
-  const [current, setCurrent] = useState(() => icons?.current() ?? "default");
+  const [current, setCurrent] = useState(() => icons?.current() ?? "");
   const [problem, setProblem] = useState<string | null>(null);
 
   const choose = (id: string) => {
@@ -53,7 +53,7 @@ export function AppIconPage() {
           >
             {(icons?.list() ?? []).map((i) => {
               const active = i.id === current;
-              const label = i.id === "default" ? t("appIcon.default") : i.id;
+              const label = i.id;
               return (
                 <Pressable
                   key={i.id}
@@ -93,14 +93,9 @@ export function AppIconPage() {
                       </View>
                     )}
                   </View>
-                  {i.id !== "default" && (
-                    <Text
-                      numberOfLines={1}
-                      style={{ fontSize: 13, fontFamily, fontWeight: active ? "600" : "400", color: active ? colors.accent : colors.text }}
-                    >
-                      {label}
-                    </Text>
-                  )}
+                  <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, fontWeight: active ? "600" : "400", color: active ? colors.accent : colors.text }}>
+                    {label}
+                  </Text>
                 </Pressable>
               );
             })}

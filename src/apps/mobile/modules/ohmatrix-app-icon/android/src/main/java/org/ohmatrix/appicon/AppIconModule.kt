@@ -26,7 +26,7 @@ class AppIconModule : Module() {
   /**
    * The app must always have a launcher entry. A state in which every alias is disabled (the system keeps an alias's setting across
    * updates, and an alias that was disabled stays so) leaves no icon on the home screen and no way to choose one from there, so on
-   * start, when the system finds no launcher entry for the app, the default alias is enabled. The question is asked the way a launcher
+   * start, when the system finds no launcher entry for the app, the first alias (the default icon) is enabled. The question is asked the way a launcher
    * asks it (the activities that answer MAIN/LAUNCHER, which are the enabled ones), not by reading each alias's own setting: an alias
    * that was never touched has no setting of its own and takes the manifest's.
    */
@@ -35,8 +35,7 @@ class AppIconModule : Module() {
     val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(context.packageName)
     if (pm.queryIntentActivities(launcher, 0).isNotEmpty()) return
     val list = icons()
-    val target = (list.firstOrNull { it.first == DEFAULT_ID } ?: list.first()).second
-    pm.setComponentEnabledSetting(component(target), PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
+    pm.setComponentEnabledSetting(component(list.first().second), PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
   }
 
   override fun definition() = ModuleDefinition {
@@ -74,6 +73,5 @@ class AppIconModule : Module() {
 
   private companion object {
     const val META_KEY = "org.ohmatrix.app.ICONS"
-    const val DEFAULT_ID = "default"
   }
 }

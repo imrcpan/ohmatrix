@@ -21,9 +21,9 @@ export function createAppIcons(list: readonly Choice[] | null | undefined, nativ
     current: () => {
       try {
         const id = native.getIcon();
-        return known.has(id) ? id : (list[0]?.id ?? "default");
+        return known.has(id) ? id : (list[0]?.id ?? "");
       } catch {
-        return list[0]?.id ?? "default";
+        return list[0]?.id ?? "";
       }
     },
     set: (id) => {
