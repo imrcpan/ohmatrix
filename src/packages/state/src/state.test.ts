@@ -80,7 +80,8 @@ test("push: the device's pusher is registered after sign-in, follows a new token
   engine.notifications.unregisterPush = async (p) => void calls.push(`remove ${p.pushKey}`);
   let token = "t1";
   let renew: (t: string) => void = () => {};
-  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const timer = globalThis as unknown as { setTimeout(fn: () => void, ms: number): unknown };
+  const flush = () => new Promise<void>((r) => void timer.setTimeout(r, 0));
   const app = createAppController(engine, {
     sessionStore: memoryStore(),
     push: {

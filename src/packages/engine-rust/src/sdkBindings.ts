@@ -349,7 +349,8 @@ export function sdkFromBindings(b: Bindings): Sdk {
       call(() =>
         c.setPusher(
           { pushkey: p.pushKey, appId: p.appId },
-          new b.PusherKind.Http({ data: { url: p.gatewayUrl, format: b.PushFormat.EventIdOnly } }),
+          // The gateway copies the default payload into the push: it is how the app, with nothing running, knows which account a push is for.
+          new b.PusherKind.Http({ data: { url: p.gatewayUrl, format: b.PushFormat.EventIdOnly, defaultPayload: JSON.stringify({ user_id: c.userId() }) } }),
           p.appName,
           p.deviceName,
           undefined,

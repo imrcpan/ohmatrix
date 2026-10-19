@@ -1,4 +1,15 @@
-import type { Listener, ListUpdate, MatrixEngine, RoomId, RoomSummary, Session, SyncState, TimelineHandle, TimelineItem } from "@ohmatrix/core";
+import type {
+  Listener,
+  ListUpdate,
+  MatrixEngine,
+  PushRegistration,
+  RoomId,
+  RoomSummary,
+  Session,
+  SyncState,
+  TimelineHandle,
+  TimelineItem,
+} from "@ohmatrix/core";
 import { EngineError } from "@ohmatrix/core";
 
 /** In-memory engine for UI development and tests; no network. */
@@ -91,10 +102,10 @@ export class MockEngine implements MatrixEngine {
 
   readonly notifications = {
     subscribe: (_cb: Listener<import("@ohmatrix/core").IncomingNotification>) => () => {},
-    registerPush: async () => {
+    registerPush: async (_p: PushRegistration): Promise<void> => {
       throw new EngineError("unsupported", "mock has no push");
     },
-    unregisterPush: async () => {},
+    unregisterPush: async (_p: { appId: string; pushKey: string }): Promise<void> => {},
   };
 
   readonly security = {
