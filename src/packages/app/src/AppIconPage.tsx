@@ -93,9 +93,14 @@ export function AppIconPage() {
                       </View>
                     )}
                   </View>
-                  <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, fontWeight: active ? "600" : "400", color: active ? colors.accent : colors.text }}>
-                    {label}
-                  </Text>
+                  {i.id !== "default" && (
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontSize: 13, fontFamily, fontWeight: active ? "600" : "400", color: active ? colors.accent : colors.text }}
+                    >
+                      {label}
+                    </Text>
+                  )}
                 </Pressable>
               );
             })}
