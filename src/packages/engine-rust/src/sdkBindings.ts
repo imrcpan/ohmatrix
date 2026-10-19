@@ -345,6 +345,19 @@ export function sdkFromBindings(b: Bindings): Sdk {
       const settings = await call(() => c.getNotificationSettings());
       await call(() => (muted ? settings.setRoomNotificationMode(roomId, b.RoomNotificationMode.Mute) : settings.restoreDefaultRoomNotificationMode(roomId)));
     },
+    setPusher: (p) =>
+      call(() =>
+        c.setPusher(
+          { pushkey: p.pushKey, appId: p.appId },
+          new b.PusherKind.Http({ data: { url: p.gatewayUrl, format: b.PushFormat.EventIdOnly } }),
+          p.appName,
+          p.deviceName,
+          undefined,
+          p.lang,
+          false,
+        ),
+      ),
+    deletePusher: (p) => call(() => c.deletePusher({ pushkey: p.pushKey, appId: p.appId })),
     createRoom: (o) =>
       call(() =>
         c.createRoom({

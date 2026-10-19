@@ -1,6 +1,7 @@
 import {
   diffTimeline,
   EngineError,
+  type PushRegistration,
   resolveHomeserver,
   reuseRooms,
   type AttachmentSource,
@@ -672,6 +673,11 @@ export class RustEngineCore implements MatrixEngine {
       this.noticeListeners.add(cb);
       return () => void this.noticeListeners.delete(cb);
     },
+    registerPush: (p: PushRegistration) =>
+      guard(() =>
+        this.need().setPusher({ appId: p.appId, pushKey: p.pushKey, gatewayUrl: p.gatewayUrl, appName: p.appName, deviceName: p.deviceName, lang: p.lang }),
+      ),
+    unregisterPush: (p: { appId: string; pushKey: string }) => guard(() => this.need().deletePusher(p)),
   };
 
   // ---- everything else -------------------------------------------------------------------------------------------

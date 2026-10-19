@@ -73,6 +73,71 @@ test("a failed registration leaves the user signed out with the server's reason,
   expect(s.prefs.lastHomeserver).toBeNull();
 });
 
+test("push: the device's pusher is registered after sign-in, follows a new token and the preference, and goes when signing out", async () => {
+  const engine = new MockEngine();
+  const calls: string[] = [];
+  engine.notifications.registerPush = async (p) => void calls.push(`add ${p.pushKey} ${p.appId} ${p.gatewayUrl}`);
+  engine.notifications.unregisterPush = async (p) => void calls.push(`remove ${p.pushKey}`);
+  let token = "t1";
+  let renew: (t: string) => void = () => {};
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const app = createAppController(engine, {
+    sessionStore: memoryStore(),
+    push: {
+      appId: "org.ohmatrix.app",
+      gatewayUrl: "https://push.example/notify",
+      deviceName: "Phone",
+      token: async () => token,
+      onToken: (cb) => {
+        renew = cb;
+        return () => {};
+      },
+    },
+  });
+  await app.bootstrap();
+  await flush();
+  expect(calls).toEqual([]); // signed out: nothing to register
+  await app.login("http://localhost:8008", "test", "123456");
+  await flush();
+  expect(calls).toEqual(["add t1 org.ohmatrix.app https://push.example/notify"]);
+
+  token = "t2"; // the push service changed the token: the old pusher is replaced
+  renew("t2");
+  await flush();
+  expect(calls.slice(1)).toEqual(["remove t1", "add t2 org.ohmatrix.app https://push.example/notify"]);
+
+  app.setPreferences({ pushEnabled: false });
+  await flush();
+  expect(calls.at(-1)).toBe("remove t2");
+  app.setPreferences({ pushEnabled: true });
+  await flush();
+  expect(calls.at(-1)).toBe("add t2 org.ohmatrix.app https://push.example/notify");
+
+  await app.logout();
+  expect(calls.at(-1)).toBe("remove t2");
+});
+
+test("push: no token (no Google services) or a refusing server never breaks signing in", async () => {
+  const engine = new MockEngine(); // its registerPush says "unsupported"
+  const app = createAppController(engine, {
+    sessionStore: memoryStore(),
+    push: {
+      appId: "a",
+      gatewayUrl: "g",
+      deviceName: "d",
+      token: async () => {
+        throw new Error("no token");
+      },
+      onToken: () => () => {},
+    },
+  });
+  await app.bootstrap();
+  await app.login("http://localhost:8008", "test", "123456");
+  expect(app.store.getState().auth).toBe("signedIn");
+  await app.logout();
+  expect(app.store.getState().auth).toBe("signedOut");
+});
+
 test("sent message shows up in timeline and room list", async () => {
   const engine = new MockEngine();
   const app = createAppController(engine, { sessionStore: memoryStore() });
@@ -105,6 +170,8 @@ test("preferences load on bootstrap and persist on change", async () => {
     uiScale: 1,
     notifications: false,
     notificationPreview: true,
+    pushEnabled: true,
+    pushContent: true,
     lastHomeserver: null,
   });
   app.setPreferences({ sidebarWidth: 400 });
@@ -117,6 +184,8 @@ test("preferences load on bootstrap and persist on change", async () => {
     uiScale: 1,
     notifications: false,
     notificationPreview: true,
+    pushEnabled: true,
+    pushContent: true,
     lastHomeserver: null,
   });
 });

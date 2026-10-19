@@ -87,6 +87,20 @@ export interface PlatformServices {
   /** The version of this build, shown in Settings. The shell sets it from the build; absent in development. */
   appVersion?: string;
   notifications?: SystemNotifications;
+  /**
+   * Push through a gateway, so a message arrives with the app closed (Android: FCM). Absent = no push (the web, a build without the
+   * Firebase file). `token` is the device's push token; it rejects when there is none to get.
+   */
+  push?: {
+    /** The application id the gateway knows. */
+    appId: string;
+    /** The gateway's notify URL. */
+    gatewayUrl: string;
+    deviceName: string;
+    token(): Promise<string>;
+    /** Calls `cb` with the new token when the push service changes it; returns an unsubscribe. */
+    onToken(cb: (token: string) => void): () => void;
+  };
   /** Record a voice message or a short video. Absent = the record buttons are hidden. Rejects with RecordError. */
   recordMedia?(kind: "audio" | "video"): Promise<Recorder>;
   /** What `recordMedia` can record; absent = both. A platform that cannot record video leaves it out and the button is hidden. */

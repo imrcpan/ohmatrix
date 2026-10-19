@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "830199117708",
+    "project_id": "ohmatrix-app",
+    "storage_bucket": "ohmatrix-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:830199117708:android:cd104b2ec6b7c10d3888a9",
+        "android_client_info": {
+          "package_name": "org.ohmatrix.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBg_Dpk3hetTTJeFCSsIKlKjnF7QVCycQk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -728,6 +728,11 @@ export class JsSdkEngine implements MatrixEngine {
         this.notifyListeners.delete(cb);
       };
     },
+    // The browser has its own push (not through a gateway): this engine has none.
+    registerPush: async () => {
+      throw new EngineError("unsupported", "no push gateway on the web");
+    },
+    unregisterPush: async () => {},
   };
 
   private setSync(s: SyncState) {

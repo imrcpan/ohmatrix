@@ -24,6 +24,7 @@ scripts/build-android.sh --version 1.2.3
 - `--check` only reports what is missing and whether the machine is big enough; `--skip-setup` installs nothing; `--jobs N` overrides the parallel jobs.
 - The result goes to `~/release` (`--release-dir`), with names like `OhMatrix_android_1.2.3_arm64-v8a.apk`.
 - Android builds `arm64-v8a`, `armeabi-v7a` and `x86_64` by default (`--targets` to choose). A release build is smaller and slower to build (the Rust library is built with the `dist` profile and one codegen unit).
+- Push (FCM, Android) is built in from `src/apps/mobile/google-services.json`; `--google-services FILE` builds with another file. A file that is named and missing is an error. Without any file the app builds with no push and works as before.
 - Environment: `OHM_TOOLS` (where tools are installed, default `~/.ohmatrix-tools`), `OHM_OUT` (caches and logs), `OHM_RELEASE_DIR`, `EXPO_PUBLIC_DEFAULT_HOMESERVER` / `VITE_DEFAULT_HOMESERVER` (the server offered on the sign-in screen).
 
 ## Signing (Android)
