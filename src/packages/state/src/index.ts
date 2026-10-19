@@ -301,9 +301,11 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
           await engine.notifications.unregisterPush({ appId: push.appId, pushKey });
           pushKey = undefined;
         }
-      } catch {
+      } catch (e) {
         // No token (no Google services on the phone, no network) or the server said no: the app works without push, and the next
-        // change (sign-in, the toggle, a new token) tries again.
+        // change (sign-in, the toggle, a new token) tries again. The reason goes to the log (never the token itself).
+        const log = (globalThis as unknown as { console?: { warn(...a: unknown[]): void } }).console;
+        log?.warn("push: not registered:", e instanceof Error ? e.message : String(e));
       }
     }));
   const offToken = services.push?.onToken(() => void syncPush());
