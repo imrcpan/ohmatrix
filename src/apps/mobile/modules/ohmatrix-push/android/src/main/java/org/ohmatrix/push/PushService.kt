@@ -74,7 +74,7 @@ private fun show(context: Context, state: PushState, userId: String, roomId: Str
             is Fetched.Unknown -> "OhMatrix" to words(lang, Kind.OTHER)
             is Fetched.Invite -> "OhMatrix" to (if (zh(lang)) "${r.sender} 邀请了你" else "${r.sender} invited you")
             is Fetched.Message -> {
-                // The setting "FCM message content" off: only that a message came, and where from.
+                // The setting "Show message content" off: only that a message came, and where from.
                 val what = if (state.content) (r.text ?: words(lang, r.kind)) else words(lang, Kind.OTHER)
                 r.room.let { if (r.direct) r.sender else it } to (if (r.direct || !state.content) what else "${r.sender}: $what")
             }

@@ -94,14 +94,6 @@ export function SettingsPage() {
                 chevron={false}
                 right={<Toggle label={t("push.enable")} value={prefs.pushEnabled} onChange={(v) => controller.setPreferences({ pushEnabled: v })} />}
               />
-              {prefs.pushEnabled && (
-                <Item
-                  label={t("push.content")}
-                  icon="mailUnread"
-                  chevron={false}
-                  right={<Toggle label={t("push.content")} value={prefs.pushContent} onChange={(v) => controller.setPreferences({ pushContent: v })} />}
-                />
-              )}
             </>
           )}
           {prefs.notifications && permission === "granted" && (

@@ -3,7 +3,7 @@ import type { AccountStore, Session, StoredAccount } from "@ohmatrix/core";
 import { createPushSync, notifyingAccountStore, pushStateJson, type PushNative } from "./pushState.js";
 
 const roots = { documents: "file:///data/user/0/org.ohmatrix.app/files", cache: "file:///data/user/0/org.ohmatrix.app/cache" };
-const prefs = { pushEnabled: true, pushContent: true, locale: null as "en" | "zh-CN" | null };
+const prefs = { pushEnabled: true, notificationPreview: true, locale: null as "en" | "zh-CN" | null };
 const session = (id: string, native?: string): Session => ({
   homeserver: "https://h",
   userId: id,
@@ -15,7 +15,7 @@ const session = (id: string, native?: string): Session => ({
 test("the state the service reads has each account's session and database folders, and the passphrase once", () => {
   const first: StoredAccount = { session: session("@a:h", JSON.stringify({ refreshToken: "r", slidingSyncVersion: 1 })) };
   const second: StoredAccount = { session: session("@b:h", JSON.stringify({ slidingSyncVersion: 0 })), dir: "acct-1" };
-  const json = JSON.parse(pushStateJson([first, second], "pass", roots, { ...prefs, pushContent: false, locale: "zh-CN" })) as Record<string, unknown>;
+  const json = JSON.parse(pushStateJson([first, second], "pass", roots, { ...prefs, notificationPreview: false, locale: "zh-CN" })) as Record<string, unknown>;
   expect(json["passphrase"]).toBe("pass");
   expect(json).toMatchObject({ enabled: true, content: false, lang: "zh-CN" });
   const [a, b] = json["accounts"] as Record<string, unknown>[];

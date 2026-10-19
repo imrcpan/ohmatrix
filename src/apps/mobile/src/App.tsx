@@ -83,7 +83,7 @@ async function createManager(): Promise<AccountManager> {
       const controller = manager.current();
       const send = () => {
         const p = controller.store.getState().prefs;
-        void pushSync.prefs({ pushEnabled: p.pushEnabled, pushContent: p.pushContent, locale: p.locale });
+        void pushSync.prefs({ pushEnabled: p.pushEnabled, notificationPreview: p.notificationPreview, locale: p.locale });
       };
       off = controller.store.subscribe(send);
       send();
