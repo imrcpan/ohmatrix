@@ -1,35 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="115 105 1025 1045" width="1025" height="1045">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1A93E6"/>
-      <stop offset="1" stop-color="#005FA8"/>
+    <rect id="bg" x="115" y="105" width="1025" height="1045"/>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E9BE6"/>
+      <stop offset="0.45" stop-color="#007ACC"/>
+      <stop offset="1" stop-color="#005A9E"/>
     </linearGradient>
-    <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#E4EEF8"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0" r="0.9">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+    <radialGradient id="glow" cx="0.35" cy="0.12" r="0.85">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.38"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.06"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="0" dy="26" stdDeviation="24" flood-color="#00264D" flood-opacity="0.55"/>
-      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#00264D" flood-opacity="0.45"/>
-    </filter>
-    <filter id="bevel" x="-5%" y="-5%" width="110%" height="110%">
-      <feOffset in="SourceAlpha" dy="3" result="o"/>
-      <feComposite in="SourceAlpha" in2="o" operator="out" result="edge"/>
-      <feFlood flood-color="#FFFFFF" flood-opacity="0.9"/>
-      <feComposite in2="edge" operator="in" result="hl"/>
-      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="hl"/></feMerge>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.2"/>
+      <stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#003B6B" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.6" stop-color="#002B52" stop-opacity="0"/>
+      <stop offset="1" stop-color="#002B52" stop-opacity="0.28"/>
+    </linearGradient>
+    <filter id="drop" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#00284D" flood-opacity="0.4"/>
     </filter>
   </defs>
-  <rect x="115" y="105" width="1025" height="1045" fill="url(#bg)"/>
-  <rect x="115" y="105" width="1025" height="1045" fill="url(#glow)"/>
-  <g filter="url(#shadow)">
-    <g filter="url(#bevel)" fill="url(#fg)">
-    <path d="M523.16 638.05 L606 546 Q627.5 520 649 546 L731.84 638.05 A14.0 14.0 0 0 0 751.17 639.47 A194 194 0 1 0 503.83 639.47 A14.0 14.0 0 0 0 523.16 638.05 Z"/>
-    <path d="M606 601 L534 681 Q521 696 508 683 L468 643 Q448 618 428 633 Q422 638 416 646 L242 884 Q234 904 250 904 L388 904 Q402 904 410 893 L490 800 Q503 786 516 799 L615 898 Q627.5 910 640 898 L739 799 Q752 786 765 800 L845 893 Q853 904 867 904 L1005 904 Q1021 904 1013 884 L839 646 Q833 638 827 633 Q807 618 787 643 L747 683 Q734 696 721 681 L649 601 Q627.5 575 606 601 Z"/>
-    </g>
+  <g>
+    <use href="#bg" fill="url(#base)"/>
+    <use href="#bg" fill="url(#shade)"/>
+    <use href="#bg" fill="url(#glow)"/>
+    <use href="#bg" fill="url(#gloss)"/>
+  </g>
+  <g filter="url(#drop)">
+  <path d="M523.16 638.05 L606 546 Q627.5 520 649 546 L731.84 638.05 A14.0 14.0 0 0 0 751.17 639.47 A194 194 0 1 0 503.83 639.47 A14.0 14.0 0 0 0 523.16 638.05 Z" fill="#FFFFFF"/>
+  <path d="M606 601 L534 681 Q521 696 508 683 L468 643 Q448 618 428 633 Q422 638 416 646 L242 884 Q234 904 250 904 L388 904 Q402 904 410 893 L490 800 Q503 786 516 799 L615 898 Q627.5 910 640 898 L739 799 Q752 786 765 800 L845 893 Q853 904 867 904 L1005 904 Q1021 904 1013 884 L839 646 Q833 638 827 633 Q807 618 787 643 L747 683 Q734 696 721 681 L649 601 Q627.5 575 606 601 Z" fill="#FFFFFF"/>
   </g>
 </svg>
