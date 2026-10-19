@@ -96,7 +96,7 @@ export function SettingsPage() {
               />
             </>
           )}
-          {prefs.notifications && permission === "granted" && (
+          {((prefs.notifications && permission === "granted") || (services.push && prefs.pushEnabled)) && (
             <Item
               label={t("notif.preview")}
               icon="mailUnread"
