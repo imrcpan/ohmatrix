@@ -27,7 +27,7 @@ export function pushStateJson(
   accounts: readonly StoredAccount[],
   passphrase: string | null,
   roots: { documents: string; cache: string },
-  prefs: Pick<Preferences, "pushEnabled" | "pushContent" | "locale">,
+  prefs: Pick<Preferences, "pushEnabled" | "notificationPreview" | "locale">,
 ): string {
   if (accounts.length === 0 || !passphrase) return "";
   const list: PushAccountJson[] = accounts.map((a) => {
@@ -49,7 +49,7 @@ export function pushStateJson(
       cacheDir: pathOfFileUri(inAccountDir(roots.cache, a.dir)),
     };
   });
-  return JSON.stringify({ enabled: prefs.pushEnabled, content: prefs.pushContent, lang: prefs.locale ?? "", passphrase, accounts: list });
+  return JSON.stringify({ enabled: prefs.pushEnabled, content: prefs.notificationPreview, lang: prefs.locale ?? "", passphrase, accounts: list });
 }
 
 /**
@@ -63,7 +63,7 @@ export function createPushSync(
   roots: { documents: string; cache: string },
 ) {
   let queue: Promise<unknown> = Promise.resolve();
-  let prefs: Pick<Preferences, "pushEnabled" | "pushContent" | "locale"> = { pushEnabled: true, pushContent: true, locale: null };
+  let prefs: Pick<Preferences, "pushEnabled" | "notificationPreview" | "locale"> = { pushEnabled: true, notificationPreview: true, locale: null };
   const run = () =>
     (queue = queue.then(async () => {
       try {
@@ -76,8 +76,8 @@ export function createPushSync(
     /** The accounts changed (one was added, refreshed or removed). */
     refresh: () => run().then(() => undefined),
     /** The settings changed. */
-    prefs(p: Pick<Preferences, "pushEnabled" | "pushContent" | "locale">) {
-      if (p.pushEnabled === prefs.pushEnabled && p.pushContent === prefs.pushContent && p.locale === prefs.locale) return queue;
+    prefs(p: Pick<Preferences, "pushEnabled" | "notificationPreview" | "locale">) {
+      if (p.pushEnabled === prefs.pushEnabled && p.notificationPreview === prefs.notificationPreview && p.locale === prefs.locale) return queue;
       prefs = p;
       return run();
     },

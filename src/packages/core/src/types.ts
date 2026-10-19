@@ -196,8 +196,6 @@ export interface Preferences {
   notificationPreview: boolean;
   /** Push through FCM, so a message arrives with the app closed (Android only; on by default). */
   pushEnabled: boolean;
-  /** Show the message's text in a notification that a push raised (on), or only that a message came (off). The push itself never carries the text (it names the room and the event only, so Google and the gateway cannot read it): the app fetches and decrypts the message itself. */
-  pushContent: boolean;
   /** The server last signed in to (as typed), offered again on the sign-in screen; null = none yet. */
   lastHomeserver: string | null;
 }
@@ -210,7 +208,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   notifications: false,
   notificationPreview: true,
   pushEnabled: true,
-  pushContent: true,
   lastHomeserver: null,
 };
 
