@@ -1,4 +1,4 @@
-import { applyUpdates, type ListUpdate, type RoomSummary, type TimelineItem } from "@ohmatrix/core";
+import { applyUpdates, EngineError, type ListUpdate, type RoomSummary, type TimelineItem } from "@ohmatrix/core";
 import { expect, test } from "vitest";
 import { RustEngineCore, type RustEngineOptions } from "./engine.js";
 import type {
@@ -288,6 +288,14 @@ class FakeClient implements SdkClient {
   muted: [string, boolean][] = [];
   async setMuted(id: string, m: boolean) {
     this.muted.push([id, m]);
+  }
+  pushers: unknown[] = [];
+  async setPusher(p: unknown) {
+    this.pushers.push(p);
+  }
+  removedPushers: unknown[] = [];
+  async deletePusher(p: unknown) {
+    this.removedPushers.push(p);
   }
 }
 
@@ -618,6 +626,27 @@ test("administration goes to the room: names, people, roles, levels, rules", asy
   await engine.rooms.setMuted("!r", true);
   expect(client.muted).toEqual([["!r", true]]);
   await expect(a.setName("!nope", "x")).rejects.toMatchObject({ code: "not_found" });
+});
+
+test("push: a pusher is registered with the gateway and taken away again; the SDK's errors are ours", async () => {
+  const { engine, client } = make();
+  await engine.auth.restore({ homeserver: "http://s", userId: "@me:s", deviceId: "DEV", accessToken: "tok" });
+  const reg = {
+    appId: "org.ohmatrix.app",
+    pushKey: "token-1",
+    gatewayUrl: "https://push.example/_matrix/push/v1/notify",
+    appName: "OhMatrix",
+    deviceName: "Phone",
+    lang: "en",
+  };
+  await engine.notifications.registerPush(reg);
+  expect(client.pushers).toEqual([reg]);
+  await engine.notifications.unregisterPush({ appId: reg.appId, pushKey: reg.pushKey });
+  expect(client.removedPushers).toEqual([{ appId: reg.appId, pushKey: reg.pushKey }]);
+  client.setPusher = async () => {
+    throw new Error("M_FORBIDDEN");
+  };
+  await expect(engine.notifications.registerPush(reg)).rejects.toBeInstanceOf(EngineError);
 });
 
 test("message operations go to the SDK's timeline; a message still on its way is addressed by its transaction id", async () => {

@@ -1,4 +1,4 @@
-import { AppState, Image, Linking } from "react-native";
+import { AppState, Image, Linking, Platform } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
 import {
   RecordError,
@@ -320,11 +320,45 @@ function appIconsService(): Pick<AppServices, "appIcons" | "appLogo"> {
   return { appIcons: icons, appLogo: () => appLogoOf(list, icons) ?? "" };
 }
 
+/** Where Matrix homeservers post a push for this app, and the id the gateway knows the app by (the Firebase project is behind it). */
+const PUSH_APP_ID = "org.ohmatrix.app";
+const PUSH_GATEWAY = process.env["EXPO_PUBLIC_PUSH_GATEWAY"] || "https://push.ohmatrix.org/_matrix/push/v1/notify";
+
+/**
+ * Push through FCM (Android). The token comes from the Firebase file the build was made with; a build without it, or a phone without
+ * Google services, has none, and `token()` rejects: the app then runs without push.
+ */
+export function phonePush(): NonNullable<AppServices["push"]> | undefined {
+  if (Platform.OS !== "android") return undefined;
+  const model = (Platform.constants as { Model?: string }).Model;
+  return {
+    appId: PUSH_APP_ID,
+    gatewayUrl: PUSH_GATEWAY,
+    deviceName: model || "Android",
+    async token() {
+      const N = await import("expo-notifications");
+      const t = await N.getDevicePushTokenAsync();
+      if (typeof t.data !== "string" || !t.data) throw new Error("no push token");
+      return t.data;
+    },
+    onToken(cb) {
+      let off = () => {};
+      void import("expo-notifications").then((N) => {
+        const sub = N.addPushTokenListener((t) => typeof t.data === "string" && cb(t.data));
+        off = () => sub.remove();
+      });
+      return () => off();
+    },
+  };
+}
+
 export function phoneServices(): AppServices {
+  const push = phonePush();
   return {
     // Set by the build (scripts/build-android.sh --version a.b.c), the same number the APK carries as its versionName.
     ...(process.env["EXPO_PUBLIC_APP_VERSION"] ? { appVersion: process.env["EXPO_PUBLIC_APP_VERSION"] } : {}),
     notifications: phoneNotifications(),
+    ...(push && { push }),
     ...appIconsService(),
     preferences: filePreferences(),
     pickFiles,

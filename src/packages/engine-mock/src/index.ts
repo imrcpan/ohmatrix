@@ -89,7 +89,13 @@ export class MockEngine implements MatrixEngine {
     },
   };
 
-  readonly notifications = { subscribe: (_cb: Listener<import("@ohmatrix/core").IncomingNotification>) => () => {} };
+  readonly notifications = {
+    subscribe: (_cb: Listener<import("@ohmatrix/core").IncomingNotification>) => () => {},
+    registerPush: async () => {
+      throw new EngineError("unsupported", "mock has no push");
+    },
+    unregisterPush: async () => {},
+  };
 
   readonly security = {
     state: async () => "unavailable" as const,

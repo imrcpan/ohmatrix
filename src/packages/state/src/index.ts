@@ -268,12 +268,45 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         void services.preferences?.save(store.getState().prefs).catch(() => {});
       }
       await engine.sync.start();
+      void syncPush();
     } catch (e) {
       signedOut(messageOf(e), e instanceof EngineError ? e.code : null);
     }
   };
 
   let zoomTimer: unknown;
+
+  // Push: the pusher this account has on its homeserver is the one for the device's current token, while signed in and the preference is on.
+  let pushKey: string | undefined;
+  let pushRun: Promise<void> = Promise.resolve();
+  const syncPush = () =>
+    (pushRun = pushRun.then(async () => {
+      const push = services.push;
+      if (!push) return;
+      try {
+        const { auth, prefs } = store.getState();
+        if (auth === "signedIn" && prefs.pushEnabled) {
+          const key = await push.token();
+          if (pushKey && pushKey !== key) await engine.notifications.unregisterPush({ appId: push.appId, pushKey }).catch(() => {});
+          await engine.notifications.registerPush({
+            appId: push.appId,
+            pushKey: key,
+            gatewayUrl: push.gatewayUrl,
+            appName: "OhMatrix",
+            deviceName: push.deviceName,
+            lang: store.getState().prefs.locale ?? "en",
+          });
+          pushKey = key;
+        } else if (pushKey) {
+          await engine.notifications.unregisterPush({ appId: push.appId, pushKey });
+          pushKey = undefined;
+        }
+      } catch {
+        // No token (no Google services on the phone, no network) or the server said no: the app works without push, and the next
+        // change (sign-in, the toggle, a new token) tries again.
+      }
+    }));
+  const offToken = services.push?.onToken(() => void syncPush());
 
   const controller: AppController = {
     store,
@@ -290,6 +323,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         await engine.sync.start().catch((e) => {
           if (e instanceof EngineError && (e.code === "unauthorized" || e.code === "keys_lost")) throw e;
         });
+        void syncPush();
       } catch (e) {
         const forced = e instanceof EngineError && (e.code === "unauthorized" || e.code === "keys_lost");
         if (forced) await services.sessionStore.clear();
@@ -300,6 +334,10 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     register: (homeserver, username, password) => signIn(homeserver, () => engine.auth.register(homeserver, username, password)),
     async logout() {
       try {
+        // The pusher goes first, while the session still works; a failure must not keep the user from signing out.
+        const push = services.push;
+        if (push && pushKey) await engine.notifications.unregisterPush({ appId: push.appId, pushKey }).catch(() => {});
+        pushKey = undefined;
         await engine.auth.logout();
       } finally {
         await services.sessionStore.clear();
@@ -325,7 +363,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       set({ zoomTrial: null });
     },
     setPreferences(patch) {
+      const was = store.getState().prefs.pushEnabled;
       set((s) => ({ prefs: { ...s.prefs, ...patch } }));
+      if (store.getState().prefs.pushEnabled !== was) void syncPush();
       void services.preferences?.save(store.getState().prefs).catch(() => {});
     },
     setDisplayName: (name) => engine.profile.setDisplayName(name.trim()),
@@ -441,6 +481,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     },
     dispose: () => {
       timers.clearTimeout(zoomTimer);
+      offToken?.();
       offs.forEach((off) => off());
     },
   };

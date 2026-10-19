@@ -204,6 +204,26 @@ export interface NotificationsApi {
    * push rules mute). The consumer decides whether to show it (window focus, user settings).
    */
   subscribe(cb: Listener<IncomingNotification>): Unsubscribe;
+  /**
+   * Tell the homeserver where to send a push for this account (an HTTP pusher, format `event_id_only`: the push names the room and
+   * the event and nothing else). Registering the same `appId` and `pushKey` again replaces it. Rejects with "unsupported" on an engine
+   * that cannot (the web ones: the browser has its own).
+   */
+  registerPush(p: PushRegistration): Promise<void>;
+  /** Take a pusher away (signing out, or push turned off). Succeeds when there is none. */
+  unregisterPush(p: { appId: string; pushKey: string }): Promise<void>;
+}
+
+export interface PushRegistration {
+  /** The application id the gateway knows (`org.ohmatrix.app`). */
+  appId: string;
+  /** The device's token from the push service (FCM). */
+  pushKey: string;
+  /** The gateway's notify URL. */
+  gatewayUrl: string;
+  appName: string;
+  deviceName: string;
+  lang: string;
 }
 
 /** A live view of one room. Must be closed to release engine resources. */

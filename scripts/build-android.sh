@@ -5,13 +5,14 @@
 # container, really has.
 #
 #   scripts/build-android.sh --version a.b.c [--targets ABIS] [--release-dir DIR] [--debug|--release]
-#                            [--check] [--skip-setup] [--jobs N] [--save-disk|--no-save-disk]
+#                            [--google-services FILE] [--check] [--skip-setup] [--jobs N] [--save-disk|--no-save-disk]
 #
 #   --version      the version of this build, like 1.2.3 (required, except with --check). It is the APK's version name, and what
 #                  Settings shows; each ABI gets its own version code from it.
 #   --targets      the ABIs to build, comma separated (default arm64-v8a,armeabi-v7a,x86_64: phones, older 32-bit phones, the emulator)
 #   --release-dir  where the result goes: DIR/android/OhMatrix_android_<version>_<abi>.apk (default ~/release)
 #   --release      the default; --debug builds the debug variant (the file names then end in _debug)
+#   --google-services  the Firebase file to build with, instead of src/apps/mobile/google-services.json (push through FCM)
 #   --check        only report what is missing (and whether the machine is big enough); install and build nothing
 #   --skip-setup   do not install anything, use what is on the machine
 #   --jobs N       parallel compile jobs, instead of what the machine's CPUs and memory allow
@@ -56,6 +57,12 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     --targets=*) targets=${1#--targets=} ;;
+    --google-services)
+      [ $# -ge 2 ] || die "--google-services needs a file"
+      export OHM_GOOGLE_SERVICES=$2
+      shift
+      ;;
+    --google-services=*) export OHM_GOOGLE_SERVICES=${1#--google-services=} ;;
     --save-disk) save_disk=1 ;;
     --no-save-disk) save_disk=0 ;;
     *) die "unknown option: $1 (see the top of $0)" ;;

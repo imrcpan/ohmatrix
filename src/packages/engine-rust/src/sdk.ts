@@ -212,6 +212,9 @@ export interface SdkClient {
   room(id: string): SdkRoom | undefined;
   /** Mute a room, or give it the account's default again. */
   setMuted(roomId: string, muted: boolean): Promise<void>;
+  /** An HTTP pusher in the `event_id_only` format, replacing one with the same app id and key; and taking one away. */
+  setPusher(p: { appId: string; pushKey: string; gatewayUrl: string; appName: string; deviceName: string; lang: string }): Promise<void>;
+  deletePusher(p: { appId: string; pushKey: string }): Promise<void>;
   /** Make a room and resolve with its id. */
   createRoom(opts: { name: string; topic?: string; invite: string[]; encrypted: boolean; space: boolean; direct: boolean }): Promise<string>;
   /** Join by room id or alias; resolves with the room id. */
