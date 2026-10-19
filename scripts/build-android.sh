@@ -117,7 +117,7 @@ export EXPO_PUBLIC_NATIVE_SELFTEST=0 NODE_ENV=production NODE_OPTIONS="--max-old
 run_step "install dependencies" pnpm install --frozen-lockfile --filter '@ohmatrix/mobile...'
 
 # The app icon is drawn from the SVG logo here and never kept in the repository.
-run_step "app icon from logo/main-full.svg" bash -c 'cd src/apps/mobile && node scripts/makeIcons.mjs'
+run_step "app icon from logo/colorful-full/1.svg" bash -c 'cd src/apps/mobile && node scripts/makeIcons.mjs'
 
 # The NDK set up above is the one React Native asks for; if it asks for another, Gradle would fetch that one itself.
 rn_dir=$(cd src/apps/mobile && node -p "require('path').dirname(require.resolve('react-native/package.json'))") || die "cannot find react-native in the installed dependencies"
