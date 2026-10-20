@@ -87,7 +87,7 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
             label={t("password")}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            revealLabels={{ show: t("password.show"), hide: t("password.hide") }}
             textContentType={creating ? "newPassword" : "password"}
             onSubmitEditing={creating ? undefined : submit}
           />
@@ -96,7 +96,7 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
               label={t("register.confirm")}
               value={confirm}
               onChangeText={setConfirm}
-              secureTextEntry
+              revealLabels={{ show: t("password.show"), hide: t("password.hide") }}
               textContentType="newPassword"
               onSubmitEditing={submit}
             />
