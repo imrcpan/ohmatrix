@@ -1,13 +1,19 @@
-import { useRef, useState, type ComponentRef } from "react";
+import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { Icon, Logo, Menu, PrimaryButton, TextButton, TextField, fontFamily, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import { Icon, Logo, Menu, PrimaryButton, TextButton, TextField, fontFamily, useInsets, useTheme, type Anchor } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 
 /** `back`: another account to go to (this screen is for adding one, or for an account that could not start), with the button's label. */
 export function LoginScreen(props: { defaultHomeserver: string; back?: { label: string; onPress(): void } | undefined }) {
   const { colors } = useTheme();
-  const nav = useNavBottom();
+  // The frame around the app leaves room at the bottom for the keyboard, and so lifts the page; the form should go up with it (the fields
+  // are what is typed in), the language button should not. So the button sits lower by what the keyboard added to the bottom inset:
+  // the inset as it is now, less what it was with no keyboard up (the lowest it has been while this page is showing).
+  const insets = useInsets();
+  const [restBottom, setRestBottom] = useState(insets.bottom);
+  useEffect(() => setRestBottom((r) => Math.min(r, insets.bottom)), [insets.bottom]);
+  const keyboardLift = insets.bottom - restBottom;
   const t = useT();
   const logo = useServices().appLogo?.();
   const controller = useController();
@@ -105,7 +111,7 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
         </View>
       </ScrollView>
       {/* The language, at the bottom right: a borderless name and arrow that opens a menu upwards. */}
-      <View ref={langRef} style={{ position: "absolute", right: 16, bottom: 16 + nav }}>
+      <View ref={langRef} style={{ position: "absolute", right: 16, bottom: 16 + (insets.navBottom ?? 0) - keyboardLift }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("language")}
