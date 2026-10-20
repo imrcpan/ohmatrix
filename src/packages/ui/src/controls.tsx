@@ -32,15 +32,21 @@ export function PrimaryButton(props: { title: string; onPress: () => void; loadi
 }
 
 /** Inset field on a secondary surface, iOS-settings style; accent ring on focus (Fluent-like). */
-export function TextField(props: TextInputProps & { label: string }) {
+/**
+ * A labelled text box. With `revealLabels` (a password box) there is a button at its right end that shows what is typed and hides it
+ * again; the text is hidden when the box is made. The two labels are for a screen reader: "show" while it is hidden, "hide" while shown.
+ */
+export function TextField(props: TextInputProps & { label: string; revealLabels?: { show: string; hide: string } }) {
   const { colors } = useTheme();
   const [focus, setFocus] = useState(false);
-  const { label, style: _style, ...rest } = props;
+  const [shown, setShown] = useState(false);
+  const { label, style: _style, revealLabels, ...rest } = props;
   return (
     <View>
       <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 6, marginLeft: 4, fontFamily }}>{label}</Text>
       <TextInput
         {...rest}
+        {...(revealLabels ? { secureTextEntry: !shown } : {})}
         placeholderTextColor={colors.textSecondary}
         onFocus={(e) => {
           setFocus(true);
@@ -54,7 +60,8 @@ export function TextField(props: TextInputProps & { label: string }) {
           {
             ...(rest.multiline ? { minHeight: 96, paddingTop: 12, paddingBottom: 12, textAlignVertical: "top" as const } : { height: 48 }),
             borderRadius: radius.control,
-            paddingHorizontal: 14,
+            paddingLeft: 14,
+            paddingRight: revealLabels ? 48 : 14,
             fontSize: 17,
             fontFamily,
             color: colors.text,
@@ -65,6 +72,17 @@ export function TextField(props: TextInputProps & { label: string }) {
           { outlineStyle: "none" } as object,
         ]}
       />
+      {revealLabels && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={shown ? revealLabels.hide : revealLabels.show}
+          onPress={() => setShown((v) => !v)}
+          hitSlop={6}
+          style={{ position: "absolute", right: 2, bottom: 0, width: 44, height: 48, alignItems: "center", justifyContent: "center" }}
+        >
+          <Icon name={shown ? "eyeOff" : "eye"} size={20} color={colors.textSecondary} />
+        </Pressable>
+      )}
     </View>
   );
 }
