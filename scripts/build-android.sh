@@ -148,7 +148,11 @@ check_apk() {
   grep -q "versionCode='$want_code'" <<<"$badging" || die "$(basename "$apk"): its version code is not $want_code"
   [ "$(grep '^native-code:' <<<"$badging")" = "native-code: '$abi'" ] || die "$(basename "$apk"): its native code is not only $abi ($(grep '^native-code:' <<<"$badging"))"
   code=$want_code
-  ok "$(basename "$apk"): version $OHM_VERSION, code $code, native code $abi only"
+  # The JavaScript must hold the Rust engine: with the engine's files missing (an old Metro cache), the app starts, but on the mock.
+  # `RustEngineCore` is the engine's class (packages/engine-rust/src/engine.ts); Hermes keeps such names as text. (Not `installRustCrate`:
+  # that one is in a file of the package that was packed even in the broken build.)
+  unzip -p "$apk" assets/index.android.bundle | grep -aq RustEngineCore || die "$(basename "$apk"): its JavaScript has no Rust engine (RustEngineCore is not in it): the app would run on the mock engine"
+  ok "$(basename "$apk"): version $OHM_VERSION, code $code, native code $abi only, with the Rust engine"
 }
 
 build_abi() {
@@ -172,6 +176,11 @@ build_abi() {
   # The first one starts the Android project afresh; the others only update it (the version code), which keeps Gradle's work.
   [ "$first" = 1 ] && clean=(--clean)
   run_step "generate the Android project ($abi)" bash -c 'cd src/apps/mobile && pnpm exec expo prebuild --platform android --no-install "$@"' _ "${clean[@]+"${clean[@]}"}"
+
+  # Metro's cache of an earlier build (in the temporary folder, outside the build folder) must not be used: it keeps the JavaScript of
+  # files as they were then, so a build that follows a change of the sources (a new file in a package) can pack an app that lacks it.
+  # This once packed the app without the Rust engine (1009 modules instead of 1027), and the app ran on the in-memory mock.
+  rm -rf "${TMPDIR:-/tmp}"/metro-cache "${TMPDIR:-/tmp}"/metro-file-map-*
 
   # shellcheck disable=SC2016 # the variables are read by the inner shell, which has them from the environment
   run_step "Gradle $task ($abi)" bash -c 'cd src/apps/mobile/android && ./gradlew --no-daemon \
