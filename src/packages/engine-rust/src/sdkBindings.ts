@@ -374,6 +374,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
       ),
     joinRoom: async (idOrAlias) => (await call(() => c.joinRoomByIdOrAlias(idOrAlias, []))).id(),
     directRoom: (userId) => c.getDmRoom(userId)?.id(),
+    ignoreUser: (userId) => call(() => c.ignoreUser(userId)),
     searchUsers: async (term, limit) => (await call(() => c.searchUsers(term, BigInt(limit)))).results,
     userProfile: (userId) => call(() => c.getProfile(userId)),
     setDisplayName: (name) => call(() => c.setDisplayName(name)),

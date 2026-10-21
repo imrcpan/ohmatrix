@@ -239,6 +239,10 @@ class FakeClient implements SdkClient {
   directRoom(u: string) {
     return this.dm.get(u);
   }
+  ignored: string[] = [];
+  async ignoreUser(u: string) {
+    this.ignored.push(u);
+  }
   async searchUsers() {
     return this.directory;
   }

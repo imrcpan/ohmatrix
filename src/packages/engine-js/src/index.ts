@@ -618,6 +618,12 @@ export class JsSdkEngine implements MatrixEngine {
         }
         return out;
       }),
+    block: (userId: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const ignored = c.getIgnoredUsers();
+        if (!ignored.includes(userId)) await c.setIgnoredUsers([...ignored, userId]);
+      }),
   };
 
   /**
