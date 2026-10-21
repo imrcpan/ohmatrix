@@ -171,6 +171,7 @@ test("preferences load on bootstrap and persist on change", async () => {
     uiScale: 1,
     notifications: false,
     notificationPreview: true,
+    ownBubbleAccent: true,
     pushEnabled: true,
     lastHomeserver: null,
   });
@@ -184,6 +185,7 @@ test("preferences load on bootstrap and persist on change", async () => {
     uiScale: 1,
     notifications: false,
     notificationPreview: true,
+    ownBubbleAccent: true,
     pushEnabled: true,
     lastHomeserver: null,
   });

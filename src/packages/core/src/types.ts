@@ -194,6 +194,8 @@ export interface Preferences {
   notifications: boolean;
   /** Include the message text in notifications (off = just "New message"). */
   notificationPreview: boolean;
+  /** My messages wear the theme's accent colour; off, they look like everybody else's bubbles. */
+  ownBubbleAccent: boolean;
   /** Push through FCM, so a message arrives with the app closed (Android only; on by default). */
   pushEnabled: boolean;
   /** The server last signed in to (as typed), offered again on the sign-in screen; null = none yet. */
@@ -207,6 +209,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   uiScale: 1,
   notifications: false,
   notificationPreview: true,
+  ownBubbleAccent: true,
   pushEnabled: true,
   lastHomeserver: null,
 };

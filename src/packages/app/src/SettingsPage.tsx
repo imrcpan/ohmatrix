@@ -144,6 +144,15 @@ export function SettingsPage() {
           <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>{t("zoom.footer")}</Text>
           <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
           {services.appIcons && <Item label={t("appIcon")} icon="image" onPress={() => controller.openSidebarPage("appIcon")} />}
+          <Item
+            label={t("ownAccent")}
+            icon="palette"
+            chevron={false}
+            right={<Toggle label={t("ownAccent")} value={prefs.ownBubbleAccent} onChange={(v) => controller.setPreferences({ ownBubbleAccent: v })} />}
+          />
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
+            {t("ownAccent.footer")}
+          </Text>
         </Group>
         <Group title={t("advanced")}>
           <Item label={t("advanced.options")} icon="gear" onPress={() => controller.openSidebarPage("advanced")} />
