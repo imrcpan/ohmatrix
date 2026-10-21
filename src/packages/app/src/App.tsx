@@ -10,6 +10,7 @@ import { LoginScreen } from "./LoginScreen.js";
 import { MainScreen } from "./MainScreen.js";
 import { NotificationsBridge } from "./NotificationsBridge.js";
 import { useBackHandler } from "./useBackHandler.js";
+import { NoticeProvider } from "./useNotice.js";
 
 /** The platform's back closes the topmost layer of the app, and only leaves the app when there is none. */
 function BackBridge() {
@@ -105,7 +106,9 @@ export function App(props: {
       <Showing manager={props.manager} services={props.services}>
         <Themed>
           <Framed insets={props.insets}>
-            <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
+            <NoticeProvider>
+              <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
+            </NoticeProvider>
           </Framed>
         </Themed>
       </Showing>

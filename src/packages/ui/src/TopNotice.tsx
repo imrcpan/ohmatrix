@@ -1,15 +1,16 @@
-import { Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { Icon } from "./Icon.js";
 import { fontFamily, useTheme } from "./theme.js";
 
 /**
  * A short message in a pill at the top of the screen, in plain sight: the theme's own surface (light or dark) with an
- * outline and a mark (a check for good news, a cross for an error). The caller decides how long it stays and what `top`
+ * outline and a mark (a check for good news, a cross for an error, a turning ring while something is going on). The caller decides how long it stays and what `top`
  * clears (the status bar, a header).
  */
-export function TopNotice(props: { message: string; kind?: "success" | "error"; top: number }) {
+export function TopNotice(props: { message: string; kind?: "success" | "error" | "progress"; top: number }) {
   const { colors } = useTheme();
   const error = props.kind === "error";
+  const progress = props.kind === "progress";
   return (
     <View
       accessibilityLiveRegion="polite"
@@ -37,9 +38,17 @@ export function TopNotice(props: { message: string; kind?: "success" | "error"; 
         zIndex: 50,
       }}
     >
-      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: error ? "#FF3B30" : "#34C759", alignItems: "center", justifyContent: "center" }}>
-        <Icon name={error ? "close" : "check"} size={16} strokeWidth={3} color="#FFFFFF" />
-      </View>
+      {progress ? (
+        <View style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="small" color={colors.accent} />
+        </View>
+      ) : (
+        <View
+          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: error ? "#FF3B30" : "#34C759", alignItems: "center", justifyContent: "center" }}
+        >
+          <Icon name={error ? "close" : "check"} size={16} strokeWidth={3} color="#FFFFFF" />
+        </View>
+      )}
       <Text numberOfLines={3} style={{ flexShrink: 1, fontSize: 16, fontWeight: "600", fontFamily, color: colors.text }}>
         {props.message}
       </Text>
