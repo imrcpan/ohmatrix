@@ -10,6 +10,8 @@ export interface RowActions {
   forward(item: TimelineItem): void;
   reply(item: TimelineItem): void;
   edit(item: TimelineItem): void;
+  /** Start choosing messages, with this one chosen. */
+  select(item: TimelineItem): void;
   remove(eventId: string): void;
   /** Scroll to a message, loading older history first if it is not loaded (a reply's quote). */
   jump(eventId: string): void;
