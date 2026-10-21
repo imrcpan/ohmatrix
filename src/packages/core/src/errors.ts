@@ -7,6 +7,8 @@ export type EngineErrorCode =
   | "rate_limited"
   | "keys_lost" // this device's encryption keys are gone: it cannot be used any more, sign in again
   | "unsupported" // engine/homeserver lacks the capability
+  | "token_required" // the server creates accounts only with a registration token, and none was given
+  | "token_invalid" // the registration token that was given is not valid (wrong, used up or expired)
   | "unknown";
 
 /** The only error type engines may throw across the boundary. */

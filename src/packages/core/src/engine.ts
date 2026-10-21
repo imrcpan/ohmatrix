@@ -32,9 +32,10 @@ export interface AuthApi {
   /**
    * Create an account with a username and password and sign in as it. Only servers that need nothing more than that
    * can be registered on (no e-mail address, captcha or terms to accept); on any other it throws `unsupported`, and on a
-   * server that has registration closed it throws `forbidden`. A taken username is a `conflict`.
+   * server that has registration closed it throws `forbidden`. A taken username is a `conflict`. A server that creates accounts only with
+   * a registration token needs `token` (`token_required` without it, `token_invalid` when it is not valid).
    */
-  register(homeserver: string, username: string, password: string): Promise<Session>;
+  register(homeserver: string, username: string, password: string, token?: string): Promise<Session>;
   restore(session: Session): Promise<void>;
   logout(): Promise<void>;
 }
