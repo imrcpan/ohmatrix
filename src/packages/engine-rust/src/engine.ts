@@ -174,9 +174,9 @@ export class RustEngineCore implements MatrixEngine {
         this.watchSecurity();
         return toSession(client.session());
       }),
-    register: (homeserver: string, username: string, password: string) =>
+    register: (homeserver: string, username: string, password: string, token?: string) =>
       guard(async () => {
-        const session = await register(this.fetch(), await this.resolve(homeserver), username, password, DEVICE_NAME);
+        const session = await register(this.fetch(), await this.resolve(homeserver), username, password, DEVICE_NAME, token);
         await this.auth.restore(session);
         return session;
       }),
