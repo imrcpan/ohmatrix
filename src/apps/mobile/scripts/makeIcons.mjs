@@ -7,6 +7,7 @@
 //   appIcons/launcher/<density>/  the icons the user can choose in Settings, for the launcher: logo/colorful-full/<id>.svg at each density
 //                                 (the full square: the launcher cuts its own shape out of it).
 //   appIcons/preview/<id>.png     the same choices as Settings shows them: logo/colorful/<id>.svg (the rounded shape).
+//   splash/drawable-<density>/    the picture of the start-up screen (plugins/withSplash.js): logo/colorful/<first>.svg, round, on a clear ground.
 //   appIcons.json, appIcons.ts    the list: the ids, the name of the launcher entry and of the picture for each, and the previews.
 //
 // The choices are the files in logo/colorful/, sorted by name; the first one is the default. A file there without a twin in logo/colorful-full/
@@ -24,6 +25,9 @@ export const ICON_SIZE = 1024;
 export const PREVIEW_SIZE = 192;
 /** Android's launcher icon sizes (dp 48) at each density. */
 export const DENSITIES = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+/** The logo of the start-up screen is 120 dp wide: this many pixels at each density (the launcher's sizes times 2.5). */
+export const SPLASH_DP = 120;
+export const SCALES = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
 
 /**
  * Names for an id, the ones Android allows (lower case letters, digits and _ for a picture; a class-like name for the launcher entry).
@@ -100,6 +104,10 @@ export function makeIcons(outDir) {
         .replace(/\s*\n\s*/g, " ")
         .trim(),
     });
+  }
+  const firstLogo = read("colorful", `${listColorful()[0]}.svg`);
+  for (const [density, scale] of Object.entries(SCALES)) {
+    write(join(outDir, "splash", `drawable-${density}`, "splashscreen_logo.png"), renderSquare(firstLogo, Math.round(SPLASH_DP * scale), false).png);
   }
   write(
     join(outDir, "appIcons.json"),
