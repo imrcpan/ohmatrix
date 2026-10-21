@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import type { AppServices, AttachmentSource, Preferences } from "@ohmatrix/core";
+import { installLog, type AppServices, type AttachmentSource, type Preferences } from "@ohmatrix/core";
 import { JsSdkEngine } from "@ohmatrix/engine-js";
 import { createAccountManager } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
@@ -28,6 +28,9 @@ const preferences = {
   },
   save: async (p: Preferences) => localStorage.setItem(PREFS_KEY, JSON.stringify(p)),
 };
+
+// The log the app shows in Settings > Advanced options starts here.
+installLog();
 
 const services: AppServices = {
   // The sign-in screen draws the page's own icon, logo/colorful/1.svg (the same file as the favicon).

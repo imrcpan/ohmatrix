@@ -4,7 +4,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import * as Crypto from "expo-crypto";
 import { Directory, File, Paths } from "expo-file-system";
 import * as SecureStore from "expo-secure-store";
-import type { AppServices } from "@ohmatrix/core";
+import { installLog, type AppServices } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAccountManager, type AccountManager } from "@ohmatrix/state";
 import { App as SharedApp, BootScreen } from "@ohmatrix/app";
@@ -17,6 +17,9 @@ import { useKeyboardHeight } from "./useKeyboardHeight.js";
 
 // The accounts go in the Android Keystore (iOS Keychain), through expo-secure-store. The one session saved before there were
 // several accounts is read once, by `legacySessions`, and becomes the first account.
+// The log the app shows in Settings > Advanced options starts here, before anything else of the app runs.
+installLog();
+
 const baseAccounts = createAccountStore(SecureStore);
 const legacySessions = createSessionStore(SecureStore);
 
