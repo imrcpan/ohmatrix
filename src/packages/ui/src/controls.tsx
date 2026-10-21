@@ -8,6 +8,8 @@ import { fontFamily, radius, useTheme } from "./theme.js";
 export function PrimaryButton(props: { title: string; onPress: () => void; loading?: boolean; disabled?: boolean }) {
   const { colors } = useTheme();
   const off = props.disabled || props.loading;
+  // A button that cannot be pressed is grey; one that is working keeps its colour (dimmed) with the turning ring.
+  const grey = !!props.disabled && !props.loading;
   return (
     <Pressable
       accessibilityRole="button"
@@ -16,16 +18,16 @@ export function PrimaryButton(props: { title: string; onPress: () => void; loadi
       style={({ pressed }) => ({
         height: 50,
         borderRadius: radius.control + 2,
-        backgroundColor: colors.accent,
+        backgroundColor: grey ? colors.separator : colors.accent,
         alignItems: "center",
         justifyContent: "center",
-        opacity: off ? 0.5 : pressed ? 0.8 : 1,
+        opacity: props.loading ? 0.5 : grey ? 1 : pressed ? 0.8 : 1,
       })}
     >
       {props.loading ? (
         <ActivityIndicator color={colors.onAccent} />
       ) : (
-        <Text style={{ color: colors.onAccent, fontSize: 17, fontWeight: "600", fontFamily }}>{props.title}</Text>
+        <Text style={{ color: grey ? colors.textSecondary : colors.onAccent, fontSize: 17, fontWeight: "600", fontFamily }}>{props.title}</Text>
       )}
     </Pressable>
   );
