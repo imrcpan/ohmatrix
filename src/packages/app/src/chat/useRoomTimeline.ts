@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { spreadReceipts } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
 import { useAppState, useController, useLocale } from "../context.js";
 import { buildRows } from "../timelineRows.js";
@@ -37,6 +38,6 @@ export function useRoomTimeline(roomId: string) {
   }, [unread, lastItemId]);
 
   // Oldest first, the way the list is given to a message list (which decides for itself how to lay it out).
-  const rows = useMemo(() => buildRows(items ?? [], Date.now(), locale, unreadFrom), [items, locale, unreadFrom]);
+  const rows = useMemo(() => buildRows(spreadReceipts(items ?? []), Date.now(), locale, unreadFrom), [items, locale, unreadFrom]);
   return { room, items, handle, typing, rows, isGroup: !!room && !room.isDirect, lastItemId };
 }

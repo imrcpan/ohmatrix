@@ -94,9 +94,9 @@ test("a reply carries what it answers, if the SDK has it", () => {
   expect(without.replyTo).toEqual({ id: "$o", sender: "", senderName: "", preview: "" });
 });
 
-test("only my own messages show who has read them, and never me", () => {
+test("a message tells whose receipts sit on it, and never me", () => {
   const readers = [{ userId: "@bob:s", name: "Bob" }, { userId: "@me:s" }];
   expect(to(ev({ isOwn: true, readers }))!.readBy).toEqual([{ userId: "@bob:s", name: "Bob" }]);
-  expect(to(ev({ isOwn: false, readers }))!.readBy).toBeUndefined();
+  expect(to(ev({ isOwn: false, readers }))!.readBy).toEqual([{ userId: "@bob:s", name: "Bob" }]);
   expect(to(ev({ isOwn: true, readers: [] }))!.readBy).toBeUndefined();
 });

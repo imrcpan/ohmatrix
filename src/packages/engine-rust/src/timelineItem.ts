@@ -154,7 +154,7 @@ export function toTimelineItem(e: EventItemLike, roomId: string, me: string): Ti
     content,
     ...(reactions && { reactions }),
     ...(text?.edited && { edited: true }),
-    ...(e.isOwn && readBy.length ? { readBy } : {}),
+    ...(readBy.length ? { readBy } : {}),
     ...(reply && {
       replyTo: {
         id: reply.eventId,
