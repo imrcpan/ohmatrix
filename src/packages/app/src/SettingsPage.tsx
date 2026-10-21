@@ -145,6 +145,9 @@ export function SettingsPage() {
           <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
           {services.appIcons && <Item label={t("appIcon")} icon="image" onPress={() => controller.openSidebarPage("appIcon")} />}
         </Group>
+        <Group title={t("advanced")}>
+          <Item label={t("advanced.options")} icon="gear" onPress={() => controller.openSidebarPage("advanced")} />
+        </Group>
         <Group title={t("account")}>
           <Item label={t("sessions")} icon="device" onPress={() => controller.openSidebarPage("sessions")} />
           <Item label={t("signOut")} icon="signOut" danger onPress={() => setConfirm(true)} chevron={false} />
