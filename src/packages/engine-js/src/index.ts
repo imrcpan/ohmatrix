@@ -24,6 +24,8 @@ import {
 } from "matrix-js-sdk";
 import {
   EngineError,
+  registerSteps,
+  type RegisterReply,
   type AttachmentSource,
   type EngineErrorCode,
   type DeviceInfo,
@@ -792,25 +794,21 @@ export class JsSdkEngine implements MatrixEngine {
         await this.auth.restore(session);
         return session;
       }),
-    register: (homeserver: string, username: string, password: string) =>
+    register: (homeserver: string, username: string, password: string, token?: string) =>
       guard(async (): Promise<Session> => {
         const baseUrl = await resolveHomeserver(homeserver);
         const client = createClient({ baseUrl, localTimeoutMs: 20_000 });
-        const body = { username, password, initial_device_display_name: "OhMatrix Web" };
-        // A server answers the first request with the steps it wants done ("flows"); the one we can do alone is the
-        // "dummy" step. Anything else (an e-mail address, a captcha, terms) is more than a password form can answer.
-        let auth: { session?: string; type: string } | undefined;
-        let res: { user_id: string; device_id?: string; access_token?: string } | undefined;
-        try {
-          res = await client.registerRequest(body);
-        } catch (e) {
-          const data = e instanceof MatrixError ? (e.data as { flows?: Array<{ stages: string[] }>; session?: string }) : undefined;
-          if (!(e instanceof MatrixError) || e.httpStatus !== 401 || !data?.flows) throw e;
-          if (!data.flows.some((f) => f.stages.every((st) => st === "m.login.dummy")))
-            throw new EngineError("unsupported", "This server needs more than a username and password to register.", e);
-          auth = { type: "m.login.dummy", ...(data.session && { session: data.session }) };
-        }
-        res ??= await client.registerRequest({ ...body, ...(auth && { auth }) });
+        // The steps are in `registerSteps`; here a request is sent, and a refusal (the server's answer to the first request is one) is turned back into a reply.
+        const post = async (body: Record<string, unknown>): Promise<RegisterReply> => {
+          try {
+            return { status: 200, body: (await client.registerRequest(body as never)) as unknown as Record<string, unknown> };
+          } catch (e) {
+            if (e instanceof MatrixError) return { status: e.httpStatus ?? 0, body: (e.data ?? {}) as Record<string, unknown> };
+            throw e;
+          }
+        };
+        const reply = await registerSteps(post, { username, password, initial_device_display_name: "OhMatrix Web" }, token);
+        const res = reply.body as unknown as { user_id: string; device_id?: string; access_token?: string };
         if (!res.access_token || !res.device_id) throw new EngineError("unknown", "The server did not sign the new account in.");
         const session: Session = { homeserver: baseUrl, userId: res.user_id, deviceId: res.device_id, accessToken: res.access_token };
         await this.auth.restore(session);

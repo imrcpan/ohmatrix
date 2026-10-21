@@ -114,7 +114,7 @@ export interface AppController {
   bootstrap(): Promise<void>;
   login(homeserver: string, username: string, password: string): Promise<void>;
   /** Create an account on the server and sign in as it (see `AuthApi.register`). */
-  register(homeserver: string, username: string, password: string): Promise<void>;
+  register(homeserver: string, username: string, password: string, token?: string): Promise<void>;
   logout(): Promise<void>;
   /** Update and persist preferences (theme, language, sidebar width...). */
   setPreferences(patch: Partial<Preferences>): void;
@@ -339,7 +339,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       }
     },
     login: (homeserver, username, password) => signIn(homeserver, () => engine.auth.loginWithPassword(homeserver, username, password)),
-    register: (homeserver, username, password) => signIn(homeserver, () => engine.auth.register(homeserver, username, password)),
+    register: (homeserver, username, password, token) => signIn(homeserver, () => engine.auth.register(homeserver, username, password, token)),
     async logout() {
       try {
         // The pusher goes first, while the session still works; a failure must not keep the user from signing out.

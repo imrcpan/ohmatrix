@@ -1,4 +1,4 @@
-import { EngineError, type Session } from "@ohmatrix/core";
+import { EngineError, registerSteps, type Session } from "@ohmatrix/core";
 import type { Account, Fetch } from "./devices.js";
 
 /** The custom profile field the status line lives in (the same one the web app uses). */
@@ -16,27 +16,13 @@ async function call(f: Fetch, url: string, init?: { method?: string; headers?: R
 }
 
 /**
- * Make an account with a username and password. A server answers the first request with the steps it wants done; the
- * one we can do alone is the "dummy" step. Anything else (an e-mail address, a captcha, terms) is more than a password
- * form can answer.
+ * Make an account with a username and password (and a registration token, when the server asks for one). The steps are in
+ * `registerSteps`; here the requests are sent.
  */
-export async function register(f: Fetch, homeserverUrl: string, username: string, password: string, deviceName: string): Promise<Session> {
+export async function register(f: Fetch, homeserverUrl: string, username: string, password: string, deviceName: string, token?: string): Promise<Session> {
   const url = `${root(homeserverUrl)}/_matrix/client/v3/register`;
   const post = (body: unknown) => call(f, url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const base = { username, password, initial_device_display_name: deviceName };
-  let res = await post(base);
-  if (res.status === 401 && Array.isArray(res.body["flows"])) {
-    const flows = res.body["flows"] as { stages: string[] }[];
-    if (!flows.some((fl) => fl.stages.every((st) => st === "m.login.dummy")))
-      throw new EngineError("unsupported", "This server needs more than a username and password to register.");
-    const session = res.body["session"];
-    res = await post({ ...base, auth: { type: "m.login.dummy", ...(typeof session === "string" && { session }) } });
-  }
-  if (!res.ok) {
-    const code = String(res.body["errcode"] ?? "");
-    const message = String(res.body["error"] ?? "could not register");
-    throw new EngineError(code === "M_USER_IN_USE" ? "conflict" : code === "M_FORBIDDEN" ? "forbidden" : "unknown", message);
-  }
+  const res = await registerSteps(post, { username, password, initial_device_display_name: deviceName }, token);
   const { user_id, device_id, access_token } = res.body as { user_id?: string; device_id?: string; access_token?: string };
   if (!user_id || !device_id || !access_token) throw new EngineError("unknown", "The server did not sign the new account in.");
   return { homeserver: root(homeserverUrl), userId: user_id, deviceId: device_id, accessToken: access_token };
