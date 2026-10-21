@@ -225,10 +225,10 @@ export function MessageRow(props: {
                 // First for text: the message's own words, without what it quotes (the quote is `m.replyTo`, not part of the body).
                 ...(c.kind === "text" ? [{ label: t("copy"), icon: "copy" as const, onPress: () => void copyText(c.body) }] : []),
                 { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
-                { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
-                { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
-                { label: t("select.multi"), icon: "multiSelect" as const, onPress: () => actions.select(m) },
                 ...(m.isOwn && c.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
+                { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
+                { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
+                { label: t("select.multi"), icon: "multiSelect" as const, onPress: () => actions.select(m) },
                 ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
               ]
         }

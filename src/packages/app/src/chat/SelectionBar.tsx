@@ -23,7 +23,7 @@ export function SelectionHeader(props: { count: number; onCancel(): void; onCopy
     >
       <Pressable accessibilityRole="button" onPress={props.onCancel} hitSlop={8} style={{ paddingVertical: 8, paddingRight: 8 }}>
         {({ pressed }: { pressed: boolean }) => (
-          <Text style={{ fontSize: 17, fontFamily, color: colors.accent, opacity: pressed ? 0.5 : 1 }}>{t("cancel")}</Text>
+          <Text style={{ fontSize: 17, fontWeight: "700", fontFamily, color: colors.accent, opacity: pressed ? 0.5 : 1 }}>{t("cancel")}</Text>
         )}
       </Pressable>
       <View style={{ flex: 1 }} />
