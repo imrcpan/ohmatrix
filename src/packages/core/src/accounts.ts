@@ -26,18 +26,28 @@ export interface AccountStore {
  * `userId` it restores and signs out that account; without one, it is for an account being added, which is saved under the
  * user id it signs in as (with `dir`, the folder its engine was given) and has nothing to restore.
  */
-export function scopedSessionStore(accounts: AccountStore, scope: { userId?: UserId; dir?: string } = {}): SessionStore {
+export function scopedSessionStore(accounts: AccountStore, scope: { userId?: UserId; dir?: string; session?: Session } = {}): SessionStore {
   let userId = scope.userId;
+  // The session the caller has just read from the store: handed out by the first `load`, so that it is not read again (a read of all the
+  // accounts is one read of secure storage for each of them). A `save` or `clear` makes it stale, so it is dropped then.
+  let known = scope.session;
   return {
     async load() {
       if (!userId) return null;
+      if (known) {
+        const s = known;
+        known = undefined;
+        return s;
+      }
       return (await accounts.list()).find((a) => a.session.userId === userId)?.session ?? null;
     },
     async save(session) {
+      known = undefined;
       userId = session.userId;
       await accounts.upsert({ session, ...(scope.dir !== undefined && { dir: scope.dir }) });
     },
     async clear() {
+      known = undefined;
       if (userId) await accounts.remove(userId);
     },
   };

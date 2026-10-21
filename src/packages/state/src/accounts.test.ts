@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { createMemoryAccountStore, type Preferences, type Session } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAccountManager, NEW_ACCOUNT, type AccountManager } from "./accounts.js";
@@ -248,4 +248,35 @@ test("when the last account ends because its keys are lost, the sign-in screen t
   await until(() => sign.store.getState().authError !== null);
   expect(sign.store.getState()).toMatchObject({ auth: "signedOut", authError: expect.stringContaining("keys") });
   expect(await accounts.list()).toEqual([]);
+});
+
+afterEach(() => vi.useRealTimers());
+
+test("the account on screen starts first and alone; the others wait until it is open, then start one after the other", async () => {
+  vi.useFakeTimers();
+  const order: string[] = [];
+  const { accounts, manager } = setup(["a", "b", "c"], {
+    makeEngine: () => {
+      const e = new MockEngine();
+      const restore = e.auth.restore.bind(e.auth);
+      e.auth.restore = async (s: Session) => (order.push(s.userId), restore(s));
+      return e;
+    },
+  });
+  await accounts.setActive("@c:h");
+  await manager.start();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(order).toEqual(["@c:h", "@a:h"]);
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(order).toEqual(["@c:h", "@a:h", "@b:h"]);
+});
+
+test("starting reads the saved accounts once: no account reads the whole store again for its own session", async () => {
+  const { accounts, manager } = setup(["a", "b"]);
+  let lists = 0;
+  const list = accounts.list.bind(accounts);
+  accounts.list = () => (lists++, list());
+  await manager.start();
+  await until(() => ["@a:h", "@b:h"].every((u) => manager.controllerOf(u)?.store.getState().auth === "signedIn"));
+  expect(lists).toBe(1);
 });
