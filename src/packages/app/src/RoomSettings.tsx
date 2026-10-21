@@ -188,6 +188,7 @@ export function RoomSettingsSections(props: {
         title={t("level.customAction")}
         message={t("level.custom.body", { max: maxLevel })}
         confirmLabel={t("save")}
+        requireChange
         initial={[levelPrompt ? String(d.levels[levelPrompt]) : ""]}
         fields={[{ label: t("level.field") }]}
         onClose={() => setLevelPrompt(null)}

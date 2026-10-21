@@ -19,6 +19,8 @@ export function PromptDialog(props: {
   confirmLabel: string;
   /** Starting values, one per field (e.g. the current name when editing). */
   initial?: string[] | undefined;
+  /** For a form that edits something that is there: the confirm button waits until a value is different from the starting one. */
+  requireChange?: boolean;
   onConfirm: (values: string[]) => Promise<void>;
   onClose: () => void;
 }) {
@@ -31,7 +33,9 @@ export function PromptDialog(props: {
   }, [props.visible]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ready = props.fields.every((f, i) => f.optional || (values[i] ?? "").trim());
+  const filled = props.fields.every((f, i) => f.optional || (values[i] ?? "").trim());
+  const changed = props.fields.some((_, i) => (values[i] ?? "").trim() !== (props.initial?.[i] ?? "").trim());
+  const ready = filled && (!props.requireChange || changed);
   const close = () => {
     setError(null);
     props.onClose();
