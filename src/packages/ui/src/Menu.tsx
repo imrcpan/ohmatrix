@@ -1,10 +1,11 @@
 import { useRef } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
 import { useUnzoom, useViewport } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
 import { fontFamily, popoverShadow, useTheme } from "./theme.js";
+import { useQuickFade } from "./quickFade.js";
 
 export interface MenuItem {
   label: string;
@@ -43,6 +44,7 @@ export function Menu(props: {
   const win = useViewport();
   const scale = useScale();
   const un = useUnzoom();
+  const fade = useQuickFade(props.visible, props.fade !== false);
   // Keep the last position while the fade-out runs (closing clears the anchor).
   const last = useRef<Anchor | null>(props.anchor);
   if (props.anchor) last.current = props.anchor;
@@ -55,46 +57,50 @@ export function Menu(props: {
   const below = a.y + a.height + 6;
   const top = props.up || below + h > win.height - 8 ? Math.max(8, a.y - h - 6) : below;
   return (
-    <Modal transparent visible={props.visible} animationType={props.fade === false ? "none" : "fade"} onRequestClose={props.onClose}>
+    <Modal transparent visible={fade.mounted} animationType="none" onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>
-        <Pressable
-          style={{ flex: 1 }}
-          onPress={props.onClose}
-          {...({
-            onContextMenu: (e: { preventDefault(): void }) => {
-              e.preventDefault();
-              props.onClose();
-            },
-          } as object)}
-        >
-          <View style={[{ position: "absolute", left, top, width: MENU_WIDTH, padding: 2, borderRadius: 12, backgroundColor: colors.bg }, popoverShadow(dark)]}>
-            {props.items.map((it) => (
-              <Pressable
-                key={it.label}
-                accessibilityRole="menuitem"
-                accessibilityLabel={it.label}
-                accessibilityState={{ checked: !!it.checked }}
-                onPress={() => {
-                  props.onClose();
-                  it.onPress();
-                }}
-                style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                  height: ROW,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  paddingHorizontal: 14,
-                  borderRadius: 10,
-                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                })}
-              >
-                {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
-                <Text style={{ flex: 1, fontSize: 15, fontFamily, color: it.danger ? colors.danger : colors.text }}>{it.label}</Text>
-                {it.checked && <Icon name="check" size={18} color={colors.accent} />}
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
+        <Animated.View style={{ flex: 1, opacity: fade.opacity }}>
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={props.onClose}
+            {...({
+              onContextMenu: (e: { preventDefault(): void }) => {
+                e.preventDefault();
+                props.onClose();
+              },
+            } as object)}
+          >
+            <View
+              style={[{ position: "absolute", left, top, width: MENU_WIDTH, padding: 2, borderRadius: 12, backgroundColor: colors.bg }, popoverShadow(dark)]}
+            >
+              {props.items.map((it) => (
+                <Pressable
+                  key={it.label}
+                  accessibilityRole="menuitem"
+                  accessibilityLabel={it.label}
+                  accessibilityState={{ checked: !!it.checked }}
+                  onPress={() => {
+                    props.onClose();
+                    it.onPress();
+                  }}
+                  style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                    height: ROW,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    paddingHorizontal: 14,
+                    borderRadius: 10,
+                    backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                  })}
+                >
+                  {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
+                  <Text style={{ flex: 1, fontSize: 15, fontFamily, color: it.danger ? colors.danger : colors.text }}>{it.label}</Text>
+                  {it.checked && <Icon name="check" size={18} color={colors.accent} />}
+                </Pressable>
+              ))}
+            </View>
+          </Pressable>
+        </Animated.View>
       </ScaleRoot>
     </Modal>
   );

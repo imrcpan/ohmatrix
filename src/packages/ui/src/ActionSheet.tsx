@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
 import { useUnzoom, useViewport } from "./viewport.js";
 import { fontFamily, popoverShadow, radius, useTheme } from "./theme.js";
 import { Icon, type IconName } from "./Icon.js";
 import { mix } from "./themes.js";
+import { useQuickFade } from "./quickFade.js";
 
 export interface SheetAction {
   label: string;
@@ -43,6 +44,7 @@ export function MessageMenu(props: {
   const win = useViewport();
   const scale = useScale();
   const un = useUnzoom();
+  const fade = useQuickFade(props.visible);
   // Closing clears the anchor while the fade-out is still running: keep the last position so the menu fades in place.
   const last = useRef<MenuPoint | null>(props.anchor);
   if (props.anchor) last.current = props.anchor;
@@ -94,67 +96,69 @@ export function MessageMenu(props: {
   const panel = [{ backgroundColor: surface }, popoverShadow(dark)];
 
   return (
-    <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
+    <Modal transparent visible={fade.mounted} animationType="none" onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>
-        <Pressable
-          accessibilityLabel="Close menu"
-          onPress={props.onClose}
-          style={{ flex: 1 }}
-          {...({
-            onContextMenu: (e: { preventDefault(): void }) => {
-              e.preventDefault();
-              props.onClose();
-            },
-          } as object)}
-        >
-          <View accessibilityRole="menu" style={{ position: "absolute", left, top, width, gap: GAP, alignItems: toLeft ? "flex-end" : "flex-start" }}>
-            {props.emojis.length > 0 && (
-              <View style={[...panel, { flexDirection: "row", padding: 4, borderRadius: radius.pill }, !props.actions.length ? tight : {}]}>
-                {props.emojis.map((e) => (
-                  <Pressable
-                    key={e}
-                    accessibilityRole="button"
-                    accessibilityLabel={`React ${e}`}
-                    onPress={done(() => props.onEmoji(e))}
-                    style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                      width: EMOJI,
-                      height: EMOJI,
-                      borderRadius: EMOJI / 2,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: props.activeEmojis?.includes(e) ? hover : pressed ? hover : hovered ? hover : "transparent",
-                    })}
-                  >
-                    <Text style={{ fontSize: 22 }}>{e}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            {props.actions.length > 0 && (
-              <View style={[...panel, { width: MENU_WIDTH, borderRadius: radius.bubble, paddingVertical: 2, overflow: "hidden" }, tight]}>
-                {props.actions.map((act) => (
-                  <Pressable
-                    key={act.label}
-                    accessibilityRole="menuitem"
-                    accessibilityLabel={act.label}
-                    onPress={done(act.onPress)}
-                    style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                      height: ROW,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      paddingHorizontal: 14,
-                      backgroundColor: pressed || hovered ? hover : "transparent",
-                    })}
-                  >
-                    {act.icon && <Icon name={act.icon} size={18} color={act.danger ? danger : fg} />}
-                    <Text style={{ fontSize: 15, fontFamily, color: act.danger ? danger : fg }}>{act.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
-        </Pressable>
+        <Animated.View style={{ flex: 1, opacity: fade.opacity }}>
+          <Pressable
+            accessibilityLabel="Close menu"
+            onPress={props.onClose}
+            style={{ flex: 1 }}
+            {...({
+              onContextMenu: (e: { preventDefault(): void }) => {
+                e.preventDefault();
+                props.onClose();
+              },
+            } as object)}
+          >
+            <View accessibilityRole="menu" style={{ position: "absolute", left, top, width, gap: GAP, alignItems: toLeft ? "flex-end" : "flex-start" }}>
+              {props.emojis.length > 0 && (
+                <View style={[...panel, { flexDirection: "row", padding: 4, borderRadius: radius.pill }, !props.actions.length ? tight : {}]}>
+                  {props.emojis.map((e) => (
+                    <Pressable
+                      key={e}
+                      accessibilityRole="button"
+                      accessibilityLabel={`React ${e}`}
+                      onPress={done(() => props.onEmoji(e))}
+                      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                        width: EMOJI,
+                        height: EMOJI,
+                        borderRadius: EMOJI / 2,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: props.activeEmojis?.includes(e) ? hover : pressed ? hover : hovered ? hover : "transparent",
+                      })}
+                    >
+                      <Text style={{ fontSize: 22 }}>{e}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {props.actions.length > 0 && (
+                <View style={[...panel, { width: MENU_WIDTH, borderRadius: radius.bubble, paddingVertical: 2, overflow: "hidden" }, tight]}>
+                  {props.actions.map((act) => (
+                    <Pressable
+                      key={act.label}
+                      accessibilityRole="menuitem"
+                      accessibilityLabel={act.label}
+                      onPress={done(act.onPress)}
+                      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                        height: ROW,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingHorizontal: 14,
+                        backgroundColor: pressed || hovered ? hover : "transparent",
+                      })}
+                    >
+                      {act.icon && <Icon name={act.icon} size={18} color={act.danger ? danger : fg} />}
+                      <Text style={{ fontSize: 15, fontFamily, color: act.danger ? danger : fg }}>{act.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          </Pressable>
+        </Animated.View>
       </ScaleRoot>
     </Modal>
   );
