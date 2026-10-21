@@ -37,7 +37,8 @@
           "granularPermissions": ["photo"]
         }
       ],
-      "./plugins/withAppIcons"
+      "./plugins/withAppIcons",
+      "./plugins/withDismissSelection"
     ]
   }
 }
