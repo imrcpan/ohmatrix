@@ -7,6 +7,8 @@ import { SecuritySheet } from "./SecuritySheet.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
 import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
+import { avatarFailure } from "./avatarFailure.js";
+import { useNotice } from "./useNotice.js";
 
 export function ProfilePage(props: { homeserver: string }) {
   const { colors } = useTheme();
@@ -27,14 +29,22 @@ export function ProfilePage(props: { homeserver: string }) {
   const [name, setName] = useState("");
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
+  const notice = useNotice();
 
   const encValue =
     security === "ready" ? t("enc.on") : security === "needs_setup" ? t("enc.setup") : security === "needs_recovery" ? t("enc.verify") : t("enc.unavailable");
   const actionable = security === "needs_setup" || security === "needs_recovery";
   const displayName = profile?.displayName ?? "";
   const changePhoto = async () => {
-    const [file] = (await services.pickFiles?.()) ?? [];
-    if (file) await controller.setAvatar(file).catch(() => {});
+    const file = services.pickPhoto ? await services.pickPhoto() : ((await services.pickFiles?.()) ?? [])[0];
+    if (!file) return;
+    notice.show(t("avatar.uploading"), "progress");
+    try {
+      await controller.setAvatar(file);
+      notice.show(t("avatar.done"));
+    } catch (e) {
+      notice.show(avatarFailure(e, t), "error");
+    }
   };
 
   return (
@@ -78,7 +88,7 @@ export function ProfilePage(props: { homeserver: string }) {
           </Pressable>
         </View>
         <Group title={t("account")}>
-          {services.pickFiles && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
+          {(services.pickPhoto || services.pickFiles) && <Item label={t("changePhoto")} icon="camera" onPress={() => void changePhoto()} />}
           <Item
             label={t("name")}
             value={displayName}

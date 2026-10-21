@@ -13,6 +13,8 @@ import { SharedMediaPage, SharedMediaPreview } from "./SharedMedia.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
+import { avatarFailure } from "./avatarFailure.js";
+import { useNotice } from "./useNotice.js";
 
 const ROLE_POWER: Record<MemberRole, number> = { member: 0, moderator: 50, admin: 100 };
 
@@ -33,6 +35,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [leveling, setLeveling] = useState<RoomMember | null>(null);
   const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const notice = useNotice();
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
   const [viewing, setViewing] = useState(false);
   const items = useAppState((s) => s.timelines[props.roomId]);
@@ -91,8 +94,15 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const onMemberAction = useCallback((member: RoomMember, anchor: Anchor) => setMenu({ member, anchor }), []);
 
   const changePhoto = async () => {
-    const [file] = (await services.pickFiles?.()) ?? [];
-    if (file && d) await controller.roomAdmin.setAvatar(d.id, file).catch(report);
+    const file = services.pickPhoto ? await services.pickPhoto() : ((await services.pickFiles?.()) ?? [])[0];
+    if (!file || !d) return;
+    notice.show(t("avatar.uploading"), "progress");
+    try {
+      await controller.roomAdmin.setAvatar(d.id, file);
+      notice.show(t("avatar.done"));
+    } catch (e) {
+      notice.show(avatarFailure(e, t), "error");
+    }
   };
   const canEdit = !!d?.can.editInfo;
   const infoPage = useAppState((st) => st.infoPage);
@@ -130,7 +140,9 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               <Text style={{ marginTop: 12, marginHorizontal: 20, textAlign: "center", fontSize: 14, fontFamily, color: colors.danger }}>{problem}</Text>
             )}
             <Group title={t("about")}>
-              {canEdit && !!services.pickFiles && <Item label={t("changePhoto")} valueIcon="camera" onPress={() => void changePhoto()} />}
+              {canEdit && !!(services.pickPhoto || services.pickFiles) && (
+                <Item label={t("changePhoto")} valueIcon="camera" onPress={() => void changePhoto()} />
+              )}
               {!direct && (
                 <Item
                   label={t(forSpace ? "space.name" : "room.editName")}
