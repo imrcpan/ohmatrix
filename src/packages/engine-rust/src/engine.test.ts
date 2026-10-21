@@ -17,6 +17,8 @@ import type {
   TimelineEntry,
 } from "./sdk.js";
 import type { RoomInfoLike } from "./roomSummary.js";
+
+const KEY = new Uint8Array(32).fill(7).buffer;
 import type { RawSecurity } from "./security.js";
 import type { EventItemLike } from "./timelineItem.js";
 
@@ -312,7 +314,7 @@ function make(fetch?: RustEngineOptions["fetch"]) {
   const engine = new RustEngineCore(sdk, {
     dataDir: "/data",
     cacheDir: "/cache",
-    passphrase: async () => "secret",
+    key: async () => KEY,
     roomWaitMs: 30,
     fetch: fetch ?? (async () => ({ ok: true, status: 200, json: async () => ({}) })),
   });
@@ -328,7 +330,7 @@ const tickMany = async () => {
 test("signing in makes a client with the database paths and passphrase, and gives back a session we can store", async () => {
   const { engine, client, configs } = make();
   const session = await engine.auth.loginWithPassword("http://s", "alice", "pw");
-  expect(configs[0]).toEqual({ homeserverUrl: "http://s", dataDir: "/data", cacheDir: "/cache", passphrase: "secret", restoring: false });
+  expect(configs[0]).toEqual({ homeserverUrl: "http://s", dataDir: "/data", cacheDir: "/cache", key: KEY, restoring: false });
   expect(client.loggedIn).toEqual(["alice", "pw", "OhMatrix Android"]);
   expect(session).toMatchObject({ homeserver: "http://s", userId: "@me:s", deviceId: "DEV", accessToken: "tok" });
   expect(typeof session.native).toBe("string");
@@ -813,7 +815,7 @@ test("files are sent from their path with what the app knows of them; a profile 
     {
       dataDir: "/d",
       cacheDir: "/c",
-      passphrase: async () => "p",
+      key: async () => KEY,
       readFile: async () => new Uint8Array([1, 2, 3]).buffer,
       fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }),
     },

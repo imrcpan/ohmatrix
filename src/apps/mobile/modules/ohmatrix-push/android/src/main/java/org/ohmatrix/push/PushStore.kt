@@ -12,10 +12,10 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** What the service may do, and the accounts it may open: the app writes it (PushModule.setState), the service reads it. */
-data class PushState(val enabled: Boolean, val content: Boolean, val lang: String?, val passphrase: String, val accounts: List<PushAccount>)
+data class PushState(val enabled: Boolean, val content: Boolean, val lang: String?, val key: String, val accounts: List<PushAccount>)
 
 /**
- * The app's copy of what a push needs: the sessions and the database passphrase. It is in the Keystore-protected store of the app
+ * The app's copy of what a push needs: the sessions and the database key. It is in the Keystore-protected store of the app
  * already, but reading that from here would mean reading expo-secure-store's private format, so the app hands over its own copy.
  * The copy is encrypted with a Keystore key of its own (AES-GCM, never leaves the Keystore), and the app removes it when the last
  * account signs out.
@@ -63,7 +63,7 @@ object PushStore {
                 enabled = o.optBoolean("enabled", true),
                 content = o.optBoolean("content", true),
                 lang = o.optString("lang").ifEmpty { null },
-                passphrase = o.getString("passphrase"),
+                key = o.getString("key"),
                 accounts =
                     (0 until list.length()).map {
                         val a = list.getJSONObject(it)
@@ -76,7 +76,7 @@ object PushStore {
                             slidingSyncNative = a.optBoolean("slidingSyncNative", true),
                             dataDir = a.getString("dataDir"),
                             cacheDir = a.getString("cacheDir"),
-                            passphrase = o.getString("passphrase"),
+                            key = o.getString("key"),
                         )
                     },
             )

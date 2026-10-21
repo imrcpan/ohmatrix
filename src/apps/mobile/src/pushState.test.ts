@@ -12,11 +12,11 @@ const session = (id: string, native?: string): Session => ({
   ...(native && { native }),
 });
 
-test("the state the service reads has each account's session and database folders, and the passphrase once", () => {
+test("the state the service reads has each account's session and database folders, and the database key once", () => {
   const first: StoredAccount = { session: session("@a:h", JSON.stringify({ refreshToken: "r", slidingSyncVersion: 1 })) };
   const second: StoredAccount = { session: session("@b:h", JSON.stringify({ slidingSyncVersion: 0 })), dir: "acct-1" };
   const json = JSON.parse(pushStateJson([first, second], "pass", roots, { ...prefs, notificationPreview: false, locale: "zh-CN" })) as Record<string, unknown>;
-  expect(json["passphrase"]).toBe("pass");
+  expect(json["key"]).toBe("pass");
   expect(json).toMatchObject({ enabled: true, content: false, lang: "zh-CN" });
   const [a, b] = json["accounts"] as Record<string, unknown>[];
   // The account from before there were several keeps the app's own folder; the others have a folder of their own.
@@ -34,7 +34,7 @@ test("the state the service reads has each account's session and database folder
     cacheDir: "/data/user/0/org.ohmatrix.app/cache/acct-1",
   });
   expect(b).not.toHaveProperty("refreshToken");
-  expect(JSON.stringify(json).split('"pass"').length - 1).toBe(1); // the passphrase is not repeated for each account
+  expect(JSON.stringify(json).split('"pass"').length - 1).toBe(1); // the key is not repeated for each account
 });
 
 test("a session from another engine (nothing native) counts as native sliding sync; a damaged native value is the same as none", () => {
@@ -44,7 +44,7 @@ test("a session from another engine (nothing native) counts as native sliding sy
   expect(json.accounts.map((a) => a.slidingSyncNative)).toEqual([true, true]);
 });
 
-test("with no account or no passphrase the state is empty, which removes it from the service", () => {
+test("with no account or no key the state is empty, which removes it from the service", () => {
   expect(pushStateJson([], "p", roots, prefs)).toBe("");
   expect(pushStateJson([{ session: session("@a:h") }], null, roots, prefs)).toBe("");
 });

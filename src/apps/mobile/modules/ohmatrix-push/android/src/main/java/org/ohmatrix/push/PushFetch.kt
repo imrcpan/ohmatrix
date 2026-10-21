@@ -26,7 +26,8 @@ data class PushAccount(
     val slidingSyncNative: Boolean,
     val dataDir: String,
     val cacheDir: String,
-    val passphrase: String,
+    /** The 32-byte key of the stores, as 64 hex digits. */
+    val key: String,
 )
 
 enum class Kind { TEXT, PHOTO, VIDEO, VOICE, AUDIO, FILE, LOCATION, OTHER }
@@ -64,7 +65,7 @@ private suspend fun fetch(a: PushAccount, roomId: String, eventId: String): Fetc
     val client =
         ClientBuilder()
             .homeserverUrl(a.homeserver)
-            .sqliteStore(SqliteStoreBuilder(a.dataDir, a.cacheDir).passphrase(a.passphrase))
+            .sqliteStore(SqliteStoreBuilder(a.dataDir, a.cacheDir).key(a.key.chunked(2).map { it.toInt(16).toByte() }.toByteArray()))
             // The multi-process lock needs session delegates, which are not set up here (nor in the app): the service opens the database
             // only when the app is not running, so there is no other process to take turns with.
             .crossProcessLockConfig(CrossProcessLockConfig.SingleProcess)
