@@ -4,10 +4,10 @@ import { totalUnread, type AccountManager, type AppController } from "@ohmatrix/
  * URL scheme (history API, no hash):
  *   /                      chat list
  *   /chat/<roomId>         a chat           /chat/<roomId>/info   its info panel
- *   /profile, /settings, /sessions, /accounts, /theme, /appIcon   left-pane pages  (with a chat open: /chat/<roomId>?panel=profile|settings|sessions)
+ *   /profile, /settings, /sessions, /accounts, /theme, /appIcon, /advanced, /logs   left-pane pages  (with a chat open: /chat/<roomId>?panel=profile|settings|sessions)
  * Room ids keep their `!` and `:` readable.
  */
-export type Page = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon";
+export type Page = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "logs";
 export interface Route {
   page: Page;
   room: string | null;
@@ -15,8 +15,8 @@ export interface Route {
 }
 
 const enc = (s: string) => encodeURIComponent(s).replace(/%21/g, "!").replace(/%3A/gi, ":");
-const isPage = (s: string | null | undefined): s is "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" =>
-  s === "profile" || s === "settings" || s === "sessions" || s === "accounts" || s === "theme" || s === "appIcon";
+const isPage = (s: string | null | undefined): s is "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "logs" =>
+  s === "profile" || s === "settings" || s === "sessions" || s === "accounts" || s === "theme" || s === "appIcon" || s === "advanced" || s === "logs";
 
 export function parseLocation(pathname: string, search = "", hash = ""): Route {
   // Links from the first version used the hash: #/<page>/room/<id>[/info].
