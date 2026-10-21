@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Keyboard, View } from "react-native";
-import { Composer, TopNotice, useTheme } from "@ohmatrix/ui";
+import { Composer, useTheme } from "@ohmatrix/ui";
 import { ForwardDialog } from "../ForwardDialog.js";
 import { useLocale, useServices, useT } from "../context.js";
 import { formatDayLabel } from "../format.js";
 import { useNotice } from "../useNotice.js";
 import type { Row } from "../timelineRows.js";
 import { AttachmentDialogs } from "./AttachmentDialogs.js";
-import { ChatHeader, HEADER_HEIGHT } from "./ChatHeader.js";
+import { ChatHeader } from "./ChatHeader.js";
 import { ChatSearch } from "./ChatSearch.js";
 import { SelectionBar, SelectionHeader } from "./SelectionBar.js";
 import { SelectionContext, type Selection } from "./selection.js";
@@ -222,7 +222,6 @@ function Chat(props: ChatPaneProps) {
         <ForwardDialog visible fromRoomId={props.roomId} eventIds={forwarding} onClose={() => setForwarding(null)} onSent={() => setChosen(null)} />
       )}
       <AttachmentDialogs a={attachments} />
-      {notice.notice && <TopNotice message={notice.notice.message} kind={notice.notice.kind} top={HEADER_HEIGHT + 10} />}
     </View>
   );
 }
