@@ -38,7 +38,8 @@
         }
       ],
       "./plugins/withAppIcons",
-      "./plugins/withDismissSelection"
+      "./plugins/withDismissSelection",
+      "./plugins/withSplash"
     ]
   }
 }
