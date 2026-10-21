@@ -96,6 +96,33 @@ export function Bubble(props: {
   const meta = imageOnly ? "#FFFFFF" : mine ? colors.bubbleOutMeta : colors.textSecondary;
   const statusIcon = props.status === "sending" ? "clock" : props.status === "failed" ? "alert" : props.status === "read" ? "checks" : "check";
   const failed = props.status === "failed";
+  const timeRoom = Math.ceil((props.time.length + (props.editedLabel ? props.editedLabel.length + 1 : 0)) * 2.3) + (props.own ? 8 : 0) + 4;
+  // What the time row holds: the pin, the time, and the status of an own message. It is drawn twice: for real, and invisible inside the
+  // text (see below), where the layout itself gives the room it needs, whatever the status icon is now.
+  const metaItems = (hidden: boolean) => (
+    <>
+      {props.pinned && <Icon name="pin" size={14} color={failed ? colors.danger : meta} />}
+      <Text numberOfLines={1} selectable={false} style={{ fontSize: 14, fontFamily, color: failed ? colors.danger : meta, userSelect: "none" }}>
+        {props.editedLabel ? `${props.editedLabel} ` : ""}
+        {props.time}
+      </Text>
+      {props.own &&
+        (failed && props.onRetry && !hidden ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={props.retryLabel ?? "Send again"} onPress={props.onRetry} hitSlop={8}>
+            <Icon name={statusIcon} size={18} strokeWidth={2} color={colors.danger} />
+          </Pressable>
+        ) : (
+          <View accessibilityLabel={!hidden && props.status === "read" ? (props.readLabel ?? "Read") : undefined}>
+            <Icon
+              name={statusIcon}
+              size={props.status === "read" ? 20 : 18}
+              strokeWidth={2}
+              color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
+            />
+          </View>
+        ))}
+    </>
+  );
   const metaRow = (
     <View
       style={[
@@ -111,26 +138,7 @@ export function Bubble(props: {
         imageOnly && { backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3 },
       ]}
     >
-      {props.pinned && <Icon name="pin" size={14} color={failed ? colors.danger : meta} />}
-      <Text numberOfLines={1} style={{ fontSize: 14, fontFamily, color: failed ? colors.danger : meta }}>
-        {props.editedLabel ? `${props.editedLabel} ` : ""}
-        {props.time}
-      </Text>
-      {props.own &&
-        (failed && props.onRetry ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={props.retryLabel ?? "Send again"} onPress={props.onRetry} hitSlop={8}>
-            <Icon name={statusIcon} size={18} strokeWidth={2} color={colors.danger} />
-          </Pressable>
-        ) : (
-          <View accessibilityLabel={props.status === "read" ? (props.readLabel ?? "Read") : undefined}>
-            <Icon
-              name={statusIcon}
-              size={props.status === "read" ? 20 : 18}
-              strokeWidth={2}
-              color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
-            />
-          </View>
-        ))}
+      {metaItems(false)}
     </View>
   );
   // An audio message is played and paused by pressing anywhere on its bubble (there is no play button and no seeking).
@@ -306,10 +314,14 @@ export function Bubble(props: {
       )}
       {!!props.text && (
         // Time floats at the end of the last text line, like Telegram.
-        <Text selectable style={{ fontSize: 16, lineHeight: 21, fontFamily, color: props.muted ? meta : fg, fontStyle: props.muted ? "italic" : "normal" }}>
+        <Text
+          selectable={Platform.OS === "web"}
+          style={{ fontSize: 16, lineHeight: 21, fontFamily, color: props.muted ? meta : fg, fontStyle: props.muted ? "italic" : "normal" }}
+        >
           {richRuns ? (
             <RichText
               runs={richRuns}
+              selectable={Platform.OS === "web"}
               style={{}}
               color={fg}
               linkColor={props.own ? colors.bubbleOutText : colors.accent}
@@ -320,9 +332,23 @@ export function Bubble(props: {
           ) : (
             props.text
           )}
-          <Text style={{ fontSize: 14, color: "transparent" }} selectable={false}>
-            {"\u00A0".repeat(Math.ceil((props.time.length + (props.editedLabel ? props.editedLabel.length + 1 : 0)) * 2.3) + (props.own ? 8 : 0) + 4)}
-          </Text>
+          {/* Room for the time. On a phone a box, not spaces, so that a selection cannot cover it; the web has no inline boxes, and its spaces are not selectable. */}
+          {Platform.OS === "web" ? (
+            <Text selectable={false} style={{ fontSize: 14, color: "transparent", userSelect: "none" }}>
+              {"\u00A0".repeat(timeRoom)}
+            </Text>
+          ) : (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: 0 }}
+            >
+              {/* The 0 is the least space kept between the text and the time. */}
+              <Text style={{ fontSize: 14, fontFamily }}>0</Text>
+              {metaItems(true)}
+            </View>
+          )}
         </Text>
       )}
       {props.previews?.map((p) => (
