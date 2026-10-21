@@ -4,8 +4,9 @@ import {
   createAccountStore,
   createSessionStore,
   inAccountDir,
-  databasePassphrase,
-  forgetDatabasePassphrase,
+  bytesOfHex,
+  databaseKey,
+  forgetDatabaseKey,
   pathOfFileUri,
   type SecureKeyValue,
 } from "./secureStorage.js";
@@ -47,16 +48,23 @@ test("a keystore that cannot be opened is the same as no session", async () => {
   expect(await createSessionStore(kv).load()).toBeNull();
 });
 
-test("the database passphrase is made once and is the same afterwards, until it is forgotten", async () => {
+test("the database key is 32 bytes, made once and the same afterwards, until it is forgotten; a damaged one is made again", async () => {
   const kv = memory();
   let calls = 0;
   const random = (n: number) => new Uint8Array(n).fill(++calls);
-  const first = await databasePassphrase(kv, random);
-  expect(first).toMatch(/^[0-9a-f]{64}$/);
-  expect(await databasePassphrase(kv, random)).toBe(first);
+  const first = await databaseKey(kv, random);
+  expect(first.byteLength).toBe(32);
+  expect(new Uint8Array(first)[0]).toBe(1);
+  expect(new Uint8Array(await databaseKey(kv, random))).toEqual(new Uint8Array(first));
   expect(calls).toBe(1);
-  await forgetDatabasePassphrase(kv);
-  expect(await databasePassphrase(kv, random)).not.toBe(first);
+  await forgetDatabaseKey(kv);
+  expect(new Uint8Array(await databaseKey(kv, random))).not.toEqual(new Uint8Array(first));
+  await kv.setItemAsync("ohmatrix.db-key.v2", "not a key");
+  expect((await databaseKey(kv, random)).byteLength).toBe(32);
+});
+
+test("a key written as hex is its bytes", () => {
+  expect([...new Uint8Array(bytesOfHex("00ff10"))]).toEqual([0, 255, 16]);
 });
 
 test("a file:// folder becomes the plain path the SDK opens", () => {

@@ -20,16 +20,16 @@ interface PushAccountJson {
 
 /**
  * The json the native push service reads while the app is not running: the accounts with their sessions (the service restores one
- * and fetches the event a push names), the database passphrase, and the settings that decide what it shows. Nothing here is new: it is
+ * and fetches the event a push names), the database key, and the settings that decide what it shows. Nothing here is new: it is
  * what the secure storage holds, handed over in the form the Kotlin side can read. With no accounts it is empty, which removes it.
  */
 export function pushStateJson(
   accounts: readonly StoredAccount[],
-  passphrase: string | null,
+  key: string | null,
   roots: { documents: string; cache: string },
   prefs: Pick<Preferences, "pushEnabled" | "notificationPreview" | "locale">,
 ): string {
-  if (accounts.length === 0 || !passphrase) return "";
+  if (accounts.length === 0 || !key) return "";
   const list: PushAccountJson[] = accounts.map((a) => {
     let extra: { refreshToken?: string; slidingSyncVersion?: unknown } = {};
     try {
@@ -49,25 +49,20 @@ export function pushStateJson(
       cacheDir: pathOfFileUri(inAccountDir(roots.cache, a.dir)),
     };
   });
-  return JSON.stringify({ enabled: prefs.pushEnabled, content: prefs.notificationPreview, lang: prefs.locale ?? "", passphrase, accounts: list });
+  return JSON.stringify({ enabled: prefs.pushEnabled, content: prefs.notificationPreview, lang: prefs.locale ?? "", key, accounts: list });
 }
 
 /**
  * Keeps the native copy up to date: after every change of the accounts (and when the settings change), the whole state is handed
  * over again. It is a small value, and one call that replaces everything cannot leave a half-changed copy behind.
  */
-export function createPushSync(
-  native: PushNative,
-  accounts: AccountStore,
-  passphrase: () => Promise<string | null>,
-  roots: { documents: string; cache: string },
-) {
+export function createPushSync(native: PushNative, accounts: AccountStore, key: () => Promise<string | null>, roots: { documents: string; cache: string }) {
   let queue: Promise<unknown> = Promise.resolve();
   let prefs: Pick<Preferences, "pushEnabled" | "notificationPreview" | "locale"> = { pushEnabled: true, notificationPreview: true, locale: null };
   const run = () =>
     (queue = queue.then(async () => {
       try {
-        native.setState(pushStateJson(await accounts.list(), await passphrase(), roots, prefs));
+        native.setState(pushStateJson(await accounts.list(), await key(), roots, prefs));
       } catch {
         // The module is not in this build, or the store could not be read: the service then has nothing, and shows nothing.
       }

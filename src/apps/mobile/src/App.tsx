@@ -8,7 +8,8 @@ import { installLog, type AppServices } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAccountManager, type AccountManager } from "@ohmatrix/state";
 import { App as SharedApp, BootScreen } from "@ohmatrix/app";
-import { createAccountStore, createSessionStore, databasePassphrase, inAccountDir, pathOfFileUri } from "./secureStorage.js";
+import { createAccountStore, createSessionStore, databaseKey, inAccountDir, pathOfFileUri } from "./secureStorage.js";
+import { retireOldStores } from "./storeFormat.js";
 import { phoneServices } from "./platform.js";
 import { createPushSync, notifyingAccountStore, type PushNative } from "./pushState.js";
 import { requireOptionalNativeModule } from "expo";
@@ -27,13 +28,26 @@ const legacySessions = createSessionStore(SecureStore);
 // build without the module (iOS, development without a native build) has nothing to hand it to.
 const pushNative = requireOptionalNativeModule<PushNative>("OhMatrixPush");
 const pushSync = pushNative
-  ? createPushSync(pushNative, baseAccounts, () => SecureStore.getItemAsync("ohmatrix.db-passphrase.v1").catch(() => null), {
+  ? createPushSync(pushNative, baseAccounts, () => SecureStore.getItemAsync("ohmatrix.db-key.v2").catch(() => null), {
       documents: Paths.document.uri,
       cache: Paths.cache.uri,
     })
   : null;
 const accounts = pushSync ? notifyingAccountStore(baseAccounts, () => pushSync.refresh()) : baseAccounts;
 const services: AppServices = phoneServices();
+
+/** The databases of the accounts of earlier versions: the files of the first account (in the roots themselves) and the folders of the others. */
+function deleteOldStores(): void {
+  for (const root of [Paths.document, Paths.cache]) {
+    for (const item of root.list()) {
+      try {
+        if (item instanceof Directory ? /^acct-/.test(item.name) : /^matrix-sdk-/.test(item.name)) item.delete();
+      } catch {
+        /* one that cannot be deleted is left; a new database never opens it */
+      }
+    }
+  }
+}
 
 /** An account's folder inside one of the app's roots (documents: the SDK's database; cache: its media), made if it is not there yet. */
 function accountFolder(root: string, dir: string | undefined): string {
@@ -51,6 +65,8 @@ function accountFolder(root: string, dir: string | undefined): string {
  * several keeps the app's own folder.
  */
 async function createManager(): Promise<AccountManager> {
+  // The databases of earlier versions cannot be opened with the key this version uses: the first start drops them and their accounts.
+  await retireOldStores({ kv: SecureStore, accounts: baseAccounts, legacySessions, deleteFiles: deleteOldStores });
   const mock = process.env["EXPO_PUBLIC_ENGINE"] === "mock";
   const { RustEngine } = mock ? { RustEngine: null } : await import("@ohmatrix/engine-rust");
   const manager = createAccountManager({
@@ -62,7 +78,7 @@ async function createManager(): Promise<AccountManager> {
         ? new RustEngine({
             dataDir: accountFolder(Paths.document.uri, dir),
             cacheDir: accountFolder(Paths.cache.uri, dir),
-            passphrase: () => databasePassphrase(SecureStore, (n) => Crypto.getRandomBytes(n)),
+            key: () => databaseKey(SecureStore, (n) => Crypto.getRandomBytes(n)),
             readFile: (path) => new File(`file://${path}`).arrayBuffer(),
           })
         : new MockEngine(),

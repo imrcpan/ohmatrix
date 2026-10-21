@@ -242,7 +242,8 @@ export interface SdkClientConfig {
   homeserverUrl: string;
   dataDir: string;
   cacheDir: string;
-  passphrase: string;
+  /** The 32-byte key the stores are encrypted with. */
+  key: ArrayBuffer;
   /** Opening a saved session: nothing may need the network (the server's features are already in the session). */
   restoring?: boolean;
 }

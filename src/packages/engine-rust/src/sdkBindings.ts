@@ -465,7 +465,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
   return {
     defaultSlidingSync: b.SlidingSyncVersion.Native,
     async newClient(config: SdkClientConfig) {
-      const store = new b.SqliteStoreBuilder(config.dataDir, config.cacheDir).passphrase(config.passphrase);
+      const store = new b.SqliteStoreBuilder(config.dataDir, config.cacheDir).key(config.key);
       const client = await call(() =>
         new b.ClientBuilder()
           .homeserverUrl(config.homeserverUrl)

@@ -50,8 +50,12 @@ export interface RustEngineOptions {
   dataDir: string;
   /** A folder for what can be fetched again (downloaded media). */
   cacheDir: string;
-  /** The passphrase of the database, the same every time (see the app's secure storage). */
-  passphrase(): Promise<string>;
+  /**
+   * The key of the database: 32 random bytes, the same every time (see the app's secure storage). A key, not a passphrase: it is random, so
+   * there is nothing to stretch, and a passphrase would have the SDK derive a key from it at every opening of every store (a second or
+   * more for each account, at every start).
+   */
+  key(): Promise<ArrayBuffer>;
   /** How long to wait for a room just made or joined to reach the chat list (ms); 5000 when not given. */
   roomWaitMs?: number;
   /** Read a file of the device (a picked picture, for a profile picture). */
@@ -117,7 +121,7 @@ export class RustEngineCore implements MatrixEngine {
       homeserverUrl: homeserver,
       dataDir: this.options.dataDir,
       cacheDir: this.options.cacheDir,
-      passphrase: await this.options.passphrase(),
+      key: await this.options.key(),
     });
   }
 

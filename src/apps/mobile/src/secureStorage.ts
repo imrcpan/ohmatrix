@@ -8,7 +8,12 @@ export interface SecureKeyValue {
 }
 
 const SESSION_KEY = "ohmatrix.session.v1";
-const DB_PASSPHRASE_KEY = "ohmatrix.db-passphrase.v1";
+/** Where the database key is kept (`v2`: the key of a database that is opened with a key; the passphrase of `v1` opened an older kind). */
+const DB_KEY_KEY = "ohmatrix.db-key.v2";
+/** The kind of local database this version makes. An app that finds another kind (or none) starts with no accounts and no old databases. */
+export const STORE_FORMAT_KEY = "ohmatrix.store-format";
+export const STORE_FORMAT = "2";
+export const OLD_DB_PASSPHRASE_KEY = "ohmatrix.db-passphrase.v1";
 
 /**
  * Session persistence in the platform's secure storage. A value that cannot be read back (damaged, or written by a
@@ -40,20 +45,33 @@ export function createSessionStore(kv: SecureKeyValue): SessionStore {
 }
 
 /**
- * The passphrase of the SDK's local database (its cache and its encryption keys). It is made once, from `random`
- * (32 bytes), kept in the secure storage, and has to be the same every time or the database cannot be opened.
+ * The key of the SDK's local database (its cache and its encryption keys): 32 random bytes, made once from `random`, kept in the secure
+ * storage as 64 hex digits, and the same every time or the database cannot be opened. It is a key and not a passphrase: it is random,
+ * so the SDK has nothing to stretch, and a passphrase would be run through 200,000 rounds of key derivation at every opening of every
+ * store (a second or more for each account, at every start of the app).
  */
-export async function databasePassphrase(kv: SecureKeyValue, random: (n: number) => Uint8Array): Promise<string> {
-  const have = await kv.getItemAsync(DB_PASSPHRASE_KEY);
-  if (have) return have;
+export async function databaseKey(kv: SecureKeyValue, random: (n: number) => Uint8Array): Promise<ArrayBuffer> {
+  const have = await kv.getItemAsync(DB_KEY_KEY);
+  const hex = have && /^[0-9a-f]{64}$/.test(have) ? have : await makeKey(kv, random);
+  return bytesOfHex(hex);
+}
+
+async function makeKey(kv: SecureKeyValue, random: (n: number) => Uint8Array): Promise<string> {
   const made = [...random(32)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  await kv.setItemAsync(DB_PASSPHRASE_KEY, made);
+  await kv.setItemAsync(DB_KEY_KEY, made);
   return made;
 }
 
-/** Forget the database passphrase: done together with the database itself, when the account is signed out. */
-export function forgetDatabasePassphrase(kv: SecureKeyValue): Promise<void> {
-  return kv.deleteItemAsync(DB_PASSPHRASE_KEY);
+/** The 32 bytes of a key written as 64 hex digits. */
+export function bytesOfHex(hex: string): ArrayBuffer {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out.buffer;
+}
+
+/** Forget the database key: done together with the database itself, when the account is signed out. */
+export function forgetDatabaseKey(kv: SecureKeyValue): Promise<void> {
+  return kv.deleteItemAsync(DB_KEY_KEY);
 }
 
 /**
