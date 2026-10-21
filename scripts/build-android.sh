@@ -151,7 +151,8 @@ check_apk() {
   # The JavaScript must hold the Rust engine: with the engine's files missing (an old Metro cache), the app starts, but on the mock.
   # `RustEngineCore` is the engine's class (packages/engine-rust/src/engine.ts); Hermes keeps such names as text. (Not `installRustCrate`:
   # that one is in a file of the package that was packed even in the broken build.)
-  unzip -p "$apk" assets/index.android.bundle | grep -aq RustEngineCore || die "$(basename "$apk"): its JavaScript has no Rust engine (RustEngineCore is not in it): the app would run on the mock engine"
+  # (Counted, not `grep -q`: that stops at the first match, unzip then dies of the closed pipe, and pipefail calls it a failure.)
+  [ "$(unzip -p "$apk" assets/index.android.bundle | grep -ac RustEngineCore)" -gt 0 ] || die "$(basename "$apk"): its JavaScript has no Rust engine (RustEngineCore is not in it): the app would run on the mock engine"
   ok "$(basename "$apk"): version $OHM_VERSION, code $code, native code $abi only, with the Rust engine"
 }
 
