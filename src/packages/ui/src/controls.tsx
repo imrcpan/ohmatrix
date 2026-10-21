@@ -82,7 +82,7 @@ export function TextField(props: TextInputProps & { label: string; revealLabels?
           hitSlop={6}
           style={{ position: "absolute", right: 2, bottom: 0, width: 44, height: 48, alignItems: "center", justifyContent: "center" }}
         >
-          <Icon name={shown ? "eyeOff" : "eye"} size={20} color={colors.textSecondary} />
+          <Icon name={shown ? "eye" : "eyeOff"} size={20} color={colors.textSecondary} />
         </Pressable>
       )}
     </View>
