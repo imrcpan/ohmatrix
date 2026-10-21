@@ -145,7 +145,14 @@ export function AccountsPage() {
               key={a.userId}
               account={a}
               current={a.userId === currentKey}
-              onPress={() => manager.switchTo(a.userId)}
+              onPress={() => {
+                if (a.userId !== currentKey) {
+                  // Another account: both it and this one go back to the chat list, so the switch ends on the main page.
+                  controller.openSidebarPage("chats");
+                  manager.controllerOf(a.userId)?.openSidebarPage("chats");
+                }
+                manager.switchTo(a.userId);
+              }}
               onMenu={(at) => setMenu({ account: a, at })}
             />
           ))}
