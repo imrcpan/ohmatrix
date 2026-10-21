@@ -74,6 +74,8 @@ export function Bubble(props: {
   onRetry?: (() => void) | undefined;
   retryLabel?: string | undefined;
   muted?: boolean;
+  /** My messages in the accent colour (the default); false: like anyone's. */
+  accent?: boolean | undefined;
 }) {
   const { colors } = useTheme();
   const R = radius.bubble,
@@ -91,7 +93,9 @@ export function Bubble(props: {
   const imageOnly = !!media && !props.text;
   // A file on its own is a card, the same for both sides (as WeChat shows files): neutral surface, the kind of file on a tile.
   const fileCard = !!props.file && !props.text && !props.reply;
-  const mine = props.own && !fileCard;
+  // My message in the accent colour (unless Settings turned that off); otherwise it is drawn like a message of somebody else.
+  const tinted = props.own && props.accent !== false;
+  const mine = tinted && !fileCard;
   const fg = mine ? colors.bubbleOutText : colors.bubbleInText;
   const meta = imageOnly ? "#FFFFFF" : mine ? colors.bubbleOutMeta : colors.textSecondary;
   const statusIcon = props.status === "sending" ? "clock" : props.status === "failed" ? "alert" : props.status === "read" ? "checks" : "check";
@@ -117,7 +121,7 @@ export function Bubble(props: {
               name={statusIcon}
               size={props.status === "read" ? 20 : 18}
               strokeWidth={2}
-              color={failed ? colors.danger : props.status === "read" ? "#FFFFFF" : meta}
+              color={failed ? colors.danger : props.status === "read" ? (mine ? "#FFFFFF" : colors.accent) : meta}
             />
           </View>
         ))}
@@ -193,17 +197,17 @@ export function Bubble(props: {
               width: 3,
               borderTopLeftRadius: 3,
               borderBottomLeftRadius: 3,
-              backgroundColor: props.own ? "rgba(255,255,255,0.8)" : peerColor(props.reply.senderId),
+              backgroundColor: tinted ? "rgba(255,255,255,0.8)" : peerColor(props.reply.senderId),
             }}
           />
           <View style={{ flexShrink: 1 }}>
             <Text
               numberOfLines={1}
-              style={{ fontSize: 14, fontWeight: "600", fontFamily, color: props.own ? colors.bubbleOutText : peerColor(props.reply.senderId) }}
+              style={{ fontSize: 14, fontWeight: "600", fontFamily, color: tinted ? colors.bubbleOutText : peerColor(props.reply.senderId) }}
             >
               {props.reply.senderName}
             </Text>
-            <Text numberOfLines={2} style={{ fontSize: 14, lineHeight: 18, fontFamily, color: props.own ? colors.bubbleOutMeta : colors.textSecondary }}>
+            <Text numberOfLines={2} style={{ fontSize: 14, lineHeight: 18, fontFamily, color: tinted ? colors.bubbleOutMeta : colors.textSecondary }}>
               {props.reply.preview}
             </Text>
           </View>
@@ -269,7 +273,7 @@ export function Bubble(props: {
           )}
         </PressableOrView>
       )}
-      {props.audio && <AudioRow own={props.own} {...props.audio} upload={props.upload} />}
+      {props.audio && <AudioRow own={tinted} {...props.audio} upload={props.upload} />}
       {props.file && (
         <Pressable
           accessibilityRole="button"
@@ -324,9 +328,9 @@ export function Bubble(props: {
               selectable={Platform.OS === "web"}
               style={{}}
               color={fg}
-              linkColor={props.own ? colors.bubbleOutText : colors.accent}
-              mentionColor={props.own ? colors.bubbleOutText : colors.accent}
-              mentionBg={props.own ? "rgba(255,255,255,0.22)" : colors.mentionBg}
+              linkColor={tinted ? colors.bubbleOutText : colors.accent}
+              mentionColor={tinted ? colors.bubbleOutText : colors.accent}
+              mentionBg={tinted ? "rgba(255,255,255,0.22)" : colors.mentionBg}
               onLink={props.onLink}
             />
           ) : (
@@ -361,7 +365,7 @@ export function Bubble(props: {
           image={p.image}
           imageWidth={p.imageWidth}
           imageHeight={p.imageHeight}
-          own={props.own}
+          own={tinted}
           onPress={() => props.onOpenLink?.(p.url)}
         />
       ))}

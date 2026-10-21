@@ -18,7 +18,7 @@ import {
   useTheme,
   type Run,
 } from "@ohmatrix/ui";
-import { useLocale, useServices, useT } from "../context.js";
+import { useAppState, useLocale, useServices, useT } from "../context.js";
 import { PhotoViewer } from "../PhotoViewer.js";
 import { bubbleProps } from "./bubbleProps.js";
 import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
@@ -51,6 +51,7 @@ export function MessageRow(props: {
   const media = useMessageMedia(m);
   const { colors } = useTheme();
   const choosing = useSelection();
+  const accent = useAppState((s) => s.prefs.ownBubbleAccent);
   const chosen = choosing.active && choosing.has(m.id);
   // Between two chosen messages the gap is part of the row (as padding), so that the shade has no break.
   const joined = choosing.active && choosing.joinedAbove(m.id);
@@ -177,13 +178,14 @@ export function MessageRow(props: {
         >
           <Bubble
             {...bubble}
+            accent={accent}
             onLongPress={(e) => {
               const n = e.nativeEvent as { pageX?: number; pageY?: number };
               open(n.pageX ?? 0, n.pageY ?? 0);
             }}
           />
         </Pressable>
-        {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn} onToggle={(k) => actions.react(m.id, k)} />}
+        {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn && accent} onToggle={(k) => actions.react(m.id, k)} />}
       </View>
       {c.kind === "image" && (
         <PhotoViewer
