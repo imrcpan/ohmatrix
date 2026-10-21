@@ -21,6 +21,10 @@ fi
 
 # x86_64 needs the compiler runtime for 128-bit arithmetic that the NDK does not link by default.
 export CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS="-L$clang_dir"
+# ubrn writes its own src/index.ts (it installs the native module and nothing else) over ours, the engine's entry: the app would then
+# have no Rust engine and run on the mock. Ours is kept aside and put back after the generating steps below.
+index_keep=$(mktemp)
+cp src/index.ts "$index_keep"
 # Builds the libraries and, from the same build, the TypeScript and C++ bindings and the TurboModule that loads them.
 npx ubrn build android --config ubrn.yaml --and-generate "$@"
 
@@ -49,6 +53,7 @@ done
 # second step, over the same namespaces. The JS entry that installs them is src/bindings.tsx, which is written by hand.
 namespaces=$(cd src/generated && ls *.ts | sed 's/\.ts$//' | grep -v -- '-ffi$')
 npx ubrn generate jsi turbo-module --config ubrn.yaml $namespaces
+cp "$index_keep" src/index.ts && rm -f "$index_keep"
 
 # The generated C++ of the SDK is one huge constructor with a lambda for each of its 1,400 functions, which takes 7 GB to compile.
 # This turns it into a table and a loop (1.5 GB), registering the same functions. See scripts/shrinkBinding.mjs.
