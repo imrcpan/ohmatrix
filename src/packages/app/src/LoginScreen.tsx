@@ -32,6 +32,8 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
   const language = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
   const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState("");
+  // Some servers create accounts only for those who have a registration token (from whoever runs the server).
+  const [token, setToken] = useState("");
   // Technical messages from the network stack ("NetworkError when attempting to fetch resource", a blocked CORS request for a
   // host that does not exist...) all mean the same to the user: the address cannot be reached.
   const error = !rawError
@@ -39,13 +41,17 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
     : errorCode === "network"
       ? t("login.network", { server: homeserver.trim() })
       : creating
-        ? errorCode === "conflict"
-          ? t("register.taken")
-          : errorCode === "forbidden"
-            ? t("register.closed")
-            : errorCode === "unsupported"
-              ? t("register.unsupported")
-              : rawError
+        ? errorCode === "token_required"
+          ? t("register.tokenNeeded")
+          : errorCode === "token_invalid"
+            ? t("register.tokenWrong")
+            : errorCode === "conflict"
+              ? t("register.taken")
+              : errorCode === "forbidden"
+                ? t("register.closed")
+                : errorCode === "unsupported"
+                  ? t("register.unsupported")
+                  : rawError
         : errorCode === "forbidden" || errorCode === "unauthorized"
           ? t("login.rejected")
           : errorCode === "conflict"
@@ -55,12 +61,13 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
   const ready = !!homeserver.trim() && !!username.trim() && !!password && (!creating || (!!confirm && !mismatch));
   const submit = () => {
     if (!ready || busy) return;
-    if (creating) void controller.register(homeserver.trim(), username.trim(), password);
+    if (creating) void controller.register(homeserver.trim(), username.trim(), password, token.trim() || undefined);
     else void controller.login(homeserver.trim(), username.trim(), password);
   };
   const toggle = () => {
     setCreating((v) => !v);
     setConfirm("");
+    setToken("");
   };
 
   return (
@@ -100,6 +107,9 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
               textContentType="newPassword"
               onSubmitEditing={submit}
             />
+          )}
+          {creating && (
+            <TextField label={t("register.token")} value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} onSubmitEditing={submit} />
           )}
           {mismatch && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("register.mismatch")}</Text>}
           {!!error && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{error}</Text>}
