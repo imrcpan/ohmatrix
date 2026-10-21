@@ -45,18 +45,38 @@ export function filePreferences(): PreferencesStore {
  * The picker copies a file to the cache under a made-up name, and the SDK names the message after the file it uploads.
  * So the copy is moved into a folder of its own under the real name.
  */
-function withRealName(f: AttachmentSource): AttachmentSource {
+async function withRealName(f: AttachmentSource): Promise<AttachmentSource> {
   if (typeof f.data !== "string" || !f.data.startsWith("file://")) return f;
   try {
     const from = new File(f.data);
     const dir = new Directory(Paths.cache, `send-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     dir.create();
     const to = new File(dir, f.name.replace(/[\\/]/g, "_"));
-    from.move(to);
+    // `move` is asynchronous: the path is handed on only once the file is there (reading it at once found nothing).
+    await from.move(to);
     return { ...f, data: to.uri };
   } catch {
     return f;
   }
+}
+
+/** One picture from the photo picker (the system's own: no permission is asked, and it shows photos, not folders). */
+async function pickPhoto(): Promise<AttachmentSource | null> {
+  const Pictures = await import("expo-image-picker");
+  const r = await Pictures.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: false, quality: 1 });
+  const a = r.canceled ? undefined : r.assets[0];
+  if (!a) return null;
+  const size =
+    a.fileSize ??
+    (() => {
+      try {
+        return new File(a.uri).size;
+      } catch {
+        return 0;
+      }
+    })();
+  const [file] = fromDocuments([{ uri: a.uri, name: a.fileName ?? "", size, mimeType: a.mimeType ?? "image/jpeg" }]);
+  return file ? { ...(await withRealName(file)), width: a.width, height: a.height } : null;
 }
 
 async function pickFiles(): Promise<AttachmentSource[]> {
@@ -64,7 +84,7 @@ async function pickFiles(): Promise<AttachmentSource[]> {
   const r = await Documents.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
   if (r.canceled) return [];
   // A picture is sent with its size in pixels, which the picker does not tell: the image component can.
-  const files = fromDocuments(r.assets).map(withRealName);
+  const files = await Promise.all(fromDocuments(r.assets).map(withRealName));
   return Promise.all(
     files.map(async (f) => {
       if (!f.mimeType.startsWith("image/") || typeof f.data !== "string") return f;
@@ -362,6 +382,7 @@ export function phoneServices(): AppServices {
     ...appIconsService(),
     preferences: filePreferences(),
     pickFiles,
+    pickPhoto,
     recordMedia,
     recordKinds: ["audio"],
     createAudio,
