@@ -60,3 +60,18 @@ test("the session from before there were several becomes the first account, once
   await adoptSingleSession(old, accounts);
   expect(await accounts.list()).toEqual([]);
 });
+
+test("a session the caller already read is handed out once, so the store is not read again; after a save or a clear it is read afresh", async () => {
+  const inner = createMemoryAccountStore([{ session: session("a") }, { session: session("b") }]);
+  let lists = 0;
+  const counting = { ...inner, list: () => (lists++, inner.list()) };
+  const store = scopedSessionStore(counting, { userId: "@a:s", session: session("a", "read-at-start") });
+  expect((await store.load())?.accessToken).toBe("read-at-start");
+  expect(lists).toBe(0);
+  expect((await store.load())?.accessToken).toBe("t"); // the second load reads
+  expect(lists).toBe(1);
+
+  const fresh = scopedSessionStore(counting, { userId: "@a:s", session: session("a", "old") });
+  await fresh.save(session("a", "new"));
+  expect((await fresh.load())?.accessToken).toBe("new");
+});

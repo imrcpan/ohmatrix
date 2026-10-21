@@ -9,10 +9,16 @@ import {
   type MxcUri,
   type PlatformServices,
   type Preferences,
+  type Session,
   type SessionStore,
   type UserId,
 } from "@ohmatrix/core";
 import { createAppController, totalUnread, type AppController, type AppState } from "./index.js";
+
+/** How long the other accounts wait for the one on screen to open, at most; and the pause between starting one and the next. */
+const HEAD_WAIT_MS = 4000;
+const STAGGER_MS = 700;
+const timers = globalThis as unknown as { setTimeout(fn: () => void, ms: number): unknown };
 
 /** What the account list needs to show about one signed-in account. */
 export interface AccountSummary {
@@ -98,8 +104,8 @@ export function createAccountManager(deps: AccountManagerDeps): AccountManager {
     set((s) => ({ accounts: s.accounts.map((a) => (a.userId === userId ? { ...a, ...patch } : a)) }));
 
   /** A controller with its own scoped session store; `userId` is known for a saved account, not for one being added. */
-  const build = (userId: UserId | undefined, dir: string | undefined): Entry => {
-    const scoped = scopedSessionStore(deps.accounts, { ...(userId && { userId }), ...(dir !== undefined && { dir }) });
+  const build = (userId: UserId | undefined, dir: string | undefined, session?: Session): Entry => {
+    const scoped = scopedSessionStore(deps.accounts, { ...(userId && { userId }), ...(dir !== undefined && { dir }), ...(session && { session }) });
     const engine = deps.makeEngine(dir);
     const sessionStore: SessionStore = userId
       ? scoped
@@ -262,11 +268,15 @@ export function createAccountManager(deps: AccountManagerDeps): AccountManager {
   const manager: AccountManager = {
     store,
     async start() {
-      if (deps.legacySessions) await adoptSingleSession(deps.legacySessions, deps.accounts);
-      const saved = await deps.accounts.list();
+      let saved = await deps.accounts.list();
+      // Only an empty store has a session from before there were accounts to adopt (and then it is read again, with that account in it).
+      if (saved.length === 0 && deps.legacySessions) {
+        await adoptSingleSession(deps.legacySessions, deps.accounts);
+        saved = await deps.accounts.list();
+      }
       const active = await deps.accounts.activeId();
       for (const a of saved) {
-        const e = build(a.session.userId, a.dir);
+        const e = build(a.session.userId, a.dir, a.session);
         entries.set(a.session.userId, e);
         set((s) => ({ accounts: [...s.accounts, { userId: a.session.userId, homeserver: a.session.homeserver, unread: 0 }] }));
         watch(e, () => a.session.userId);
@@ -275,8 +285,30 @@ export function createAccountManager(deps: AccountManagerDeps): AccountManager {
       if (first) set({ currentKey: first.session.userId, adding: false });
       else showPending();
       set({ ready: true });
-      // They start together; a slow or offline server of one must not hold the others (or the first screen) back.
-      for (const e of entries.values()) void e.controller.bootstrap();
+      // The account on screen starts first, alone: opening an account's database takes the app's one thread for over half a second, so
+      // the others (they are only there to sync, for the badges and the notifications) wait until it is open, and then follow one
+      // by one with a pause between, so that the screen is drawn and can be touched in between. A slow or offline server of one must
+      // not hold the others back: they wait for the account to be opened, not for its network.
+      const all = [...entries.entries()];
+      const head = all.find(([id]) => id === first?.session.userId) ?? all[0];
+      const rest = all.filter((x) => x !== head).map(([, e]) => e);
+      if (!head) return;
+      const opened = new Promise<void>((resolve) => {
+        const unsubscribe = head[1].controller.store.subscribe((st) => {
+          if (st.auth !== "booting") {
+            unsubscribe();
+            resolve();
+          }
+        });
+        timers.setTimeout(resolve, HEAD_WAIT_MS);
+      });
+      void head[1].controller.bootstrap();
+      void opened.then(async () => {
+        for (const e of rest) {
+          void e.controller.bootstrap();
+          await new Promise((r) => timers.setTimeout(() => r(undefined), STAGGER_MS));
+        }
+      });
     },
     current() {
       const { currentKey } = store.getState();
