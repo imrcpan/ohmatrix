@@ -123,7 +123,10 @@ export interface TimelineItem {
   ts: number;
   content: MessageContent;
   reactions?: ReactionSummary[];
-  /** On my own messages: the other people who have read up to this message. */
+  /**
+   * The other people whose read receipt sits on this message (so they have read up to it). An engine may give it for any message;
+   * `spreadReceipts` makes it complete for my own messages: everyone at or after them.
+   */
   readBy?: Reader[];
   /** Present while the file is still being uploaded (the message does not exist on the server yet). */
   upload?: UploadState;
