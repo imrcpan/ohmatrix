@@ -25,7 +25,7 @@ function useLater<T>(compute: () => T, deps: DependencyList, delay: number): T |
 export const MEMBER_ROW_HEIGHT = 54;
 const BANNED_ROW_HEIGHT = 60;
 
-/** One member. With `onAction` (and `actionable`) pressing it reports the member and where, so a menu of what may be done can open there. */
+/** One member. With `onAction` (and `actionable`) pressing it reports the member and where, so the member's menu can open there. */
 export const MemberRow = memo(function MemberRow(props: { member: RoomMember; actionable?: boolean; onAction?: (m: RoomMember, anchor: Anchor) => void }) {
   const { colors } = useTheme();
   const t = useT();
@@ -66,7 +66,6 @@ export const MemberRow = memo(function MemberRow(props: { member: RoomMember; ac
         </Text>
       </View>
       {tag && <Text style={{ fontSize: 13, fontFamily, color: m.invited ? colors.textSecondary : colors.accent }}>{tag}</Text>}
-      {onPress && <Icon name="more" size={18} color={colors.textTertiary} />}
     </View>
   );
   if (!onPress) return body();

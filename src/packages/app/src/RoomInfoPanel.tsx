@@ -6,6 +6,7 @@ import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { MEMBERS_SHOWN, topMembers } from "./memberOrder.js";
+import { MemberInfoPage } from "./MemberInfoPage.js";
 import { BannedPage, MemberRow, MembersPage } from "./RoomPeople.js";
 import { RoomSettingsSections } from "./RoomSettings.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
@@ -35,6 +36,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [leveling, setLeveling] = useState<RoomMember | null>(null);
   const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // The member whose page is open, and the page it was opened from (the way back).
+  const [viewed, setViewed] = useState<{ member: RoomMember; from: "members" | null } | null>(null);
   const notice = useNotice();
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
   const [viewing, setViewing] = useState(false);
@@ -70,9 +73,15 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const maxLevel = Number.isFinite(myPower) ? myPower : 1000;
   // You can only manage people below your own level (the server enforces the same rule).
   const manageable = (m: RoomMember) => !!d && m.userId !== d.me && m.power < myPower;
+  const openMember = (m: RoomMember) => {
+    setViewed({ member: m, from: infoPage === "members" ? "members" : null });
+    controller.openInfoPage("member");
+  };
   const memberMenu = (m: RoomMember): MenuItem[] => {
     if (!d) return [];
-    const out: MenuItem[] = [];
+    // Everyone gets this one; the rest is only for the people one may manage.
+    const out: MenuItem[] = [{ label: t("member.view"), icon: "user", onPress: () => openMember(m) }];
+    if (!manageable(m)) return out;
     if (d.can.changeRoles && !m.invited) {
       (["admin", "moderator", "member"] as const)
         .filter((r) => ROLE_POWER[r] !== m.power && ROLE_POWER[r] <= myPower)
@@ -90,7 +99,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     return out;
   };
 
-  const actionable = useCallback((m: RoomMember) => manageable(m) && memberMenu(m).length > 0, [d, myPower]); // eslint-disable-line react-hooks/exhaustive-deps
+  // In a room, every person in the list opens a menu (a direct chat has one other person and no list to act on).
+  const actionable = useCallback(() => !direct, [direct]);
   const onMemberAction = useCallback((member: RoomMember, anchor: Anchor) => setMenu({ member, anchor }), []);
 
   const changePhoto = async () => {
@@ -236,7 +246,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 </View>
               )}
               {firstMembers.map((m) => (
-                <MemberRow key={m.userId} member={m} actionable={actionable(m)} onAction={onMemberAction} />
+                <MemberRow key={m.userId} member={m} actionable={actionable()} onAction={onMemberAction} />
               ))}
               {d.members.length > MEMBERS_SHOWN && <Item label={t("viewAll")} onPress={() => controller.openInfoPage("members")} />}
             </Group>
@@ -349,13 +359,18 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       </Dialog>
       {/* Pages that slide in from the right over this panel; each is mounted only while it is open. */}
       {!forSpace && !!d && (
-        <SlidePanel mode="overlay" open={infoPage === "members"}>
+        <SlidePanel mode="overlay" open={infoPage === "members" || (infoPage === "member" && viewed?.from === "members")}>
           <MembersPage d={d} onBack={() => controller.openInfoPage(null)} actionable={actionable} onAction={onMemberAction} />
         </SlidePanel>
       )}
       {!forSpace && !!d && (
         <SlidePanel mode="overlay" open={infoPage === "banned"}>
           <BannedPage d={d} onBack={() => controller.openInfoPage(null)} report={report} />
+        </SlidePanel>
+      )}
+      {!forSpace && !!d && (
+        <SlidePanel mode="overlay" open={infoPage === "member"}>
+          {viewed && <MemberInfoPage d={d} member={viewed.member} onBack={() => controller.openInfoPage(viewed.from)} />}
         </SlidePanel>
       )}
       {/* The whole gallery slides in from the right over this panel; it is mounted only while it is open. */}
