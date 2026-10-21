@@ -149,7 +149,7 @@ export function ProfilePage(props: { homeserver: string }) {
         <PrimaryButton
           title={t("save")}
           loading={busy}
-          disabled={!name.trim()}
+          disabled={!name.trim() || name.trim() === displayName.trim()}
           onPress={() => {
             setBusy(true);
             void controller
@@ -167,6 +167,7 @@ export function ProfilePage(props: { homeserver: string }) {
         <PrimaryButton
           title={t("save")}
           loading={busy}
+          disabled={statusText.trim() === (profile?.status ?? "").trim()}
           onPress={() => {
             setBusy(true);
             setStatusError(null);

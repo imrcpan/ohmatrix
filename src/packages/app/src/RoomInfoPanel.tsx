@@ -258,6 +258,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         title={t(forSpace ? "space.name" : "room.editName")}
         message=""
         confirmLabel={t("save")}
+        requireChange
         initial={[d?.name ?? ""]}
         fields={[{ label: t(forSpace ? "space.name" : "room.editName") }]}
         onClose={() => setEdit(null)}
@@ -268,6 +269,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         title={t("room.editTopic")}
         message=""
         confirmLabel={t("save")}
+        requireChange
         initial={[d?.topic ?? ""]}
         fields={[{ label: t("room.editTopic"), optional: true, multiline: true }]}
         onClose={() => setEdit(null)}
@@ -278,6 +280,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         title={t("setLevel")}
         message={t("level.custom.body", { max: maxLevel })}
         confirmLabel={t("save")}
+        requireChange
         initial={[String(leveling?.power ?? 0)]}
         fields={[{ label: t("level.field") }]}
         onClose={() => setLeveling(null)}
