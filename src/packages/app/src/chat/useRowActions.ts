@@ -13,6 +13,7 @@ export function useRowActions(opts: {
   handle: { readonly current: OpenRoom | null };
   startReply(item: TimelineItem): void;
   startEdit(item: TimelineItem): void;
+  select(item: TimelineItem): void;
   forward(item: TimelineItem): void;
   jump(eventId: string): void;
   /** Say, at the top of the chat, that something did not work. */
@@ -27,6 +28,7 @@ export function useRowActions(opts: {
       react: (id, key) => void latest.current.handle.current?.react(id, key).catch(() => {}),
       reply: (item) => latest.current.startReply(item),
       edit: (item) => latest.current.startEdit(item),
+      select: (item) => latest.current.select(item),
       pin: (item, pinned) => void latest.current.handle.current?.pin(item.id, pinned).catch(() => {}),
       forward: (item) => latest.current.forward(item),
       download: (f) =>

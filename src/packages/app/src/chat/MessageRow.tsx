@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PixelRatio, Pressable, View } from "react-native";
+import { PixelRatio, Pressable, StyleSheet, View } from "react-native";
 import type { TimelineItem } from "@ohmatrix/core";
 import {
   parseFormatted,
@@ -7,18 +7,22 @@ import {
   Avatar,
   Bubble,
   Dialog,
+  Icon,
   MessageMenu,
   PrimaryButton,
   ReactionChips,
   TextButton,
   VideoViewer,
   type MenuPoint,
+  mix,
+  useTheme,
   type Run,
 } from "@ohmatrix/ui";
 import { useLocale, useServices, useT } from "../context.js";
 import { PhotoViewer } from "../PhotoViewer.js";
 import { bubbleProps } from "./bubbleProps.js";
 import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
+import { useSelection } from "./selection.js";
 import { gapAbove } from "./rowWindow.js";
 import { useMessageMedia } from "./useMessageMedia.js";
 
@@ -45,6 +49,13 @@ export function MessageRow(props: {
   const locale = useLocale();
   const services = useServices();
   const media = useMessageMedia(m);
+  const { colors } = useTheme();
+  const choosing = useSelection();
+  const chosen = choosing.active && choosing.has(m.id);
+  // Between two chosen messages the gap is part of the row (as padding), so that the shade has no break.
+  const joined = choosing.active && choosing.joinedAbove(m.id);
+  const joinedBelow = choosing.active && choosing.joinedBelow(m.id);
+  const gap = PixelRatio.roundToNearestPixel(gapAbove(props.newSender));
   const [menu, setMenu] = useState<MenuPoint | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -52,6 +63,7 @@ export function MessageRow(props: {
   const runs: readonly Run[] | undefined = c.kind === "text" ? (c.formattedBody ? parseFormatted(c.formattedBody) : plainRuns(c.body, c.mentions)) : undefined;
   const showAvatar = props.isGroup && !m.isOwn;
   const open = (x: number, y: number) => {
+    if (choosing.active) return;
     if (!unsent || failed) setMenu({ x, y });
   };
   const copyText = (text: string) =>
@@ -97,13 +109,55 @@ export function MessageRow(props: {
         alignItems: "flex-end",
         gap: 6,
         paddingHorizontal: 10,
+        // Room for the round box at the left while messages are being chosen.
+        paddingLeft: choosing.active ? 40 : 10,
         paddingVertical: props.highlighted ? 4 : 0,
+        ...(joined ? { paddingTop: gap + (props.highlighted ? 4 : 0) } : {}),
         // Whole device pixels: a gap of 2 dp is 7.52 px on a phone, which the screen would round to 7 or 8 from one gap to the next.
-        marginTop: PixelRatio.roundToNearestPixel(gapAbove(props.newSender)),
+        marginTop: joined ? 0 : gap,
         justifyContent: m.isOwn ? "flex-end" : "flex-start",
-        backgroundColor: props.highlighted ? "rgba(51,144,236,0.22)" : "transparent",
+        backgroundColor: props.highlighted && !chosen ? "rgba(51,144,236,0.22)" : "transparent",
       }}
     >
+      {chosen && (
+        // The shade of a chosen message is a layer of its own, one pixel longer where the next message is chosen too: rows end on whole
+        // device pixels that are not the same for each, and without the overlap a hairline of the wallpaper shows between them. It is
+        // opaque (the accent mixed into the wallpaper) so that the overlap is not darker.
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: joinedBelow ? -1 : 0, backgroundColor: mix(colors.chatBg, "#3390EC", 0.22) }}
+        />
+      )}
+      {choosing.active && (
+        <>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              marginTop: -11,
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              borderWidth: 2,
+              borderColor: chosen ? colors.accent : colors.textTertiary,
+              backgroundColor: chosen ? colors.accent : "transparent",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {chosen && <Icon name="check" size={14} color={colors.onAccent} strokeWidth={3} />}
+          </View>
+          {/* Over the whole row: a press anywhere on it (links, pictures, quotes too) only chooses or un-chooses the message. */}
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: chosen }}
+            style={[StyleSheet.absoluteFill, { zIndex: 5 }]}
+            onPress={() => choosing.toggle(m.id)}
+          />
+        </>
+      )}
       {showAvatar && (props.last ? <Avatar id={m.sender} name={m.senderName} size={AVATAR} src={media.avatar} /> : <View style={{ width: AVATAR }} />)}
       <View style={{ maxWidth: "78%", alignItems: m.isOwn ? "flex-end" : "flex-start" }}>
         {/* The bubble opens the context menu but is read, not clicked: show the text cursor, not the hand (nested buttons such as quotes and files keep theirs). */}
@@ -173,6 +227,7 @@ export function MessageRow(props: {
                 { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
                 { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
                 { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
+                { label: t("select.multi"), icon: "multiSelect" as const, onPress: () => actions.select(m) },
                 ...(m.isOwn && c.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
                 ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
               ]

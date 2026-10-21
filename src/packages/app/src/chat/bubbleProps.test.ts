@@ -22,6 +22,7 @@ const actions = (): RowActions => ({
   forward: vi.fn(),
   reply: vi.fn(),
   edit: vi.fn(),
+  select: vi.fn(),
   remove: vi.fn(),
   jump: vi.fn(),
   cancelUpload: vi.fn(),

@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { memo, useCallback, useMemo, useState } from "react";
+import { FlatList, Pressable, Text, View } from "react-native";
 import type { RoomSummary } from "@ohmatrix/core";
 import { Avatar, Dialog, fontFamily, Icon, PrimaryButton, SearchField, TextButton, useTheme } from "@ohmatrix/ui";
 import { useAppState, useController, useT } from "./context.js";
 
 /** A room to pick: its picture, its name, and a round box that is ticked when it is picked. */
-function CheckRow(props: { room: RoomSummary; checked: boolean; onToggle: () => void; disabled?: boolean }) {
+const CheckRow = memo(function CheckRow(props: { room: RoomSummary; checked: boolean; onToggle: (id: string) => void; disabled?: boolean }) {
   const { colors } = useTheme();
   const r = props.room;
   return (
@@ -16,7 +16,7 @@ function CheckRow(props: { room: RoomSummary; checked: boolean; onToggle: () => 
       aria-disabled={!!props.disabled}
       accessibilityState={{ checked: props.checked, disabled: !!props.disabled }}
       disabled={props.disabled}
-      onPress={props.onToggle}
+      onPress={() => props.onToggle(r.id)}
       style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
         flexDirection: "row",
         alignItems: "center",
@@ -47,14 +47,14 @@ function CheckRow(props: { room: RoomSummary; checked: boolean; onToggle: () => 
       </View>
     </Pressable>
   );
-}
+});
 
 /**
  * Forwarding a message, in two steps. First the chats to send it to are ticked (any number, with a filter box). Forward then asks once
- * more, listing only the ones ticked, all still ticked, so a wrong one can be taken off; Forward there sends. A message is copied into each
+ * more, listing only the ones ticked, all still ticked, so a wrong one can be taken off; Forward there sends. Messages are copied into each
  * chat (text, mentions and attachments); if some chats could not be sent to, the dialog stays and says how many.
  */
-export function ForwardDialog(props: { visible: boolean; onClose: () => void; fromRoomId: string; eventId: string }) {
+export function ForwardDialog(props: { visible: boolean; onClose: () => void; fromRoomId: string; eventIds: readonly string[]; onSent?: () => void }) {
   const { colors } = useTheme();
   const t = useT();
   const controller = useController();
@@ -64,6 +64,8 @@ export function ForwardDialog(props: { visible: boolean; onClose: () => void; fr
   const [confirming, setConfirming] = useState(false);
   const [keep, setKeep] = useState<ReadonlySet<string>>(new Set());
   const [sending, setSending] = useState(false);
+  // Between pressing Forward in the first step and the second step being drawn: the button turns while it is drawn.
+  const [preparing, setPreparing] = useState(false);
   const [failed, setFailed] = useState(0);
 
   const postable = useMemo(() => rooms.filter((r) => !r.invite), [rooms]);
@@ -84,9 +86,15 @@ export function ForwardDialog(props: { visible: boolean; onClose: () => void; fr
     setFailed(0);
   };
   const confirm = () => {
-    setKeep(new Set(chosen.map((r) => r.id))); // all of them ticked to begin with
-    setFailed(0);
-    setConfirming(true);
+    if (preparing) return;
+    setPreparing(true);
+    // The turning button is drawn first; the second step (which may take a moment on a phone) follows.
+    setTimeout(() => {
+      setKeep(new Set(chosen.map((r) => r.id))); // all of them ticked to begin with
+      setFailed(0);
+      setConfirming(true);
+      setPreparing(false);
+    }, 50);
   };
   const send = async () => {
     const targets = chosen.filter((r) => keep.has(r.id));
@@ -95,14 +103,16 @@ export function ForwardDialog(props: { visible: boolean; onClose: () => void; fr
     const left = new Set<string>();
     for (const r of targets) {
       try {
-        await controller.forwardMessage(props.fromRoomId, props.eventId, r.id);
+        for (const id of props.eventIds) await controller.forwardMessage(props.fromRoomId, id, r.id);
       } catch {
         left.add(r.id);
       }
     }
     setSending(false);
-    if (left.size === 0) close();
-    else {
+    if (left.size === 0) {
+      close();
+      props.onSent?.();
+    } else {
       // What was sent is done with: only the chats that failed stay, ticked, for another try.
       setPicked(left);
       setKeep(left);
@@ -110,34 +120,60 @@ export function ForwardDialog(props: { visible: boolean; onClose: () => void; fr
     }
   };
 
-  if (confirming) {
-    return (
-      <Dialog visible={props.visible} title={t("forward.confirm")} onClose={close} modal>
-        <ScrollView style={{ maxHeight: 300 }}>
-          {chosen.map((r) => (
-            <CheckRow key={r.id} room={r} checked={keep.has(r.id)} disabled={sending} onToggle={() => setKeep((k) => toggle(k, r.id))} />
-          ))}
-        </ScrollView>
-        {failed > 0 && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("forward.failed", { n: failed })}</Text>}
-        <TextButton title={t("back")} onPress={() => setConfirming(false)} />
-        <PrimaryButton title={t("forward")} loading={sending} disabled={keep.size === 0} onPress={() => void send()} />
-      </Dialog>
-    );
-  }
+  const togglePicked = useCallback((id: string) => setPicked((p) => toggle(p, id)), []);
+  const toggleKeep = useCallback((id: string) => setKeep((k) => toggle(k, id)), []);
+  const renderPick = useCallback(
+    ({ item }: { item: RoomSummary }) => <CheckRow room={item} checked={picked.has(item.id)} onToggle={togglePicked} />,
+    [picked, togglePicked],
+  );
+  const renderKeep = useCallback(
+    ({ item }: { item: RoomSummary }) => <CheckRow room={item} checked={keep.has(item.id)} disabled={sending} onToggle={toggleKeep} />,
+    [keep, sending, toggleKeep],
+  );
 
+  // One dialog for both steps, its content changing: a second dialog would have to be opened (a window of its own, slow on a phone)
+  // when Forward is pressed, and the lists are virtualised, so that a long list of chats is not drawn all at once.
   return (
-    <Dialog visible={props.visible} title={t("forward.title")} onClose={close}>
-      <SearchField value={filter} onChangeText={setFilter} placeholder={t("search")} />
-      <ScrollView style={{ maxHeight: 300 }}>
-        {shown.length === 0 && (
-          <Text style={{ padding: 12, textAlign: "center", fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("forward.empty")}</Text>
-        )}
-        {shown.map((r) => (
-          <CheckRow key={r.id} room={r} checked={picked.has(r.id)} onToggle={() => setPicked((p) => toggle(p, r.id))} />
-        ))}
-      </ScrollView>
-      <TextButton title={t("cancel")} onPress={close} />
-      <PrimaryButton title={picked.size ? `${t("forward")} (${picked.size})` : t("forward")} disabled={picked.size === 0} onPress={confirm} />
+    <Dialog visible={props.visible} title={confirming ? t("forward.confirm") : t("forward.title")} onClose={close} modal={confirming}>
+      {confirming ? (
+        <>
+          <FlatList
+            style={{ maxHeight: 300 }}
+            data={chosen}
+            extraData={keep}
+            keyExtractor={(r) => r.id}
+            renderItem={renderKeep}
+            initialNumToRender={10}
+            keyboardShouldPersistTaps="handled"
+          />
+          {failed > 0 && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("forward.failed", { n: failed })}</Text>}
+          <TextButton title={t("back")} onPress={() => setConfirming(false)} />
+          <PrimaryButton title={t("forward")} loading={sending} disabled={keep.size === 0} onPress={() => void send()} />
+        </>
+      ) : (
+        <>
+          <SearchField value={filter} onChangeText={setFilter} placeholder={t("search")} />
+          <FlatList
+            style={{ maxHeight: 300 }}
+            data={shown}
+            extraData={picked}
+            keyExtractor={(r) => r.id}
+            renderItem={renderPick}
+            initialNumToRender={10}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <Text style={{ padding: 12, textAlign: "center", fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("forward.empty")}</Text>
+            }
+          />
+          <TextButton title={t("cancel")} onPress={close} />
+          <PrimaryButton
+            title={picked.size ? `${t("forward")} (${picked.size})` : t("forward")}
+            loading={preparing}
+            disabled={picked.size === 0}
+            onPress={confirm}
+          />
+        </>
+      )}
     </Dialog>
   );
 }
