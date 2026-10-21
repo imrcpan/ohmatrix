@@ -197,6 +197,8 @@ export interface UserDirectoryApi {
    * directory does not list is looked up directly, so anyone on the network can be reached.
    */
   search(term: string): Promise<UserSuggestion[]>;
+  /** Ignore a person: their messages and invitations no longer reach me (the account's ignored-users list). */
+  block(userId: UserId): Promise<void>;
 }
 
 export interface NotificationsApi {

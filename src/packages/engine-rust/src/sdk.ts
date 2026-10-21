@@ -222,6 +222,8 @@ export interface SdkClient {
   /** The one-to-one chat with a user, if there is one. */
   directRoom(userId: string): string | undefined;
   searchUsers(term: string, limit: number): Promise<RawProfile[]>;
+  /** Add a person to the account's ignored users. */
+  ignoreUser(userId: string): Promise<void>;
   /** One user's profile; rejects when there is no such user. */
   userProfile(userId: string): Promise<RawProfile>;
   setDisplayName(name: string): Promise<void>;

@@ -98,6 +98,7 @@ export class MockEngine implements MatrixEngine {
       const t = term.trim().toLowerCase();
       return ["alice", "bob"].filter((n) => t && n.includes(t)).map((n) => ({ userId: `@${n}:example.org`, displayName: n }));
     },
+    block: async (_userId: string) => {},
   };
 
   readonly notifications = {

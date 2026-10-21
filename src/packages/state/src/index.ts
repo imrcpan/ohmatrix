@@ -31,7 +31,7 @@ import {
 } from "@ohmatrix/core";
 
 /** A page that slides in over the chat info: the shared media, all the members, all the banned people. */
-export type InfoPage = "media" | "members" | "banned";
+export type InfoPage = "media" | "members" | "banned" | "member";
 
 export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "logs";
 
@@ -167,6 +167,8 @@ export interface AppController {
   setRoomMuted(roomId: RoomId, muted: boolean): Promise<void>;
   /** Search the user directory (also resolves a full user id). */
   searchUsers(term: string): Promise<UserSuggestion[]>;
+  /** Ignore a person (the account's ignored-users list). */
+  blockUser(userId: string): Promise<void>;
   /** Subscribe to the chat-info data of a room. */
   subscribeRoomDetails(roomId: RoomId, cb: (d: RoomDetails) => void): () => void;
   /** Leave (or delete, for one-to-one chats) a room and deselect it. */
@@ -423,6 +425,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     subscribeNotifications: (cb) => engine.notifications.subscribe(cb),
     setRoomMuted: (roomId, muted) => engine.rooms.setMuted(roomId, muted),
     searchUsers: (term) => engine.users.search(term),
+    blockUser: (userId) => engine.users.block(userId),
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);

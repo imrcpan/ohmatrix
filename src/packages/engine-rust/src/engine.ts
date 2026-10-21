@@ -671,6 +671,7 @@ export class RustEngineCore implements MatrixEngine {
           ...(p.avatarUrl && { avatar: p.avatarUrl }),
         }));
       }),
+    block: (userId: string) => guard(() => this.need().ignoreUser(userId)),
   };
   readonly notifications = {
     subscribe: (cb: Listener<IncomingNotification>): Unsubscribe => {
