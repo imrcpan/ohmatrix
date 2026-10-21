@@ -111,6 +111,8 @@ export interface PlatformServices {
   preferences?: PreferencesStore;
   /** Let the user choose files to send. Absent = the attach button is hidden. */
   pickFiles?(): Promise<AttachmentSource[]>;
+  /** Let the user choose one picture, from the system's photo picker (a profile or room picture). Absent = `pickFiles` is used. Null = nothing chosen. */
+  pickPhoto?(): Promise<AttachmentSource | null>;
   /**
    * Receive files dropped onto the window or pasted from the clipboard. `onHover(true)` while files
    * are dragged over the window. Returns the unsubscribe function. Absent = no drop/paste.
