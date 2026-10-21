@@ -3,11 +3,14 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import type { RoomSummary } from "@ohmatrix/core";
 import { Avatar, Dialog, fontFamily, Icon, PrimaryButton, SearchField, TextButton, useTheme } from "@ohmatrix/ui";
 import { useAppState, useController, useT } from "./context.js";
+import { useMediaUrl } from "./useMedia.js";
 
 /** A room to pick: its picture, its name, and a round box that is ticked when it is picked. */
 const CheckRow = memo(function CheckRow(props: { room: RoomSummary; checked: boolean; onToggle: (id: string) => void; disabled?: boolean }) {
   const { colors } = useTheme();
   const r = props.room;
+  // The room's picture is a Matrix content address; it is fetched here, for the rows that are drawn.
+  const avatar = useMediaUrl(r.avatar, { width: 72, height: 72, fit: "crop" });
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -27,7 +30,7 @@ const CheckRow = memo(function CheckRow(props: { room: RoomSummary; checked: boo
         backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
       })}
     >
-      <Avatar id={r.id} name={r.name} size={36} src={r.avatarUrl} />
+      <Avatar id={r.id} name={r.name} size={36} src={avatar} shape={r.isSpace ? "square" : "circle"} />
       <Text numberOfLines={1} style={{ flex: 1, fontSize: 15, fontFamily, color: colors.text }}>
         {r.name}
       </Text>
