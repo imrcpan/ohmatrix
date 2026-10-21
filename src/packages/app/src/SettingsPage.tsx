@@ -94,7 +94,7 @@ export function SettingsPage() {
                 chevron={false}
                 right={<Toggle label={t("push.enable")} value={prefs.pushEnabled} onChange={(v) => controller.setPreferences({ pushEnabled: v })} />}
               />
-              <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: 6, marginBottom: 6 }}>
+              <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
                 {t("push.footer")}
               </Text>
             </>
