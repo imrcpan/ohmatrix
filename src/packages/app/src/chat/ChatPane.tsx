@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Keyboard, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { Composer, useTheme } from "@ohmatrix/ui";
 import { ForwardDialog } from "../ForwardDialog.js";
 import { useLocale, useServices, useT } from "../context.js";
@@ -199,22 +199,28 @@ function Chat(props: ChatPaneProps) {
       {!ready && <LoadingOverlay label={t("chat.loading")} />}
       <PinnedContext.Provider value={pinnedSet}>
         <SelectionContext.Provider value={selection}>
-          <MessageList
-            rows={rows}
-            loaded={items !== undefined}
-            renderRow={renderRow}
-            onReachedStart={() => {
-              // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
-              if (win.grow()) return;
-              void handle.current?.paginateBackwards().catch(() => {});
-            }}
-            onReady={() => setReady(true)}
-            onPinnedChange={nw.onPinnedChange}
-            onAwayChange={nw.onAwayChange}
-            onMoving={() => datePill.current?.moving()}
-            onVisibleTop={onVisibleTop}
-            handleRef={list}
-          />
+          <View style={{ flex: 1 }}>
+            <MessageList
+              rows={rows}
+              loaded={items !== undefined}
+              renderRow={renderRow}
+              onReachedStart={() => {
+                // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
+                if (win.grow()) return;
+                void handle.current?.paginateBackwards().catch(() => {});
+              }}
+              onReady={() => setReady(true)}
+              onPinnedChange={nw.onPinnedChange}
+              onAwayChange={nw.onAwayChange}
+              onMoving={() => datePill.current?.moving()}
+              onVisibleTop={onVisibleTop}
+              handleRef={list}
+            />
+            {/* While the attach panel is open, a tap anywhere on the chat closes it (and does nothing else). */}
+            {attachments.panel && (
+              <Pressable accessibilityLabel={t("attach.label")} onPress={attachments.closePanel} style={[StyleSheet.absoluteFill, { zIndex: 6 }]} />
+            )}
+          </View>
         </SelectionContext.Provider>
       </PinnedContext.Provider>
       <DatePill controls={datePill} label={t("date.current")} />

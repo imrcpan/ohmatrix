@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { AttachmentSource } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
 import { useServices } from "../context.js";
+import { useNotice } from "../useNotice.js";
 import { useVoiceRecording } from "../Recording.js";
 import type { ComposerProps } from "./useComposer.js";
 import type { Translate } from "./types.js";
@@ -13,7 +14,10 @@ import type { Translate } from "./types.js";
  */
 export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate) {
   const services = useServices();
+  const notice = useNotice();
   const [failed, setFailed] = useState(false);
+  // The panel under the bar with the attach buttons: open or not, kept here so that a tap on the chat can close it.
+  const [panel, setPanel] = useState(false);
   useEffect(() => {
     if (!failed) return;
     const timer = setTimeout(() => setFailed(false), 5000);
@@ -37,9 +41,42 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
           voiceLabel: t("record.voice"),
         }
       : undefined,
-    onAttach: services.pickFiles ? () => void services.pickFiles!().then((files) => files.forEach((f) => void sendFile(f))) : undefined,
+    attach: {
+      label: t("attach.label"),
+      open: panel,
+      onOpenChange: setPanel,
+      items: [
+        ...(services.pickPhoto || services.pickFiles
+          ? [
+              {
+                key: "image",
+                icon: "fluentImage" as const,
+                label: t("attach.image"),
+                // The system's photo picker where there is one; otherwise the file chooser.
+                onPress: () =>
+                  void (services.pickPhoto
+                    ? services.pickPhoto().then((f) => (f ? sendFile(f) : undefined))
+                    : services.pickFiles!().then((files) => files.forEach((f) => void sendFile(f)))),
+              },
+            ]
+          : []),
+        ...(services.pickFiles
+          ? [
+              {
+                key: "file",
+                icon: "fluentDocument" as const,
+                label: t("attach.file"),
+                onPress: () => void services.pickFiles!().then((files) => files.forEach((f) => void sendFile(f))),
+              },
+            ]
+          : []),
+        // Calls are not there yet: the buttons say so rather than being left out.
+        { key: "voiceCall", icon: "fluentCall" as const, label: t("call.voice"), onPress: () => notice.show(t("call.soon")) },
+        { key: "videoCall", icon: "fluentVideo" as const, label: t("call.video"), onPress: () => notice.show(t("call.soon")) },
+      ],
+    },
   };
-  return { sendFile, composerProps, dropping, pending, setPending, recordingVideo, setRecordingVideo };
+  return { sendFile, composerProps, panel, closePanel: () => setPanel(false), dropping, pending, setPending, recordingVideo, setRecordingVideo };
 }
 
 export type Attachments = ReturnType<typeof useAttachments>;

@@ -420,6 +420,7 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 async function attach(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Attach" }).click();
+  await page.getByRole("button", { name: "Send file" }).click();
   await (await chooser).setFiles(file);
 }
 
@@ -1895,6 +1896,7 @@ const lowest = async (loc: Locator) => loc.last();
 const attachFile = async (page: Page, path: string) => {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Attach" }).click();
+  await page.getByRole("button", { name: "Send file" }).click();
   await (await chooser).setFiles(path);
 };
 async function openNotes(page: Page) {
