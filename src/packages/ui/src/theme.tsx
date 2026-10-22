@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { Platform, useColorScheme } from "react-native";
+import { Platform, StatusBar, useColorScheme } from "react-native";
 import { resolveTheme, type ThemeDefinition } from "./themes.js";
 
 /**
@@ -30,7 +30,14 @@ export function ThemeProvider(props: { themeId?: string; children: ReactNode }) 
   const scheme = useColorScheme();
   // "unspecified" is what some React Native versions report when the system has no preference: the same as none.
   const system = scheme === "light" || scheme === "dark" ? scheme : null;
-  return <Ctx.Provider value={resolveTheme(props.themeId ?? "system", system)}>{props.children}</Ctx.Provider>;
+  const theme = resolveTheme(props.themeId ?? "system", system);
+  return (
+    <Ctx.Provider value={theme}>
+      {/* The status bar's icons follow the app's theme, not the system's: a light theme under a dark system needs dark icons, and the reverse. */}
+      <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
+      {props.children}
+    </Ctx.Provider>
+  );
 }
 
 export function useTheme(): Theme {
