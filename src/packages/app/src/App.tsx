@@ -7,6 +7,7 @@ import type { AccountManager } from "@ohmatrix/state";
 import { AppProviders, useAccountManager, useAccountsState, useAppState, useController, useT } from "./context.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LoginScreen } from "./LoginScreen.js";
+import { VerificationSheet } from "./VerificationSheet.js";
 import { MainScreen } from "./MainScreen.js";
 import { NotificationsBridge } from "./NotificationsBridge.js";
 import { useBackHandler } from "./useBackHandler.js";
@@ -76,6 +77,7 @@ function Root(props: { defaultHomeserver: string }) {
       <>
         <BackBridge />
         <MainScreen />
+        <VerificationSheet />
       </>
     );
   if (auth === "booting") {

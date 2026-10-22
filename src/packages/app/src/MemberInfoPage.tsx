@@ -77,6 +77,9 @@ export function MemberInfoPage(props: { d: RoomDetails; member: RoomMember; onBa
         <Group>
           <Item label={t("member.copyLink")} icon="copy" chevron={false} onPress={copyLink} />
           {!me && <Item label={t("member.message")} icon="chat" chevron={false} onPress={() => setChatting(true)} />}
+          {!me && controller.canVerify && (
+            <Item label={t("member.verify")} icon="lock" chevron={false} onPress={() => void controller.verifyUser(m.userId).catch(() => {})} />
+          )}
           {!me && <Item label={t("member.block")} icon="close" danger chevron={false} onPress={() => setConfirm(true)} />}
         </Group>
       </ScrollView>

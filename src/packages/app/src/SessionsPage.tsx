@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { EngineError, type DeviceInfo } from "@ohmatrix/core";
 import { Dialog, fontFamily, PrimaryButton, TextButton, TextField, useTheme, useNavBottom } from "@ohmatrix/ui";
-import { useController, useLocale, useT } from "./context.js";
+import { useAppState, useController, useLocale, useT } from "./context.js";
 import { formatRelative } from "./format.js";
 import { Item, PageHeader } from "./settings/kit.js";
 
@@ -16,6 +16,7 @@ export function SessionsPage() {
   const locale = useLocale();
   const controller = useController();
   const [devices, setDevices] = useState<DeviceInfo[] | null>(null);
+  const security = useAppState((s) => s.security);
   const [pending, setPending] = useState<Pending>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +84,16 @@ export function SessionsPage() {
                 <View style={{ marginTop: 18 }}>
                   {caption(t("sessions.thisDevice"))}
                   <Item label={current.name} subtitle={last(current)} icon="device" />
+                  {/* Whether this session is verified by the account's keys; unverified, it can be verified by comparing pictures with another session. */}
+                  {controller.canVerify && security === "ready" && <Item label={t("verify.state.yes")} icon="lock" chevron={false} />}
+                  {controller.canVerify && security === "needs_recovery" && (
+                    <Item
+                      label={t("verify.session")}
+                      value={t("verify.state.no")}
+                      icon="lock"
+                      onPress={() => void controller.verifySession().catch(() => {})}
+                    />
+                  )}
                 </View>
               )}
               <View style={{ marginTop: 18 }}>{caption(t("sessions.others"))}</View>
@@ -120,7 +131,14 @@ export function SessionsPage() {
         message={t("sessions.confirm.body")}
         onClose={close}
       >
-        <TextField label={t("password")} value={password} onChangeText={setPassword} secureTextEntry textContentType="password" onSubmitEditing={confirm} />
+        <TextField
+          label={t("password")}
+          value={password}
+          onChangeText={setPassword}
+          revealLabels={{ show: t("password.show"), hide: t("password.hide") }}
+          textContentType="password"
+          onSubmitEditing={confirm}
+        />
         {!!error && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{error}</Text>}
         <PrimaryButton title={t("sessions.signOut")} loading={busy} disabled={!password} onPress={confirm} />
         <TextButton title={t("cancel")} onPress={close} />
