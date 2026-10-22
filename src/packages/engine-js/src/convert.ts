@@ -293,9 +293,23 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent, markers?: 
     case EventType.RoomMessageEncrypted:
       content = { kind: "undecryptable" };
       break;
-    case EventType.Sticker:
-      content = { kind: "unsupported", body: "Sticker" };
+    case EventType.Sticker: {
+      const c = ev.getContent<{ body?: string; url?: string; file?: { url?: string }; info?: { w?: number; h?: number; mimetype?: string } }>();
+      const url = typeof c.url === "string" ? c.url : c.file?.url;
+      content = url
+        ? {
+            kind: "image",
+            sticker: true,
+            url,
+            body: c.body ?? "",
+            ...(c.info?.w && { width: c.info.w }),
+            ...(c.info?.h && { height: c.info.h }),
+            ...(c.info?.mimetype && { mimeType: c.info.mimetype }),
+            ...(c.file && { encryption: c.file }),
+          }
+        : { kind: "unsupported", body: "Sticker" };
       break;
+    }
     default: {
       const text = serviceText(ev, senderName);
       if (text) content = { kind: "service", body: text };

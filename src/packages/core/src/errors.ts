@@ -6,6 +6,8 @@ export type EngineErrorCode =
   | "not_found"
   | "rate_limited"
   | "keys_lost" // this device's encryption keys are gone: it cannot be used any more, sign in again
+  | "unsupported_type" // a file is not of a kind the feature takes
+  | "too_large" // a file is over the limit the feature allows
   | "unsupported" // engine/homeserver lacks the capability
   | "token_required" // the server creates accounts only with a registration token, and none was given
   | "token_invalid" // the registration token that was given is not valid (wrong, used up or expired)

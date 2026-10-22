@@ -382,6 +382,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
     userProfile: (userId) => call(() => c.getProfile(userId)),
     setDisplayName: (name) => call(() => c.setDisplayName(name)),
     setAvatar: (mimeType, data) => call(() => c.uploadAvatar(mimeType, data)),
+    uploadMedia: (mimeType, data) => call(() => c.uploadMedia(mimeType, data, undefined)),
     security() {
       const enc = c.encryption();
       const recoveryName = ["Unknown", "Enabled", "Disabled", "Incomplete"] as const;

@@ -24,12 +24,26 @@ import {
   type Session,
   type SharedMediaPage,
   type SpaceChild,
+  type Sticker,
+  type StickerGroup,
+  type StickersApi,
   type SyncApi,
   type SyncState,
   type TimelineHandle,
   type TimelineItem,
   type Unsubscribe,
+  checkSticker,
+  parseGroups,
+  placeSticker,
+  STICKER_GROUPS_EVENT,
+  withoutStickers,
+  writeGroups,
+  newShortcode,
+  parsePack,
+  stickerEventContent,
+  writePack,
 } from "@ohmatrix/core";
+import { readAccountData, readPackContent, writeAccountData, writePackContent } from "./stickers.js";
 import { guard, toEngineError } from "./errors.js";
 import { compareRooms, isListed, toRoomSummary } from "./roomSummary.js";
 import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
@@ -93,6 +107,11 @@ export class RustEngineCore implements MatrixEngine {
   private readonly roomListeners = new Set<Listener<ListUpdate<RoomSummary>[]>>();
   private readonly profileListeners = new Set<Listener<Profile | null>>();
   private lastProfile: Profile | null = null;
+  private readonly stickerListeners = new Set<Listener<Sticker[]>>();
+  // My pack as the account had it last: what the next save starts from, so what other clients keep in it is not lost.
+  private pack: { content: unknown; stickers: Sticker[] } | null = null;
+  private readonly groupListeners = new Set<Listener<StickerGroup[]>>();
+  private groups: StickerGroup[] | null = null;
   /** Re-reads of the open chat-info pages, keyed by room: muting is a notification setting, so the room does not announce it. */
   private readonly detailRefreshers = new Map<string, Set<() => void>>();
   private rooms_ = new RoomList();
@@ -153,6 +172,10 @@ export class RustEngineCore implements MatrixEngine {
     this.setFlow(null);
     this.setSecurity("unavailable");
     this.profileListeners.forEach((cb) => cb(null));
+    this.pack = null;
+    this.stickerListeners.forEach((cb) => cb([]));
+    this.groups = null;
+    this.groupListeners.forEach((cb) => cb([]));
     this.roomListeners.forEach((cb) => cb([{ op: "reset", items: [] }]));
     this.setSync("stopped");
   }
@@ -513,6 +536,125 @@ export class RustEngineCore implements MatrixEngine {
         return { items: all.slice(offset, offset + want), ...(more && { next: String(offset + want) }) };
       }),
   };
+  readonly stickers: StickersApi = {
+    subscribe: (cb: Listener<Sticker[]>) => {
+      this.stickerListeners.add(cb);
+      cb(this.pack?.stickers ?? []);
+      void this.loadPack().catch(() => {});
+      return () => void this.stickerListeners.delete(cb);
+    },
+    add: (file: AttachmentSource, groupId?: string) =>
+      guard(async () => {
+        const mimeType = checkSticker(file);
+        const url = await this.need().uploadMedia(mimeType, await this.read(file));
+        return this.addSticker(
+          {
+            url,
+            mimeType,
+            size: file.size,
+            ...(file.width !== undefined && { width: file.width }),
+            ...(file.height !== undefined && { height: file.height }),
+            name: file.name,
+          },
+          groupId,
+        );
+      }),
+    addExisting: (s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name?: string }, groupId?: string) =>
+      guard(async () => {
+        const mimeType = checkSticker({ ...(s.name !== undefined && { name: s.name }), mimeType: s.mimeType, size: s.size ?? 0 });
+        return this.addSticker({ ...s, mimeType }, groupId);
+      }),
+    subscribeGroups: (cb: Listener<StickerGroup[]>) => {
+      this.groupListeners.add(cb);
+      cb(this.groups ?? []);
+      void this.loadGroups().catch(() => {});
+      return () => void this.groupListeners.delete(cb);
+    },
+    setGroups: (groups: StickerGroup[]) =>
+      guard(async () => {
+        const content = writeGroups(groups);
+        await writeAccountData(this.fetch(), this.account(), STICKER_GROUPS_EVENT, content);
+        this.setGroupList(content.groups);
+      }),
+    uploadGroupIcon: (file: AttachmentSource) =>
+      guard(async () => {
+        const mimeType = checkSticker(file);
+        return { url: await this.need().uploadMedia(mimeType, await this.read(file)), mimeType };
+      }),
+    remove: (shortcodes: string[]) =>
+      guard(async () => {
+        const { content, stickers } = await this.loadPack();
+        const gone = new Set(shortcodes);
+        await this.savePack(
+          content,
+          stickers.filter((x) => !gone.has(x.shortcode)),
+        );
+        // The groups forget them too, so a sticker added later under the same name does not turn up in an old group.
+        const groups = await this.loadGroups();
+        const kept = withoutStickers(groups, shortcodes);
+        if (kept.some((g, n) => g !== groups[n])) {
+          const next = writeGroups(kept);
+          await writeAccountData(this.fetch(), this.account(), STICKER_GROUPS_EVENT, next);
+          this.setGroupList(next.groups);
+        }
+      }),
+    send: (roomId: string, shortcode: string) =>
+      guard(async () => {
+        const { stickers } = await this.loadPack();
+        const sticker = stickers.find((x) => x.shortcode === shortcode);
+        if (!sticker) throw new EngineError("not_found", "That sticker is not in the pack any more");
+        await this.room(roomId).sendRaw("m.sticker", JSON.stringify(stickerEventContent(sticker)));
+      }),
+  };
+
+  /** My pack from the account (the first time, and each time a view opens). */
+  private async loadPack(): Promise<{ content: unknown; stickers: Sticker[] }> {
+    const content = await readPackContent(this.fetch(), this.account());
+    return this.setPack(content, parsePack(content));
+  }
+
+  private setPack(content: unknown, stickers: Sticker[]) {
+    this.pack = { content, stickers };
+    this.stickerListeners.forEach((cb) => cb(stickers));
+    return this.pack;
+  }
+
+  private async loadGroups(): Promise<StickerGroup[]> {
+    return this.setGroupList(parseGroups(await readAccountData(this.fetch(), this.account(), STICKER_GROUPS_EVENT)));
+  }
+
+  private setGroupList(groups: StickerGroup[]): StickerGroup[] {
+    this.groups = groups;
+    this.groupListeners.forEach((cb) => cb(groups));
+    return groups;
+  }
+
+  private async savePack(content: unknown, stickers: Sticker[]): Promise<void> {
+    const next = writePack(content, stickers);
+    await writePackContent(this.fetch(), this.account(), next);
+    this.setPack(next, stickers);
+  }
+
+  private async addSticker(
+    s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name?: string },
+    groupId?: string,
+  ): Promise<string> {
+    const { content, stickers } = await this.loadPack();
+    const same = stickers.find((x) => x.url === s.url);
+    let shortcode = same?.shortcode;
+    if (!shortcode) {
+      shortcode = newShortcode(s.name, new Set(stickers.map((x) => x.shortcode)));
+      const { name: _name, ...rest } = s;
+      await this.savePack(content, [...stickers, { shortcode, ...rest }]);
+    }
+    if (groupId) {
+      const next = writeGroups(placeSticker(await this.loadGroups(), shortcode, groupId));
+      await writeAccountData(this.fetch(), this.account(), STICKER_GROUPS_EVENT, next);
+      this.setGroupList(next.groups);
+    }
+    return shortcode;
+  }
+
   readonly messages = {
     forward: (p: { fromRoomId: string; eventId: string; toRoomId: string }) =>
       guard(async () => {

@@ -166,3 +166,23 @@ test("a reply carries the message it answers when the SDK has it", () => {
   });
   expect(reply({ tag: "Pending" })).toMatchObject({ replyTo: { eventId: "$q" } });
 });
+
+test("a sticker is an image marked as a sticker, with its size and type", () => {
+  const e = readEvent(
+    raw({
+      content: {
+        tag: "MsgLike",
+        inner: {
+          content: {
+            kind: {
+              tag: "Sticker",
+              inner: { body: "cat", info: { mimetype: "image/gif", width: 8n, height: 6n }, source: { url: () => "mxc://s/1", toJson: () => "{}" } },
+            },
+            reactions: [],
+          },
+        },
+      },
+    }),
+  );
+  expect(e.content).toEqual({ type: "image", sticker: true, body: "cat", url: "mxc://s/1", mimeType: "image/gif", width: 8, height: 6, reactions: [] });
+});

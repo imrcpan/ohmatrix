@@ -188,6 +188,23 @@ function itemContent(raw: Tagged): ItemContent {
         if (!text) return { type: "unsupported", description: message.msgType.tag };
         return { type: "text", body: text.body, ...(text.formatted && { formattedBody: text.formatted }), ...extras };
       }
+      if (kind?.tag === "Sticker") {
+        const sticker = kind.inner as { body?: string; info?: Info; source?: MediaSource } | undefined;
+        if (!sticker?.source) return { type: "unsupported", description: "Sticker" };
+        const encryption = encryptionOf(sticker.source);
+        const mimeType = sticker.info?.mimetype;
+        return {
+          type: "image",
+          sticker: true,
+          body: sticker.body ?? "",
+          url: sticker.source.url(),
+          ...(mimeType && { mimeType }),
+          ...(encryption && { encryption }),
+          ...dims(sticker.info),
+          reactions: (msgLike?.reactions ?? []).map((r) => ({ key: r.key, senders: r.senders.map((s) => s.senderId) })),
+          ...(msgLike?.inReplyTo && { replyTo: replyOf(msgLike.inReplyTo) }),
+        } as ItemContent;
+      }
       if (kind?.tag === "UnableToDecrypt") return { type: "undecryptable" };
       if (kind?.tag === "Redacted") return { type: "redacted" };
       return { type: "unsupported", description: kind?.tag ?? "Message" };

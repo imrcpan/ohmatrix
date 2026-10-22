@@ -23,6 +23,8 @@ import type {
   Session,
   SyncState,
   TimelineItem,
+  Sticker,
+  StickerGroup,
 } from "./types.js";
 
 export type Unsubscribe = () => void;
@@ -122,6 +124,29 @@ export interface SpacesApi {
   moveChild(spaceId: RoomId, roomId: RoomId, to: "first" | "last"): Promise<void>;
   /** Rooms I am in that are not in this space yet, for "add existing room". */
   candidates(spaceId: RoomId): Promise<SpaceChild[]>;
+}
+
+/** My own sticker pack, kept in the account (so it follows me to every device and every client that reads MSC2545 packs). */
+export interface StickersApi {
+  /** Emits my stickers, oldest added first: immediately, then after every change. */
+  subscribe(cb: Listener<Sticker[]>): Unsubscribe;
+  /**
+   * Upload a picture or animation and add it to the pack; resolves with the name it was given (or the one it already has, when the same
+   * picture is in the pack). Rejects with EngineError("unsupported_type") for a kind the pack does not take and "too_large" over STICKER_MAX_BYTES.
+   */
+  add(file: AttachmentSource, groupId?: string): Promise<string>;
+  /** Add a picture that is already on the server (one of a message) to the pack, without downloading it. Resolves with its name, as `add` does. With `groupId` the sticker is put in that group (and in no other) in the same call. */
+  addExisting(s: { url: MxcUri; mimeType: string; width?: number; height?: number; size?: number; name?: string }, groupId?: string): Promise<string>;
+  /** Emits my sticker groups: immediately, then after every change. */
+  subscribeGroups(cb: Listener<StickerGroup[]>): Unsubscribe;
+  /** Replace my sticker groups (at most STICKER_GROUPS_MAX; each icon a standard emoji or a picture), kept in the account. */
+  setGroups(groups: StickerGroup[]): Promise<void>;
+  /** Upload a picture to be a group's icon (the pack's kinds and size limit apply) without adding it to the pack. */
+  uploadGroupIcon(file: AttachmentSource): Promise<{ url: MxcUri; mimeType: string }>;
+  /** Take these stickers out of the pack, in one save. Those it does not have are ignored. */
+  remove(shortcodes: string[]): Promise<void>;
+  /** Send one of the pack's stickers to a room. */
+  send(roomId: RoomId, shortcode: string): Promise<void>;
 }
 
 /** Actions that span rooms rather than one timeline. */
@@ -310,6 +335,8 @@ export interface MatrixEngine {
   readonly rooms: RoomListApi;
   readonly media: MediaApi;
   readonly messages: MessagesApi;
+  /** Absent in an engine that has no sticker packs. */
+  readonly stickers?: StickersApi;
   readonly spaces: SpacesApi;
   readonly security: SecurityApi;
   /** Absent in an engine that cannot verify yet. */
