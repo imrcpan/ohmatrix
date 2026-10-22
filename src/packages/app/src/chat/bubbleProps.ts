@@ -70,7 +70,13 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
     stuck: { above: i.stickAbove, below: i.stickBelow },
     senderId: m.sender,
     image: i.image
-      ? { uri: upload?.previewUrl ?? i.image.uri, width: i.image.width, height: i.image.height, onPress: upload ? undefined : i.openImage }
+      ? {
+          uri: upload?.previewUrl ?? i.image.uri,
+          width: i.image.width,
+          height: i.image.height,
+          onPress: upload ? undefined : i.openImage,
+          ...(c.kind === "image" && c.sticker && { sticker: true }),
+        }
       : undefined,
     video:
       i.video && c.kind === "video"

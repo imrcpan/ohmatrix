@@ -26,6 +26,7 @@ import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
 import { useSelection } from "./selection.js";
 import { gapAbove } from "./rowWindow.js";
 import { useMessageMedia } from "./useMessageMedia.js";
+import { GroupChoice } from "./StickerGroups.js";
 
 const AVATAR = 32;
 
@@ -51,6 +52,7 @@ export function MessageRow(props: {
   const services = useServices();
   const controller = useController();
   const pinned = usePinnedSet().has(m.id);
+  const canStickers = controller.canStickers;
   const media = useMessageMedia(m);
   const { colors } = useTheme();
   const choosing = useSelection();
@@ -62,6 +64,7 @@ export function MessageRow(props: {
   const gap = PixelRatio.roundToNearestPixel(gapAbove(props.newSender));
   const [menu, setMenu] = useState<MenuPoint | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pickingGroup, setPickingGroup] = useState(false);
 
   // Rich text: a formatted body is parsed into safe runs; a plain body still gets links and mention pills.
   const runs: readonly Run[] | undefined = c.kind === "text" ? (c.formattedBody ? parseFormatted(c.formattedBody) : plainRuns(c.body, c.mentions)) : undefined;
@@ -246,11 +249,21 @@ export function MessageRow(props: {
                 ...(m.isOwn && c.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
                 { label: t(pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !pinned) },
                 { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
+                ...(c.kind === "image" && canStickers ? [{ label: t("sticker.add"), icon: "sticker" as const, onPress: () => setPickingGroup(true) }] : []),
                 { label: t("select.multi"), icon: "multiSelect" as const, onPress: () => actions.select(m) },
                 ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),
               ]
         }
       />
+      <Dialog visible={pickingGroup} title={t("sticker.add.where")} onClose={() => setPickingGroup(false)}>
+        <GroupChoice
+          onPick={(groupId) => {
+            setPickingGroup(false);
+            actions.addSticker(m, groupId);
+          }}
+        />
+        <TextButton title={t("cancel")} onPress={() => setPickingGroup(false)} />
+      </Dialog>
       <Dialog visible={confirmDelete} title={t("delete.title")} message={t("delete.body")} onClose={() => setConfirmDelete(false)}>
         <PrimaryButton
           title={t("delete")}

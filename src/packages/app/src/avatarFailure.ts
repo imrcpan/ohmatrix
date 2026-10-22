@@ -14,6 +14,8 @@ export function failureReason(e: unknown, t: Translate): string {
       .pop()
       ?.trim() ?? whole;
   return (() => {
+    if (e instanceof EngineError && e.code === "too_large") return t("sticker.reason.large");
+    if (e instanceof EngineError && e.code === "unsupported_type") return t("sticker.reason.type");
     if (/too.?large|payload too large|\b413\b|exceeds? .*(size|limit)/i.test(said)) return t("avatar.reason.large");
     if (e instanceof EngineError) {
       switch (e.code) {
@@ -25,6 +27,8 @@ export function failureReason(e: unknown, t: Translate): string {
           return t("avatar.reason.rate");
         case "unauthorized":
           return t("avatar.reason.auth");
+        case "too_large":
+          return t("sticker.reason.large");
         case "unsupported":
           return t("avatar.reason.unsupported");
         case "not_found":

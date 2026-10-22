@@ -1,8 +1,10 @@
-import { useState, type ComponentProps } from "react";
+import { createElement, useState, type ComponentProps } from "react";
 import { contentText, type TimelineItem } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
 import { useRecentEmoji, type Composer } from "@ohmatrix/ui";
 import { useController } from "../context.js";
+import { StickerPane } from "./StickerPane.js";
+import { STICKER_GAP, STICKER_MAX_COLS, STICKER_PAD, STICKER_TILE } from "./stickerGrid.js";
 import { useMentionSuggest } from "../useMentions.js";
 import type { Translate } from "./types.js";
 
@@ -55,6 +57,13 @@ export function useComposer(roomId: string, handle: { readonly current: OpenRoom
     menuTopLimit: 56, // the chat header's height: the mention menu never grows into it
     onDismissSuggestions: mention.dismiss,
     recentEmoji: recent,
+    stickers: controller.canStickers
+      ? {
+          label: t("sticker.tab"),
+          render: (close) => createElement(StickerPane, { roomId, close }),
+          grid: { tile: STICKER_TILE, gap: STICKER_GAP, pad: STICKER_PAD, maxCols: STICKER_MAX_COLS },
+        }
+      : undefined,
     context: editing
       ? { kind: "edit", title: t("edit.title"), preview: contentText(editing.content) }
       : replying
