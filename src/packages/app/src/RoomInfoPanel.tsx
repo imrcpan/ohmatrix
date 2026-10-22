@@ -36,8 +36,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [leveling, setLeveling] = useState<RoomMember | null>(null);
   const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  // The member whose page is open, and the page it was opened from (the way back).
-  const [viewed, setViewed] = useState<{ member: RoomMember; from: "members" | null } | null>(null);
+  // The person whose page is open (opened from this panel, the list of members or a picture in the chat), and where it leads back to.
+  const viewed = useAppState((s) => s.member);
   const notice = useNotice();
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
   const [viewing, setViewing] = useState(false);
@@ -73,10 +73,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const maxLevel = Number.isFinite(myPower) ? myPower : 1000;
   // You can only manage people below your own level (the server enforces the same rule).
   const manageable = (m: RoomMember) => !!d && m.userId !== d.me && m.power < myPower;
-  const openMember = (m: RoomMember) => {
-    setViewed({ member: m, from: infoPage === "members" ? "members" : null });
-    controller.openInfoPage("member");
-  };
+  const openMember = (m: RoomMember) => controller.openMember({ userId: m.userId, name: m.name, from: infoPage === "members" ? "members" : null });
   const memberMenu = (m: RoomMember): MenuItem[] => {
     if (!d) return [];
     // Everyone gets this one; the rest is only for the people one may manage.
@@ -370,7 +367,14 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       )}
       {!forSpace && !!d && (
         <SlidePanel mode="overlay" open={infoPage === "member"}>
-          {viewed && <MemberInfoPage d={d} member={viewed.member} onBack={() => controller.openInfoPage(viewed.from)} />}
+          {viewed && (
+            <MemberInfoPage
+              d={d}
+              // Someone who has left (or whose list has not loaded) is still shown, by the name the chat had for them.
+              member={d.members.find((m) => m.userId === viewed.userId) ?? { userId: viewed.userId, name: viewed.name, role: "member", power: 0 }}
+              onBack={() => controller.closeMember()}
+            />
+          )}
         </SlidePanel>
       )}
       {/* The whole gallery slides in from the right over this panel; it is mounted only while it is open. */}
