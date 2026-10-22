@@ -6,6 +6,7 @@ import { EmojiPicker } from "./EmojiPicker.js";
 import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
+import { mix } from "./themes.js";
 import { fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
 
 /** Message bubble: large continuous radii, joined corners inside a run of plain text, time + state inside. */
@@ -454,8 +455,8 @@ export function Composer(props: {
   /** Replaces the field text whenever `nonce` changes (used to start editing). */
   prefill?: { text: string; nonce: number; /** Put the caret here after replacing the text. */ caret?: number } | undefined;
   /**
-   * Shows a plus button when provided: pressed, the keyboard goes, the bar rises and a panel opens under it with these buttons side by
-   * side (icon above, name below). Each button closes the panel and then does its thing.
+   * Shows a plus button when provided: pressed, the keyboard goes, a bubble opens upward above it with these buttons as a
+   * column (large icon left, name right). Each button closes the panel and then does its thing.
    */
   attach?:
     | {
@@ -614,7 +615,8 @@ export function Composer(props: {
         const width = e.nativeEvent.layout.width;
         setBox((b) => ({ ...b, width }));
       }}
-      style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator, zIndex: 4, paddingBottom: navBottom }}
+      // A little air above the bar, between it and the newest message.
+      style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator, zIndex: 4, paddingBottom: navBottom, marginTop: 2 }}
     >
       {props.context && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingTop: 8 }}>
@@ -681,9 +683,7 @@ export function Composer(props: {
                   backgroundColor: pressed || i === active ? colors.separator : hovered ? colors.hover : "transparent",
                 })}
               >
-                <Text numberOfLines={1} style={{ fontSize: 15, fontFamily, color: colors.text }}>
-                  {s.name}
-                </Text>
+                <Text style={{ fontSize: 15, fontFamily, color: colors.text }}>{s.name}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -783,27 +783,105 @@ export function Composer(props: {
                 </View>
               )}
               {props.attach && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={props.attach.label}
-                  accessibilityState={{ expanded: attachOpen }}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    inputRef.current?.blur();
-                    setEmojiOpen(false);
-                    setAttachOpen(!attachOpen);
-                  }}
-                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                  })}
-                >
-                  <Icon name="plus" size={26} color={attachOpen ? colors.accent : colors.textSecondary} />
-                </Pressable>
+                <View>
+                  {attachMounted && (
+                    // A bubble above the plus button, opening upward: the rows have large icons, unlike the context menus.
+                    <Animated.View
+                      accessibilityLabel={props.attach.label}
+                      style={[
+                        {
+                          position: "absolute",
+                          left: -4,
+                          bottom: "100%",
+                          marginBottom: 6,
+                          minWidth: ATTACH_W,
+                          paddingVertical: 8,
+                          paddingHorizontal: 4,
+                          gap: 0,
+                          borderRadius: 18,
+                          ...(dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {}),
+                          backgroundColor: colors.bg,
+                          zIndex: 7,
+                          opacity: attachShown,
+                          transform: [{ translateY: attachShown.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+                        },
+                        popoverShadow(dark),
+                      ]}
+                    >
+                      <View
+                        style={{
+                          position: "absolute",
+                          left: 22,
+                          bottom: -5,
+                          width: 10,
+                          height: 10,
+                          backgroundColor: colors.bg,
+                          ...(dark ? { borderRightWidth: 1, borderBottomWidth: 1, borderColor: colors.textTertiary } : {}),
+                          transform: [{ rotate: "45deg" }],
+                          borderRadius: 3,
+                        }}
+                      />
+                      {props.attach.items.map((it) => (
+                        <Pressable
+                          key={it.key}
+                          accessibilityRole="menuitem"
+                          accessibilityLabel={it.label}
+                          onPress={() => {
+                            setAttachOpen(false);
+                            it.onPress();
+                          }}
+                          style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 10,
+                            height: 65,
+                            paddingLeft: 6,
+                            paddingRight: 14,
+                            borderRadius: 14,
+                            backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                          })}
+                        >
+                          <View
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: 26,
+                              backgroundColor: colors.bgSecondary,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Icon name={it.icon} size={28} color={mix(colors.textSecondary, colors.text, dark ? 1 - ATTACH_ICON_DEPTH : ATTACH_ICON_DEPTH)} />
+                          </View>
+                          <Text numberOfLines={1} style={{ fontSize: 15, fontFamily, color: colors.text }}>
+                            {it.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </Animated.View>
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={props.attach.label}
+                    accessibilityState={{ expanded: attachOpen }}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      inputRef.current?.blur();
+                      setEmojiOpen(false);
+                      setAttachOpen(!attachOpen);
+                    }}
+                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                    })}
+                  >
+                    <Icon name="plus" size={26} color={attachOpen ? colors.accent : colors.textSecondary} />
+                  </Pressable>
+                </View>
               )}
               {props.record?.onVideo && (
                 <Pressable
@@ -835,7 +913,8 @@ export function Composer(props: {
               backgroundColor: colors.bg,
               paddingLeft: 14,
               paddingRight: props.record && text.length === 0 ? 6 : 14,
-              paddingVertical: 7,
+              // 24 of text + 2 x 6 + the 1 px borders = 38: as tall as the round buttons beside it, so the tops line up as the bottoms do.
+              paddingVertical: 6,
               flexDirection: "row",
               alignItems: "flex-end",
             }}
@@ -923,36 +1002,11 @@ export function Composer(props: {
           </Pressable>
         </View>
       )}
-      {props.attach && attachMounted && (
-        <Animated.View
-          style={{ height: attachShown.interpolate({ inputRange: [0, 1], outputRange: [0, ATTACH_PANEL] }), overflow: "hidden", opacity: attachShown }}
-        >
-          <View style={{ height: ATTACH_PANEL, flexDirection: "row", paddingHorizontal: 8, paddingTop: 10 }}>
-            {props.attach.items.map((it) => (
-              <Pressable
-                key={it.key}
-                accessibilityRole="button"
-                accessibilityLabel={it.label}
-                onPress={() => {
-                  setAttachOpen(false);
-                  it.onPress();
-                }}
-                style={({ pressed }) => ({ flex: 1, alignItems: "center", gap: 8, opacity: pressed ? 0.6 : 1 })}
-              >
-                <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.bgSecondary, alignItems: "center", justifyContent: "center" }}>
-                  <Icon name={it.icon} size={28} color={colors.text} />
-                </View>
-                <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
-                  {it.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </Animated.View>
-      )}
     </View>
   );
 }
 
-/** The height of the panel under the bar with the attach buttons: the buttons, their names, and room around them. */
-const ATTACH_PANEL = 110;
+/** How far from the grey of secondary text towards the full text colour the panel's icons are drawn in the light theme (0 = grey, 1 = text); the dark theme uses the mirror, so both look lighter than before. */
+const ATTACH_ICON_DEPTH = 0.25;
+/** The least width of the attach bubble; longer names make it wider. */
+const ATTACH_W = 172;

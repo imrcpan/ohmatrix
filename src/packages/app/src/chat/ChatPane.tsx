@@ -145,6 +145,8 @@ function Chat(props: ChatPaneProps) {
   const reveal = useReveal({ roomId: props.roomId, rows: allRows, items, handle, list: revealList, t });
   const composer = useComposer(props.roomId, handle, t);
   const attachments = useAttachments(handle, t);
+  // The platform's back folds the attach panel first, before it leaves the chat.
+  useBackHandler(attachments.panel ? () => (attachments.closePanel(), true) : null);
   const nw = useNewWhileAway(items);
   const notice = useNotice();
   const actions = useRowActions({
@@ -218,7 +220,7 @@ function Chat(props: ChatPaneProps) {
             />
             {/* While the attach panel is open, a tap anywhere on the chat closes it (and does nothing else). */}
             {attachments.panel && (
-              <Pressable accessibilityLabel={t("attach.label")} onPress={attachments.closePanel} style={[StyleSheet.absoluteFill, { zIndex: 6 }]} />
+              <Pressable accessibilityLabel={t("attach.label")} onPress={attachments.closePanel} style={[StyleSheet.absoluteFill, { zIndex: 3 }]} />
             )}
           </View>
         </SelectionContext.Provider>
