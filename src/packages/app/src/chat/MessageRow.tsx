@@ -19,6 +19,7 @@ import {
   type Run,
 } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "../context.js";
+import { usePinnedSet } from "./pinnedContext.js";
 import { PhotoViewer } from "../PhotoViewer.js";
 import { bubbleProps } from "./bubbleProps.js";
 import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
@@ -49,6 +50,7 @@ export function MessageRow(props: {
   const locale = useLocale();
   const services = useServices();
   const controller = useController();
+  const pinned = usePinnedSet().has(m.id);
   const media = useMessageMedia(m);
   const { colors } = useTheme();
   const choosing = useSelection();
@@ -82,6 +84,7 @@ export function MessageRow(props: {
 
   const bubble = bubbleProps({
     item: m,
+    pinned,
     first: props.first,
     last: props.last,
     stickAbove: props.stickAbove,
@@ -241,7 +244,7 @@ export function MessageRow(props: {
                 ...(c.kind === "text" ? [{ label: t("copy"), icon: "copy" as const, onPress: () => void copyText(c.body) }] : []),
                 { label: t("reply"), icon: "reply" as const, onPress: () => actions.reply(m) },
                 ...(m.isOwn && c.kind === "text" ? [{ label: t("edit"), icon: "edit" as const, onPress: () => actions.edit(m) }] : []),
-                { label: t(m.pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !m.pinned) },
+                { label: t(pinned ? "unpin" : "pin"), icon: "pin" as const, onPress: () => actions.pin(m, !pinned) },
                 { label: t("forward"), icon: "forward" as const, onPress: () => actions.forward(m) },
                 { label: t("select.multi"), icon: "multiSelect" as const, onPress: () => actions.select(m) },
                 ...(m.isOwn ? [{ label: t("delete"), icon: "trash" as const, danger: true, onPress: () => setConfirmDelete(true) }] : []),

@@ -32,6 +32,7 @@ const actions = (): RowActions => ({
 });
 const inputs = (m: TimelineItem, over: Partial<BubbleInputs> = {}): BubbleInputs => ({
   item: m,
+  pinned: false,
   first: true,
   last: true,
   stickAbove: false,
@@ -87,7 +88,7 @@ test("a reply's quote jumps to the original, and mentions and pins carry over", 
     replyTo: { id: "$orig", sender: "@b:s", senderName: "Bob", preview: "earlier" },
     content: { kind: "text", body: "x", mentionsMe: true },
   });
-  const p = bubbleProps(inputs(m, { actions: a }));
+  const p = bubbleProps(inputs(m, { actions: a, pinned: true }));
   p.reply!.onPress();
   expect(a.jump).toHaveBeenCalledWith("$orig");
   expect(p).toMatchObject({ pinned: true, mentionsMe: true, editedLabel: "edited", muted: false });
@@ -152,4 +153,9 @@ test("a message that could not be sent can be sent again from its status mark, b
     upload: { progress: 0.2, loaded: 200, total: 1000, failed: true },
   });
   expect(bubbleProps(inputs(upload)).onRetry).toBeUndefined();
+});
+
+test("a bubble is marked pinned by the room's list, whatever the item's own flag says", () => {
+  expect(bubbleProps(inputs(item(), { pinned: true })).pinned).toBe(true);
+  expect(bubbleProps(inputs({ ...item(), pinned: true }, { pinned: false })).pinned).toBe(false);
 });
