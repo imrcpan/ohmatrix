@@ -14,6 +14,8 @@ export type BubbleProps = ComponentProps<typeof Bubble>;
 /** What the bubble needs besides the message itself: media already resolved to URLs, and ways to open things. */
 export interface BubbleInputs {
   item: TimelineItem;
+  /** The message is pinned in the room (not `item.pinned`, see `PinnedContext`). */
+  pinned: boolean;
   first: boolean;
   last: boolean;
   /** The bubble above / below is a plain text bubble too, and this one is: the corners that touch are tight. */
@@ -128,7 +130,7 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
     onOpenLink: i.openLink,
     onLink: i.openLink,
     mentionsMe: c.kind === "text" && c.mentionsMe,
-    pinned: m.pinned,
+    pinned: i.pinned,
     editedLabel: m.edited ? t("edited") : undefined,
     muted: c.kind === "unsupported" || c.kind === "undecryptable",
   };

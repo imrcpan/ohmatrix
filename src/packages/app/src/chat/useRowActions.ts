@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { EngineError, type TimelineItem } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
+import { failureReason } from "../avatarFailure.js";
 import { useController, useServices, useT } from "../context.js";
 import type { RowActions } from "./rowActions.js";
 import { useLatest } from "./useLatest.js";
@@ -18,6 +19,8 @@ export function useRowActions(opts: {
   jump(eventId: string): void;
   /** Say, at the top of the chat, that something did not work. */
   fail(message: string): void;
+  /** Say, at the top of the screen, that something worked. */
+  done(message: string): void;
 }): RowActions {
   const controller = useController();
   const services = useServices();
@@ -29,7 +32,14 @@ export function useRowActions(opts: {
       reply: (item) => latest.current.startReply(item),
       edit: (item) => latest.current.startEdit(item),
       select: (item) => latest.current.select(item),
-      pin: (item, pinned) => void latest.current.handle.current?.pin(item.id, pinned).catch(() => {}),
+      pin: (item, pinned) =>
+        void latest.current.handle.current?.pin(item.id, pinned).then(
+          () => latest.current.done(latest.current.t(pinned ? "pin.done" : "unpin.done")),
+          (e: unknown) => {
+            const { t, fail } = latest.current;
+            fail(t(pinned ? "pin.failed" : "unpin.failed", { reason: failureReason(e, t) }));
+          },
+        ),
       forward: (item) => latest.current.forward(item),
       download: (f) =>
         void latest.current.controller

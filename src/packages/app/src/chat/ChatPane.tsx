@@ -8,6 +8,12 @@ import { useNotice } from "../useNotice.js";
 import type { Row } from "../timelineRows.js";
 import { AttachmentDialogs } from "./AttachmentDialogs.js";
 import { ChatHeader } from "./ChatHeader.js";
+import { useBackHandler } from "../useBackHandler.js";
+import { PinnedBar } from "./PinnedBar.js";
+import { PinnedPage } from "./PinnedPage.js";
+import { usePinnedIds } from "./usePinned.js";
+import { PinnedContext } from "./pinnedContext.js";
+import { SlidePanel } from "../SlidePanel.js";
 import { ChatSearch } from "./ChatSearch.js";
 import { SelectionBar, SelectionHeader } from "./SelectionBar.js";
 import { SelectionContext, type Selection } from "./selection.js";
@@ -19,7 +25,6 @@ import { useAttachments } from "./useAttachments.js";
 import { useComposer } from "./useComposer.js";
 import { useNewWhileAway } from "./useNewWhileAway.js";
 import { useReveal } from "./useReveal.js";
-import { useBackHandler } from "../useBackHandler.js";
 import { useRoomTimeline } from "./useRoomTimeline.js";
 import { useRowWindow } from "./useRowWindow.js";
 import { useRowActions } from "./useRowActions.js";
@@ -51,6 +56,11 @@ function Chat(props: ChatPaneProps) {
   const win = useRowWindow(allRows, ready);
   const rows = win.rows;
   const [searching, setSearching] = useState(false);
+  const [pins, setPins] = useState(false);
+  const pinnedIds = usePinnedIds(props.roomId);
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  // The platform's back closes the page of pinned messages first, before it leaves the chat.
+  useBackHandler(pins ? () => (setPins(false), true) : null);
   // The messages being chosen (to copy or forward), or null when the chat is not choosing.
   const [chosen, setChosen] = useState<ReadonlySet<string> | null>(null);
   // Back closes the choosing, then the search bar, before it leaves the chat.
@@ -149,6 +159,7 @@ function Chat(props: ChatPaneProps) {
     },
     jump: (id) => void reveal.reveal(id),
     fail: (message) => notice.show(message, "error"),
+    done: (message) => notice.show(message),
   });
 
   const { highlightId } = reveal;
@@ -183,26 +194,29 @@ function Chat(props: ChatPaneProps) {
           onInfo={props.onInfo}
         />
       )}
+      {!chosen && pinnedIds.length > 0 && <PinnedBar roomId={props.roomId} ids={pinnedIds} onJump={actions.jump} onAll={() => setPins(true)} />}
       {searching && !chosen && <ChatSearch roomId={props.roomId} onClose={() => setSearching(false)} />}
       {!ready && <LoadingOverlay label={t("chat.loading")} />}
-      <SelectionContext.Provider value={selection}>
-        <MessageList
-          rows={rows}
-          loaded={items !== undefined}
-          renderRow={renderRow}
-          onReachedStart={() => {
-            // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
-            if (win.grow()) return;
-            void handle.current?.paginateBackwards().catch(() => {});
-          }}
-          onReady={() => setReady(true)}
-          onPinnedChange={nw.onPinnedChange}
-          onAwayChange={nw.onAwayChange}
-          onMoving={() => datePill.current?.moving()}
-          onVisibleTop={onVisibleTop}
-          handleRef={list}
-        />
-      </SelectionContext.Provider>
+      <PinnedContext.Provider value={pinnedSet}>
+        <SelectionContext.Provider value={selection}>
+          <MessageList
+            rows={rows}
+            loaded={items !== undefined}
+            renderRow={renderRow}
+            onReachedStart={() => {
+              // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
+              if (win.grow()) return;
+              void handle.current?.paginateBackwards().catch(() => {});
+            }}
+            onReady={() => setReady(true)}
+            onPinnedChange={nw.onPinnedChange}
+            onAwayChange={nw.onAwayChange}
+            onMoving={() => datePill.current?.moving()}
+            onVisibleTop={onVisibleTop}
+            handleRef={list}
+          />
+        </SelectionContext.Provider>
+      </PinnedContext.Provider>
       <DatePill controls={datePill} label={t("date.current")} />
       {reveal.toast && <Toast text={reveal.toast.text} />}
       {nw.away && (
@@ -222,6 +236,19 @@ function Chat(props: ChatPaneProps) {
         <ForwardDialog visible fromRoomId={props.roomId} eventIds={forwarding} onClose={() => setForwarding(null)} onSent={() => setChosen(null)} />
       )}
       <AttachmentDialogs a={attachments} />
+      {/* All the pinned messages, over the chat, from the right. Kept mounted only while open or sliding out. */}
+      <SlidePanel mode="overlay" open={pins && pinnedIds.length > 0}>
+        <PinnedPage
+          roomId={props.roomId}
+          ids={pinnedIds}
+          backLabel={room?.name ?? t("close")}
+          onBack={() => setPins(false)}
+          onOpen={(id) => {
+            setPins(false);
+            actions.jump(id);
+          }}
+        />
+      </SlidePanel>
     </View>
   );
 }
