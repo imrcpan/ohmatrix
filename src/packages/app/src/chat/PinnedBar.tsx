@@ -7,7 +7,7 @@ import { usePinned } from "./usePinned.js";
 
 /**
  * The pinned messages of the room, under the chat's header, drawn like the bar of a message being edited: the newest first (with "n/total"
- * when there are several), at most two lines of it. Pressing it goes to that message and moves on to the next one (older), round and round;
+ * when there are several), one line of it. Pressing it goes to that message and moves on to the next one (older), round and round;
  * the button at the right opens the page with all of them.
  */
 export function PinnedBar(props: { roomId: string; ids: readonly string[]; onJump: (eventId: string) => void; onAll: () => void }) {
@@ -50,7 +50,7 @@ export function PinnedBar(props: { roomId: string; ids: readonly string[]; onJum
           <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "600", fontFamily, color: colors.accent }}>
             {ids.length > 1 ? `${t("pinned.title")} · ${index + 1}/${ids.length}` : t("pinned.title")}
           </Text>
-          <Text numberOfLines={2} style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
+          <Text numberOfLines={1} style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
             {item ? pinnedPreview(item, t) : "…"}
           </Text>
         </View>
