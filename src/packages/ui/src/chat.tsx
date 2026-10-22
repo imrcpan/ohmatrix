@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import type React from "react";
-import { Image, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { Icon } from "./Icon.js";
+import { Animated, Easing, Image, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Icon, type IconName } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
 import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
@@ -453,8 +453,18 @@ export function Composer(props: {
   onCancelContext?: (() => void) | undefined;
   /** Replaces the field text whenever `nonce` changes (used to start editing). */
   prefill?: { text: string; nonce: number; /** Put the caret here after replacing the text. */ caret?: number } | undefined;
-  /** Shows a paperclip button when provided. */
-  onAttach?: (() => void) | undefined;
+  /**
+   * Shows a plus button when provided: pressed, the keyboard goes, the bar rises and a panel opens under it with these buttons side by
+   * side (icon above, name below). Each button closes the panel and then does its thing.
+   */
+  attach?:
+    | {
+        label: string;
+        items: readonly { key: string; icon: IconName; label: string; onPress: () => void }[];
+        open: boolean;
+        onOpenChange: (open: boolean) => void;
+      }
+    | undefined;
   /** Called while the user types (true) and when they stop or send (false). */
   onTyping?: ((typing: boolean) => void) | undefined;
   /** Record buttons (camera, microphone) shown instead of Send while the field is empty. */
@@ -491,6 +501,19 @@ export function Composer(props: {
   const [text, setText] = useState("");
   const [height, setHeight] = useState(22);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Whether the panel is open is the screen's to know (a tap on the chat closes it), so it is kept there.
+  const attachOpen = !!props.attach?.open;
+  const setAttachOpen = (open: boolean) => props.attach?.onOpenChange(open);
+  const attachShown = useRef(new Animated.Value(0)).current;
+  const [attachMounted, setAttachMounted] = useState(false);
+  useEffect(() => {
+    if (attachOpen) setAttachMounted(true);
+    Animated.timing(attachShown, { toValue: attachOpen ? 1 : 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(
+      ({ finished }) => {
+        if (finished && !attachOpen) setAttachMounted(false);
+      },
+    );
+  }, [attachOpen, attachShown]);
   // The menu is keyboard-driven while the caret stays in the field: `active` is a highlight, -1 = none.
   const [active, setActive] = useState(-1);
   const [box, setBox] = useState({ width: 0, y: 0 });
@@ -737,7 +760,7 @@ export function Composer(props: {
         </View>
       ) : (
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, paddingHorizontal: 10 }}>
-          {(props.onEmoji || props.onAttach || props.record?.onVideo) && (
+          {(props.onEmoji || props.attach || props.record?.onVideo) && (
             // The buttons touch (their icons sit 12 px apart inside the 38 px boxes), and a little closer to the field than the row's gap.
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 0, marginRight: -2 }}>
               {props.onEmoji && (
@@ -759,11 +782,17 @@ export function Composer(props: {
                   </Pressable>
                 </View>
               )}
-              {props.onAttach && (
+              {props.attach && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Attach"
-                  onPress={props.onAttach}
+                  accessibilityLabel={props.attach.label}
+                  accessibilityState={{ expanded: attachOpen }}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    inputRef.current?.blur();
+                    setEmojiOpen(false);
+                    setAttachOpen(!attachOpen);
+                  }}
                   style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
                     width: 38,
                     height: 38,
@@ -773,7 +802,7 @@ export function Composer(props: {
                     backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                   })}
                 >
-                  <Icon name="attach" size={26} color={colors.textSecondary} />
+                  <Icon name="plus" size={26} color={attachOpen ? colors.accent : colors.textSecondary} />
                 </Pressable>
               )}
               {props.record?.onVideo && (
@@ -814,6 +843,7 @@ export function Composer(props: {
             <View style={{ flex: 1, minHeight: 24, justifyContent: "center" }}>
               <TextInput
                 ref={inputRef}
+                onFocus={() => setAttachOpen(false)}
                 onSelectionChange={(e) => props.onCaretChange?.(e.nativeEvent.selection.end)}
                 multiline
                 value={text}
@@ -893,6 +923,36 @@ export function Composer(props: {
           </Pressable>
         </View>
       )}
+      {props.attach && attachMounted && (
+        <Animated.View
+          style={{ height: attachShown.interpolate({ inputRange: [0, 1], outputRange: [0, ATTACH_PANEL] }), overflow: "hidden", opacity: attachShown }}
+        >
+          <View style={{ height: ATTACH_PANEL, flexDirection: "row", paddingHorizontal: 8, paddingTop: 10 }}>
+            {props.attach.items.map((it) => (
+              <Pressable
+                key={it.key}
+                accessibilityRole="button"
+                accessibilityLabel={it.label}
+                onPress={() => {
+                  setAttachOpen(false);
+                  it.onPress();
+                }}
+                style={({ pressed }) => ({ flex: 1, alignItems: "center", gap: 8, opacity: pressed ? 0.6 : 1 })}
+              >
+                <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.bgSecondary, alignItems: "center", justifyContent: "center" }}>
+                  <Icon name={it.icon} size={28} color={colors.text} />
+                </View>
+                <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
+                  {it.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
+
+/** The height of the panel under the bar with the attach buttons: the buttons, their names, and room around them. */
+const ATTACH_PANEL = 110;
