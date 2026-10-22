@@ -9,6 +9,7 @@ import { toBase64 } from "./base64.js";
 import { toEngineError } from "./errors.js";
 import type { RoomInfoLike } from "./roomSummary.js";
 import type { RawSecurity } from "./security.js";
+import type { SdkVerification, VerifyEvent } from "./verification.js";
 import type {
   LatestEvent,
   ListChange,
@@ -406,6 +407,37 @@ export function sdkFromBindings(b: Bindings): Sdk {
           return await call(() => enc.enableRecovery(false, undefined, { onUpdate: () => {} }));
         },
         recover: (recoveryKey) => call(() => enc.recover(recoveryKey)),
+      };
+    },
+    async verification(): Promise<SdkVerification> {
+      const ctl = await call(() => c.getSessionVerificationController());
+      let emit: (e: VerifyEvent) => void = () => {};
+      ctl.setDelegate({
+        didReceiveVerificationRequest: (d) => emit({ kind: "request", userId: d.senderProfile.userId, flowId: d.flowId, deviceName: d.deviceDisplayName }),
+        didAcceptVerificationRequest: () => emit({ kind: "accepted" }),
+        didStartSasVerification: () => emit({ kind: "started" }),
+        didReceiveVerificationData: (data) => {
+          if (data.tag === b.SessionVerificationData_Tags.Emojis)
+            emit({ kind: "emojis", emojis: data.inner.emojis.map((e) => ({ symbol: e.symbol(), name: e.description() })) });
+          // The numbers form is not offered: both sides take the pictures.
+          else void call(() => ctl.cancelVerification()).catch(() => {});
+        },
+        didFail: () => emit({ kind: "failed" }),
+        didCancel: () => emit({ kind: "cancelled" }),
+        didFinish: () => emit({ kind: "finished" }),
+      });
+      return {
+        listen: (cb) => void (emit = cb),
+        requestSession: () => call(() => ctl.requestDeviceVerification()),
+        requestUser: (userId) => call(() => ctl.requestUserVerification(userId)),
+        accept: async (userId, flowId) => {
+          await call(() => ctl.acknowledgeVerificationRequest(userId, flowId));
+          await call(() => ctl.acceptVerificationRequest());
+        },
+        startEmojis: () => call(() => ctl.startSasVerification()),
+        approve: () => call(() => ctl.approveVerification()),
+        decline: () => call(() => ctl.declineVerification()),
+        cancel: () => call(() => ctl.cancelVerification()),
       };
     },
     search(term, roomId) {

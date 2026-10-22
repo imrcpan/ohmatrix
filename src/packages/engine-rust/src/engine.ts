@@ -20,6 +20,7 @@ import {
   type RoomSummary,
   type SearchPage,
   type SecurityState,
+  type VerificationFlow,
   type Session,
   type SharedMediaPage,
   type SpaceChild,
@@ -39,6 +40,7 @@ import { attachmentKind, forwardContent, pathOf } from "./forward.js";
 import { personName } from "./serviceText.js";
 import type { EventRef, LatestEvent, Sdk, SdkClient, SdkRoom, SdkSearch, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
 import { securityStateOf } from "./security.js";
+import { flowAfter, outgoing, type SdkVerification } from "./verification.js";
 import { toRoomDetails } from "./roomDetails.js";
 import { fromSession, toSession } from "./session.js";
 import { toTimelineItem } from "./timelineItem.js";
@@ -142,6 +144,9 @@ export class RustEngineCore implements MatrixEngine {
     this.spaceViews.clear();
     this.securityTask?.cancel();
     this.securityTask = null;
+    this.verifier = null;
+    this.incoming = null;
+    this.setFlow(null);
     this.setSecurity("unavailable");
     this.profileListeners.forEach((cb) => cb(null));
     this.roomListeners.forEach((cb) => cb([{ op: "reset", items: [] }]));
@@ -176,6 +181,7 @@ export class RustEngineCore implements MatrixEngine {
         this.client = client;
         void this.loadProfile();
         this.watchSecurity();
+        void this.watchVerification()?.catch(() => {});
         return toSession(client.session());
       }),
     register: (homeserver: string, username: string, password: string, token?: string) =>
@@ -191,6 +197,7 @@ export class RustEngineCore implements MatrixEngine {
         this.client = client;
         void this.loadProfile();
         this.watchSecurity();
+        void this.watchVerification()?.catch(() => {});
       }),
     logout: () =>
       guard(async () => {
@@ -472,6 +479,38 @@ export class RustEngineCore implements MatrixEngine {
     look();
   }
 
+  private readonly flowListeners = new Set<Listener<VerificationFlow | null>>();
+  private flow: VerificationFlow | null = null;
+  /** The request that came in, by its flow id (accepting needs it). */
+  private incoming: { userId: string; flowId: string } | null = null;
+  private verifier: Promise<SdkVerification> | null = null;
+
+  private setFlow(flow: VerificationFlow | null) {
+    this.flow = flow;
+    this.flowListeners.forEach((cb) => cb(flow));
+  }
+
+  /** The SDK's verification, started once per client; what it reports updates the flow on screen. */
+  private watchVerification(): Promise<SdkVerification> | null {
+    const c = this.client;
+    if (!c) return null;
+    this.verifier ??= c.verification().then((v) => {
+      v.listen((e) => {
+        if (this.client !== c) return;
+        if (e.kind === "request") this.incoming = { userId: e.userId, flowId: e.flowId };
+        const before = this.flow;
+        const next = flowAfter(before, e);
+        this.setFlow(next);
+        // The side that asked takes the next step once the other has accepted: the pictures.
+        if (e.kind === "accepted" && before?.phase === "requested" && !before.incoming)
+          void v.startEmojis().catch(() => this.setFlow({ phase: "failed", userId: before.userId }));
+      });
+      return v;
+    });
+    this.verifier.catch(() => (this.verifier = null));
+    return this.verifier;
+  }
+
   /** The pages open on a space, each with the read that brings it up to date. */
   private readonly spaceViews = new Map<string, Set<() => void>>();
 
@@ -580,6 +619,55 @@ export class RustEngineCore implements MatrixEngine {
     setUp: (opts: { password: string }) => guard(async () => ({ recoveryKey: await this.need().security().setUp(opts.password) })),
     restoreWithRecoveryKey: (key: string) => guard(() => this.need().security().recover(key.trim())),
   };
+  readonly verification = {
+    onFlow: (cb: Listener<VerificationFlow | null>): Unsubscribe => {
+      this.flowListeners.add(cb);
+      cb(this.flow);
+      void this.watchVerification()?.catch(() => {});
+      return () => void this.flowListeners.delete(cb);
+    },
+    requestSession: () => this.ask(this.need().userId(), (v) => v.requestSession()),
+    requestUser: (userId: string) => this.ask(userId, (v) => v.requestUser(userId)),
+    accept: () =>
+      guard(async () => {
+        const v = await this.watchVerification();
+        const req = this.incoming;
+        if (!v || !req) throw new EngineError("unknown", "there is no request to accept");
+        await v.accept(req.userId, req.flowId);
+      }),
+    confirm: () => this.step((v) => v.approve()),
+    mismatch: () => this.step((v) => v.decline()),
+    cancel: () =>
+      guard(async () => {
+        const before = this.flow;
+        this.setFlow(null);
+        if (before && before.phase !== "done" && before.phase !== "cancelled" && before.phase !== "failed")
+          await (await this.watchVerification())?.cancel().catch(() => {});
+      }),
+    dismiss: () => this.setFlow(null),
+  };
+
+  private ask(userId: string, send: (v: SdkVerification) => Promise<void>): Promise<void> {
+    return guard(async () => {
+      const v = await this.watchVerification();
+      if (!v) throw new EngineError("unauthorized", "not signed in");
+      this.setFlow(outgoing(userId));
+      try {
+        await send(v);
+      } catch (e) {
+        this.setFlow({ phase: "failed", userId });
+        throw e;
+      }
+    });
+  }
+
+  private step(f: (v: SdkVerification) => Promise<void>): Promise<void> {
+    return guard(async () => {
+      const v = await this.watchVerification();
+      if (v) await f(v);
+    });
+  }
+
   readonly roomAdmin = {
     setName: (roomId: string, name: string) => guard(() => this.room(roomId).setName(name)),
     setTopic: (roomId: string, topic: string) => guard(() => this.room(roomId).setTopic(topic)),

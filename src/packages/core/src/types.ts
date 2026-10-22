@@ -153,6 +153,27 @@ export function contentText(c: MessageContent): string {
  */
 export type SecurityState = "unavailable" | "needs_setup" | "needs_recovery" | "ready";
 
+/** One of the seven pictures of a verification: the symbol to look at and its name in English (the translation is the app's). */
+export interface VerificationEmoji {
+  symbol: string;
+  name: string;
+}
+
+/**
+ * Where a verification stands, one at a time. `userId` is who is being verified (me, for a session of my own).
+ * - `requested`: asked and not yet accepted (`incoming`: by the other side, so the app asks me; else I am waiting for them)
+ * - `waiting`: accepted; the pictures are being exchanged
+ * - `emojis`: the same seven pictures must show on both devices; `confirm` if they do, `mismatch` if not
+ * - `done`: verified. `cancelled`: the other side stopped it. `failed`: it broke (a timeout, a mismatch, an error)
+ */
+export type VerificationFlow =
+  | { phase: "requested"; incoming: boolean; userId: UserId; deviceName?: string }
+  | { phase: "waiting"; userId: UserId }
+  | { phase: "emojis"; userId: UserId; emojis: VerificationEmoji[] }
+  | { phase: "done"; userId: UserId }
+  | { phase: "cancelled"; userId: UserId }
+  | { phase: "failed"; userId: UserId };
+
 /** A user-chosen file ready to send. `data` is the platform handle (a Blob on web). */
 export interface AttachmentSource {
   name: string;

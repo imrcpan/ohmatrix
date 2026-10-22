@@ -268,6 +268,24 @@ class FakeClient implements SdkClient {
       recover: async (key: string) => void this.secureCalls.push(["recover", key]),
     };
   }
+  verifyCalls: unknown[][] = [];
+  verifyEmit: (e: import("./verification.js").VerifyEvent) => void = () => {};
+  async verification() {
+    const log =
+      (name: string) =>
+      async (...a: unknown[]) =>
+        void this.verifyCalls.push([name, ...a]);
+    return {
+      listen: (cb: (e: import("./verification.js").VerifyEvent) => void) => void (this.verifyEmit = cb),
+      requestSession: log("requestSession"),
+      requestUser: log("requestUser"),
+      accept: log("accept"),
+      startEmojis: log("startEmojis"),
+      approve: log("approve"),
+      decline: log("decline"),
+      cancel: log("cancel"),
+    };
+  }
   avatars: unknown[][] = [];
   async setAvatar(mime: string, data: ArrayBuffer) {
     this.avatars.push([mime, data.byteLength]);
@@ -304,6 +322,33 @@ class FakeClient implements SdkClient {
     this.removedPushers.push(p);
   }
 }
+
+test("a request from another device is shown, accepted, compared and finished; mine starts the pictures once accepted", async () => {
+  const { engine, client } = make();
+  const seen: (string | null)[] = [];
+  engine.verification.onFlow((f) => seen.push(f && f.phase));
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  await tickMany();
+  client.verifyEmit({ kind: "request", userId: "@a:s", flowId: "f1", deviceName: "Laptop" });
+  await engine.verification.accept();
+  client.verifyEmit({ kind: "started" });
+  client.verifyEmit({ kind: "emojis", emojis: [{ symbol: "🐶", name: "Dog" }] });
+  await engine.verification.confirm();
+  client.verifyEmit({ kind: "finished" });
+  expect(seen).toEqual([null, "requested", "waiting", "emojis", "done"]);
+  expect(client.verifyCalls).toEqual([["accept", "@a:s", "f1"], ["approve"]]);
+  engine.verification.dismiss();
+  expect(seen.at(-1)).toBeNull();
+
+  client.verifyCalls.length = 0;
+  await engine.verification.requestUser("@bob:s");
+  client.verifyEmit({ kind: "accepted" });
+  await tickMany();
+  expect(client.verifyCalls).toEqual([["requestUser", "@bob:s"], ["startEmojis"]]);
+  await engine.verification.cancel();
+  expect(seen.at(-1)).toBeNull();
+  expect(client.verifyCalls.at(-1)).toEqual(["cancel"]);
+});
 
 function make(fetch?: RustEngineOptions["fetch"]) {
   const client = new FakeClient();
