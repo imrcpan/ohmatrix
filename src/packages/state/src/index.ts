@@ -39,7 +39,7 @@ export interface ViewedMember {
   from: "chat" | "members" | null;
 }
 
-export type InfoPage = "media" | "members" | "banned" | "member";
+export type InfoPage = "media" | "members" | "banned" | "member" | "pinned";
 
 export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "logs";
 

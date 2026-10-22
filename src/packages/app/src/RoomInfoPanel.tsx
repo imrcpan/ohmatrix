@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild, contentText } from "@ohmatrix/core";
+import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild } from "@ohmatrix/core";
 import { Avatar, Dialog, fontFamily, Menu, Spinner, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem, useNavBottom } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { InviteDialog } from "./InviteDialog.js";
@@ -10,7 +10,9 @@ import { MemberInfoPage } from "./MemberInfoPage.js";
 import { BannedPage, MemberRow, MembersPage } from "./RoomPeople.js";
 import { RoomSettingsSections } from "./RoomSettings.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
-import { SharedMediaPage, SharedMediaPreview } from "./SharedMedia.js";
+import { SharedMediaPage } from "./SharedMedia.js";
+import { PinnedPage } from "./chat/PinnedPage.js";
+import { usePinnedIds } from "./chat/usePinned.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
@@ -41,18 +43,13 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const notice = useNotice();
   const avatar = useMediaUrl(d?.avatar, { width: 192, height: 192, fit: "crop" });
   const [viewing, setViewing] = useState(false);
-  const items = useAppState((s) => s.timelines[props.roomId]);
 
   useEffect(() => {
     setD(null);
     return controller.subscribeRoomDetails(props.roomId, setD);
   }, [controller, props.roomId]);
 
-  // Pinned messages: only the ones already loaded can be shown (the list is state, the bodies are events).
-  const pinned = useMemo(() => {
-    const ids = d?.pinnedEventIds ?? [];
-    return ids.map((id) => (items ?? []).find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i);
-  }, [d?.pinnedEventIds, items]);
+  const pinnedIds = usePinnedIds(props.roomId);
 
   const forSpace = useAppState((s) => s.spaceInfoOpen && s.spaceId === props.roomId);
   const [children, setChildren] = useState<SpaceChild[]>([]);
@@ -220,18 +217,16 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                 />
               </Group>
             )}
-            {!forSpace && <SharedMediaPreview onMore={() => controller.openInfoPage("media")} />}
-            {!forSpace && pinned.length > 0 && (
-              <Group title={t("pinned.title")}>
-                {pinned.map((m) => (
-                  <Item
-                    key={m.id}
-                    label={m.senderName}
-                    value={m.content.kind === "image" ? t("photo") : contentText(m.content).slice(0, 60)}
-                    icon="pin"
-                    onPress={() => controller.openMessage(d.id, m.id)}
-                  />
-                ))}
+            {!forSpace && (
+              <Group title={t("messages.title")}>
+                <Item label={t("sharedMedia")} icon="image" onPress={() => controller.openInfoPage("media")} />
+                <Item
+                  label={t("pinned.title")}
+                  icon="pin"
+                  value={String(pinnedIds.length)}
+                  chevron={pinnedIds.length > 0}
+                  onPress={pinnedIds.length > 0 ? () => controller.openInfoPage("pinned") : undefined}
+                />
               </Group>
             )}
             <Group title={direct ? t("participant") : d.peopleLoading ? t("membersTitle") : `${t("membersTitle")} · ${d.members.length}`}>
@@ -375,6 +370,23 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
               onBack={() => controller.closeMember()}
             />
           )}
+        </SlidePanel>
+      )}
+      {/* The pinned messages, the same page the chat's pinned bar opens; pressing one shows it in the chat. */}
+      {!forSpace && !!d && (
+        <SlidePanel mode="overlay" open={infoPage === "pinned"}>
+          <PinnedPage
+            roomId={d.id}
+            ids={pinnedIds}
+            backLabel={t("groupInfo")}
+            onBack={() => controller.openInfoPage(null)}
+            onOpen={(id) => {
+              // Beside the chat the panel stays and only the page closes; over the chat the panel closes too, so the message can be seen.
+              controller.openInfoPage(null);
+              if (props.mode === "overlay") controller.openRoomInfo(false);
+              controller.openMessage(d.id, id);
+            }}
+          />
         </SlidePanel>
       )}
       {/* The whole gallery slides in from the right over this panel; it is mounted only while it is open. */}

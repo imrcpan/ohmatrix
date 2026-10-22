@@ -6,7 +6,7 @@ import { useController, useServices, useT } from "./context.js";
 import { formatBytes } from "./format.js";
 import { formatDuration, useAudioPlayer } from "./useAudio.js";
 import { PhotoViewer } from "./PhotoViewer.js";
-import { Group, Item, PageHeader } from "./settings/kit.js";
+import { Item, PageHeader } from "./settings/kit.js";
 import { useMediaUrl } from "./useMedia.js";
 
 const KINDS: { kind: MediaKind; label: "media.photos" | "media.videos" | "media.audio" | "media.files" }[] = [
@@ -137,16 +137,6 @@ function MediaViewer(props: { item: TimelineItem | null; onClose: () => void }) 
         <VideoViewer visible onClose={props.onClose} uri={full} poster={poster} width={vc.width} height={vc.height} closeLabel={t("viewer.close")} />
       )}
     </>
-  );
-}
-
-/** The room's shared media in the chat info: only a View more row, which opens the gallery. Nothing is fetched until it is pressed. */
-export function SharedMediaPreview(props: { onMore: () => void }) {
-  const t = useT();
-  return (
-    <Group title={t("sharedMedia")}>
-      <Item label={t("media.viewMore")} onPress={props.onMore} />
-    </Group>
   );
 }
 
