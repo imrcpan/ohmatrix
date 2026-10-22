@@ -8,6 +8,8 @@ export interface RowActions {
   react(eventId: string, key: string): void;
   pin(item: TimelineItem, pinned: boolean): void;
   forward(item: TimelineItem): void;
+  /** Put the picture of this message into my sticker pack. */
+  addSticker(item: TimelineItem, groupId: string): void;
   reply(item: TimelineItem): void;
   edit(item: TimelineItem): void;
   /** Start choosing messages, with this one chosen. */

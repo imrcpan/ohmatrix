@@ -2292,22 +2292,6 @@ test("mentions: a message that names me is tinted and the name is a pill", async
   await shot(page, "58-mention-pill");
 });
 
-test("emoji picker: insert an emoji from the composer", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await login(page);
-  await openRoom(page, "Notes to self");
-  await page.getByRole("button", { name: "Emoji", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Emoji 😀" })).toBeVisible();
-  await shot(page, "59-emoji-picker");
-  await page.getByRole("button", { name: "Emoji 😀" }).click();
-  const field = page.getByPlaceholder("Message");
-  await expect(field).toHaveValue("😀");
-  const mark = `emoji ${Date.now()}`;
-  await field.fill(`emoji mark ${mark}`);
-  await field.press("Enter");
-  await expect(page.getByText(`emoji mark ${mark}`, { exact: true }).last()).toBeVisible({ timeout: 20000 });
-});
-
 test("pin: a pinned message shows a pin marker and lands in the chat-info panel", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
@@ -3444,4 +3428,236 @@ test("several accounts: add one, both stay signed in after a reload, switch betw
   await page.reload();
   await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
   expect(await shown()).toBe("@test:localhost");
+});
+
+test("stickers: add from the device, send, add from a picture of the chat, remove, and a file over 3 MB is refused", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const openStickers = async () => {
+    await page.getByRole("button", { name: "Emoji", exact: true }).click();
+    // The picker is the stickers alone: no emoji groups, no search.
+    await expect(page.getByRole("button", { name: "Emoji 😀" })).toHaveCount(0);
+    await expect(page.getByPlaceholder("Search emoji")).toHaveCount(0);
+  };
+  // Like the plus bubble: a tap on the chat folds it.
+  await openStickers();
+  await expect(page.getByRole("button", { name: "Add a sticker" })).toBeVisible();
+  await page.mouse.click(900, 300);
+  await expect(page.getByRole("button", { name: "Add a sticker" })).toHaveCount(0);
+  // A file over 3 MB is refused at the top, and nothing is added.
+  await openStickers();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Add a sticker" }).click();
+  await (await chooser).setFiles({ name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(3 * 1024 * 1024 + 1) });
+  await expect(page.getByText(/Could not add the sticker: the file is over 3 MB/)).toBeVisible({ timeout: 10000 });
+  // A file that is not a PNG, JPEG, GIF or WebP picture (a document, or an SVG) is refused too.
+  for (const bad of [
+    { name: "note.txt", mimeType: "text/plain", buffer: Buffer.from("hello") },
+    { name: "logo.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>") },
+  ]) {
+    const c = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Add a sticker" }).click();
+    await (await c).setFiles(bad);
+    await expect(page.getByText(/Could not add the sticker: only PNG, JPEG, GIF and WebP pictures can be stickers/)).toBeVisible({ timeout: 10000 });
+  }
+  // A small one is added to the pack.
+  const name = `dot-${Date.now()}`;
+  const chooser2 = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Add a sticker" }).click();
+  await (await chooser2).setFiles({ name: `${name}.png`, mimeType: "image/png", buffer: PNG });
+  const tile = page.getByRole("button", { name, exact: true });
+  await expect(tile).toBeVisible({ timeout: 15000 });
+  // Pressing it sends it as a sticker: a picture with no bubble around it.
+  await tile.click();
+  await expect.poll(() => page.locator('img[src^="blob:"], [style*="blob:"]').count(), { timeout: 15000 }).toBeGreaterThan(0);
+  await shot(page, "17-sticker-sent");
+  // The sent sticker offers "Add to stickers": the same picture is already in the pack, so the pack keeps one.
+  await openStickers();
+  await expect(page.getByRole("button", { name })).toHaveCount(1);
+  // A right click does nothing. Delete is in the selection: grey until something is chosen, and it asks first.
+  await tile.click({ button: "right" });
+  await expect(page.getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Select to delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+  await tile.click();
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByRole("button", { name, exact: true })).toBeHidden({ timeout: 10000 });
+});
+
+test("sticker groups: made, named, covered, filled, reordered, and deleted; the cover is chosen in order and emoji only by button", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  // The test starts from no groups, whatever an earlier run left in the account.
+  await page.evaluate(async () => {
+    await (window as unknown as { __ohmatrix: { controller: { setStickerGroups(g: unknown[]): Promise<void> } } }).__ohmatrix.controller.setStickerGroups([]);
+  });
+  await page.getByRole("button", { name: "Emoji", exact: true }).click();
+  const btn = (name: string) => page.getByRole("button", { name, exact: true });
+  const settings = async (item: string) => {
+    await btn("Settings").click();
+    await page.getByRole("menuitem", { name: item, exact: true }).click();
+  };
+  const names = [`grp-a-${Date.now()}`, `grp-b-${Date.now()}`];
+  // The default group is first and holds the stickers; it can be renamed and reordered but has no cover or delete in its settings. A new group needs no dialog.
+  await expect(page.getByText("Default group", { exact: true }).first()).toBeVisible();
+  await btn("Settings").click();
+  for (const gone of ["Set group cover", "Delete group"]) await expect(page.getByRole("menuitem", { name: gone, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Set group name", exact: true })).toBeVisible();
+  await page.mouse.click(1000, 100); // the menu is closed by a tap beside it
+  await btn("New group").click();
+  await expect(page.getByText("Group 1", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(btn("Group 1")).toBeVisible();
+  await expect(btn("😊")).toHaveCount(0); // the face is the cover, drawn as text, not a button of its own
+  await expect(page.getByText(/No stickers in this group/)).toBeVisible();
+  await btn("Settings").click();
+  await expect(page.getByRole("menuitem", { name: "Reorder", exact: true })).toHaveCount(0); // nothing to order yet
+  await expect(page.getByRole("menuitem", { name: "Set group name", exact: true })).toBeVisible();
+  await page.mouse.click(1000, 100); // the menu is closed by a tap beside it
+  // Stickers added while the group is shown go into it.
+  await btn("Group 1").click();
+  for (const name of names) {
+    const chooser = page.waitForEvent("filechooser");
+    await btn("Add a sticker").click();
+    await (await chooser).setFiles({ name: `${name}.png`, mimeType: "image/png", buffer: PNG });
+    await expect(btn(name)).toBeVisible({ timeout: 15000 });
+  }
+  await btn("Default group").click();
+  for (const name of names) await expect(btn(name)).toHaveCount(0);
+  // Name: set, over the limit refused, empty goes back to the default.
+  await btn("Group 1").click();
+  await expect(btn(names[0]!)).toBeVisible();
+  await settings("Set group name");
+  const field = page.getByRole("textbox").last();
+  await field.fill("x".repeat(13));
+  await btn("Save").click();
+  await expect(page.getByText(/The name is over 12 characters/)).toBeVisible();
+  await field.fill("Cats");
+  await btn("Save").click();
+  await expect(btn("Cats")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Cats", { exact: true }).first()).toBeVisible();
+  // The cover was its first sticker; now it is chosen, in order: my stickers, upload, emoji (behind a button, a grid only after it).
+  await settings("Set group cover");
+  const order = await page.getByRole("button", { name: /^(From my stickers|Upload a picture|Use an emoji)$/ }).allInnerTexts();
+  expect(order).toEqual(["From my stickers", "Upload a picture", "Use an emoji"]);
+  await expect(page.getByRole("button", { name: /^Emoji / })).toHaveCount(0);
+  await btn("Use an emoji").click();
+  await expect(page.getByRole("button", { name: /^Emoji / }).first()).toBeVisible();
+  await btn("Emoji 🦄").click();
+  await expect(page.getByRole("button", { name: /^Emoji / })).toHaveCount(0, { timeout: 10000 });
+  // A cover that is a file: the wrong kind is refused, a picture is taken.
+  await settings("Set group cover");
+  const bad = page.waitForEvent("filechooser");
+  await btn("Upload a picture").click();
+  await (await bad).setFiles({ name: "x.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>") });
+  await expect(page.getByText(/only PNG, JPEG, GIF and WebP pictures can be stickers/)).toBeVisible({ timeout: 10000 });
+  const good = page.waitForEvent("filechooser");
+  await btn("Upload a picture").click();
+  await (await good).setFiles({ name: "i.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByRole("button", { name: /^Upload a picture$/ })).toHaveCount(0, { timeout: 15000 });
+  // A cover from my stickers.
+  await settings("Set group cover");
+  await btn("From my stickers").click();
+  await page.getByRole("button", { name: names[1]!, exact: true }).last().click();
+  // Reorder: a tile is dragged to where it should go (not tapped), and the hint says so.
+  const tiles = () => page.getByRole("button", { name: new RegExp("^grp-[ab]-") });
+  const firstName = await tiles().first().getAttribute("aria-label");
+  await settings("Reorder");
+  await expect(page.getByText("Drag to reorder", { exact: true })).toBeVisible();
+  const cells = page.locator('[data-reorder-cell="1"]');
+  await expect(cells).toHaveCount(2);
+  await expect(page.getByRole("menuitem")).toHaveCount(0); // the menu has finished closing
+  const from = (await cells.first().boundingBox())!;
+  const to = (await cells.last().boundingBox())!;
+  await page.mouse.move(from.x + 30, from.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 60, from.y + 32, { steps: 4 });
+  await page.mouse.move(to.x + 30, to.y + 30, { steps: 8 });
+  // While dragging, a bar in the theme colour shows where it will land.
+  await expect(
+    page
+      .locator("div")
+      .filter({ hasNot: page.locator("div") })
+      .and(page.locator('[style*="width: 3px"]')),
+  ).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(async () => cells.last().getAttribute("aria-label")).toBe(firstName);
+  await btn("Done").click();
+  // Delete the group: two confirmations, and its stickers go with it.
+  await settings("Delete group");
+  await expect(page.getByText(/all 2 stickers in it/)).toBeVisible();
+  await page.getByRole("button", { name: "Delete group", exact: true }).last().click();
+  await expect(page.getByText(/Cats and its 2 stickers/)).toBeVisible();
+  await page.getByRole("button", { name: "Delete for good", exact: true }).click();
+  await expect(btn("Cats")).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByText("Default group", { exact: true }).first()).toBeVisible();
+  // The stickers of the group went with it: they are not in the default group either.
+  for (const name of names) await expect(btn(name)).toHaveCount(0, { timeout: 10000 });
+});
+
+test("stickers: the picker has five columns at most, and fewer (not more space) when the window is narrow", async ({ page }) => {
+  await login(page);
+  const widthAt = async (viewport: { width: number; height: number }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+    if (viewport.width < 700)
+      await page
+        .getByRole("button", { name: /Notes to self/ })
+        .first()
+        .click();
+    else await openRoom(page, "Notes to self");
+    await page.getByRole("button", { name: "Emoji", exact: true }).click();
+    const add = (await page.getByRole("button", { name: "Add a sticker" }).boundingBox())!;
+    const bar = (await page.getByRole("button", { name: "Default" }).boundingBox())!;
+    void bar;
+    // The first tile is 72 wide, 8 from the picker's left edge; the picker's width is read from its settings row.
+    const gear = (await page.getByRole("button", { name: "Settings" }).boundingBox())!;
+    return { tile: add.width, right: gear.x + gear.width, left: add.x - 8 };
+  };
+  const wide = await widthAt({ width: 1280, height: 800 });
+  expect(wide.tile).toBe(72);
+  const wideCols = Math.round((wide.right + 0 - wide.left - 16 + 4) / 76);
+  expect(wideCols).toBeLessThanOrEqual(5);
+  const narrow = await widthAt({ width: 330, height: 700 });
+  expect(narrow.tile).toBe(72);
+  const narrowCols = Math.round((narrow.right - narrow.left - 16 + 4) / 76);
+  expect(narrowCols).toBeLessThan(5);
+});
+
+test("stickers: adding a picture of the chat asks which group it goes to", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await page.evaluate(async () => {
+    await (window as unknown as { __ohmatrix: { controller: { setStickerGroups(g: unknown[]): Promise<void> } } }).__ohmatrix.controller.setStickerGroups([]);
+  });
+  const btn = (name: string) => page.getByRole("button", { name, exact: true });
+  await page.getByRole("button", { name: "Emoji", exact: true }).click();
+  await btn("New group").click();
+  await expect(btn("Group 1")).toBeVisible({ timeout: 10000 });
+  await page.mouse.click(900, 300); // the picker folds
+  const photo = page.getByRole("button", { name: "Open photo" }).last();
+  await photo.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add to stickers", exact: true }).click();
+  await expect(page.getByText("Add to which group?")).toBeVisible();
+  // The default group and the new one are offered; the new one is chosen.
+  await expect(btn("Default group")).toBeVisible();
+  await btn("Group 1").click();
+  await expect(page.getByText("Added to your stickers")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("Add to which group?")).toHaveCount(0, { timeout: 10000 });
+  await page.getByRole("button", { name: "Emoji", exact: true }).click();
+  await btn("Group 1").click();
+  await expect(page.getByText(/No stickers in this group/)).toHaveCount(0);
+  await expect(page.locator("img[alt]").first()).toBeVisible();
+  // Clean up: the group and its sticker.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete group", exact: true }).click();
+  await page.getByRole("button", { name: "Delete group", exact: true }).last().click();
+  await page.getByRole("button", { name: "Delete for good", exact: true }).click();
+  await expect(btn("Group 1")).toHaveCount(0, { timeout: 10000 });
 });

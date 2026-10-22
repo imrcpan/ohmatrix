@@ -30,7 +30,15 @@ export function Bubble(props: {
   senderName?: string | undefined;
   senderId?: string | undefined;
   /** Image message; with no `text` the image fills the bubble and the time sits on it (Telegram style). */
-  image?: { uri: string | undefined; width: number; height: number; onPress?: (() => void) | undefined } | undefined;
+  image?:
+    | {
+        uri: string | undefined;
+        width: number;
+        height: number;
+        onPress?: (() => void) | undefined;
+        /** A sticker: no bubble, the picture whole on the chat. */ sticker?: boolean | undefined;
+      }
+    | undefined;
   /** Video: poster with a play button and its length; press opens the player. */
   video?: { posterUri?: string | undefined; width: number; height: number; durationLabel?: string | undefined; onPress?: (() => void) | undefined } | undefined;
   /** Audio file or voice message with play/pause, progress and time. */
@@ -92,6 +100,7 @@ export function Bubble(props: {
     : undefined;
   const media = props.image ?? props.video;
   const imageOnly = !!media && !props.text;
+  const sticker = !!props.image?.sticker && imageOnly;
   // A file on its own is a card, the same for both sides (as WeChat shows files): neutral surface, the kind of file on a tile.
   const fileCard = !!props.file && !props.text && !props.reply;
   // My message in the accent colour (unless Settings turned that off); otherwise it is drawn like a message of somebody else.
@@ -159,7 +168,7 @@ export function Bubble(props: {
         {
           maxWidth: "100%",
           overflow: "hidden",
-          backgroundColor: mine ? colors.bubbleOut : props.mentionsMe ? colors.mentionBg : colors.bubbleIn,
+          backgroundColor: sticker ? "transparent" : mine ? colors.bubbleOut : props.mentionsMe ? colors.mentionBg : colors.bubbleIn,
           ...(imageOnly
             ? {}
             : fileCard
@@ -227,13 +236,13 @@ export function Bubble(props: {
               width: props.image.width,
               height: props.image.height,
               maxWidth: "100%",
-              backgroundColor: colors.bgSecondary,
+              backgroundColor: sticker ? "transparent" : colors.bgSecondary,
               ...(imageOnly ? {} : { marginHorizontal: -12, marginBottom: 6, marginTop: props.senderName ? 0 : -7, width: props.image.width + 24 }),
             },
             props.image.onPress ? ({ cursor: "pointer" } as object) : {},
           ]}
         >
-          {props.image.uri && <Image source={{ uri: props.image.uri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} />}
+          {props.image.uri && <Image source={{ uri: props.image.uri }} resizeMode={sticker ? "contain" : "cover"} style={{ width: "100%", height: "100%" }} />}
           {props.upload && <UploadOverlay upload={props.upload} />}
         </PressableOrView>
       )}
@@ -466,6 +475,11 @@ export function Composer(props: {
         onOpenChange: (open: boolean) => void;
       }
     | undefined;
+  /** Whether the emoji bubble is open, when the screen keeps that (so that a tap on the chat can close it), and the call that changes it. */
+  emojiOpen?: boolean | undefined;
+  onEmojiOpenChange?: ((open: boolean) => void) | undefined;
+  /** A tab of stickers in the emoji picker. */
+  stickers?: { label: string; render: (close: () => void) => React.ReactNode; grid: { tile: number; gap: number; pad: number; maxCols: number } } | undefined;
   /** Called while the user types (true) and when they stop or send (false). */
   onTyping?: ((typing: boolean) => void) | undefined;
   /** Record buttons (camera, microphone) shown instead of Send while the field is empty. */
@@ -501,7 +515,14 @@ export function Composer(props: {
   const { colors, dark } = useTheme();
   const [text, setText] = useState("");
   const [height, setHeight] = useState(22);
-  const [emojiOpen, setEmojiOpen] = useState(false);
+  // Whether the emoji/sticker bubble is open is the screen's to know when it passes `emojiOpen` (a tap on the chat closes it); else it is kept here.
+  const [ownEmojiOpen, setOwnEmojiOpen] = useState(false);
+  const emojiOpen = props.emojiOpen ?? ownEmojiOpen;
+  const setEmojiOpen = (open: boolean | ((v: boolean) => boolean)) => {
+    const next = typeof open === "function" ? open(emojiOpen) : open;
+    setOwnEmojiOpen(next);
+    props.onEmojiOpenChange?.(next);
+  };
   // Whether the panel is open is the screen's to know (a tap on the chat closes it), so it is kept there.
   const attachOpen = !!props.attach?.open;
   const setAttachOpen = (open: boolean) => props.attach?.onOpenChange(open);
@@ -695,8 +716,22 @@ export function Composer(props: {
         </Text>
       )}
       {emojiOpen && (
-        <View style={{ position: "absolute", bottom: 62, left: 8, zIndex: 5 }}>
-          <EmojiPicker onPick={insertEmoji} recent={props.recentEmoji ?? []} searchLabel={props.emojiSearchLabel ?? "Search emoji"} />
+        <View
+          style={[
+            { position: "absolute", bottom: 62, left: 8, zIndex: 7, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg },
+            // On a dark theme the edge is drawn, as the attach bubble's is: a shadow does not show on a dark page.
+            dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
+            popoverShadow(dark),
+          ]}
+        >
+          <EmojiPicker
+            onPick={insertEmoji}
+            recent={props.recentEmoji ?? []}
+            searchLabel={props.emojiSearchLabel ?? "Search emoji"}
+            stickers={props.stickers}
+            available={box.width - 16}
+            close={() => setEmojiOpen(false)}
+          />
         </View>
       )}
       {props.recording ? (
@@ -768,7 +803,13 @@ export function Composer(props: {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={props.emojiLabel ?? "Emoji"}
-                    onPress={() => setEmojiOpen((v) => !v)}
+                    onPress={() => {
+                      // Like the plus button: the keyboard goes, and the other bubble is folded.
+                      Keyboard.dismiss();
+                      inputRef.current?.blur();
+                      setAttachOpen(false);
+                      setEmojiOpen((v) => !v);
+                    }}
                     style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
                       width: 38,
                       height: 38,
@@ -778,7 +819,7 @@ export function Composer(props: {
                       backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                     })}
                   >
-                    <Icon name="smile" size={26} color={emojiOpen ? colors.accent : colors.textSecondary} />
+                    <Icon name="sticker" size={26} color={emojiOpen ? colors.accent : colors.textSecondary} />
                   </Pressable>
                 </View>
               )}
@@ -793,7 +834,7 @@ export function Composer(props: {
                           position: "absolute",
                           left: -4,
                           bottom: "100%",
-                          marginBottom: 6,
+                          marginBottom: 8,
                           minWidth: ATTACH_W,
                           paddingVertical: 8,
                           paddingHorizontal: 4,
@@ -808,19 +849,6 @@ export function Composer(props: {
                         popoverShadow(dark),
                       ]}
                     >
-                      <View
-                        style={{
-                          position: "absolute",
-                          left: 22,
-                          bottom: -5,
-                          width: 10,
-                          height: 10,
-                          backgroundColor: colors.bg,
-                          ...(dark ? { borderRightWidth: 1, borderBottomWidth: 1, borderColor: colors.textTertiary } : {}),
-                          transform: [{ rotate: "45deg" }],
-                          borderRadius: 3,
-                        }}
-                      />
                       {props.attach.items.map((it) => (
                         <Pressable
                           key={it.key}
@@ -922,7 +950,10 @@ export function Composer(props: {
             <View style={{ flex: 1, minHeight: 24, justifyContent: "center" }}>
               <TextInput
                 ref={inputRef}
-                onFocus={() => setAttachOpen(false)}
+                onFocus={() => {
+                  setAttachOpen(false);
+                  setEmojiOpen(false);
+                }}
                 onSelectionChange={(e) => props.onCaretChange?.(e.nativeEvent.selection.end)}
                 multiline
                 value={text}

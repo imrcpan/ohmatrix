@@ -41,6 +41,48 @@ export function useRowActions(opts: {
           },
         ),
       forward: (item) => latest.current.forward(item),
+      addSticker: (item, groupId) => {
+        const c = item.content;
+        if (c.kind !== "image") return;
+        const { controller, t, fail, done } = latest.current;
+        void (async () => {
+          try {
+            const name = c.body || "sticker";
+            const mimeType = c.mimeType ?? "image/png";
+            if (!c.encryption) {
+              await controller.addStickerFrom(
+                {
+                  url: c.url,
+                  mimeType,
+                  name,
+                  ...(c.width !== undefined && { width: c.width }),
+                  ...(c.height !== undefined && { height: c.height }),
+                },
+                groupId,
+              );
+            } else {
+              // A picture of an encrypted room is only readable with its keys: it is opened here and put on the server again, as a plain one.
+              const url = await controller.resolveMedia(c.url, { encryption: c.encryption, mimeType });
+              const blob = await (await fetch(url)).blob();
+              const web = (globalThis as { document?: unknown }).document !== undefined;
+              await controller.addSticker(
+                {
+                  name,
+                  mimeType,
+                  size: blob.size,
+                  data: web ? blob : url,
+                  ...(c.width !== undefined && { width: c.width }),
+                  ...(c.height !== undefined && { height: c.height }),
+                },
+                groupId,
+              );
+            }
+            done(t("sticker.added"));
+          } catch (e) {
+            fail(t("sticker.add.failed", { reason: failureReason(e, t) }));
+          }
+        })();
+      },
       download: (f) =>
         void latest.current.controller
           .resolveMedia(f.url, { ...(f.encryption ? { encryption: f.encryption } : {}), ...(f.mimeType && { mimeType: f.mimeType }) })

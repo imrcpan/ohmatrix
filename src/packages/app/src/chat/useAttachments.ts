@@ -17,7 +17,9 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
   const notice = useNotice();
   const [failed, setFailed] = useState(false);
   // The panel under the bar with the attach buttons: open or not, kept here so that a tap on the chat can close it.
-  const [panel, setPanel] = useState(false);
+  const [attachPanel, setPanel] = useState(false);
+  const [emojiPanel, setEmojiPanel] = useState(false);
+  const panel = attachPanel || emojiPanel;
   useEffect(() => {
     if (!failed) return;
     const timer = setTimeout(() => setFailed(false), 5000);
@@ -43,7 +45,7 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
       : undefined,
     attach: {
       label: t("attach.label"),
-      open: panel,
+      open: attachPanel,
       onOpenChange: setPanel,
       items: [
         ...(services.pickPhoto || services.pickFiles
@@ -76,7 +78,21 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
       ],
     },
   };
-  return { sendFile, composerProps, panel, closePanel: () => setPanel(false), dropping, pending, setPending, recordingVideo, setRecordingVideo };
+  return {
+    sendFile,
+    composerProps,
+    panel,
+    closePanel: () => {
+      setPanel(false);
+      setEmojiPanel(false);
+    },
+    emoji: { open: emojiPanel, onChange: setEmojiPanel },
+    dropping,
+    pending,
+    setPending,
+    recordingVideo,
+    setRecordingVideo,
+  };
 }
 
 export type Attachments = ReturnType<typeof useAttachments>;

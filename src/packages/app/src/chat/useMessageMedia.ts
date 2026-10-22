@@ -4,7 +4,7 @@ import { useController } from "../context.js";
 import { useAudioPlayer } from "../useAudio.js";
 import { useMediaUrl } from "../useMedia.js";
 import { decryptOpts } from "./mediaOpts.js";
-import { fit } from "./mediaSize.js";
+import { fit, fitSticker } from "./mediaSize.js";
 
 /**
  * Everything a message needs fetched or played: the sender's avatar, the picture or video poster, the link preview
@@ -19,10 +19,11 @@ export function useMessageMedia(m: TimelineItem) {
   const [viewingImage, setViewingImage] = useState(false);
   const [viewingVideo, setViewingVideo] = useState(false);
 
-  const imageDims = c.kind === "image" ? fit(c.width, c.height) : undefined;
+  const imageDims = c.kind === "image" ? (c.sticker ? fitSticker(c.width, c.height) : fit(c.width, c.height)) : undefined;
+  // A sticker is fetched whole: the server's thumbnail of an animation is one still frame.
   const image = useMediaUrl(
     c.kind === "image" ? c.url : undefined,
-    imageDims ? { width: imageDims.width * 2, height: imageDims.height * 2, ...decryptOpts(c) } : {},
+    imageDims ? (c.kind === "image" && c.sticker ? decryptOpts(c) : { width: imageDims.width * 2, height: imageDims.height * 2, ...decryptOpts(c) }) : {},
   );
   const original = useMediaUrl(viewingImage && c.kind === "image" ? c.url : undefined, decryptOpts(c));
 

@@ -1,78 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon } from "./Icon.js";
+import { GROUPS } from "./emojiData.js";
+import { stickerColumns, stickerWidth } from "./stickerColumns.js";
 import { fontFamily, useTheme } from "./theme.js";
-
-/**
- * Emoji picker (Telegram-style): a grid grouped by category, with a recent row kept for the session.
- * Deliberately not a full Unicode catalog — a curated set that covers everyday chat.
- */
-const GROUPS: { id: string; label: string; emojis: string[] }[] = [
-  {
-    id: "smileys",
-    label: "Smileys",
-    emojis:
-      "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😗 😋 😛 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕".split(
-        " ",
-      ),
-  },
-  {
-    id: "people",
-    label: "People",
-    emojis:
-      "👋 🤚 🖐 ✋ 🖖 👌 🤏 ✌ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝ 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 👐 🤲 🤝 🙏 ✍ 💅 🤳 💪 🦾 👀 👁 👄 👶 🧑 👨 👩 🧓 👴 👵 🙋 🤦 🤷 👮 🕵 💁 🙅 🙆 💃 🕺 👯 🧑‍🤝‍🧑 👫 👭 👬 💏 💑 👪".split(
-        " ",
-      ),
-  },
-  {
-    id: "nature",
-    label: "Nature",
-    emojis:
-      "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🐛 🦋 🐌 🐞 🐜 🦗 🕷 🦂 🐢 🐍 🦎 🦖 🐙 🦑 🦀 🐠 🐟 🐡 🐬 🐳 🐋 🦈 🐊 🐅 🐆 🦓 🦍 🐘 🦏 🐪 🐫 🦒 🐄 🐎 🐖 🐏 🐑 🐐 🦌 🐕 🐩 🐈 🌵 🎄 🌲 🌳 🌴 🌱 🌿 ☘ 🍀 🎍 🍃 🍂 🍁 🍄 🌾 💐 🌷 🌹 🥀 🌺 🌸 🌼 🌻 🌞 🌝 🌛 🌜 🌚 🌕 🌙 ⭐ 🌟 ✨ ⚡ 🔥 💥 ❄ ☃ ⛄ 🌊 💧".split(
-        " ",
-      ),
-  },
-  {
-    id: "food",
-    label: "Food",
-    emojis:
-      "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🥦 🥒 🥕 🌽 🌶 🥔 🍠 🥐 🥯 🍞 🥖 🥨 🧀 🥚 🍳 🥞 🧇 🥓 🥩 🍗 🍖 🌭 🍔 🍟 🍕 🥪 🥙 🌮 🌯 🥗 🥘 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍙 🍚 🍘 🍥 🥠 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 ☕ 🍵 🍶 🍺 🍻 🥂 🍷 🥃 🍸 🍹 🧉 🍾".split(
-        " ",
-      ),
-  },
-  {
-    id: "objects",
-    label: "Objects",
-    emojis:
-      "⌚ 📱 💻 ⌨ 🖥 🖨 🖱 🕹 🎮 📷 📸 📹 🎥 🎞 📞 ☎ 📟 📠 📺 📻 🎙 🎚 🎛 ⏰ ⏱ ⏲ 🕰 ⌛ ⏳ 📡 🔋 🔌 💡 🔦 🕯 🧯 💸 💵 💰 💳 💎 ⚖ 🧰 🔧 🔨 ⚒ 🛠 ⛏ 🔩 ⚙ 🧱 ⛓ 🧲 🔫 💣 🧨 🔪 🗡 ⚔ 🛡 🚬 ⚰ 🏺 🔮 📿 🧿 💈 ⚗ 🔭 🔬 🕳 💊 💉 🩸 🧬 🦠 🧫 🧪 🌡 🧹 🧺 🧻 🚽 🚿 🛁 🧼 🪒 🧽 🧴 🛎 🔑 🗝 🚪 🪑 🛋 🛏 🖼 🛍 🎁 🎈 🎏 🎀 🎊 🎉 🎎 🏮 🎐 🧧 ✉ 📩 📨 📧 💌 📥 📤 📦 🏷 📪 📫 📬 📭 📮 📯 📜 📃 📄 📑 🧾 📊 📈 📉 🗒 🗓 📆 📅 🗑 📇 🗃 🗳 🗄 📋 📁 📂 🗂 🗞 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🧷 🔗 📎 🖇 📐 📏 🧮 📌 📍 ✂ 🖊 🖋 ✒ 🖌 🖍 📝 ✏ 🔍 🔎 🔏 🔐 🔒 🔓".split(
-        " ",
-      ),
-  },
-  {
-    id: "symbols",
-    label: "Symbols",
-    emojis:
-      "❤ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣ 💕 💞 💓 💗 💖 💘 💝 💟 ☮ ✝ ☪ 🕉 ☸ ✡ 🔯 🕎 ☯ ☦ 🛐 ⛎ ♈ ♉ ♊ ♋ ♌ ♍ ♎ ♏ ♐ ♑ ♒ ♓ 🆔 ⚛ 🕉 ✅ ☑ ✔ ✖ ❌ ❎ ➕ ➖ ➗ ➰ ➿ 〽 ✳ ✴ ❇ © ® ™ #️⃣ *️⃣ 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟 🔠 🔡 🔢 🔣 🔤 🅰 🆎 🅱 🆑 🅾 🆘 🆚 🈁 🔴 🔵 ⚫ ⚪ ⚠ 🚸 🔱 ⚜ 🔰 ♻ ✅ 🈯 💹 ❇ ✳ 💠 Ⓜ 🌀 💤 🏧 🚾 ♿ 🅿 🈳 🈂 🛂 🛃 🛄 🛅 🚹 🚺 🚼 🚻 🚮 🎦 📶 🈵".split(
-        " ",
-      ),
-  },
-  {
-    id: "travel",
-    label: "Travel",
-    emojis:
-      "🚗 🚕 🚙 🚌 🚎 🏎 🚓 🚑 🚒 🚐 🚚 🚛 🚜 🛴 🚲 🛵 🏍 🚨 🚔 🚍 🚘 🚖 🚡 🚠 🚟 🚃 🚋 🚞 🚝 🚄 🚅 🚈 🚂 🚆 🚇 🚊 🚉 ✈ 🛫 🛬 🛩 💺 🛰 🚀 🛸 🚁 🛶 ⛵ 🚤 🛥 🛳 ⛴ 🚢 ⚓ ⛽ 🚧 🚦 🚥 🚏 🗺 🗿 🗽 🗼 🏰 🏯 🏟 🎡 🎢 🎠 ⛲ ⛱ 🏖 🏝 🏜 🌋 ⛰ 🏔 🗻 🏕 ⛺ 🏠 🏡 🏘 🏚 🏗 🏭 🏢 🏬 🏣 🏤 🏥 🏦 🏨 🏪 🏫 🏩 💒 🏛 ⛪ 🕌 🕍 🛕 🕋 ⛩ 🛤 🛣 🗾 🎑 🏞 🌅 🌄 🌠 🎇 🎆 🌇 🌆 🏙 🌃 🌌 🌉 🌁".split(
-        " ",
-      ),
-  },
-  {
-    id: "activity",
-    label: "Activity",
-    emojis:
-      "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🏓 🏸 🥅 🏒 🏑 🥍 🏏 🥊 🥋 🎽 🛹 🛷 ⛸ 🥌 🎿 ⛷ 🏂 🏋 🤼 🤸 ⛹ 🤺 🤾 🏌 🏇 🧘 🏄 🏊 🤽 🚣 🧗 🚵 🚴 🏆 🥇 🥈 🥉 🏅 🎖 🏵 🎗 🎫 🎟 🎪 🤹 🎭 🩰 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🎷 🎺 🎸 🪕 🎻 🎲 ♟ 🎯 🎳 🎮 🎰 🧩".split(
-        " ",
-      ),
-  },
-];
 
 const RECENT_KEY = "ohmatrix.emoji.recent";
 
@@ -106,7 +37,16 @@ export function useRecentEmoji() {
 }
 
 /** Emoji grid. Rendered inside a Menu or a Dialog; `onPick` receives the emoji and closes it. */
-export function EmojiPicker(props: { onPick: (emoji: string) => void; recent: readonly string[]; searchLabel: string }) {
+export function EmojiPicker(props: {
+  onPick: (emoji: string) => void;
+  recent: readonly string[];
+  searchLabel: string;
+  /** A tab of stickers: what it shows is the caller's (the pack is theirs); `close` shuts the picker. */
+  stickers?: { label: string; render: (close: () => void) => ReactNode; grid: { tile: number; gap: number; pad: number; maxCols: number } } | undefined;
+  /** The room there is for the picker, in px: the stickers' columns are fewer when it cannot hold the most, and the picker is no wider than its columns. */
+  available?: number | undefined;
+  close?: (() => void) | undefined;
+}) {
   const { colors } = useTheme();
   const [group, setGroup] = useState(GROUPS[0]!.id);
   const [query, setQuery] = useState("");
@@ -114,6 +54,17 @@ export function EmojiPicker(props: { onPick: (emoji: string) => void; recent: re
   // No keyword table: filter by the group label and by the emoji itself, which is what the search box is for.
   const shown = query ? all.filter((e) => e.includes(query)) : group === "recent" ? [...props.recent] : (GROUPS.find((g) => g.id === group)?.emojis ?? []);
   const tabs = [...(props.recent.length ? [{ id: "recent", label: "🕘", emojis: [] as string[] }] : []), ...GROUPS];
+  // With stickers the picker is the sticker pane alone: no emoji groups, no search, no tab bar (emoji come from the keyboard).
+  if (props.stickers) {
+    const grid = props.stickers.grid;
+    // As many columns as fit (at most maxCols), the space between and around the tiles unchanged; the picker is exactly that wide.
+    const cols = stickerColumns(grid, props.available);
+    return (
+      <View style={{ width: stickerWidth(grid, cols), maxHeight: 400, backgroundColor: colors.bg, borderRadius: 14, overflow: "hidden" }}>
+        {props.stickers.render(() => props.close?.())}
+      </View>
+    );
+  }
   return (
     <View style={{ width: 320, maxHeight: 340, backgroundColor: colors.bg, borderRadius: 14, overflow: "hidden" }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingTop: 10 }}>
@@ -124,7 +75,16 @@ export function EmojiPicker(props: { onPick: (emoji: string) => void; recent: re
           placeholderTextColor={colors.textSecondary}
           accessibilityLabel={props.searchLabel}
           style={[
-            { flex: 1, height: 32, borderRadius: 16, paddingHorizontal: 12, backgroundColor: colors.bgSecondary, color: colors.text, fontFamily, fontSize: 14 },
+            {
+              flex: 1,
+              height: 32,
+              borderRadius: 16,
+              paddingHorizontal: 12,
+              backgroundColor: colors.bgSecondary,
+              color: colors.text,
+              fontFamily,
+              fontSize: 14,
+            },
             { outlineStyle: "none" } as object,
           ]}
         />
@@ -176,4 +136,4 @@ export function EmojiPicker(props: { onPick: (emoji: string) => void; recent: re
   );
 }
 
-export const ALL_EMOJI_GROUPS = GROUPS;
+export { ALL_EMOJI_GROUPS } from "./emojiData.js";

@@ -238,7 +238,11 @@ function Chat(props: ChatPaneProps) {
           }}
         />
       )}
-      {chosen ? <SelectionBar count={chosen.size} /> : <Composer {...composer.props} {...attachments.composerProps} />}
+      {chosen ? (
+        <SelectionBar count={chosen.size} />
+      ) : (
+        <Composer {...composer.props} {...attachments.composerProps} emojiOpen={attachments.emoji.open} onEmojiOpenChange={attachments.emoji.onChange} />
+      )}
       {attachments.dropping && <DropOverlay label={t("drop.hint")} />}
       {forwarding && (
         <ForwardDialog visible fromRoomId={props.roomId} eventIds={forwarding} onClose={() => setForwarding(null)} onSent={() => setChosen(null)} />

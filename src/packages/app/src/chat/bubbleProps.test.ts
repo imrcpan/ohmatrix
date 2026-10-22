@@ -20,6 +20,7 @@ const actions = (): RowActions => ({
   react: vi.fn(),
   pin: vi.fn(),
   forward: vi.fn(),
+  addSticker: vi.fn(),
   reply: vi.fn(),
   edit: vi.fn(),
   select: vi.fn(),
