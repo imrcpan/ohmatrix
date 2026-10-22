@@ -172,6 +172,8 @@ export interface AppController {
   searchMessages(opts: { term: string; roomId?: RoomId; from?: string }): Promise<SearchPage>;
   /** Open a chat and scroll to one of its messages (loading older history if needed). */
   openMessage(roomId: RoomId, eventId: string): void;
+  /** Some messages of a room by id, loaded or not (the pinned ones). */
+  fetchMessages(roomId: RoomId, eventIds: EventId[]): Promise<TimelineItem[]>;
   clearFocusEvent(): void;
   /** Room administration (name, topic, avatar, invitations, removal, roles). */
   roomAdmin: RoomAdminApi;
@@ -187,6 +189,8 @@ export interface AppController {
   blockUser(userId: string): Promise<void>;
   /** Subscribe to the chat-info data of a room. */
   subscribeRoomDetails(roomId: RoomId, cb: (d: RoomDetails) => void): () => void;
+  /** The messages pinned in a room, the newest last: now, and on every change. Only a room that shows them should be followed. */
+  subscribePins(roomId: RoomId, cb: (ids: EventId[]) => void): () => void;
   /** Leave (or delete, for one-to-one chats) a room and deselect it. */
   leaveRoom(roomId: RoomId): Promise<void>;
   /** Start (or reopen) a chat with a user, then select it. */
@@ -463,6 +467,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       select(roomId);
       set({ focusEvent: { roomId, eventId } });
     },
+    fetchMessages: (roomId, eventIds) => engine.messages.fetch(roomId, eventIds),
     clearFocusEvent: () => set({ focusEvent: null }),
     roomAdmin: engine.roomAdmin,
     paginateRoom: async (roomId) => {
@@ -473,6 +478,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     searchUsers: (term) => engine.users.search(term),
     blockUser: (userId) => engine.users.block(userId),
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
+    subscribePins: (roomId, cb) => engine.rooms.subscribePins(roomId, cb),
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);
       set((s) => ({

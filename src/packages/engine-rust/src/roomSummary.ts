@@ -22,6 +22,8 @@ export interface RoomInfoLike {
   isMarkedUnread: boolean;
   /** Muted: the user has chosen to be told of nothing in this room. */
   mutedByUser: boolean;
+  /** Messages pinned in the room, the newest last (not part of a list row: `subscribePins` follows them). */
+  pinnedEventIds?: string[] | undefined;
 }
 
 /** `bigint` counts as the numbers we use. A count too big for one is not a count anyone reads. */

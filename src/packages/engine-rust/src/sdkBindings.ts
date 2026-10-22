@@ -66,6 +66,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
     numUnreadMentions: i.numUnreadMentions,
     isMarkedUnread: i.isMarkedUnread,
     mutedByUser: i.cachedUserDefinedNotificationMode === b.RoomNotificationMode.Mute,
+    pinnedEventIds: i.pinnedEventIds,
   });
 
   const entryOf = (item: Ffi.TimelineItemLike): TimelineEntry => {
@@ -302,6 +303,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
   };
 
   const syncOf = (s: Ffi.SyncServiceLike): SdkSyncService => ({
+    subscribeToRooms: (ids) => call(() => s.roomListService().subscribeToRooms(ids)),
     start: () => call(() => s.start()),
     stop: () => call(() => s.stop()),
     onState: (cb) => task(s.state({ onUpdate: (st) => cb(nameOf(b.SyncServiceState as unknown as Record<number, string>, st) as Parameters<typeof cb>[0]) })),

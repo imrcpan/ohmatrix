@@ -48,6 +48,8 @@ export interface SyncApi {
 }
 
 export interface RoomListApi {
+  /** The messages pinned in a room (`m.room.pinned_events`), the newest last: emits now and whenever they change. Follow only the rooms that show them. */
+  subscribePins(roomId: RoomId, cb: Listener<EventId[]>): Unsubscribe;
   /** Immediately emits a `reset` with the current list, then incremental updates. */
   subscribe(cb: Listener<ListUpdate<RoomSummary>[]>): Unsubscribe;
   /** Join a room I was invited to. */
@@ -126,6 +128,8 @@ export interface SpacesApi {
 export interface MessagesApi {
   /** Copy a message's content into another room ("forward"), keeping attachments. */
   forward(params: { fromRoomId: RoomId; eventId: EventId; toRoomId: RoomId }): Promise<void>;
+  /** Read some messages of a room by their ids, whether or not the chat has them loaded (the pinned ones). Those that cannot be read are left out. */
+  fetch(roomId: RoomId, eventIds: EventId[]): Promise<TimelineItem[]>;
 }
 
 export interface SecurityApi {
