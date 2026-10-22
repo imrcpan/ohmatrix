@@ -32,6 +32,13 @@ import {
 } from "@ohmatrix/core";
 
 /** A page that slides in over the chat info: the shared media, all the members, all the banned people. */
+/** The person whose page is open over the chat info, and where it was opened from (the way back: the chat itself, the list of members, or the chat info). */
+export interface ViewedMember {
+  userId: UserId;
+  name: string;
+  from: "chat" | "members" | null;
+}
+
 export type InfoPage = "media" | "members" | "banned" | "member";
 
 export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "logs";
@@ -81,6 +88,8 @@ export interface AppState {
   roomInfoOpen: boolean;
   /** The page that slides in over the open room's chat info, if one is open. It closes with the info panel and with the room. */
   infoPage: InfoPage | null;
+  /** Whose page `infoPage === "member"` shows. Kept after the page is closed, so it can slide out with its content. */
+  member: ViewedMember | null;
   /** A message to scroll to once its chat is open (set by search results). */
   focusEvent: { roomId: RoomId; eventId: string } | null;
 }
@@ -149,6 +158,10 @@ export interface AppController {
   openRoomInfo(open: boolean): void;
   /** Open a page over the open room's chat info, or close it with null; there is one only while the chat info is open. */
   openInfoPage(page: InfoPage | null): void;
+  /** Open a person's page over the chat info (opening the chat info if it is closed). */
+  openMember(member: ViewedMember): void;
+  /** Leave a person's page, back to where it was opened from. */
+  closeMember(): void;
   selectRoom(roomId: RoomId | null): void;
   acceptInvite(roomId: RoomId): Promise<void>;
   declineInvite(roomId: RoomId): Promise<void>;
@@ -246,11 +259,17 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     sidebarPage: "chats",
     roomInfoOpen: false,
     infoPage: null,
+    member: null,
     focusEvent: null,
     spaceId: null,
     spaceInfoOpen: false,
   }));
   const set = store.setState;
+  const leaveMember = () => {
+    const from = store.getState().member?.from ?? null;
+    if (from === "chat") set({ roomInfoOpen: false, infoPage: null });
+    else set({ infoPage: from });
+  };
   const needVerification = () => {
     if (!engine.verification) throw new EngineError("unsupported", "this app cannot verify yet");
     return engine.verification;
@@ -413,6 +432,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     back() {
       const s = store.getState();
       if (s.spaceInfoOpen) set({ spaceInfoOpen: false });
+      else if (s.infoPage === "member") leaveMember();
       else if (s.infoPage) set({ infoPage: null });
       else if (s.roomInfoOpen) set({ roomInfoOpen: false });
       else if (s.selectedRoomId !== null) select(null);
@@ -427,6 +447,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         roomInfoOpen: roomInfoOpen && s.selectedRoomId !== null,
         ...(roomInfoOpen ? { spaceInfoOpen: false } : { infoPage: null }),
       })),
+    openMember: (member) => set((s) => (s.selectedRoomId === null ? {} : { member, roomInfoOpen: true, spaceInfoOpen: false, infoPage: "member" })),
+    closeMember: () => leaveMember(),
     openInfoPage: (infoPage) => set((s) => ({ infoPage: s.roomInfoOpen ? infoPage : null })),
     selectRoom: select,
     async acceptInvite(roomId) {

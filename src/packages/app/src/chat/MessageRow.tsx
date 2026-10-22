@@ -18,7 +18,7 @@ import {
   useTheme,
   type Run,
 } from "@ohmatrix/ui";
-import { useAppState, useLocale, useServices, useT } from "../context.js";
+import { useAppState, useController, useLocale, useServices, useT } from "../context.js";
 import { PhotoViewer } from "../PhotoViewer.js";
 import { bubbleProps } from "./bubbleProps.js";
 import { QUICK_REACTIONS, type RowActions } from "./rowActions.js";
@@ -48,6 +48,7 @@ export function MessageRow(props: {
   const t = useT();
   const locale = useLocale();
   const services = useServices();
+  const controller = useController();
   const media = useMessageMedia(m);
   const { colors } = useTheme();
   const choosing = useSelection();
@@ -159,7 +160,19 @@ export function MessageRow(props: {
           />
         </>
       )}
-      {showAvatar && (props.last ? <Avatar id={m.sender} name={m.senderName} size={AVATAR} src={media.avatar} /> : <View style={{ width: AVATAR }} />)}
+      {showAvatar &&
+        (props.last ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={m.senderName}
+            disabled={choosing.active}
+            onPress={() => controller.openMember({ userId: m.sender, name: m.senderName, from: "chat" })}
+          >
+            <Avatar id={m.sender} name={m.senderName} size={AVATAR} src={media.avatar} />
+          </Pressable>
+        ) : (
+          <View style={{ width: AVATAR }} />
+        ))}
       <View style={{ maxWidth: "78%", alignItems: m.isOwn ? "flex-end" : "flex-start" }}>
         {/* The bubble opens the context menu but is read, not clicked: show the text cursor, not the hand (nested buttons such as quotes and files keep theirs). */}
         <Pressable

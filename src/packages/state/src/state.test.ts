@@ -256,6 +256,43 @@ test("back steps out of one layer at a time, topmost first, and says when there 
   expect(app.back()).toBe(false);
 });
 
+test("a person's page opens over the chat info from the chat, the members or the info itself, and leads back to where it came from", async () => {
+  const app = createAppController(new MockEngine(), { sessionStore: memoryStore() });
+  await app.bootstrap();
+  await app.login("http://localhost:8008", "test", "123456");
+  const st = () => app.store.getState();
+  const bob = { userId: "@bob:example.org", name: "Bob" };
+
+  // From a picture in the chat: the info opens with the page on top, and leaving goes back to the chat, not to the info.
+  app.selectRoom("!general:example.org");
+  app.openMember({ ...bob, from: "chat" });
+  expect(st()).toMatchObject({ roomInfoOpen: true, infoPage: "member", member: { userId: bob.userId } });
+  expect(app.back()).toBe(true);
+  expect(st()).toMatchObject({ roomInfoOpen: false, infoPage: null, selectedRoomId: "!general:example.org" });
+
+  // From the list of members: back to the list, then to the info, then the chat.
+  app.openRoomInfo(true);
+  app.openInfoPage("members");
+  app.openMember({ ...bob, from: "members" });
+  app.closeMember();
+  expect(st().infoPage).toBe("members");
+  app.openMember({ ...bob, from: "members" });
+  expect(app.back()).toBe(true);
+  expect(st().infoPage).toBe("members");
+  expect(app.back()).toBe(true);
+  expect(st()).toMatchObject({ infoPage: null, roomInfoOpen: true });
+
+  // From the info itself: back to the info.
+  app.openMember({ ...bob, from: null });
+  app.closeMember();
+  expect(st()).toMatchObject({ infoPage: null, roomInfoOpen: true });
+
+  // With no chat open there is nothing to open it over.
+  app.selectRoom(null);
+  app.openMember({ ...bob, from: "chat" });
+  expect(st().infoPage).toBeNull();
+});
+
 const savedSession: Session = { homeserver: "https://chat.example.org", userId: "@test:chat.example.org", deviceId: "D", accessToken: "t" };
 
 test("with no network a saved session stays signed in and the sync state tells; the cache is shown", async () => {
