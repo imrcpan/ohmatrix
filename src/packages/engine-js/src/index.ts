@@ -57,6 +57,7 @@ import {
   resolveHomeserver,
   reuseRooms,
 } from "@ohmatrix/core";
+import { JsVerification } from "./verification.js";
 import { nameOf, notificationPreview, pinnedIds, roomItems, stripReplyFallback, toRoomSummary, toTimelineItem, typingNames, firstUrls } from "./convert.js";
 import { decryptAttachment, encryptAttachment, type EncryptedFile } from "./attachments.js";
 import { probeMedia, type Probe } from "./probe.js";
@@ -251,6 +252,10 @@ export class JsSdkEngine implements MatrixEngine {
   constructor(private options: JsSdkEngineOptions = {}) {}
 
   readonly security = this.security_;
+  readonly verification = new JsVerification(
+    () => this.client,
+    (userId) => this.rooms.createDirect(userId),
+  );
 
   private client: MatrixClient | null = null;
   private syncListeners = new Set<Listener<SyncState>>();
@@ -267,6 +272,7 @@ export class JsSdkEngine implements MatrixEngine {
 
   private attach(client: MatrixClient) {
     this.client = client;
+    this.verification.attach(client);
     this.lastRooms = []; // a new client is a new account or device: nothing of the old list is reused
     const schedule = () => this.scheduleRoomEmit();
     this.caughtUp = false;

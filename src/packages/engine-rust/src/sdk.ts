@@ -9,6 +9,7 @@
 import type { EventItemLike } from "./timelineItem.js";
 import type { RoomInfoLike } from "./roomSummary.js";
 import type { RawSecurity } from "./security.js";
+import type { SdkVerification } from "./verification.js";
 
 export interface SdkSession {
   accessToken: string;
@@ -229,6 +230,8 @@ export interface SdkClient {
   setDisplayName(name: string): Promise<void>;
   setAvatar(mimeType: string, data: ArrayBuffer): Promise<void>;
   security(): SdkSecurity;
+  /** The verification of sessions and people; reading it needs the network, and incoming requests arrive while the client syncs. */
+  verification(): Promise<SdkVerification>;
   /** Search message text in one room, or in all of them. */
   search(term: string, roomId?: string): SdkSearch;
   /**

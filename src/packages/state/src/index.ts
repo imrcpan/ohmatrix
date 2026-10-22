@@ -28,6 +28,7 @@ import {
   type SyncState,
   type TimelineItem,
   type UserId,
+  type VerificationFlow,
 } from "@ohmatrix/core";
 
 /** A page that slides in over the chat info: the shared media, all the members, all the banned people. */
@@ -56,6 +57,8 @@ export interface AppState {
   homeserver: string | null;
   syncState: SyncState;
   security: SecurityState;
+  /** The verification in progress (a request from another device arrives here too), if any. */
+  verification: VerificationFlow | null;
   profile: Profile | null;
   rooms: RoomSummary[];
   timelines: Record<RoomId, TimelineItem[]>;
@@ -189,6 +192,21 @@ export interface AppController {
   /** Join a room by id or alias, then select it. */
   joinRoom(idOrAlias: string): Promise<void>;
   /** Create encryption keys; resolves with the recovery key to show the user exactly once. */
+  /** Whether this engine can verify sessions and people. */
+  canVerify: boolean;
+  /** Ask another session of mine to verify this one. */
+  verifySession(): Promise<void>;
+  /** Ask a person to verify each other. */
+  verifyUser(userId: UserId): Promise<void>;
+  /** Accept a verification request that came in. */
+  acceptVerification(): Promise<void>;
+  /** The pictures are the same on both devices / they differ. */
+  confirmVerification(): Promise<void>;
+  mismatchVerification(): Promise<void>;
+  /** Stop the verification, or turn a request down. */
+  cancelVerification(): Promise<void>;
+  /** Close a finished verification. */
+  dismissVerification(): void;
   setUpEncryption(password: string): Promise<string>;
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
   openRoom(roomId: RoomId): OpenRoom;
@@ -218,6 +236,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     homeserver: null,
     syncState: "stopped",
     security: "unavailable",
+    verification: null,
     profile: null,
     rooms: [],
     timelines: {},
@@ -232,9 +251,14 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     spaceInfoOpen: false,
   }));
   const set = store.setState;
+  const needVerification = () => {
+    if (!engine.verification) throw new EngineError("unsupported", "this app cannot verify yet");
+    return engine.verification;
+  };
   const offs = [
     engine.sync.onState((syncState) => set({ syncState })),
     engine.security.onState((security) => set({ security })),
+    ...(engine.verification ? [engine.verification.onFlow((verification) => set({ verification }))] : []),
     engine.profile.subscribe((profile) => set({ profile })),
     engine.rooms.subscribe((updates) => set((s) => ({ rooms: applyUpdates(s.rooms, updates) }))),
   ];
@@ -457,6 +481,14 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     async joinRoom(idOrAlias) {
       select(await engine.rooms.joinRoom(idOrAlias));
     },
+    canVerify: !!engine.verification,
+    verifySession: () => needVerification().requestSession(),
+    verifyUser: (userId) => needVerification().requestUser(userId),
+    acceptVerification: () => needVerification().accept(),
+    confirmVerification: () => needVerification().confirm(),
+    mismatchVerification: () => needVerification().mismatch(),
+    cancelVerification: () => needVerification().cancel(),
+    dismissVerification: () => engine.verification?.dismiss(),
     setUpEncryption: async (password) => (await engine.security.setUp({ password })).recoveryKey,
     restoreWithRecoveryKey: (key) => engine.security.restoreWithRecoveryKey(key),
     forwardMessage: (fromRoomId, eventId, toRoomId) => engine.messages.forward({ fromRoomId, eventId, toRoomId }),

@@ -19,6 +19,7 @@ import type {
   UserId,
   RoomSummary,
   SecurityState,
+  VerificationFlow,
   Session,
   SyncState,
   TimelineItem,
@@ -135,6 +136,26 @@ export interface SecurityApi {
   setUp(opts: { password: string }): Promise<{ recoveryKey: string }>;
   /** Unlock secret storage with the recovery key, import cross-signing secrets and restore the key backup. */
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
+}
+
+/** Verifying a session of mine, or another person, by comparing pictures on two devices. */
+export interface VerificationApi {
+  /** Emits the verification in progress (null when there is none): immediately, then on every change. Requests from other devices arrive here. */
+  onFlow(cb: Listener<VerificationFlow | null>): Unsubscribe;
+  /** Ask another session of mine to verify this one. */
+  requestSession(): Promise<void>;
+  /** Ask a person to verify each other. */
+  requestUser(userId: UserId): Promise<void>;
+  /** Accept a request that came in. */
+  accept(): Promise<void>;
+  /** The pictures are the same on both devices. */
+  confirm(): Promise<void>;
+  /** The pictures differ. */
+  mismatch(): Promise<void>;
+  /** Stop it (also how a request that came in is turned down). */
+  cancel(): Promise<void>;
+  /** Forget a finished verification (done, cancelled or failed) so the screen closes. */
+  dismiss(): void;
 }
 
 export interface ProfileApi {
@@ -287,6 +308,8 @@ export interface MatrixEngine {
   readonly messages: MessagesApi;
   readonly spaces: SpacesApi;
   readonly security: SecurityApi;
+  /** Absent in an engine that cannot verify yet. */
+  readonly verification?: VerificationApi;
   readonly profile: ProfileApi;
   readonly devices: DevicesApi;
   readonly roomAdmin: RoomAdminApi;
