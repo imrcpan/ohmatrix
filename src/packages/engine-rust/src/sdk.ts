@@ -199,6 +199,11 @@ export interface SdkSyncService {
   onState(cb: (state: "Idle" | "Running" | "Terminated" | "Error" | "Offline") => void): SdkTask;
   /** The chat list: the rooms in order, as the SDK delivers them. Resolves once subscribed. */
   rooms(cb: (changes: ListChange<SdkRoom>[]) => void): Promise<SdkTask & { loadMore(): void }>;
+  /**
+   * Follow these rooms closely (the ones open on screen); the earlier choice is forgotten. The list alone does not carry everything of
+   * a room, such as its pinned messages: a followed room does.
+   */
+  subscribeToRooms(roomIds: string[]): Promise<void>;
 }
 
 export interface SdkClient {

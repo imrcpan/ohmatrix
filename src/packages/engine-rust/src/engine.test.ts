@@ -176,6 +176,10 @@ class FakeSync implements SdkSyncService {
   stateCb: ((s: "Idle" | "Running" | "Terminated" | "Error" | "Offline") => void) | null = null;
   started = 0;
   stopped = 0;
+  followed: string[][] = [];
+  async subscribeToRooms(ids: string[]) {
+    this.followed.push(ids);
+  }
   async start() {
     this.started++;
   }
@@ -511,6 +515,52 @@ test("a room that is left is no longer listed", async () => {
   r.infoCb!(r.roomInfo);
   await tickMany();
   expect(list).toHaveLength(0);
+});
+
+test("pins: the server's answer shows at once and what was known is shown first next time; a change in the SDK's view asks again; following lasts while someone watches", async () => {
+  let pinned: string[] = ["$0"];
+  const asked: string[] = [];
+  const { engine, client } = make(async (url) => {
+    if (url.includes("/state/m.room.pinned_events/")) asked.push(url);
+    return { ok: true, status: 200, json: async () => ({ pinned }) };
+  });
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!a"));
+  client.rooms.set("!a", room);
+  await engine.sync.start();
+  const followed = client.sync.followed;
+  followed.length = 0;
+  const seen: string[][] = [];
+  const stop = engine.rooms.subscribePins("!a", (ids) => seen.push(ids));
+  await tickMany();
+  expect(seen).toEqual([["$0"]]); // from the server, without the SDK having said anything
+  expect(followed.at(-1)).toEqual(["!a"]);
+  expect(asked).toHaveLength(1);
+  // The SDK says they changed: the server is asked again, once, however often it says it.
+  pinned = ["$1", "$2"];
+  room.roomInfo = info("!a", { pinnedEventIds: ["$1", "$2"] });
+  room.infoCb!(room.roomInfo);
+  room.infoCb!(room.roomInfo);
+  await tickMany();
+  expect(seen).toEqual([["$0"], ["$1", "$2"]]);
+  expect(asked).toHaveLength(2);
+  // My own pin and unpin show as soon as the server has taken them, without the SDK saying anything.
+  const tl = engine.openTimeline("!a");
+  pinned = ["$1", "$2", "$9"];
+  await tl.pin("$9", true);
+  expect(seen.at(-1)).toEqual(["$1", "$2", "$9"]);
+  pinned = ["$2", "$9"];
+  await tl.pin("$1", false);
+  expect(seen.at(-1)).toEqual(["$2", "$9"]);
+  tl.close();
+  pinned = ["$1", "$2"];
+  stop();
+  await tickMany();
+  expect(followed.at(-1)).toEqual([]);
+  // Watched again: what was known last is shown straight away, before the server answers.
+  const again: string[][] = [];
+  engine.rooms.subscribePins("!a", (ids) => again.push(ids))();
+  expect(again[0]).toEqual(["$2", "$9"]);
 });
 
 test("a timeline shows the events and not the dividers the SDK puts between them; new ones arrive as changes", async () => {
@@ -888,6 +938,20 @@ test("forwarding sends the message's content to the other room", async () => {
   await engine.messages.forward({ fromRoomId: "!a", eventId: "$1", toRoomId: "!b" });
   expect(to.calls).toEqual([["sendRaw", "m.room.message", JSON.stringify({ msgtype: "m.text", body: "hello" })]]);
   await expect(engine.messages.forward({ fromRoomId: "!a", eventId: "$nope", toRoomId: "!b" })).rejects.toBeDefined();
+});
+
+test("fetching messages by id reads the ones the room has, in order, and leaves out the ones it cannot", async () => {
+  const { engine, client } = make();
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!a"));
+  client.rooms.set("!a", room);
+  room.timelineObj.items.set("$1", event("$1", "first"));
+  room.timelineObj.items.set("$2", event("$2", "second"));
+  const got = await engine.messages.fetch("!a", ["$2", "$gone", "$1"]);
+  expect(got.map((m) => [m.id, m.content])).toEqual([
+    ["$2", expect.objectContaining({ kind: "text", body: "second" })],
+    ["$1", expect.objectContaining({ kind: "text", body: "first" })],
+  ]);
 });
 
 test("searching: batches page through one search, rooms are named, an unknown page is empty", async () => {

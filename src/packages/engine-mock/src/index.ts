@@ -146,6 +146,7 @@ export class MockEngine implements MatrixEngine {
     forward: async (): Promise<void> => {
       throw new EngineError("unsupported", "mock cannot forward");
     },
+    fetch: async (): Promise<TimelineItem[]> => [],
   };
 
   readonly rooms = {
@@ -161,6 +162,10 @@ export class MockEngine implements MatrixEngine {
     setPinned: async () => {},
     setMarkedUnread: async () => {},
     markRead: async (roomId: string) => this.markRead(roomId),
+    subscribePins: (_roomId: string, cb: Listener<string[]>) => {
+      cb([]);
+      return () => {};
+    },
     subscribeDetails: (roomId: string, cb: Listener<import("@ohmatrix/core").RoomDetails>) => {
       const r = this.roomData.get(roomId);
       if (r)

@@ -346,8 +346,10 @@ export function roomItems(client: MatrixClient, room: Room): TimelineItem[] {
 
 /** Event ids pinned in `room` (m.room.pinned_events). */
 export function pinnedIds(room: Room | null): string[] {
-  const c = room?.currentState.getStateEvents(EventType.RoomPinnedEvents, "")?.getContent() as { events?: unknown } | undefined;
-  return Array.isArray(c?.events) ? c!.events!.filter((e): e is string => typeof e === "string") : [];
+  const c = room?.currentState.getStateEvents(EventType.RoomPinnedEvents, "")?.getContent() as { pinned?: unknown; events?: unknown } | undefined;
+  // `pinned` is what the spec and the other clients write; `events` is what this app wrote before, still read so that old pins show.
+  const list = Array.isArray(c?.pinned) ? c!.pinned : c?.events;
+  return Array.isArray(list) ? list.filter((e): e is string => typeof e === "string") : [];
 }
 
 const isPinned = (room: Room | null, eventId: string) => pinnedIds(room).includes(eventId);

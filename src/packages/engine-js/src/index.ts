@@ -42,6 +42,7 @@ import {
   type RoomDetails,
   type RoomMember,
   type Listener,
+  type Unsubscribe,
   type ListUpdate,
   type MatrixEngine,
   type RoomId,
@@ -910,6 +911,29 @@ export class JsSdkEngine implements MatrixEngine {
    * room) and re-uploaded into the target room, so its own encryption keys apply.
    */
   readonly messages = {
+    fetch: (roomId: string, eventIds: string[]) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const room = c.getRoom(roomId);
+        const out: TimelineItem[] = [];
+        for (const id of eventIds) {
+          try {
+            // The loaded copy when there is one; otherwise it is asked for (and decrypted) here.
+            let ev = room?.findEventById(id);
+            if (!ev) {
+              ev = c.getEventMapper()(await c.fetchRoomEvent(roomId, id));
+              const sender = ev.getSender();
+              if (sender && room) ev.sender = room.getMember(sender);
+              if (ev.isEncrypted()) await c.decryptEventIfNeeded(ev).catch(() => {});
+            }
+            const item = toTimelineItem(c, ev);
+            if (item) out.push(item);
+          } catch {
+            /* gone, or not readable: left out */
+          }
+        }
+        return out;
+      }),
     forward: (params: { fromRoomId: string; eventId: string; toRoomId: string }) =>
       guard(async () => {
         const client = this.requireClient();
@@ -1160,6 +1184,25 @@ export class JsSdkEngine implements MatrixEngine {
           await c.setRoomAccountData(roomId, "m.marked_unread" as never, { unread: false } as never);
         }
       }),
+    subscribePins: (roomId: RoomId, cb: Listener<string[]>): Unsubscribe => {
+      const c = this.requireClient();
+      const room = c.getRoom(roomId);
+      if (!room) throw new EngineError("not_found", `unknown room ${roomId}`);
+      let last: string | null = null;
+      const emit = () => {
+        const ids = pinnedIds(room);
+        const key = ids.join("\n");
+        if (key === last) return;
+        last = key;
+        cb(ids);
+      };
+      const onState = (ev: MatrixEvent) => {
+        if (ev.getRoomId() === roomId && ev.getType() === EventType.RoomPinnedEvents) emit();
+      };
+      c.on(RoomStateEvent.Events, onState);
+      emit();
+      return () => void c.off(RoomStateEvent.Events, onState);
+    },
     subscribeDetails: (roomId: RoomId, cb: Listener<RoomDetails>) => {
       const c = this.requireClient();
       const room = c.getRoom(roomId);
@@ -1682,7 +1725,7 @@ export class JsSdkEngine implements MatrixEngine {
           const state = room.currentState;
           const current = pinnedIds(room);
           const next = pinned ? [...current.filter((e) => e !== eventId), eventId] : current.filter((e) => e !== eventId);
-          await client.sendStateEvent(roomId, EventType.RoomPinnedEvents as never, { events: next } as never, "");
+          await client.sendStateEvent(roomId, EventType.RoomPinnedEvents as never, { pinned: next } as never, "");
           void state; // the room's own state event updates pinnedIds for the next conversion pass
         }),
       react: (eventId, key) =>

@@ -39,6 +39,7 @@ import { listDevices, removeDevices, type Account, type Fetch } from "./devices.
 import { attachmentKind, forwardContent, pathOf } from "./forward.js";
 import { personName } from "./serviceText.js";
 import type { EventRef, LatestEvent, Sdk, SdkClient, SdkRoom, SdkSearch, SdkSyncService, SdkTask, SdkTimeline, TimelineEntry } from "./sdk.js";
+import { readPinned } from "./pins.js";
 import { securityStateOf } from "./security.js";
 import { flowAfter, outgoing, type SdkVerification } from "./verification.js";
 import { toRoomDetails } from "./roomDetails.js";
@@ -133,6 +134,9 @@ export class RustEngineCore implements MatrixEngine {
     this.roomsTask?.cancel();
     this.roomsTask = null;
     this.syncService = null;
+    this.followed.clear();
+    this.pins.clear();
+    this.pinWatchers.clear();
     this.client?.releaseMedia?.();
     this.client = null;
     this.rooms_ = new RoomList();
@@ -220,6 +224,7 @@ export class RustEngineCore implements MatrixEngine {
         this.tasks.push(s.onState((st) => this.setSync(SYNC_STATE[st] ?? "error")));
         this.roomsTask ??= await s.rooms((changes) => this.onRoomChanges(changes));
         await s.start();
+        void this.follow();
       }),
     stop: () => guard(async () => void (await this.syncService?.stop())),
     onState: (cb) => {
@@ -289,6 +294,25 @@ export class RustEngineCore implements MatrixEngine {
     this.noticeListeners.forEach((cb) => cb(note));
   }
 
+  /** The pinned messages of each room as last known, so that opening it again shows them at once. */
+  private readonly pins = new Map<string, string[]>();
+
+  /** The rooms that something is following closely, counted (two things may follow one room). */
+  private readonly followed = new Map<string, number>();
+
+  /**
+   * Tell the SDK which rooms to follow closely: the list alone does not bring everything of a room (its pinned messages), a followed room
+   * does. `room` and `by` change the count of one room; without them the SDK is told again what is already followed (after a sync start).
+   */
+  private follow(room?: string, by = 0): Promise<void> {
+    if (room !== undefined) {
+      const n = (this.followed.get(room) ?? 0) + by;
+      if (n > 0) this.followed.set(room, n);
+      else this.followed.delete(room);
+    }
+    return (this.syncService?.subscribeToRooms([...this.followed.keys()]) ?? Promise.resolve()).catch(() => {});
+  }
+
   private readonly noticeListeners = new Set<Listener<IncomingNotification>>();
 
   /**
@@ -309,6 +333,54 @@ export class RustEngineCore implements MatrixEngine {
   }
 
   readonly rooms = {
+    subscribePins: (roomId: string, cb: Listener<string[]>): Unsubscribe => {
+      const room = this.room(roomId);
+      let live = true;
+      let last: string | null = null;
+      const show = (ids: string[]) => {
+        const key = ids.join("\n");
+        if (!live || key === last) return;
+        last = key;
+        this.pins.set(roomId, ids);
+        cb(ids);
+      };
+      // What was known last time is shown at once; the server is asked for the truth, so the bar does not wait for the SDK to bring it.
+      const known = this.pins.get(roomId);
+      if (known) show(known);
+      const ask = () => void readPinned(this.fetch(), this.account(), roomId).then(show, () => {});
+      ask();
+      // Our own pin or unpin: shown at once from what is known, and the server confirms.
+      const mine = (change: { eventId: string; pinned: boolean }) => {
+        const now = (this.pins.get(roomId) ?? []).filter((id) => id !== change.eventId);
+        show(change.pinned ? [...now, change.eventId] : now);
+        ask();
+      };
+      const watchers = this.pinWatchers.get(roomId) ?? new Set();
+      watchers.add(mine);
+      this.pinWatchers.set(roomId, watchers);
+      // The SDK's own view says when they change: its list is empty until it follows the room, so only a change of it counts, and the server is asked again.
+      let seen: string | null = null;
+      const task = room.onInfo(() => {
+        void room
+          .info()
+          .then((info) => {
+            const key = (info.pinnedEventIds ?? []).join("\n");
+            if (key === seen) return;
+            const first = seen === null;
+            seen = key;
+            if (!first || key) ask();
+          })
+          .catch(() => {});
+      });
+      void this.follow(roomId, 1);
+      return () => {
+        live = false;
+        task.cancel();
+        watchers.delete(mine);
+        if (!watchers.size) this.pinWatchers.delete(roomId);
+        void this.follow(roomId, -1);
+      };
+    },
     subscribe: (cb: Listener<ListUpdate<RoomSummary>[]>): Unsubscribe => {
       this.roomListeners.add(cb);
       cb([{ op: "reset", items: this.rooms_.list() }]);
@@ -450,6 +522,24 @@ export class RustEngineCore implements MatrixEngine {
           const content = forwardContent(item);
           if (!content) throw new EngineError("unsupported", "This message cannot be forwarded");
           await this.room(p.toRoomId).sendRaw("m.room.message", JSON.stringify(content));
+        } finally {
+          from.close();
+        }
+      }),
+    fetch: (roomId: string, eventIds: string[]) =>
+      guard(async () => {
+        const me = this.need().userId();
+        const from = new RustTimeline(this.room(roomId), roomId, me);
+        try {
+          const out: TimelineItem[] = [];
+          for (const id of eventIds) {
+            const item = await from.item(id).then(
+              (e) => toTimelineItem(e, roomId, me),
+              () => null,
+            );
+            if (item) out.push(item);
+          }
+          return out;
         } finally {
           from.close();
         }
@@ -829,7 +919,14 @@ export class RustEngineCore implements MatrixEngine {
 
   openTimeline(roomId: string): TimelineHandle {
     const room = this.room(roomId);
-    return new RustTimeline(room, roomId, this.need().userId());
+    return new RustTimeline(room, roomId, this.need().userId(), (eventId, pinned) => this.pinned(roomId, eventId, pinned));
+  }
+
+  /** Those showing a room's pins hear of a pin or an unpin the moment the server has taken it, not when the SDK next syncs. */
+  private readonly pinWatchers = new Map<string, Set<(change: { eventId: string; pinned: boolean }) => void>>();
+
+  private pinned(roomId: string, eventId: string, pinned: boolean) {
+    this.pinWatchers.get(roomId)?.forEach((w) => w({ eventId, pinned }));
   }
 }
 
@@ -900,6 +997,8 @@ class RustTimeline implements TimelineHandle {
     private readonly room: SdkRoom,
     private readonly roomId: string,
     private readonly me: string,
+    /** Told when a pin or an unpin has been accepted by the server. */
+    private readonly onPin?: (eventId: string, pinned: boolean) => void,
   ) {
     this.timeline = room.timeline();
     this.task = this.timeline.then((t) => t.onChanges((changes) => this.onChanges(changes)));
@@ -992,7 +1091,11 @@ class RustTimeline implements TimelineHandle {
   resend = (_id: string) => guard(() => this.room.retrySending());
   discard = (id: string) => void this.redact(id).catch(() => {});
   reply = (eventId: string, body: string, mentions?: string[]) => guard(async () => (await this.timeline).reply(eventId, body, mentions));
-  pin = (eventId: string, pinned: boolean) => guard(async () => (await this.timeline).pin(eventId, pinned));
+  pin = (eventId: string, pinned: boolean) =>
+    guard(async () => {
+      await (await this.timeline).pin(eventId, pinned);
+      this.onPin?.(eventId, pinned);
+    });
   react = (eventId: string, key: string) => guard(async () => (await this.timeline).react(this.refOf(eventId), key));
 
   close() {
