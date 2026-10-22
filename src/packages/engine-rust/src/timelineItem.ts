@@ -31,7 +31,7 @@ interface Extras {
 
 export type ItemContent =
   | ({ type: "text"; body: string; formattedBody?: string | undefined } & Extras)
-  | ({ type: "image"; url: string; width?: number; height?: number; body: string; mimeType?: string; encryption?: string } & Extras)
+  | ({ type: "image"; url: string; width?: number; height?: number; body: string; mimeType?: string; encryption?: string; sticker?: boolean } & Extras)
   | ({ type: "file"; url: string; name: string; size?: number; mimeType?: string; encryption?: string } & Extras)
   | ({
       type: "video";

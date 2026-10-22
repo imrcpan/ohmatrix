@@ -234,6 +234,8 @@ export interface SdkClient {
   userProfile(userId: string): Promise<RawProfile>;
   setDisplayName(name: string): Promise<void>;
   setAvatar(mimeType: string, data: ArrayBuffer): Promise<void>;
+  /** Put a file on the media repository as it is (no encryption) and resolve with its `mxc://` address. */
+  uploadMedia(mimeType: string, data: ArrayBuffer): Promise<string>;
   security(): SdkSecurity;
   /** The verification of sessions and people; reading it needs the network, and incoming requests arrive while the client syncs. */
   verification(): Promise<SdkVerification>;

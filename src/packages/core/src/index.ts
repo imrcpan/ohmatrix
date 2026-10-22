@@ -9,3 +9,5 @@ export * from "./platform.js";
 export * from "./log.js";
 export * from "./accounts.js";
 export * from "./discovery.js";
+export * from "./stickerPack.js";
+export * from "./stickerGroups.js";

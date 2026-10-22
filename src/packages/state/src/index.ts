@@ -22,6 +22,8 @@ import {
   type RoomId,
   type RoomSummary,
   type SpaceChild,
+  type Sticker,
+  type StickerGroup,
   type MediaKind,
   type SharedMediaPage,
   type SecurityState,
@@ -191,6 +193,19 @@ export interface AppController {
   subscribeRoomDetails(roomId: RoomId, cb: (d: RoomDetails) => void): () => void;
   /** The messages pinned in a room, the newest last: now, and on every change. Only a room that shows them should be followed. */
   subscribePins(roomId: RoomId, cb: (ids: EventId[]) => void): () => void;
+  /** My stickers: now, and after every change. */
+  subscribeStickers(cb: (stickers: Sticker[]) => void): () => void;
+  /** Upload a picture or animation into my pack (refused over 3 MB). */
+  addSticker(file: AttachmentSource, groupId?: string): Promise<string>;
+  /** Put a picture of a message into my pack. */
+  addStickerFrom(s: { url: MxcUri; mimeType: string; width?: number; height?: number; size?: number; name?: string }, groupId?: string): Promise<string>;
+  /** My sticker groups: now, and after every change. */
+  subscribeStickerGroups(cb: (groups: StickerGroup[]) => void): () => void;
+  setStickerGroups(groups: StickerGroup[]): Promise<void>;
+  /** Upload a picture to be a group's icon. */
+  uploadStickerGroupIcon(file: AttachmentSource): Promise<{ url: MxcUri; mimeType: string }>;
+  removeStickers(shortcodes: string[]): Promise<void>;
+  sendSticker(roomId: RoomId, shortcode: string): Promise<void>;
   /** Leave (or delete, for one-to-one chats) a room and deselect it. */
   leaveRoom(roomId: RoomId): Promise<void>;
   /** Start (or reopen) a chat with a user, then select it. */
@@ -211,6 +226,8 @@ export interface AppController {
   /** Create encryption keys; resolves with the recovery key to show the user exactly once. */
   /** Whether this engine can verify sessions and people. */
   canVerify: boolean;
+  /** Whether the engine keeps a sticker pack for me. */
+  canStickers: boolean;
   /** Ask another session of mine to verify this one. */
   verifySession(): Promise<void>;
   /** Ask a person to verify each other. */
@@ -479,6 +496,19 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     blockUser: (userId) => engine.users.block(userId),
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
     subscribePins: (roomId, cb) => engine.rooms.subscribePins(roomId, cb),
+    subscribeStickers: (cb) => engine.stickers?.subscribe(cb) ?? (cb([]), () => {}),
+    addSticker: (file, groupId) =>
+      engine.stickers ? engine.stickers.add(file, groupId) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
+    addStickerFrom: (x, groupId) =>
+      engine.stickers ? engine.stickers.addExisting(x, groupId) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
+    subscribeStickerGroups: (cb) => engine.stickers?.subscribeGroups(cb) ?? (cb([]), () => {}),
+    setStickerGroups: (groups) =>
+      engine.stickers ? engine.stickers.setGroups(groups) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
+    uploadStickerGroupIcon: (file) =>
+      engine.stickers ? engine.stickers.uploadGroupIcon(file) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
+    removeStickers: (codes) => (engine.stickers ? engine.stickers.remove(codes) : Promise.reject(new EngineError("unsupported", "No sticker pack here"))),
+    sendSticker: (roomId, code) =>
+      engine.stickers ? engine.stickers.send(roomId, code) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);
       set((s) => ({
@@ -510,6 +540,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       select(await engine.rooms.joinRoom(idOrAlias));
     },
     canVerify: !!engine.verification,
+    canStickers: !!engine.stickers,
     verifySession: () => needVerification().requestSession(),
     verifyUser: (userId) => needVerification().requestUser(userId),
     acceptVerification: () => needVerification().accept(),

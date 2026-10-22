@@ -68,7 +68,17 @@ export type MessageContent =
       /** Link previews for the URLs in the body, when the server could fetch them. */
       previews?: LinkPreview[];
     }
-  | { kind: "image"; url: MxcUri; width?: number; height?: number; body: string; mimeType?: string; encryption?: unknown }
+  | {
+      kind: "image";
+      url: MxcUri;
+      width?: number;
+      height?: number;
+      body: string;
+      mimeType?: string;
+      encryption?: unknown;
+      /** A sticker (`m.sticker`): drawn on its own, with no bubble around it. */
+      sticker?: boolean;
+    }
   | { kind: "file"; url: MxcUri; name: string; size?: number; mimeType?: string; encryption?: unknown }
   | {
       kind: "video";
@@ -402,3 +412,43 @@ export interface SearchPage {
   /** Number of encrypted rooms that were searched only among the messages loaded on this device. */
   localRooms: number;
 }
+
+/** One sticker of my own pack (`im.ponies.user_emotes`, MSC2545). */
+export interface Sticker {
+  /** The name it is listed under, unique in the pack. */
+  shortcode: string;
+  url: MxcUri;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  size?: number;
+}
+
+/** The most one sticker may weigh (bytes): a larger file is refused, not shrunk. */
+export const STICKER_MAX_BYTES = 3 * 1024 * 1024;
+
+/** A sticker group's cover: a standard emoji or a small picture. */
+export type StickerGroupIcon = { kind: "emoji"; emoji: string } | { kind: "image"; url: MxcUri; mimeType: string };
+
+/**
+ * A group of my stickers (kept in the account, so on every device): a name (empty = the default, "Group n"), a cover, and the stickers in it
+ * by name, in order. A group with no cover shows its first sticker, or a smiling face when it has none. A sticker is in one group at most.
+ */
+export interface StickerGroup {
+  id: string;
+  name: string;
+  icon?: StickerGroupIcon;
+  stickers: string[];
+}
+
+/** The id of the default group: always the first, it holds the stickers that no other group has, and its cover cannot be changed. */
+export const STICKER_DEFAULT_GROUP = "default";
+
+/** The longest a group's name may be (characters). */
+export const STICKER_GROUP_NAME_MAX = 12;
+
+/** The cover a group has when none was chosen and it has no sticker yet. */
+export const STICKER_GROUP_FALLBACK_EMOJI = "😊";
+
+/** The most groups a pack may have besides the default one. */
+export const STICKER_GROUPS_MAX = 12;

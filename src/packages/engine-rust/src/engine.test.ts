@@ -294,6 +294,11 @@ class FakeClient implements SdkClient {
   async setAvatar(mime: string, data: ArrayBuffer) {
     this.avatars.push([mime, data.byteLength]);
   }
+  uploads: unknown[][] = [];
+  async uploadMedia(mime: string, data: ArrayBuffer) {
+    this.uploads.push([mime, data.byteLength]);
+    return `mxc://test/${this.uploads.length}`;
+  }
   urls: unknown[][] = [];
   failUrl = false;
   async mediaUrl(mxc: string, o: unknown) {
@@ -1133,4 +1138,87 @@ test("a room just made or joined is handed on only once the chat list has it, so
   const id = await engine.rooms.joinRoom("#r:s");
   expect(id).toBe("!joined:s");
   expect(list.map((r) => r.name)).toEqual(["Joined"]);
+});
+
+test("my sticker pack is kept in the account: adding uploads and saves, sending sends an m.sticker, removing saves again", async () => {
+  let saved: unknown = { pack: { display_name: "Mine" } };
+  const fetch: RustEngineOptions["fetch"] = async (url, init) => {
+    if (url.includes("/account_data/im.ponies.user_emotes")) {
+      if (init?.method === "PUT") saved = JSON.parse(init.body!);
+      return { ok: true, status: 200, json: async () => saved };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const read = make(fetch);
+  const engine = new RustEngineCore(
+    { defaultSlidingSync: "x", newClient: async () => read.client },
+    { dataDir: "/d", cacheDir: "/c", key: async () => KEY, readFile: async () => new Uint8Array([1, 2, 3]).buffer, fetch },
+  );
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const room = new FakeRoom(info("!r"));
+  read.client.rooms.set("!r", room);
+  const seen: string[][] = [];
+  engine.stickers.subscribe((list) => seen.push(list.map((s) => s.shortcode)));
+  await expect(engine.stickers.add({ name: "cat.gif", mimeType: "image/gif", size: 3, data: "/x/cat.gif", width: 8, height: 6 })).resolves.toBe("cat");
+  await expect(engine.stickers.add({ name: "cat.gif", mimeType: "image/gif", size: 3, data: "/x/cat.gif" })).resolves.toBe("cat 2");
+  expect(read.client.uploads).toEqual([
+    ["image/gif", 3],
+    ["image/gif", 3],
+  ]);
+  expect(seen.at(-1)).toEqual(["cat", "cat 2"]);
+  expect(saved).toMatchObject({ pack: { display_name: "Mine" }, images: { cat: { url: "mxc://test/1", usage: ["sticker"] } } });
+  await engine.stickers.send("!r", "cat");
+  expect(room.calls).toEqual([
+    ["sendRaw", "m.sticker", JSON.stringify({ body: "cat", url: "mxc://test/1", info: { mimetype: "image/gif", w: 8, h: 6, size: 3 } })],
+  ]);
+  await engine.stickers.remove(["cat", "nothing"]);
+  expect(seen.at(-1)).toEqual(["cat 2"]);
+  await expect(engine.stickers.send("!r", "cat")).rejects.toMatchObject({ code: "not_found" });
+  await expect(engine.stickers.add({ name: "big.png", mimeType: "image/png", size: 3 * 1024 * 1024 + 1, data: "/x" })).rejects.toMatchObject({
+    code: "too_large",
+  });
+  await expect(engine.stickers.addExisting({ url: "mxc://s/2", mimeType: "image/png", width: 5, height: 5, name: "from chat.png" })).resolves.toBe("from chat");
+  expect(seen.at(-1)).toEqual(["cat 2", "from chat"]);
+});
+
+test("sticker groups are kept in the account; a bad icon is refused; removing a sticker takes it out of its group; an icon picture is uploaded alone", async () => {
+  const store: Record<string, unknown> = {
+    "im.ponies.user_emotes": { images: { a: { url: "mxc://s/a", usage: ["sticker"] }, b: { url: "mxc://s/b", usage: ["sticker"] } } },
+  };
+  const fetch: RustEngineOptions["fetch"] = async (url, init) => {
+    const type = /account_data\/(.+)$/.exec(url)?.[1];
+    if (type) {
+      if (init?.method === "PUT") store[type] = JSON.parse(init.body!);
+      return type in store ? { ok: true, status: 200, json: async () => store[type] } : { ok: false, status: 404, json: async () => ({}) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const read = make(fetch);
+  const engine = new RustEngineCore(
+    { defaultSlidingSync: "x", newClient: async () => read.client },
+    { dataDir: "/d", cacheDir: "/c", key: async () => KEY, readFile: async () => new Uint8Array([1, 2, 3]).buffer, fetch },
+  );
+  await engine.auth.loginWithPassword("http://s", "a", "p");
+  const seen: string[][] = [];
+  engine.stickers.subscribeGroups((g) => seen.push(g.map((x) => `${x.id}:${x.stickers.join("+")}`)));
+  await tickMany();
+  expect(seen.at(-1)).toEqual([]);
+  await engine.stickers.setGroups([
+    { id: "g1", name: "One", icon: { kind: "emoji", emoji: "😀" }, stickers: ["a"] },
+    { id: "g2", name: "Two", stickers: ["b"] },
+  ]);
+  expect(seen.at(-1)).toEqual(["g1:a", "g2:b"]);
+  expect(store["org.ohmatrix.sticker_groups"]).toMatchObject({ groups: [{ id: "g1" }, { id: "g2" }] });
+  await expect(engine.stickers.setGroups([{ id: "g1", name: "", icon: { kind: "emoji", emoji: "abc" }, stickers: [] }])).rejects.toMatchObject({
+    code: "unsupported_type",
+  });
+  await engine.stickers.remove(["a"]);
+  expect(seen.at(-1)).toEqual(["g1:", "g2:b"]);
+  const icon = await engine.stickers.uploadGroupIcon({ name: "i.png", mimeType: "image/png", size: 3, data: "/x/i.png" });
+  expect(icon).toEqual({ url: "mxc://test/1", mimeType: "image/png" });
+  expect(read.client.uploads).toEqual([["image/png", 3]]);
+  expect(Object.keys((store["im.ponies.user_emotes"] as { images: object }).images)).toEqual(["b"]);
+  await expect(engine.stickers.uploadGroupIcon({ name: "i.svg", mimeType: "image/svg+xml", size: 3, data: "/x" })).rejects.toMatchObject({
+    code: "unsupported_type",
+  });
 });

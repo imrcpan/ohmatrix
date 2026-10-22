@@ -48,6 +48,9 @@ import {
   type RoomId,
   type RoomSummary,
   type SpaceChild,
+  type Sticker,
+  type StickerGroup,
+  type StickersApi,
   type MediaKind,
   type SharedMediaPage,
   type Session,
@@ -57,6 +60,17 @@ import {
   diffTimeline,
   resolveHomeserver,
   reuseRooms,
+  STICKER_PACK_EVENT,
+  checkSticker,
+  parseGroups,
+  placeSticker,
+  STICKER_GROUPS_EVENT,
+  withoutStickers,
+  writeGroups,
+  newShortcode,
+  parsePack,
+  stickerEventContent,
+  writePack,
 } from "@ohmatrix/core";
 import { JsVerification } from "./verification.js";
 import { nameOf, notificationPreview, pinnedIds, roomItems, stripReplyFallback, toRoomSummary, toTimelineItem, typingNames, firstUrls } from "./convert.js";
@@ -395,6 +409,117 @@ export class JsSdkEngine implements MatrixEngine {
         await this.refreshProfile();
       }),
   };
+
+  readonly stickers: StickersApi = {
+    subscribe: (cb: Listener<Sticker[]>) => {
+      const c = this.client;
+      if (!c) {
+        cb([]);
+        return () => {};
+      }
+      const emit = () => cb(parsePack(c.getAccountData(STICKER_PACK_EVENT as never)?.getContent()));
+      emit();
+      const changed = (e: { getType(): string }) => {
+        if (e.getType() === STICKER_PACK_EVENT) emit();
+      };
+      c.on(ClientEvent.AccountData, changed as never);
+      return () => void c.off(ClientEvent.AccountData, changed as never);
+    },
+    add: (file: AttachmentSource, groupId?: string) =>
+      guard(async () => {
+        const mimeType = checkSticker(file);
+        const up = await this.requireClient().uploadContent(file.data as Blob, { name: file.name, type: mimeType });
+        return this.addSticker(
+          {
+            url: up.content_uri,
+            mimeType,
+            size: file.size,
+            ...(file.width !== undefined && { width: file.width }),
+            ...(file.height !== undefined && { height: file.height }),
+            name: file.name,
+          },
+          groupId,
+        );
+      }),
+    addExisting: (s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name?: string }, groupId?: string) =>
+      guard(async () => {
+        const mimeType = checkSticker({ ...(s.name !== undefined && { name: s.name }), mimeType: s.mimeType, size: s.size ?? 0 });
+        return this.addSticker({ ...s, mimeType }, groupId);
+      }),
+    subscribeGroups: (cb: Listener<StickerGroup[]>) => {
+      const c = this.client;
+      if (!c) {
+        cb([]);
+        return () => {};
+      }
+      const emit = () => cb(parseGroups(c.getAccountData(STICKER_GROUPS_EVENT as never)?.getContent()));
+      emit();
+      const changed = (e: { getType(): string }) => {
+        if (e.getType() === STICKER_GROUPS_EVENT) emit();
+      };
+      c.on(ClientEvent.AccountData, changed as never);
+      return () => void c.off(ClientEvent.AccountData, changed as never);
+    },
+    setGroups: (groups: StickerGroup[]) =>
+      guard(async () => {
+        await this.requireClient().setAccountData(STICKER_GROUPS_EVENT as never, writeGroups(groups) as never);
+      }),
+    uploadGroupIcon: (file: AttachmentSource) =>
+      guard(async () => {
+        const mimeType = checkSticker(file);
+        const up = await this.requireClient().uploadContent(file.data as Blob, { name: file.name, type: mimeType });
+        return { url: up.content_uri, mimeType };
+      }),
+    remove: (shortcodes: string[]) =>
+      guard(async () => {
+        const { content, stickers } = this.pack();
+        const gone = new Set(shortcodes);
+        await this.requireClient().setAccountData(
+          STICKER_PACK_EVENT as never,
+          writePack(
+            content,
+            stickers.filter((x) => !gone.has(x.shortcode)),
+          ) as never,
+        );
+        // The groups forget them too, so a sticker added later under the same name does not turn up in an old group.
+        const c = this.requireClient();
+        const groups = parseGroups(c.getAccountData(STICKER_GROUPS_EVENT as never)?.getContent());
+        const kept = withoutStickers(groups, shortcodes);
+        if (kept.some((g, n) => g !== groups[n])) await c.setAccountData(STICKER_GROUPS_EVENT as never, writeGroups(kept) as never);
+      }),
+    send: (roomId: string, shortcode: string) =>
+      guard(async () => {
+        const sticker = this.pack().stickers.find((x) => x.shortcode === shortcode);
+        if (!sticker) throw new EngineError("not_found", "That sticker is not in the pack any more");
+        await this.requireClient().sendEvent(roomId, EventType.Sticker as never, stickerEventContent(sticker) as never);
+      }),
+  };
+
+  private pack(): { content: unknown; stickers: Sticker[] } {
+    const content = this.requireClient()
+      .getAccountData(STICKER_PACK_EVENT as never)
+      ?.getContent();
+    return { content, stickers: parsePack(content) };
+  }
+
+  private async addSticker(
+    s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name?: string },
+    groupId?: string,
+  ): Promise<string> {
+    const c = this.requireClient();
+    const { content, stickers } = this.pack();
+    let shortcode = stickers.find((x) => x.url === s.url)?.shortcode;
+    if (!shortcode) {
+      shortcode = newShortcode(s.name, new Set(stickers.map((x) => x.shortcode)));
+      const { name: _name, ...rest } = s;
+      await c.setAccountData(STICKER_PACK_EVENT as never, writePack(content, [...stickers, { shortcode, ...rest }]) as never);
+    }
+    if (groupId) {
+      const groups = parseGroups(c.getAccountData(STICKER_GROUPS_EVENT as never)?.getContent());
+      await c.setAccountData(STICKER_GROUPS_EVENT as never, writeGroups(placeSticker(groups, shortcode, groupId)) as never);
+    }
+    return shortcode;
+  }
 
   readonly search = {
     messages: (o: { term: string; roomId?: RoomId; from?: string }) =>
