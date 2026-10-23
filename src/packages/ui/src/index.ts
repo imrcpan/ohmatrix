@@ -16,7 +16,7 @@ export { Logo } from "./Logo.js";
 export { ImageViewer, fitSize } from "./ImageViewer.js";
 export { VideoViewer } from "./VideoViewer.js";
 export { TopNotice } from "./TopNotice.js";
-export { LivePreview, StreamView } from "./VideoSurface.js";
+export { LivePreview, StreamView, setStreamRenderer } from "./VideoSurface.js";
 export { AudioRow, ProgressRing, Waveform, LinkPreviewCard } from "./media.js";
 export { ScaleProvider, ScaleRoot } from "./Scale.js";
 export { RichText } from "./richtext.js";

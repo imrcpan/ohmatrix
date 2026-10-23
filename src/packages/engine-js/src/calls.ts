@@ -67,6 +67,8 @@ export class JsCalls implements CallsApi {
 
   constructor(private readonly myId: () => string | undefined) {}
 
+  readonly features = { screenShare: true, devices: true };
+
   get supported(): boolean {
     return !!this.client?.supportsVoip();
   }

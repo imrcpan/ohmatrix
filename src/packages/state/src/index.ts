@@ -210,6 +210,8 @@ export interface AppController {
   sendSticker(roomId: RoomId, shortcode: string): Promise<void>;
   /** Whether calls can be made on this device. */
   readonly callsSupported: boolean;
+  /** What a call can do here besides talking (the buttons the call screen shows). */
+  readonly callFeatures: { screenShare: boolean; devices: boolean; speaker: boolean };
   /** The call that is going (null when none): now, and after every change. */
   subscribeCall(cb: (call: CallState | null) => void): () => void;
   placeCall(roomId: RoomId, video: boolean): Promise<void>;
@@ -218,6 +220,7 @@ export interface AppController {
   setCallMuted(muted: boolean): Promise<void>;
   setCallCameraOff(off: boolean): Promise<void>;
   setCallSharing(on: boolean): Promise<void>;
+  setCallSpeaker(on: boolean): Promise<void>;
   callDevices(): Promise<{ microphones: CallDevice[]; cameras: CallDevice[] }>;
   useCallDevice(kind: "microphone" | "camera", id: string): Promise<void>;
   dismissCall(): void;
@@ -514,6 +517,10 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     get callsSupported() {
       return !!engine.calls?.supported;
     },
+    get callFeatures() {
+      const f = engine.calls?.features;
+      return { screenShare: !!f?.screenShare, devices: !!f?.devices, speaker: !!f?.speaker };
+    },
     subscribeCall: (cb) => engine.calls?.subscribe(cb) ?? (cb(null), () => {}),
     placeCall: (roomId, video) => (engine.calls ? engine.calls.place(roomId, video) : Promise.reject(new EngineError("unsupported", "No calls here"))),
     answerCall: (video) => engine.calls?.answer(video) ?? Promise.resolve(),
@@ -521,6 +528,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     setCallMuted: (muted) => engine.calls?.setMuted(muted) ?? Promise.resolve(),
     setCallCameraOff: (off) => engine.calls?.setCameraOff(off) ?? Promise.resolve(),
     setCallSharing: (on) => engine.calls?.setSharing(on) ?? Promise.resolve(),
+    setCallSpeaker: (on) => engine.calls?.setSpeaker?.(on) ?? Promise.resolve(),
     callDevices: () => engine.calls?.devices?.() ?? Promise.resolve({ microphones: [], cameras: [] }),
     useCallDevice: (kind, id) => engine.calls?.useDevice(kind, id) ?? Promise.resolve(),
     dismissCall: () => engine.calls?.dismiss(),

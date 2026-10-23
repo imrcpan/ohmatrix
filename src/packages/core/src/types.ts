@@ -483,6 +483,8 @@ export interface CallState {
   remoteSharing: boolean;
   /** The connection is shaky right now (it dropped and is being brought back). */
   poor: boolean;
+  /** The sound is coming out of the loudspeaker (a phone; absent where the device has no choice of that). */
+  speaker?: boolean;
   /** When the call was picked up (ms since epoch), for the clock on the screen. */
   connectedAt?: number;
   /** The other side's picture and sound, once there is one. */

@@ -8,6 +8,7 @@ const PATHS = {
   search: "M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-4.5-4.5",
   signOut: "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9",
   screen: "M3 4h18v12H3zM8 20h8M12 16v4",
+  speaker: "M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13",
   minimize: "M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7",
   more: "M5 12h.01M12 12h.01M19 12h.01",
   check: "M5 12.5l4.5 4.5L19 7.5",
