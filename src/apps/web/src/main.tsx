@@ -8,6 +8,7 @@ import { createCryptoKeyProvider } from "./cryptoKeys.js";
 import { createSecureBox } from "./secureBox.js";
 import { createSecureAccountStore, createSecureSessionStore } from "./secureSession.js";
 import { createWebNotifications } from "./notifications.js";
+import { createWebCallSounds } from "./callSounds.js";
 import { receiveFiles } from "./receiveFiles.js";
 import { openRecorder } from "./recorder.js";
 import { installRouter } from "./router.js";
@@ -39,6 +40,7 @@ const services: AppServices = {
   ...(import.meta.env.VITE_APP_VERSION ? { appVersion: import.meta.env.VITE_APP_VERSION as string } : {}),
   preferences,
   notifications: createWebNotifications(),
+  callSounds: createWebCallSounds(),
   recordMedia: openRecorder,
   // The input bar offers voice messages only; a video is sent as a file.
   recordKinds: ["audio"],

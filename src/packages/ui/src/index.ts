@@ -16,10 +16,20 @@ export { Logo } from "./Logo.js";
 export { ImageViewer, fitSize } from "./ImageViewer.js";
 export { VideoViewer } from "./VideoViewer.js";
 export { TopNotice } from "./TopNotice.js";
-export { LivePreview } from "./VideoSurface.js";
+export { LivePreview, StreamView } from "./VideoSurface.js";
 export { AudioRow, ProgressRing, Waveform, LinkPreviewCard } from "./media.js";
-export { ScaleProvider } from "./Scale.js";
+export { ScaleProvider, ScaleRoot } from "./Scale.js";
 export { RichText } from "./richtext.js";
 export { parseFormatted, plainRuns, type Run } from "./richtextModel.js";
 export { ALL_EMOJI_GROUPS, EmojiPicker, useRecentEmoji } from "./EmojiPicker.js";
-export { useViewport, useUnzoom, useInsets, useNavBottom, useKeyboardHold, KeyboardHoldContext, InsetsContext, type SystemInsets } from "./viewport.js";
+export {
+  useViewport,
+  useUnzoom,
+  useScale,
+  useInsets,
+  useNavBottom,
+  useKeyboardHold,
+  KeyboardHoldContext,
+  InsetsContext,
+  type SystemInsets,
+} from "./viewport.js";

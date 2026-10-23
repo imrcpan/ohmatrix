@@ -144,7 +144,7 @@ function Chat(props: ChatPaneProps) {
   };
   const reveal = useReveal({ roomId: props.roomId, rows: allRows, items, handle, list: revealList, t });
   const composer = useComposer(props.roomId, handle, t);
-  const attachments = useAttachments(handle, t);
+  const attachments = useAttachments(handle, t, props.roomId);
   // The platform's back folds the attach panel first, before it leaves the chat.
   useBackHandler(attachments.panel ? () => (attachments.closePanel(), true) : null);
   const nw = useNewWhileAway(items);

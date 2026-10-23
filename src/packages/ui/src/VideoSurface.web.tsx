@@ -33,3 +33,26 @@ export function LivePreview(props: { stream: unknown; width: number; height: num
     style: { width: props.width, height: props.height, background: "#000", display: "block", objectFit: "cover", transform: "scaleX(-1)", borderRadius: 12 },
   } as object);
 }
+
+/**
+ * A call's picture and sound: plays a MediaStream, filling its box (`mirror` for my own camera). An element plays the sound too, so a voice
+ * call (no picture) is heard through the same element; `muted` is for my own stream, which must not be played back to me.
+ */
+export function StreamView(props: { stream: unknown; muted?: boolean; mirror?: boolean; fit?: "cover" | "contain" }) {
+  return createElement("video", {
+    autoPlay: true,
+    muted: !!props.muted,
+    playsInline: true,
+    ref: (el: { srcObject: unknown } | null) => {
+      if (el && el.srcObject !== props.stream) el.srcObject = props.stream;
+    },
+    style: {
+      width: "100%",
+      height: "100%",
+      background: "#000",
+      display: "block",
+      objectFit: props.fit ?? "cover",
+      ...(props.mirror ? { transform: "scaleX(-1)" } : {}),
+    },
+  } as object);
+}

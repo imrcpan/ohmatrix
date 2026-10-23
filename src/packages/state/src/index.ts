@@ -23,6 +23,8 @@ import {
   type RoomSummary,
   type SpaceChild,
   type Sticker,
+  type CallState,
+  type CallDevice,
   type StickerGroup,
   type MediaKind,
   type SharedMediaPage,
@@ -206,6 +208,19 @@ export interface AppController {
   uploadStickerGroupIcon(file: AttachmentSource): Promise<{ url: MxcUri; mimeType: string }>;
   removeStickers(shortcodes: string[]): Promise<void>;
   sendSticker(roomId: RoomId, shortcode: string): Promise<void>;
+  /** Whether calls can be made on this device. */
+  readonly callsSupported: boolean;
+  /** The call that is going (null when none): now, and after every change. */
+  subscribeCall(cb: (call: CallState | null) => void): () => void;
+  placeCall(roomId: RoomId, video: boolean): Promise<void>;
+  answerCall(video: boolean): Promise<void>;
+  hangupCall(): Promise<void>;
+  setCallMuted(muted: boolean): Promise<void>;
+  setCallCameraOff(off: boolean): Promise<void>;
+  setCallSharing(on: boolean): Promise<void>;
+  callDevices(): Promise<{ microphones: CallDevice[]; cameras: CallDevice[] }>;
+  useCallDevice(kind: "microphone" | "camera", id: string): Promise<void>;
+  dismissCall(): void;
   /** Leave (or delete, for one-to-one chats) a room and deselect it. */
   leaveRoom(roomId: RoomId): Promise<void>;
   /** Start (or reopen) a chat with a user, then select it. */
@@ -496,6 +511,19 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     blockUser: (userId) => engine.users.block(userId),
     subscribeRoomDetails: (roomId, cb) => engine.rooms.subscribeDetails(roomId, cb),
     subscribePins: (roomId, cb) => engine.rooms.subscribePins(roomId, cb),
+    get callsSupported() {
+      return !!engine.calls?.supported;
+    },
+    subscribeCall: (cb) => engine.calls?.subscribe(cb) ?? (cb(null), () => {}),
+    placeCall: (roomId, video) => (engine.calls ? engine.calls.place(roomId, video) : Promise.reject(new EngineError("unsupported", "No calls here"))),
+    answerCall: (video) => engine.calls?.answer(video) ?? Promise.resolve(),
+    hangupCall: () => engine.calls?.hangup() ?? Promise.resolve(),
+    setCallMuted: (muted) => engine.calls?.setMuted(muted) ?? Promise.resolve(),
+    setCallCameraOff: (off) => engine.calls?.setCameraOff(off) ?? Promise.resolve(),
+    setCallSharing: (on) => engine.calls?.setSharing(on) ?? Promise.resolve(),
+    callDevices: () => engine.calls?.devices?.() ?? Promise.resolve({ microphones: [], cameras: [] }),
+    useCallDevice: (kind, id) => engine.calls?.useDevice(kind, id) ?? Promise.resolve(),
+    dismissCall: () => engine.calls?.dismiss(),
     subscribeStickers: (cb) => engine.stickers?.subscribe(cb) ?? (cb([]), () => {}),
     addSticker: (file, groupId) =>
       engine.stickers ? engine.stickers.add(file, groupId) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),

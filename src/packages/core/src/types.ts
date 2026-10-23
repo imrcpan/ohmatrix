@@ -449,3 +449,52 @@ export const STICKER_GROUP_FALLBACK_EMOJI = "😊";
 
 /** The most groups a pack may have besides the default one. */
 export const STICKER_GROUPS_MAX = 12;
+
+/** What a call is doing, in the order it goes: ringing (someone is being called, or is calling me), connecting, talking, over. */
+export type CallPhase = "ringing" | "connecting" | "connected" | "ended";
+
+/** Why a call is over, for the line the call screen leaves behind; `hangup` is either side putting the phone down, `rejected` is the other side turning my call down, `cancelled` is the caller giving up on a call that was ringing for me. */
+export type CallEndReason = "hangup" | "rejected" | "cancelled" | "busy" | "unanswered" | "failed" | "no_media";
+
+/** A live stream of a call, for a platform's video element to show (a `MediaStream` in a browser; opaque to everything but the platform). */
+export type CallStream = unknown;
+
+/** A one-to-one call, as the screen shows it. `incoming` is a call that has not been answered yet (by me). */
+export interface CallState {
+  /** Different for every call. */
+  id: string;
+  roomId: RoomId;
+  /** The other person. */
+  peer: { userId: UserId; name: string; avatar?: MxcUri };
+  video: boolean;
+  incoming: boolean;
+  phase: CallPhase;
+  /** Set once `phase` is "ended". */
+  endReason?: CallEndReason;
+  /** My microphone is off. */
+  muted: boolean;
+  /** My camera is off (always true for a voice call). */
+  cameraOff: boolean;
+  /** The other side's camera is off (its picture is not coming), so the screen shows the person instead of a black picture. */
+  remoteCameraOff: boolean;
+  /** I am showing my screen to the other side. */
+  sharing: boolean;
+  /** The other side is showing its screen (`remote` is then that screen). */
+  remoteSharing: boolean;
+  /** The connection is shaky right now (it dropped and is being brought back). */
+  poor: boolean;
+  /** When the call was picked up (ms since epoch), for the clock on the screen. */
+  connectedAt?: number;
+  /** The other side's picture and sound, once there is one. */
+  remote?: CallStream;
+  /** My own camera, for the small picture, once there is one. */
+  local?: CallStream;
+}
+
+/** A microphone or a camera the call can use. */
+export interface CallDevice {
+  id: string;
+  label: string;
+  /** The one in use now. */
+  current: boolean;
+}

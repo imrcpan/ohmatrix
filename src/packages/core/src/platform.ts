@@ -22,6 +22,14 @@ export interface SystemNotifications {
   show(n: { title: string; body: string; tag: string; onClick: () => void }): void;
 }
 
+/** The sounds of a call: the ring of an incoming one, the tone of an outgoing one. Absent = a call is silent until it is answered. */
+export interface CallSounds {
+  /** Start a sound that repeats until `stop` is called on what this returns. */
+  play(kind: "incoming" | "outgoing"): () => void;
+  /** A short sound when a call ends. */
+  ended(): void;
+}
+
 /** What a finished recording hands back: a file ready to send, with the facts the recorder measured itself. */
 export interface RecordedMedia extends AttachmentSource {
   durationMs: number;
@@ -107,6 +115,8 @@ export interface PlatformServices {
   recordKinds?: ReadonlyArray<"audio" | "video">;
   /** Make a player for an audio file at `url`. Absent = the browser's own `Audio` is used. */
   createAudio?(url: string): AudioClip;
+  /** Absent = a call makes no sound of its own. */
+  callSounds?: CallSounds;
   /** Absent = preferences live only for this run. */
   preferences?: PreferencesStore;
   /** Let the user choose files to send. Absent = the attach button is hidden. */

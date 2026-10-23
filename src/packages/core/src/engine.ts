@@ -25,6 +25,8 @@ import type {
   TimelineItem,
   Sticker,
   StickerGroup,
+  CallState,
+  CallDevice,
 } from "./types.js";
 
 export type Unsubscribe = () => void;
@@ -147,6 +149,33 @@ export interface StickersApi {
   remove(shortcodes: string[]): Promise<void>;
   /** Send one of the pack's stickers to a room. */
   send(roomId: RoomId, shortcode: string): Promise<void>;
+}
+
+/**
+ * Calls between two people (Matrix VoIP, `m.call.*`). At most one call is going at a time: a call that comes in while another is on is
+ * answered with "busy" by the engine. The engine asks the platform for the microphone and camera itself.
+ */
+export interface CallsApi {
+  /** Whether this device can make and take calls (a browser with WebRTC, a phone with the native library). */
+  readonly supported: boolean;
+  /** Emits the call that is going (null when there is none): immediately, then after every change. A call stays on show, ended, until `dismiss`. */
+  subscribe(cb: Listener<CallState | null>): Unsubscribe;
+  /** Call the other person of a one-to-one room. Rejects with "unsupported" for a room that is not one-to-one and when calls cannot be made here, "conflict" when a call is on already. */
+  place(roomId: RoomId, video: boolean): Promise<void>;
+  /** Pick up the call that is ringing. With `video` false a video call is answered without sending my camera. */
+  answer(video: boolean): Promise<void>;
+  /** Turn the ringing call down, or put the phone down on a going one. */
+  hangup(): Promise<void>;
+  setMuted(muted: boolean): Promise<void>;
+  setCameraOff(off: boolean): Promise<void>;
+  /** Show my screen to the other side (the browser asks which), or stop. Rejects with "unsupported" where the device cannot. */
+  setSharing(on: boolean): Promise<void>;
+  /** The microphones and cameras there are, and the ones in use; absent where the platform cannot list them. */
+  devices?(): Promise<{ microphones: CallDevice[]; cameras: CallDevice[] }>;
+  /** Use another microphone or camera, in the call and in the ones after it. */
+  useDevice(kind: "microphone" | "camera", id: string): Promise<void>;
+  /** Take an ended call off the screen. */
+  dismiss(): void;
 }
 
 /** Actions that span rooms rather than one timeline. */
@@ -346,6 +375,8 @@ export interface MatrixEngine {
   readonly messages: MessagesApi;
   /** Absent in an engine that has no sticker packs. */
   readonly stickers?: StickersApi;
+  /** Absent in an engine that cannot call. */
+  readonly calls?: CallsApi;
   readonly spaces: SpacesApi;
   readonly security: SecurityApi;
   /** Absent in an engine that cannot verify yet. */
