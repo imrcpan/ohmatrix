@@ -2161,7 +2161,7 @@ test("zoom: the setting scales the whole interface, menus still open at the poin
   await expect(page.getByRole("button", { name: "Zoom", exact: true })).toContainText("100%");
   const before = (await page.getByText("Appearance").boundingBox())!;
   await page.getByRole("button", { name: "Zoom", exact: true }).click();
-  await page.getByRole("menuitem", { name: "150%" }).click();
+  await page.getByRole("menuitem", { name: "150%", exact: true }).click();
   await expect(page.getByRole("button", { name: "Zoom", exact: true })).toContainText("150%");
   const after = (await page.getByText("Appearance").boundingBox())!;
   expect(after.height / before.height).toBeGreaterThan(1.4);
@@ -3309,6 +3309,61 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
 });
 
+test("sign-in: the zoom is chosen at the bottom left, tried first and kept only when confirmed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const button = page.getByRole("button", { name: "Zoom" });
+  await expect(button).toContainText("100%");
+  const b = (await button.boundingBox())!;
+  expect(b.x).toBeLessThan(40);
+  expect(b.y + b.height).toBeGreaterThan(800 - 40);
+  const logo = () => page.getByText("Sign in to your Matrix account").evaluate((e) => e.getBoundingClientRect().height);
+  const normal = await logo();
+
+  // The sizes on offer: below 100% in steps of 10.
+  await button.click();
+  for (const v of ["50%", "60%", "70%", "80%", "90%", "100%"]) await expect(page.getByRole("menuitem", { name: v, exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "75%", exact: true })).toHaveCount(0);
+
+  // A size is tried: the page is drawn at it and a dialog asks to keep it.
+  await page.getByRole("menuitem", { name: "150%", exact: true }).click();
+  await expect(page.getByText("Keep this zoom?")).toBeVisible();
+  expect(await logo()).toBeGreaterThan(normal * 1.3);
+  // Going back: the size before is back, and the button still says what is kept.
+  await page.getByRole("button", { name: "Go back" }).click();
+  await expect(page.getByText("Keep this zoom?")).toHaveCount(0);
+  await expect.poll(logo).toBeLessThan(normal * 1.1);
+  await expect(button).toContainText("100%");
+
+  // Not confirmed in time: it goes back by itself.
+  await button.click();
+  await page.getByRole("menuitem", { name: "70%", exact: true }).click();
+  await expect(page.getByText("Keep this zoom?")).toBeVisible();
+  expect(await logo()).toBeLessThan(normal * 0.9);
+  await expect(page.getByText("Keep this zoom?")).toHaveCount(0, { timeout: 20000 });
+  await expect.poll(logo).toBeGreaterThan(normal * 0.95);
+  await expect(button).toContainText("100%");
+
+  // Tried once more, and this time kept.
+  await button.click();
+  await page.getByRole("menuitem", { name: "70%", exact: true }).click();
+  await expect(page.getByText("Keep this zoom?")).toBeVisible();
+
+  // Kept: it stays, also after a reload.
+  await page.getByRole("button", { name: "Keep" }).click();
+  await expect(page.getByText("Keep this zoom?")).toHaveCount(0);
+  await expect(button).toContainText("70%");
+  await page.reload();
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  await expect(page.getByRole("button", { name: "Zoom" })).toContainText("70%");
+  // Back to 100%, for the tests that follow (kept in the browser, which is fresh for each test).
+  await page.getByRole("button", { name: "Zoom" }).click();
+  await page.getByRole("menuitem", { name: "100%", exact: true }).click();
+  await page.getByRole("button", { name: "Keep" }).click();
+  await expect(page.getByRole("button", { name: "Zoom" })).toContainText("100%");
+});
+
 test("profile, settings and info pages: Change photo is the first row under Account / About, in the accent-coloured section titles", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
@@ -3484,6 +3539,45 @@ test("several accounts: add one, both stay signed in after a reload, switch betw
   expect(await shown()).toBe("@test:localhost");
 });
 
+test("several accounts: the accounts can be put in order by dragging, and the order stays after a reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const openAccounts = async () => {
+    await page.evaluate(() =>
+      (window as unknown as { __ohmatrix: { controller: { openSidebarPage(p: string): void } } }).__ohmatrix.controller.openSidebarPage("profile"),
+    );
+    await page.getByRole("button", { name: "Switch Account" }).click();
+    await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
+  };
+  // Add alice, so there are two accounts: test first, as they were added.
+  await openAccounts();
+  await page.getByRole("button", { name: "Add account" }).click();
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill("alice");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await openAccounts();
+  // The sort button turns the list into one to drag; a row dragged by its handle moves, and the order stays after a reload.
+  const top = (name: string) => page.getByRole("button", { name, exact: true }).evaluate((e) => e.getBoundingClientRect().top);
+  expect(await top("test")).toBeLessThan(await top("alice"));
+  await page.getByRole("button", { name: "Reorder accounts" }).click();
+  await expect(page.getByText("Drag an account by its handle to move it.")).toBeVisible();
+  const alice = page.getByRole("button", { name: "alice", exact: true });
+  const box = (await alice.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 30, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 30, box.y - 40, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await top("alice")) < (await top("test"))).toBe(true);
+  await page.getByRole("button", { name: "Done" }).click();
+  expect(await top("alice")).toBeLessThan(await top("test"));
+  await page.reload();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await openAccounts();
+  expect(await top("alice")).toBeLessThan(await top("test"));
+});
+
 test("stickers: add from the device, send, add from a picture of the chat, remove, and a file over 3 MB is refused", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
@@ -3539,45 +3633,6 @@ test("stickers: add from the device, send, add from a picture of the chat, remov
   await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Remove", exact: true }).click();
-test("several accounts: the accounts can be put in order by dragging, and the order stays after a reload", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await login(page);
-  const openAccounts = async () => {
-    await page.evaluate(() =>
-      (window as unknown as { __ohmatrix: { controller: { openSidebarPage(p: string): void } } }).__ohmatrix.controller.openSidebarPage("profile"),
-    );
-    await page.getByRole("button", { name: "Switch Account" }).click();
-    await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
-  };
-  // Add alice, so there are two accounts: test first, as they were added.
-  await openAccounts();
-  await page.getByRole("button", { name: "Add account" }).click();
-  const inputs = page.locator("input");
-  await inputs.nth(1).fill("alice");
-  await inputs.nth(2).fill("123456");
-  await inputs.nth(2).press("Enter");
-  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
-  await openAccounts();
-  // The sort button turns the list into one to drag; a row dragged by its handle moves, and the order stays after a reload.
-  const top = (name: string) => page.getByRole("button", { name, exact: true }).evaluate((e) => e.getBoundingClientRect().top);
-  expect(await top("test")).toBeLessThan(await top("alice"));
-  await page.getByRole("button", { name: "Reorder accounts" }).click();
-  await expect(page.getByText("Drag an account by its handle to move it.")).toBeVisible();
-  const alice = page.getByRole("button", { name: "alice", exact: true });
-  const box = (await alice.boundingBox())!;
-  await page.mouse.move(box.x + box.width - 30, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 30, box.y - 40, { steps: 8 });
-  await page.mouse.up();
-  await expect.poll(async () => (await top("alice")) < (await top("test"))).toBe(true);
-  await page.getByRole("button", { name: "Done" }).click();
-  expect(await top("alice")).toBeLessThan(await top("test"));
-  await page.reload();
-  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
-  await openAccounts();
-  expect(await top("alice")).toBeLessThan(await top("test"));
-});
-
   await expect(page.getByRole("button", { name, exact: true })).toBeHidden({ timeout: 10000 });
 });
 

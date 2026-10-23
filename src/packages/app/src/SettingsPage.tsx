@@ -18,11 +18,10 @@ import {
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
-import { useZoomChange } from "./useZoomChange.js";
+import { SCALES, useZoomChange } from "./useZoomChange.js";
 
 /** The project page, opened outside the app from the About group. */
 const REPOSITORY = "https://github.com/imrcpan/ohmatrix";
-const SCALES = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
 
 export function SettingsPage() {
   const { colors } = useTheme();

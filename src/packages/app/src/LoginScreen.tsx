@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { Icon, Logo, Menu, PrimaryButton, TextButton, TextField, fontFamily, useInsets, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Dialog, Icon, Logo, Menu, PrimaryButton, TextButton, TextField, fontFamily, useInsets, useTheme, type Anchor } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
 import { LANGUAGES } from "./languages.js";
+import { SCALES, useZoomChange } from "./useZoomChange.js";
 
 /** `back`: another account to go to (this screen is for adding one, or for an account that could not start), with the button's label. */
 export function LoginScreen(props: { defaultHomeserver: string; back?: { label: string; onPress(): void } | undefined }) {
@@ -30,6 +31,11 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
   const [langAnchor, setLangAnchor] = useState<Anchor | null>(null);
   const [langMenu, setLangMenu] = useState(false);
   const language = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
+  const scale = useAppState((s) => s.prefs.uiScale);
+  const scaleRef = useRef<ComponentRef<typeof View>>(null);
+  const [scaleAnchor, setScaleAnchor] = useState<Anchor | null>(null);
+  const [scaleMenu, setScaleMenu] = useState(false);
+  const zoom = useZoomChange();
   const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState("");
   // Some servers create accounts only for those who have a registration token (from whoever runs the server).
@@ -145,6 +151,51 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
           <Icon name="chevronDown" size={16} color={colors.textTertiary} />
         </Pressable>
       </View>
+      {/* The zoom, at the bottom left: the same as in Settings (a new size is tried, and kept only when confirmed). */}
+      <View ref={scaleRef} style={{ position: "absolute", left: 16, bottom: 16 + (insets.navBottom ?? 0) - keyboardLift }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("zoom")}
+          onPress={() =>
+            scaleRef.current?.measureInWindow((x, y, width, height) => {
+              setScaleAnchor({ x, y, width, height });
+              setScaleMenu(true);
+            })
+          }
+          style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            height: 36,
+            paddingHorizontal: 10,
+            borderRadius: 10,
+            backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+          })}
+        >
+          <Icon name="zoomIn" size={18} color={colors.textSecondary} />
+          <Text style={{ fontSize: 15, fontFamily, color: colors.textSecondary }}>{`${Math.round(scale * 100)}%`}</Text>
+          <Icon name="chevronDown" size={16} color={colors.textTertiary} />
+        </Pressable>
+      </View>
+      <Menu
+        fade={false}
+        visible={scaleMenu}
+        anchor={scaleAnchor}
+        up
+        onClose={() => setScaleMenu(false)}
+        items={SCALES.map((v) => ({ label: `${Math.round(v * 100)}%`, checked: v === scale, onPress: () => zoom.start(v) }))}
+      />
+      {/* Not saved until Keep: left alone, the zoom goes back by itself when the time is up. */}
+      <Dialog
+        visible={!!zoom.trial}
+        title={t("zoom.confirm.title")}
+        message={t("zoom.confirm.body", { n: zoom.left, from: `${Math.round((zoom.trial?.from ?? 1) * 100)}%` })}
+        onClose={zoom.revert}
+        modal
+      >
+        <PrimaryButton title={t("zoom.confirm.keep")} onPress={zoom.keep} />
+        <TextButton title={t("zoom.confirm.revert")} onPress={zoom.revert} />
+      </Dialog>
       <Menu
         visible={langMenu}
         anchor={langAnchor}
