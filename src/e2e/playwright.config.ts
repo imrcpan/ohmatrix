@@ -10,7 +10,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
     permissions: ["microphone", "camera", "clipboard-read", "clipboard-write"],
     // A synthetic microphone and camera, and playback without a prior click, so recording and playing can be tested.
-    launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required"] },
+    launchOptions: {
+      args: [
+        "--auto-select-desktop-capture-source=Entire screen",
+        "--use-fake-ui-for-media-stream",
+        "--use-fake-device-for-media-stream",
+        "--autoplay-policy=no-user-gesture-required",
+      ],
+    },
   },
   // The tests run their own copy of the web app on its own port, pointed at the local Synapse by default, so they
   // do not depend on (or disturb) a preview server, and the app's real default (matrix.org) stays what users see.

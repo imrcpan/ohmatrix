@@ -20,3 +20,8 @@ export function VideoSurface(props: {
 export function LivePreview(_props: { stream: unknown; width: number; height: number }) {
   return null;
 }
+
+/** A call's picture and sound (web only for now: the phone's native library is a later step). */
+export function StreamView(_props: { stream: unknown; muted?: boolean; mirror?: boolean; fit?: "cover" | "contain" }) {
+  return null;
+}

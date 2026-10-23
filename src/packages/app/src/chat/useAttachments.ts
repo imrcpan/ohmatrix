@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AttachmentSource } from "@ohmatrix/core";
+import { EngineError, type AttachmentSource } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
-import { useServices } from "../context.js";
+import { useController, useServices } from "../context.js";
+import { useNotice } from "../useNotice.js";
+import { failureReason } from "../avatarFailure.js";
 import { useVoiceRecording } from "../Recording.js";
 import type { ComposerProps } from "./useComposer.js";
 import type { Translate } from "./types.js";
@@ -11,8 +13,10 @@ import type { Translate } from "./types.js";
  * confirms), and voice and video recording. Returns the props the `Composer` needs for the buttons and the state
  * the dialogs show.
  */
-export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate) {
+export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate, roomId: string) {
   const services = useServices();
+  const controller = useController();
+  const notice = useNotice();
   const [failed, setFailed] = useState(false);
   // The panel under the bar with the attach buttons: open or not, kept here so that a tap on the chat can close it.
   const [attachPanel, setPanel] = useState(false);
@@ -89,6 +93,14 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
     emoji: { open: emojiPanel, onChange: setEmojiPanel },
     callAsk,
     setCallAsk,
+    /** Place the call that was confirmed; says in a notice why it could not be. */
+    placeCall: (video: boolean) => {
+      if (!controller.callsSupported) return notice.show(t("call.unsupported"), "error");
+      controller.placeCall(roomId, video).catch((e: unknown) => {
+        const unsupported = e instanceof EngineError && e.code === "unsupported";
+        notice.show(unsupported ? t("call.only.direct") : t("call.failed", { reason: failureReason(e, t) }), "error");
+      });
+    },
     dropping,
     pending,
     setPending,

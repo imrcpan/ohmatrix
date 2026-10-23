@@ -1,5 +1,4 @@
 import { ConfirmDialog } from "../ConfirmDialog.js";
-import { useNotice } from "../useNotice.js";
 import { useT } from "../context.js";
 import { VideoRecorderDialog } from "../Recording.js";
 import { SendFilesDialog } from "../SendFilesDialog.js";
@@ -8,7 +7,6 @@ import type { Attachments } from "./useAttachments.js";
 /** The dialogs of `useAttachments`: confirm what was dropped or pasted, and record a video. */
 export function AttachmentDialogs({ a }: { a: Attachments }) {
   const t = useT();
-  const notice = useNotice();
   const kind = a.callAsk;
   return (
     <>
@@ -19,7 +17,7 @@ export function AttachmentDialogs({ a }: { a: Attachments }) {
         confirmLabel={kind === "video" ? t("call.video.start") : t("call.voice.start")}
         onConfirm={() => {
           a.setCallAsk(null);
-          notice.show(t("call.soon"));
+          a.placeCall(kind === "video");
         }}
         onClose={() => a.setCallAsk(null)}
       />

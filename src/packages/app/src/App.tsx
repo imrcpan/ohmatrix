@@ -12,6 +12,7 @@ import { MainScreen } from "./MainScreen.js";
 import { NotificationsBridge } from "./NotificationsBridge.js";
 import { useBackHandler } from "./useBackHandler.js";
 import { NoticeProvider } from "./useNotice.js";
+import { CallScreen } from "./CallScreen.js";
 
 /** The platform's back closes the topmost layer of the app, and only leaves the app when there is none. */
 function BackBridge() {
@@ -110,6 +111,8 @@ export function App(props: {
           <Framed insets={props.insets}>
             <NoticeProvider>
               <Root defaultHomeserver={props.defaultHomeserver ?? ""} />
+              {/* Inside the theme and the notices, over whatever is showing. */}
+              <CallScreen />
             </NoticeProvider>
           </Framed>
         </Themed>

@@ -33,6 +33,36 @@ function serviceText(ev: MatrixEvent, name: string): string | null {
   }
 }
 
+/**
+ * The line a call leaves in the chat. The invitation is the only event that shows (as "Voice call" or "Video call", by whoever placed it);
+ * how it ended is read from the room's later events of that call, so the line says "Missed call", "Declined" or the length of the call.
+ * The hangup and the rejection show nothing of their own.
+ */
+function callLine(client: MatrixClient, ev: MatrixEvent, senderName: string): MessageContent | null {
+  if (ev.getType() !== EventType.CallInvite) return null;
+  const c = ev.getContent<{ call_id?: string; offer?: { sdp?: string } }>();
+  const video = /m=video/.test(c.offer?.sdp ?? "");
+  const room = client.getRoom(ev.getRoomId() ?? "");
+  const mine = ev.getSender() === client.getUserId();
+  const ended = room
+    ?.getLiveTimeline()
+    .getEvents()
+    .find((e) => (e.getType() === EventType.CallHangup || e.getType() === EventType.CallReject) && e.getContent().call_id === c.call_id);
+  const answered = room
+    ?.getLiveTimeline()
+    .getEvents()
+    .find((e) => e.getType() === EventType.CallAnswer && e.getContent().call_id === c.call_id);
+  const what = video ? "video call" : "voice call";
+  let how = "";
+  if (ended && answered) {
+    const s = Math.max(0, Math.round((ended.getTs() - answered.getTs()) / 1000));
+    how = ` · ${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  } else if (ended) {
+    how = ended.getType() === EventType.CallReject ? (mine ? " · declined" : " · you declined") : mine ? " · no answer" : " · missed";
+  }
+  return { kind: "service", body: `${mine ? "You" : senderName} ${mine ? "called" : "called you"} (${what})${how}` };
+}
+
 /** The first `limit` distinct http(s) URLs in a body, in order. */
 export function firstUrls(body: string, limit = 2): string[] {
   const out: string[] = [];
@@ -310,6 +340,12 @@ export function toTimelineItem(client: MatrixClient, ev: MatrixEvent, markers?: 
         : { kind: "unsupported", body: "Sticker" };
       break;
     }
+    case EventType.CallInvite:
+    case EventType.CallHangup:
+    case EventType.CallReject:
+      // The record of a call is one line, written from the invitation; the other events of the call only close it (see `callLine`).
+      content = callLine(client, ev, senderName);
+      break;
     default: {
       const text = serviceText(ev, senderName);
       if (text) content = { kind: "service", body: text };

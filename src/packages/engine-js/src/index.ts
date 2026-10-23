@@ -81,6 +81,7 @@ import { aliasLocalpart, thresholdsOf } from "./roomSettings.js";
 import { childRooms, isDirectRoom } from "./spaces.js";
 import { mediaKindOf } from "./sharedMedia.js";
 import { JsSecurity, SecretKeyCache } from "./security.js";
+import { JsCalls } from "./calls.js";
 
 function wrap(e: unknown): EngineError {
   if (e instanceof EngineError) return e;
@@ -262,6 +263,7 @@ function mentionBlock(mentions?: string[]): Record<string, unknown> {
 export class JsSdkEngine implements MatrixEngine {
   private secretKeys = new SecretKeyCache();
   private cryptoPrefix: string | null = null;
+  readonly calls = new JsCalls(() => this.client?.getUserId() ?? undefined);
   private security_ = new JsSecurity(() => this.client, this.secretKeys);
 
   constructor(private options: JsSdkEngineOptions = {}) {}
@@ -287,6 +289,7 @@ export class JsSdkEngine implements MatrixEngine {
 
   private attach(client: MatrixClient) {
     this.client = client;
+    this.calls.attach(client);
     this.verification.attach(client);
     this.lastRooms = []; // a new client is a new account or device: nothing of the old list is reused
     const schedule = () => this.scheduleRoomEmit();
@@ -1034,6 +1037,7 @@ export class JsSdkEngine implements MatrixEngine {
         }
       }),
     stop: async () => {
+      this.calls.detach();
       this.client?.stopClient();
       this.client?.removeAllListeners();
       this.client = null;
