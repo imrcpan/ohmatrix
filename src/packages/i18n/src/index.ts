@@ -564,6 +564,9 @@ const en = {
   "account.signOut": "Sign out of this account",
   "account.signOut.title": "Sign out of {name}?",
   "account.current": "In use",
+  "accounts.reorder": "Reorder accounts",
+  "accounts.reorder.done": "Done",
+  "accounts.reorder.hint": "Drag an account by its handle to move it.",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1127,6 +1130,9 @@ const zh: Record<MessageKey, string> = {
   "account.signOut": "退出此账号",
   "account.signOut.title": "退出 {name}？",
   "account.current": "使用中",
+  "accounts.reorder": "排序账号",
+  "accounts.reorder.done": "完成",
+  "accounts.reorder.hint": "按住账号右侧的把手拖动，调整顺序。",
 };
 
 const catalogs: Record<Locale, Record<MessageKey, string>> = { en, "zh-CN": zh };

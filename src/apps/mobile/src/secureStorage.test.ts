@@ -115,3 +115,13 @@ test("an account's data folder is its own, except for the first one, which keeps
   expect(inAccountDir("/data/files", undefined)).toBe("/data/files");
   expect(inAccountDir("/data/files/", "acct-1a2b")).toBe("/data/files/acct-1a2b");
 });
+
+test("the order the accounts were put in is what a restart finds", async () => {
+  const kv = memory();
+  const store = createAccountStore(kv);
+  await store.upsert({ session });
+  await store.upsert({ session: { ...session, userId: "@b:h.example", accessToken: "b" } });
+  await store.upsert({ session: { ...session, userId: "@c:h.example", accessToken: "c" } });
+  await store.reorder(["@c:h.example", "@a:h"]);
+  expect((await createAccountStore(kv).list()).map((a) => a.session.userId)).toEqual(["@c:h.example", "@a:h", "@b:h.example"]);
+});

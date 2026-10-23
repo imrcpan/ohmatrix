@@ -1,4 +1,4 @@
-import type { AccountStore, Session, SessionStore, StoredAccount, UserId } from "@ohmatrix/core";
+import { inOrder, type AccountStore, type Session, type SessionStore, type StoredAccount, type UserId } from "@ohmatrix/core";
 
 /** The part of `expo-secure-store` we use: Android Keystore-backed on Android, Keychain on iOS. */
 export interface SecureKeyValue {
@@ -155,6 +155,11 @@ export function createAccountStore(kv: SecureKeyValue): AccountStore {
         const index = await readIndex();
         await kv.deleteItemAsync(keyOf(userId));
         await writeIndex({ ids: index.ids.filter((i) => i !== userId), active: index.active === userId ? null : index.active });
+      }),
+    reorder: (userIds) =>
+      change(async () => {
+        const index = await readIndex();
+        await writeIndex({ ...index, ids: inOrder(index.ids, userIds, (i) => i) });
       }),
     activeId: () => change(async () => (await readIndex()).active),
     setActive: (userId) => change(async () => writeIndex({ ...(await readIndex()), active: userId })),

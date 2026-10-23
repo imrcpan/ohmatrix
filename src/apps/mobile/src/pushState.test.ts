@@ -55,6 +55,7 @@ test("every change of the accounts or of the settings hands the whole state over
     list: async () => [...stored],
     upsert: async (a) => void stored.push(a),
     remove: async (id) => void stored.splice(0, stored.length, ...stored.filter((a) => a.session.userId !== id)),
+    reorder: async () => {},
     activeId: async () => null,
     setActive: async () => {},
   };
@@ -87,7 +88,7 @@ test("a module that is not in the build, or one that throws, does not break the 
         throw new Error("no module");
       },
     },
-    { list: async () => [], upsert: async () => {}, remove: async () => {}, activeId: async () => null, setActive: async () => {} },
+    { list: async () => [], upsert: async () => {}, remove: async () => {}, reorder: async () => {}, activeId: async () => null, setActive: async () => {} },
     async () => "p",
     roots,
   );

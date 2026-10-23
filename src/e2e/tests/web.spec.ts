@@ -3539,6 +3539,45 @@ test("stickers: add from the device, send, add from a picture of the chat, remov
   await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("button", { name: "Remove", exact: true }).click();
+test("several accounts: the accounts can be put in order by dragging, and the order stays after a reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const openAccounts = async () => {
+    await page.evaluate(() =>
+      (window as unknown as { __ohmatrix: { controller: { openSidebarPage(p: string): void } } }).__ohmatrix.controller.openSidebarPage("profile"),
+    );
+    await page.getByRole("button", { name: "Switch Account" }).click();
+    await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
+  };
+  // Add alice, so there are two accounts: test first, as they were added.
+  await openAccounts();
+  await page.getByRole("button", { name: "Add account" }).click();
+  const inputs = page.locator("input");
+  await inputs.nth(1).fill("alice");
+  await inputs.nth(2).fill("123456");
+  await inputs.nth(2).press("Enter");
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await openAccounts();
+  // The sort button turns the list into one to drag; a row dragged by its handle moves, and the order stays after a reload.
+  const top = (name: string) => page.getByRole("button", { name, exact: true }).evaluate((e) => e.getBoundingClientRect().top);
+  expect(await top("test")).toBeLessThan(await top("alice"));
+  await page.getByRole("button", { name: "Reorder accounts" }).click();
+  await expect(page.getByText("Drag an account by its handle to move it.")).toBeVisible();
+  const alice = page.getByRole("button", { name: "alice", exact: true });
+  const box = (await alice.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 30, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 30, box.y - 40, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await top("alice")) < (await top("test"))).toBe(true);
+  await page.getByRole("button", { name: "Done" }).click();
+  expect(await top("alice")).toBeLessThan(await top("test"));
+  await page.reload();
+  await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+  await openAccounts();
+  expect(await top("alice")).toBeLessThan(await top("test"));
+});
+
   await expect(page.getByRole("button", { name, exact: true })).toBeHidden({ timeout: 10000 });
 });
 

@@ -99,3 +99,13 @@ test("accounts that cannot be unsealed are dropped, so the user signs in again",
   expect(await other.list()).toEqual([]);
   expect(storage.m.size).toBe(0);
 });
+
+test("the order the accounts were put in is what a reload finds", async () => {
+  const storage = memStorage();
+  const box = createSecureBox({ idb: new IDBFactory() });
+  const store = createSecureAccountStore(box, storage);
+  await store.upsert({ session });
+  await store.upsert({ session: { ...session, userId: "@v:hs" }, dir: "acct-v" });
+  await store.reorder(["@v:hs", "@u:hs"]);
+  expect((await createSecureAccountStore(box, storage).list()).map((a) => a.session.userId)).toEqual(["@v:hs", "@u:hs"]);
+});

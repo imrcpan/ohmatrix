@@ -93,6 +93,7 @@ export function notifyingAccountStore(inner: AccountStore, changed: () => Promis
     list: () => inner.list(),
     upsert: (a) => then(inner.upsert(a)),
     remove: (id) => then(inner.remove(id)),
+    reorder: (ids) => then(inner.reorder(ids)),
     activeId: () => inner.activeId(),
     setActive: (id) => inner.setActive(id),
   };

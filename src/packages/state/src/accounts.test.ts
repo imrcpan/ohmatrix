@@ -280,3 +280,13 @@ test("starting reads the saved accounts once: no account reads the whole store a
   await until(() => ["@a:h", "@b:h"].every((u) => manager.controllerOf(u)?.store.getState().auth === "signedIn"));
   expect(lists).toBe(1);
 });
+
+test("reordering the accounts changes the list at once and is what the store keeps", async () => {
+  const { accounts, manager } = setup(["a", "b", "c"]);
+  await manager.start();
+  await manager.reorder(["@c:h", "@a:h"]);
+  expect(manager.store.getState().accounts.map((a) => a.userId)).toEqual(["@c:h", "@a:h", "@b:h"]);
+  expect((await accounts.list()).map((a) => a.session.userId)).toEqual(["@c:h", "@a:h", "@b:h"]);
+  // What is showing stays what is showing.
+  expect(manager.store.getState().currentKey).toBe("@a:h");
+});
