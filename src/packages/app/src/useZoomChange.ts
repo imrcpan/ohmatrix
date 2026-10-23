@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppState, useController } from "./context.js";
 
+/** The sizes the interface can be drawn at (1 = 100%). */
+export const SCALES = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
+
 /** Whole seconds left until `until` (a time in ms), counting a started second as left; 0 once it has passed. */
 export function secondsLeft(until: number, now: number): number {
   return Math.max(0, Math.ceil((until - now) / 1000));
