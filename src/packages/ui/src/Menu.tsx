@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
@@ -50,7 +50,16 @@ export function Menu(props: {
   if (props.anchor) last.current = props.anchor;
   const raw = props.anchor ?? last.current ?? { x: 0, y: 0, width: 0, height: 0 };
   const a = { x: un(raw.x), y: un(raw.y), width: un(raw.width), height: un(raw.height) };
-  const h = props.items.length * ROW + 4;
+  // A row is as tall as its text needs (a long name goes on a second line, never cut off), so the menu's height is what it measured to be;
+  // until it has been measured, the height of rows of one line.
+  const [measured, setMeasured] = useState(0);
+  const h = measured || props.items.length * ROW + 4;
+  // The menu is the same component for every use, so what was measured for one list is not kept for the next.
+  const lastItems = useRef(props.items);
+  if (lastItems.current !== props.items && lastItems.current.length !== props.items.length) {
+    lastItems.current = props.items;
+    if (measured) setMeasured(0);
+  }
   const MENU_WIDTH = props.width ?? DEFAULT_WIDTH;
   const rawLeft = props.alignRight ? a.x + a.width - MENU_WIDTH : a.x;
   const left = Math.max(8, Math.min(rawLeft, win.width - MENU_WIDTH - 8));
@@ -71,6 +80,7 @@ export function Menu(props: {
             } as object)}
           >
             <View
+              onLayout={(e) => setMeasured(Math.round(e.nativeEvent.layout.height))}
               style={[{ position: "absolute", left, top, width: MENU_WIDTH, padding: 2, borderRadius: 12, backgroundColor: colors.bg }, popoverShadow(dark)]}
             >
               {props.items.map((it) => (
@@ -84,7 +94,8 @@ export function Menu(props: {
                     it.onPress();
                   }}
                   style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                    height: ROW,
+                    minHeight: ROW,
+                    paddingVertical: 7,
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 12,
@@ -94,7 +105,9 @@ export function Menu(props: {
                   })}
                 >
                   {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
-                  <Text style={{ flex: 1, fontSize: 15, fontFamily, color: it.danger ? colors.danger : colors.text }}>{it.label}</Text>
+                  <Text style={{ flex: 1, minWidth: 0, fontSize: 15, lineHeight: 20, fontFamily, color: it.danger ? colors.danger : colors.text }}>
+                    {it.label}
+                  </Text>
                   {it.checked && <Icon name="check" size={18} color={colors.accent} />}
                 </Pressable>
               ))}
