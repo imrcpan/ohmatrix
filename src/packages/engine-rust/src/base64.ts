@@ -14,3 +14,8 @@ export function toBase64(data: ArrayBuffer | Uint8Array): string {
   }
   return out;
 }
+
+/** The bytes as lower-case hex digits. */
+export function hexOf(data: ArrayBuffer | Uint8Array): string {
+  return [...(data instanceof Uint8Array ? data : new Uint8Array(data))].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
