@@ -58,6 +58,7 @@ export type ItemContent =
     } & Extras)
   | { type: "membership"; userId: string; userName?: string | undefined; change?: MembershipChange | undefined }
   | { type: "state"; state: StateChange }
+  | { type: "call" }
   | { type: "undecryptable" }
   | { type: "redacted" }
   | { type: "unsupported"; description: string };
@@ -135,6 +136,10 @@ export function toTimelineItem(e: EventItemLike, roomId: string, me: string): Ti
       content = text ? { kind: "service", body: text } : null;
       break;
     }
+    case "call":
+      // The SDK gives the invitation of a call with nothing in it (not its kind, not how it ended): the line says only who called whom.
+      content = { kind: "service", body: e.isOwn ? "You called" : `${sender} called you` };
+      break;
     case "undecryptable":
       content = { kind: "undecryptable" };
       break;
