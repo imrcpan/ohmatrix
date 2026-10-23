@@ -1,0 +1,106 @@
+diff --git a/bindings/matrix-sdk-ffi/src/call_events.rs b/bindings/matrix-sdk-ffi/src/call_events.rs
+new file mode 100644
+index 0000000..edfe6be
+--- /dev/null
++++ b/bindings/matrix-sdk-ffi/src/call_events.rs
+@@ -0,0 +1,88 @@
++// Calls between two people (Matrix VoIP, `m.call.*`) need the signalling events of the room: the answer, the ICE candidates, the hangup.
++// The timeline of the SDK shows only the invitation, and a hangup closes it, so the rest is never seen by the app. This hands each of
++// the call events the client receives to a listener, as it came from the server (type, room, sender, content as JSON), and the app
++// answers with `Room::send_raw`. Nothing here decides anything about a call.
++
++use std::sync::Arc;
++
++use matrix_sdk::event_handler::{EventHandlerHandle, RawEvent};
++use ruma::events::call::{
++    answer::OriginalSyncCallAnswerEvent, candidates::OriginalSyncCallCandidatesEvent, hangup::OriginalSyncCallHangupEvent,
++    invite::OriginalSyncCallInviteEvent, negotiate::OriginalSyncCallNegotiateEvent, reject::OriginalSyncCallRejectEvent,
++    select_answer::OriginalSyncCallSelectAnswerEvent,
++};
++use matrix_sdk::Room as SdkRoom;
++
++use crate::client::Client;
++
++/// What the app is told about a call event.
++#[matrix_sdk_ffi_macros::export(callback_interface)]
++pub trait CallEventListener: Send + Sync {
++    /// `event_type` is the event's type (`m.call.invite`, ...); `content_json` is its `content`; `age_ms` is how old the event was when the
++    /// client received it, so the app can ignore an invitation that has long rung out (one that is found only on the first sync).
++    fn on_call_event(&self, room_id: String, event_type: String, sender: String, event_id: String, age_ms: u64, content_json: String);
++}
++
++/// Stops the listening when it is dropped or `cancel` is called.
++#[derive(uniffi::Object)]
++pub struct CallEventSubscription {
++    client: matrix_sdk::Client,
++    handles: std::sync::Mutex<Vec<EventHandlerHandle>>,
++}
++
++#[matrix_sdk_ffi_macros::export]
++impl CallEventSubscription {
++    pub fn cancel(&self) {
++        for h in self.handles.lock().unwrap().drain(..) {
++            self.client.remove_event_handler(h);
++        }
++    }
++}
++
++impl Drop for CallEventSubscription {
++    fn drop(&mut self) {
++        self.cancel();
++    }
++}
++
++/// Pulls what the listener is given out of a raw event: its sender, id, age and content.
++fn parts(raw: &RawEvent) -> Option<(String, String, u64, String)> {
++    let v: serde_json::Value = serde_json::from_str(raw.get()).ok()?;
++    let sender = v.get("sender")?.as_str()?.to_owned();
++    let event_id = v.get("event_id").and_then(|x| x.as_str()).unwrap_or_default().to_owned();
++    let age = v.get("unsigned").and_then(|u| u.get("age")).and_then(|a| a.as_u64()).unwrap_or(0);
++    let content = v.get("content")?.to_string();
++    Some((sender, event_id, age, content))
++}
++
++macro_rules! forward {
++    ($client:expr, $listener:expr, $handles:expr, $ev:ty, $name:expr) => {{
++        let l = $listener.clone();
++        $handles.push($client.add_event_handler(move |_ev: $ev, room: SdkRoom, raw: RawEvent| {
++            let l = l.clone();
++            async move {
++                if let Some((sender, event_id, age, content)) = parts(&raw) {
++                    l.on_call_event(room.room_id().to_string(), $name.to_owned(), sender, event_id, age, content);
++                }
++            }
++        }));
++    }};
++}
++
++#[matrix_sdk_ffi_macros::export]
++impl Client {
++    /// Listen to the call events of every room the client is in. Returns the subscription to keep (dropping it stops the listening).
++    pub fn subscribe_to_call_events(&self, listener: Box<dyn CallEventListener>) -> Arc<CallEventSubscription> {
++        let listener: Arc<dyn CallEventListener> = listener.into();
++        let client = (*self.inner).clone();
++        let mut handles = Vec::new();
++        forward!(client, listener, handles, OriginalSyncCallInviteEvent, "m.call.invite");
++        forward!(client, listener, handles, OriginalSyncCallAnswerEvent, "m.call.answer");
++        forward!(client, listener, handles, OriginalSyncCallCandidatesEvent, "m.call.candidates");
++        forward!(client, listener, handles, OriginalSyncCallHangupEvent, "m.call.hangup");
++        forward!(client, listener, handles, OriginalSyncCallRejectEvent, "m.call.reject");
++        forward!(client, listener, handles, OriginalSyncCallSelectAnswerEvent, "m.call.select_answer");
++        forward!(client, listener, handles, OriginalSyncCallNegotiateEvent, "m.call.negotiate");
++        Arc::new(CallEventSubscription { client, handles: std::sync::Mutex::new(handles) })
++    }
++}
+diff --git a/bindings/matrix-sdk-ffi/src/lib.rs b/bindings/matrix-sdk-ffi/src/lib.rs
+index 52d4c40..b2249f5 100644
+--- a/bindings/matrix-sdk-ffi/src/lib.rs
++++ b/bindings/matrix-sdk-ffi/src/lib.rs
+@@ -4,6 +4,7 @@
+ 
+ mod authentication;
+ mod chunk_iterator;
++mod call_events;
+ mod client;
+ mod client_builder;
+ mod encryption;

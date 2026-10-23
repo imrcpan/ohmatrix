@@ -18,6 +18,10 @@ if [ ! -d rust_modules/matrix-rust-sdk ]; then npx ubrn checkout --config ubrn.y
 if ! grep -q "rustls-no-provider" rust_modules/matrix-rust-sdk/crates/matrix-sdk/Cargo.toml; then
   git -C rust_modules/matrix-rust-sdk apply ../../patches/matrix-rust-sdk-ring-provider.patch
 fi
+# The call events of the room (for calls between two people): a listener the app gives the signalling events to (patches/matrix-rust-sdk-call-events.patch).
+if [ ! -f rust_modules/matrix-rust-sdk/bindings/matrix-sdk-ffi/src/call_events.rs ]; then
+  git -C rust_modules/matrix-rust-sdk apply ../../patches/matrix-rust-sdk-call-events.patch
+fi
 
 # x86_64 needs the compiler runtime for 128-bit arithmetic that the NDK does not link by default.
 export CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS="-L$clang_dir"
