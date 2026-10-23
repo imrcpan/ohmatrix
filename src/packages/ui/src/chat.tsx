@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import type React from "react";
-import { Animated, Easing, Image, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Animated, Image, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon, type IconName } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
+import { useQuickFade } from "./quickFade.js";
 import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
@@ -526,16 +527,8 @@ export function Composer(props: {
   // Whether the panel is open is the screen's to know (a tap on the chat closes it), so it is kept there.
   const attachOpen = !!props.attach?.open;
   const setAttachOpen = (open: boolean) => props.attach?.onOpenChange(open);
-  const attachShown = useRef(new Animated.Value(0)).current;
-  const [attachMounted, setAttachMounted] = useState(false);
-  useEffect(() => {
-    if (attachOpen) setAttachMounted(true);
-    Animated.timing(attachShown, { toValue: attachOpen ? 1 : 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(
-      ({ finished }) => {
-        if (finished && !attachOpen) setAttachMounted(false);
-      },
-    );
-  }, [attachOpen, attachShown]);
+  const attachPop = useQuickFade(attachOpen);
+  const emojiPop = useQuickFade(emojiOpen);
   // The menu is keyboard-driven while the caret stays in the field: `active` is a highlight, -1 = none.
   const [active, setActive] = useState(-1);
   const [box, setBox] = useState({ width: 0, y: 0 });
@@ -722,13 +715,21 @@ export function Composer(props: {
           {props.notice}
         </Text>
       )}
-      {emojiOpen && (
-        <View
+      {emojiPop.mounted && (
+        <Animated.View
           style={[
-            { position: "absolute", bottom: 62, left: 8, zIndex: 7, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg },
+            {
+              position: "absolute",
+              bottom: 62,
+              left: 8,
+              zIndex: 7,
+              borderRadius: 14,
+              overflow: "hidden",
+              backgroundColor: colors.bg,
+            } as object,
+            { opacity: emojiPop.opacity },
             // On a dark theme the edge is drawn, as the attach bubble's is: a shadow does not show on a dark page.
             dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
-            popoverShadow(dark),
           ]}
         >
           <EmojiPicker
@@ -739,7 +740,7 @@ export function Composer(props: {
             available={box.width - 16}
             close={() => setEmojiOpen(false)}
           />
-        </View>
+        </Animated.View>
       )}
       {props.recording ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 8, paddingHorizontal: 10, minHeight: 54 }}>
@@ -832,7 +833,7 @@ export function Composer(props: {
               )}
               {props.attach && (
                 <View>
-                  {attachMounted && (
+                  {attachPop.mounted && (
                     // A bubble above the plus button, opening upward: the rows have large icons, unlike the context menus.
                     <Animated.View
                       accessibilityLabel={props.attach.label}
@@ -841,7 +842,8 @@ export function Composer(props: {
                           position: "absolute",
                           left: -4,
                           bottom: "100%",
-                          marginBottom: 8,
+                          // The same height above the bottom edge as the emoji bubble's (62): the bar's own padding for the gesture bar is taken off.
+                          marginBottom: 16 - Math.max(navBottom - 4, 0),
                           minWidth: ATTACH_W,
                           paddingVertical: 8,
                           paddingHorizontal: 4,
@@ -850,10 +852,8 @@ export function Composer(props: {
                           ...(dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {}),
                           backgroundColor: colors.bg,
                           zIndex: 7,
-                          opacity: attachShown,
-                          transform: [{ translateY: attachShown.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-                        },
-                        popoverShadow(dark),
+                          opacity: attachPop.opacity,
+                        } as object,
                       ]}
                     >
                       {props.attach.items.map((it) => (
