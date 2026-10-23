@@ -5,7 +5,6 @@ import {
   moveItem,
   newGroupId,
   STICKER_DEFAULT_GROUP,
-  STICKER_GROUP_NAME_MAX,
   STICKER_GROUPS_MAX,
   type Sticker,
   type StickerGroup,
@@ -54,7 +53,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const [menu, setMenu] = useState<Anchor | null>(null);
   const [width, setWidth] = useState(320);
-  const [dialog, setDialog] = useState<"delete" | "name" | "cover" | "deleteGroup" | "deleteGroup2" | null>(null);
+  const [dialog, setDialog] = useState<"delete" | "name" | "cover" | "deleteGroup" | "deleteGroup2" | "newGroup" | null>(null);
   const gear = useRef<View>(null);
   useEffect(() => controller.subscribeStickers(setStickers), [controller]);
   useEffect(() => controller.subscribeStickerGroups(setStored), [controller]);
@@ -263,24 +262,35 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
           stop();
           setView(id);
         }}
-        onNew={() => {
-          // A new group has no cover of its own: it shows its first sticker, or a smiling face until it has one.
-          const id = newGroupId(groups);
-          void saveGroups([...groups, { id, name: "", stickers: [] }]).then(() => setView(id));
-        }}
+        onNew={() => setDialog("newGroup")}
       />
       <Menu visible={!!menu} anchor={menu} alignRight up={false} items={items} onClose={() => setMenu(null)} />
       <GroupCoverDialog visible={dialog === "cover"} stickers={stickers} onClose={() => setDialog(null)} onPick={setCover} />
       <PromptDialog
+        visible={dialog === "newGroup"}
+        title={t("sticker.group.new")}
+        message={t("sticker.name.body")}
+        fields={[{ label: t("sticker.name.label"), optional: true }]}
+        initial={[t("sticker.group.n", { n: groups.length })]}
+        confirmLabel={t("sticker.group.create")}
+        onConfirm={async ([name]) => {
+          const next = (name ?? "").trim();
+          // A new group has no cover of its own: it shows its first sticker, or a smiling face until it has one.
+          const id = newGroupId(groups);
+          await controller.setStickerGroups([...groups, { id, name: next, stickers: [] }]);
+          setView(id);
+        }}
+        onClose={() => setDialog(null)}
+      />
+      <PromptDialog
         visible={dialog === "name"}
         title={t("sticker.name.title")}
-        message={t("sticker.name.body", { n: STICKER_GROUP_NAME_MAX })}
+        message={t("sticker.name.body")}
         fields={[{ label: t("sticker.name.label"), optional: true }]}
         initial={[current.name]}
         confirmLabel={t("save")}
         onConfirm={async ([name]) => {
           const next = (name ?? "").trim();
-          if (Array.from(next).length > STICKER_GROUP_NAME_MAX) throw new Error(t("sticker.name.long", { n: STICKER_GROUP_NAME_MAX }));
           await controller.setStickerGroups(groups.map((g) => (g.id === current.id ? { ...g, name: next } : g)));
         }}
         onClose={() => setDialog(null)}

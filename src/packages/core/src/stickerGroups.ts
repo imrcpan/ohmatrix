@@ -1,13 +1,5 @@
 import { EngineError } from "./errors.js";
-import {
-  STICKER_DEFAULT_GROUP,
-  STICKER_GROUP_FALLBACK_EMOJI,
-  STICKER_GROUP_NAME_MAX,
-  STICKER_GROUPS_MAX,
-  type Sticker,
-  type StickerGroup,
-  type StickerGroupIcon,
-} from "./types.js";
+import { STICKER_DEFAULT_GROUP, STICKER_GROUP_FALLBACK_EMOJI, STICKER_GROUPS_MAX, type Sticker, type StickerGroup, type StickerGroupIcon } from "./types.js";
 
 /** The account data event my sticker groups live in. Other clients do not read it: for them the pack is one list. */
 export const STICKER_GROUPS_EVENT = "org.ohmatrix.sticker_groups";
@@ -85,7 +77,7 @@ export function parseGroups(content: unknown): StickerGroup[] {
     for (const s of unique) used.add(s);
     out.push({
       id: g.id,
-      name: typeof g.name === "string" ? Array.from(g.name.trim()).slice(0, STICKER_GROUP_NAME_MAX).join("").trim() : "",
+      name: typeof g.name === "string" ? g.name.trim() : "",
       ...(icon && { icon }),
       stickers: unique,
     });
@@ -93,15 +85,13 @@ export function parseGroups(content: unknown): StickerGroup[] {
   return out;
 }
 
-/** The content to store for `groups`; refuses what `parseGroups` would drop or cut, so a bad cover, a long name or too many groups is an error, not a silent loss. */
+/** The content to store for `groups`; refuses what `parseGroups` would drop or cut, so a bad cover or too many groups is an error, not a silent loss. */
 export function writeGroups(groups: readonly StickerGroup[]): { groups: StickerGroup[] } {
   if (groups.filter((g) => g.id !== STICKER_DEFAULT_GROUP).length > STICKER_GROUPS_MAX)
     throw new EngineError("unsupported", `At most ${STICKER_GROUPS_MAX} groups`);
   for (const g of groups) {
     if (g.id === STICKER_DEFAULT_GROUP && g.icon) throw new EngineError("unsupported", "The default group's cover cannot be changed");
     if (g.icon && !iconOf(g.icon)) throw new EngineError("unsupported_type", "A group's cover has to be a standard emoji or a picture");
-    if (Array.from(g.name.trim()).length > STICKER_GROUP_NAME_MAX)
-      throw new EngineError("unsupported", `A group's name is at most ${STICKER_GROUP_NAME_MAX} characters`);
   }
   const clean = parseGroups({ groups });
   if (clean.length !== groups.length) throw new EngineError("unknown", "The groups are not valid");

@@ -32,16 +32,15 @@ describe("sticker groups", () => {
       { id: "b", name: "", stickers: [] },
       { id: "c", name: "", icon: { kind: "image", url: "mxc://h/i", mimeType: "image/png" }, stickers: ["z"] },
       { id: "d", name: "", stickers: [] },
-      { id: "e", name: "a very long", stickers: [] },
+      { id: "e", name: "a very long name indeed", stickers: [] },
     ]);
     expect(parseGroups(undefined)).toEqual([]);
     const many = { groups: Array.from({ length: 20 }, (_, n) => g(`g${n}`)) };
     expect(parseGroups(many)).toHaveLength(STICKER_GROUPS_MAX);
   });
 
-  it("refuses to write a bad cover, a long name or too many groups, and gives back what it reads", () => {
+  it("refuses to write a bad cover or too many groups, and gives back what it reads", () => {
     expect(() => writeGroups([g("a", [], "word")])).toThrow(expect.objectContaining({ code: "unsupported_type" }));
-    expect(() => writeGroups([{ ...g("a"), name: "x".repeat(13) }])).toThrow(expect.objectContaining({ code: "unsupported" }));
     expect(() => writeGroups([{ id: "a", name: "好".repeat(12), stickers: [] }])).not.toThrow();
     expect(() => writeGroups(Array.from({ length: STICKER_GROUPS_MAX + 1 }, (_, n) => g(`g${n}`)))).toThrow(expect.objectContaining({ code: "unsupported" }));
     expect(() => writeGroups([g("a"), g("a")])).toThrow();

@@ -5,6 +5,10 @@ export interface Insets {
   bottom: number;
   left: number;
   navBottom?: number;
+  /** From the bottom of the window to the top of the keyboard; 0 when it is hidden. */
+  keyboard?: number;
+  /** What `bottom` and `navBottom` are when the keyboard is hidden (for a layer that keeps itself clear of the keyboard instead). */
+  resting?: { bottom: number; navBottom: number };
 }
 
 /**
@@ -38,6 +42,14 @@ export function shellInsets(system: Insets, keyboardHeight: number, platform: "a
   const keyboard = Math.max(0, keyboardHeight);
   const bottom = platform === "android" ? system.bottom + keyboard : keyboard > 0 ? keyboard : system.bottom;
   // Under the gesture bar, unless the keyboard is up (then the keyboard is what the app stops above, and it covers the bar).
-  const navBottom = keyboard === 0 && system.bottom > 0 && system.bottom <= GESTURE_BAR_MAX ? system.bottom : 0;
-  return { ...system, top: topInset(system.top), bottom, navBottom };
+  const restNav = system.bottom > 0 && system.bottom <= GESTURE_BAR_MAX ? system.bottom : 0;
+  const navBottom = keyboard === 0 ? restNav : 0;
+  return {
+    ...system,
+    top: topInset(system.top),
+    bottom,
+    navBottom,
+    keyboard: keyboard > 0 ? bottom : 0,
+    resting: { bottom: system.bottom, navBottom: restNav },
+  };
 }

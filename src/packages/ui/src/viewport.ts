@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useWindowDimensions } from "react-native";
 
 export const ScaleContext = createContext(1);
@@ -33,6 +33,8 @@ export interface SystemInsets {
    * end of a list) adds this itself, on its own background. Absent or 0 where the bottom is left clear (buttons, keyboard open).
    */
   navBottom?: number;
+  /** From the bottom of the window to the top of the on-screen keyboard (0 when it is hidden). */
+  keyboard?: number;
 }
 
 export const InsetsContext = createContext<SystemInsets>({ top: 0, right: 0, bottom: 0, left: 0 });
@@ -45,4 +47,16 @@ export function useNavBottom(): number {
 /** The room a full-window layer (a Modal draws edge to edge) must leave clear of the system bars. */
 export function useInsets(): SystemInsets {
   return useContext(InsetsContext);
+}
+
+/**
+ * Lets a layer that has a text field of its own (a dialog) ask the shell not to lift the screens behind it for the keyboard: they
+ * stay where they are, and the layer keeps itself clear of the keyboard instead (see `useInsets().keyboard`). Absent = no shell to ask.
+ */
+export const KeyboardHoldContext = createContext<{ acquire: () => () => void } | null>(null);
+
+/** While `active`, the screens behind are not lifted by the keyboard. */
+export function useKeyboardHold(active: boolean): void {
+  const hold = useContext(KeyboardHoldContext);
+  useEffect(() => (active && hold ? hold.acquire() : undefined), [active, hold]);
 }
