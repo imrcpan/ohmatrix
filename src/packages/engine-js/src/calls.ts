@@ -57,6 +57,24 @@ export function endReasonOf(reason: string | undefined, mine: boolean, wasRingin
  * going, turns its events into `CallState`, and gives the platform's streams to the screen. A call that comes in while another is on is
  * turned away as busy.
  */
+/** One line in the app's log with what a peer connection has sent and received: whether a call carries sound and picture is read from it. */
+async function traceStats(pc: RTCPeerConnection, label: string): Promise<void> {
+  try {
+    const rows: string[] = [];
+    (await pc.getStats()).forEach((v: Record<string, unknown>) => {
+      const kind = String(v["kind"] ?? v["mediaType"] ?? "");
+      if (v["type"] === "outbound-rtp") rows.push(`out ${kind} bytes=${String(v["bytesSent"] ?? 0)} packets=${String(v["packetsSent"] ?? 0)}`);
+      else if (v["type"] === "inbound-rtp")
+        rows.push(`in ${kind} bytes=${String(v["bytesReceived"] ?? 0)} packets=${String(v["packetsReceived"] ?? 0)} lost=${String(v["packetsLost"] ?? 0)}`);
+      else if (v["type"] === "candidate-pair" && v["state"] === "succeeded" && v["nominated"] === true)
+        rows.push(`pair rtt=${String(v["currentRoundTripTime"] ?? "")}`);
+    });
+    console.log("call:", label, rows.join(" | "));
+  } catch (e) {
+    console.log("call:", label, "stats failed", e instanceof Error ? e.message : String(e));
+  }
+}
+
 export class JsCalls implements CallsApi {
   private listeners = new Set<Listener<CallState | null>>();
   private current: { call: MatrixCall; state: CallState; wasRinging: boolean } | null = null;
@@ -182,6 +200,7 @@ export class JsCalls implements CallsApi {
   private onIncoming(call: MatrixCall): void {
     // One call at a time: a second one is turned away without ringing.
     if (this.current && this.current.state.phase !== "ended") {
+      console.log("call: busy, turning away", call.callId, "(on:", this.current.state.id, this.current.state.phase, ")");
       call.reject();
       return;
     }
@@ -205,6 +224,22 @@ export class JsCalls implements CallsApi {
       }
       update();
     };
+    call.on(CallEvent.State, ((state: string) => console.log("call: state:", state)) as never);
+    call.on(CallEvent.FeedsChanged, ((feeds: { purpose: string; isLocal(): boolean; stream: MediaStream }[]) =>
+      console.log(
+        "call: feeds:",
+        feeds
+          .map(
+            (f) =>
+              `${f.isLocal() ? "local" : "remote"} ${f.purpose} tracks=${
+                f.stream
+                  .getTracks()
+                  .map((t) => t.kind)
+                  .join("+") || "none"
+              }`,
+          )
+          .join(" | "),
+      )) as never);
     call.on(CallEvent.State, update as never);
     call.on(CallEvent.FeedsChanged, watchFeeds as never);
     call.on(CallEvent.LocalHoldUnhold, update as never);
@@ -214,6 +249,10 @@ export class JsCalls implements CallsApi {
       CallEvent.PeerConnectionCreated as never,
       ((pc: RTCPeerConnection) => {
         pc.addEventListener("iceconnectionstatechange", () => {
+          console.log("call: ice:", pc.iceConnectionState);
+          if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+            for (const ms of [3000, 8000]) setTimeout(() => void traceStats(pc, `stats@${ms / 1000}s`), ms);
+          }
           const bad = pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed";
           if (bad) this.poor.add(call.callId);
           else this.poor.delete(call.callId);
