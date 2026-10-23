@@ -158,6 +158,8 @@ export interface StickersApi {
 export interface CallsApi {
   /** Whether this device can make and take calls (a browser with WebRTC, a phone with the native library). */
   readonly supported: boolean;
+  /** What a call here can do besides talking: show the screen, choose the microphone and camera. The call screen offers only these. */
+  readonly features?: { screenShare?: boolean; devices?: boolean; speaker?: boolean };
   /** Emits the call that is going (null when there is none): immediately, then after every change. A call stays on show, ended, until `dismiss`. */
   subscribe(cb: Listener<CallState | null>): Unsubscribe;
   /** Call the other person of a one-to-one room. Rejects with "unsupported" for a room that is not one-to-one and when calls cannot be made here, "conflict" when a call is on already. */
@@ -174,6 +176,8 @@ export interface CallsApi {
   devices?(): Promise<{ microphones: CallDevice[]; cameras: CallDevice[] }>;
   /** Use another microphone or camera, in the call and in the ones after it. */
   useDevice(kind: "microphone" | "camera", id: string): Promise<void>;
+  /** Where the sound comes out: the loudspeaker, or the earpiece (a headset is used whenever one is connected). Phones only. */
+  setSpeaker?(on: boolean): Promise<void>;
   /** Take an ended call off the screen. */
   dismiss(): void;
 }

@@ -93,6 +93,8 @@ test("a one-to-one call: ring, answer, talk, hang up", async ({ browser }) => {
 
   await pa.getByRole("button", { name: "Mute" }).click();
   await expect(pa.getByRole("button", { name: "Unmute" })).toBeVisible();
+  // The browser has no earpiece to choose: the phone's speaker button is not there.
+  await expect(pa.getByRole("button", { name: "Speaker" })).toHaveCount(0);
 
   await pb.getByRole("button", { name: "End", exact: true }).click();
   await expect(pb.getByText("Call ended")).toBeVisible();

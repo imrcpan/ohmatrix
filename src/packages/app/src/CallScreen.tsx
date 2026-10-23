@@ -76,7 +76,7 @@ const REASON_KEY: Record<
 function RoundButton(props: {
   label: string;
   onPress: () => void;
-  icon: "mic" | "video" | "fluentCall" | "screen" | "gear";
+  icon: "mic" | "video" | "fluentCall" | "screen" | "gear" | "speaker";
   off?: boolean;
   tone?: "danger" | "accept";
   slash?: boolean;
@@ -137,6 +137,7 @@ function CallBody(props: { call: CallState; onMinimize: () => void }) {
   const controller = useController();
   const nav = useNavBottom();
   const notice = useNotice();
+  const features = controller.callFeatures;
   const insets = useInsets();
   const avatar = useMediaUrl(call.peer.avatar, { width: 256, height: 256, fit: "crop" });
   const status = useCallStatus(call);
@@ -273,10 +274,18 @@ function CallBody(props: { call: CallState; onMinimize: () => void }) {
                 onPress={() => void controller.setCallCameraOff(!call.cameraOff)}
               />
             )}
-            {live && call.video && (
+            {live && call.video && features.screenShare && (
               <RoundButton label={call.sharing ? t("call.shareStop") : t("call.share")} icon="screen" off={call.sharing} onPress={() => void share()} />
             )}
-            {live && (
+            {live && features.speaker && (
+              <RoundButton
+                label={call.speaker ? t("call.earpiece") : t("call.speaker")}
+                icon="speaker"
+                off={!!call.speaker}
+                onPress={() => void controller.setCallSpeaker(!call.speaker)}
+              />
+            )}
+            {live && features.devices && (
               <View ref={gear} collapsable={false}>
                 <RoundButton label={t("call.devices")} icon="gear" onPress={openDevices} />
               </View>
