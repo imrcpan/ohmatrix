@@ -637,7 +637,14 @@ export function Composer(props: {
         setBox((b) => ({ ...b, width }));
       }}
       // A little air above the bar, between it and the newest message.
-      style={{ backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.separator, zIndex: 4, paddingBottom: navBottom, marginTop: 2 }}
+      style={{
+        backgroundColor: colors.bg,
+        borderTopWidth: 1,
+        borderTopColor: colors.separator,
+        zIndex: 4,
+        paddingBottom: Math.max(navBottom - 4, 0),
+        marginTop: 2,
+      }}
     >
       {props.context && (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingTop: 8 }}>
@@ -819,7 +826,7 @@ export function Composer(props: {
                       backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                     })}
                   >
-                    <Icon name="sticker" size={26} color={emojiOpen ? colors.accent : colors.textSecondary} />
+                    <Icon name="sticker" size={32} strokeWidth={1.6} color={emojiOpen ? colors.accent : colors.textSecondary} />
                   </Pressable>
                 </View>
               )}
@@ -907,7 +914,7 @@ export function Composer(props: {
                       backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                     })}
                   >
-                    <Icon name="plus" size={26} color={attachOpen ? colors.accent : colors.textSecondary} />
+                    <Icon name="plusCircle" size={30} strokeWidth={1.6} color={attachOpen ? colors.accent : colors.textSecondary} />
                   </Pressable>
                 </View>
               )}
