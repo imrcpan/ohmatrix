@@ -89,13 +89,6 @@ export function MessageList(props: MessageListProps) {
     };
   }, [props.handleRef, p, dataRef]);
 
-  // The oldest row in view is the top of the screen: the highest index in an inverted list.
-  const viewable = useRef(({ viewableItems }: { viewableItems: Array<{ item: unknown; index?: number | null | undefined }> }) => {
-    const top = viewableItems.filter((v) => v.index != null).sort((a, b) => b.index! - a.index!)[0]?.item as Row | undefined;
-    if (top) p.current.onVisibleTop(top);
-  }).current;
-  const viewConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
-
   return (
     <FlatList
       ref={listRef}
@@ -125,8 +118,6 @@ export function MessageList(props: MessageListProps) {
         fill();
       }}
       onScrollToIndexFailed={({ index, averageItemLength }) => listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })}
-      onViewableItemsChanged={viewable}
-      viewabilityConfig={viewConfig}
       onScroll={(e) => {
         const { contentOffset, layoutMeasurement } = e.nativeEvent;
         const gap = contentOffset.y; // the distance from the newest message, since offset 0 is the bottom
@@ -140,7 +131,6 @@ export function MessageList(props: MessageListProps) {
           s.current.away = away;
           p.current.onAwayChange(away);
         }
-        p.current.onMoving();
       }}
     />
   );

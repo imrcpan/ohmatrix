@@ -21,10 +21,6 @@ export interface MessageListProps {
   onPinnedChange(pinned: boolean): void;
   /** The view is far from the newest message. */
   onAwayChange(away: boolean): void;
-  /** The reader is scrolling (not a jump we made). */
-  onMoving(): void;
-  /** The row at the top of the view, for the floating date. */
-  onVisibleTop(row: Row): void;
   /** Filled in by the list with what the chat can ask of it. */
   handleRef: MutableRefObject<MessageListHandle | null>;
 }

@@ -2,8 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { Composer, useTheme } from "@ohmatrix/ui";
 import { ForwardDialog } from "../ForwardDialog.js";
-import { useLocale, useServices, useT } from "../context.js";
-import { formatDayLabel } from "../format.js";
+import { useServices, useT } from "../context.js";
 import { useNotice } from "../useNotice.js";
 import type { Row } from "../timelineRows.js";
 import { AttachmentDialogs } from "./AttachmentDialogs.js";
@@ -19,7 +18,7 @@ import { SelectionBar, SelectionHeader } from "./SelectionBar.js";
 import { SelectionContext, type Selection } from "./selection.js";
 import { MessageList } from "./MessageList.js";
 import type { MessageListHandle } from "./messageList.js";
-import { DatePill, DropOverlay, LoadingOverlay, ScrollToLatest, Toast, type DatePillControls } from "./overlays.js";
+import { DropOverlay, LoadingOverlay, ScrollToLatest, Toast } from "./overlays.js";
 import { TimelineRow } from "./TimelineRow.js";
 import { useAttachments } from "./useAttachments.js";
 import { useComposer } from "./useComposer.js";
@@ -46,11 +45,9 @@ export function ChatPane(props: ChatPaneProps) {
 function Chat(props: ChatPaneProps) {
   const { colors } = useTheme();
   const t = useT();
-  const locale = useLocale();
   const services = useServices();
   const { room, items, handle, typing, rows: allRows, isGroup } = useRoomTimeline(props.roomId);
   const list = useRef<MessageListHandle | null>(null);
-  const datePill = useRef<DatePillControls | null>(null);
   const [ready, setReady] = useState(false);
   // Only the newest screen and a half is drawn at first; see useRowWindow.
   const win = useRowWindow(allRows, ready);
@@ -169,13 +166,6 @@ function Chat(props: ChatPaneProps) {
     (row: Row) => <TimelineRow row={row} isGroup={isGroup} actions={actions} highlighted={row.type === "message" && row.item.id === highlightId} />,
     [isGroup, actions, highlightId],
   );
-  const onVisibleTop = useCallback(
-    (row: Row) => {
-      const label = row.type === "date" ? row.label : row.type === "message" ? formatDayLabel(row.item.ts, Date.now(), locale) : null;
-      if (label) datePill.current?.date(label);
-    },
-    [locale],
-  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.chatBg }}>
@@ -214,8 +204,6 @@ function Chat(props: ChatPaneProps) {
               onReady={() => setReady(true)}
               onPinnedChange={nw.onPinnedChange}
               onAwayChange={nw.onAwayChange}
-              onMoving={() => datePill.current?.moving()}
-              onVisibleTop={onVisibleTop}
               handleRef={list}
             />
             {/* While the attach panel is open, a tap anywhere on the chat closes it (and does nothing else). */}
@@ -225,7 +213,6 @@ function Chat(props: ChatPaneProps) {
           </View>
         </SelectionContext.Provider>
       </PinnedContext.Provider>
-      <DatePill controls={datePill} label={t("date.current")} />
       {reveal.toast && <Toast text={reveal.toast.text} />}
       {nw.away && (
         <ScrollToLatest
