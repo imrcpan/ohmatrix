@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { AttachmentSource } from "@ohmatrix/core";
 import type { OpenRoom } from "@ohmatrix/state";
 import { useServices } from "../context.js";
-import { useNotice } from "../useNotice.js";
 import { useVoiceRecording } from "../Recording.js";
 import type { ComposerProps } from "./useComposer.js";
 import type { Translate } from "./types.js";
@@ -14,11 +13,12 @@ import type { Translate } from "./types.js";
  */
 export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate) {
   const services = useServices();
-  const notice = useNotice();
   const [failed, setFailed] = useState(false);
   // The panel under the bar with the attach buttons: open or not, kept here so that a tap on the chat can close it.
   const [attachPanel, setPanel] = useState(false);
   const [emojiPanel, setEmojiPanel] = useState(false);
+  // Which call the person asked for and has yet to confirm.
+  const [callAsk, setCallAsk] = useState<"voice" | "video" | null>(null);
   const panel = attachPanel || emojiPanel;
   useEffect(() => {
     if (!failed) return;
@@ -73,8 +73,8 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
             ]
           : []),
         // Calls are not there yet: the buttons say so rather than being left out.
-        { key: "voiceCall", icon: "fluentCall" as const, label: t("call.voice"), onPress: () => notice.show(t("call.soon")) },
-        { key: "videoCall", icon: "fluentVideo" as const, label: t("call.video"), onPress: () => notice.show(t("call.soon")) },
+        { key: "voiceCall", icon: "fluentCall" as const, label: t("call.voice"), onPress: () => setCallAsk("voice") },
+        { key: "videoCall", icon: "fluentVideo" as const, label: t("call.video"), onPress: () => setCallAsk("video") },
       ],
     },
   };
@@ -87,6 +87,8 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
       setEmojiPanel(false);
     },
     emoji: { open: emojiPanel, onChange: setEmojiPanel },
+    callAsk,
+    setCallAsk,
     dropping,
     pending,
     setPending,
