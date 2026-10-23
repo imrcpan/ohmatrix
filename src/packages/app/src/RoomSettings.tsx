@@ -1,8 +1,10 @@
 import { useRef, useState, type ComponentRef } from "react";
+import { useNotice } from "./useNotice.js";
 import { View } from "react-native";
 import type { HistoryVisibility, JoinRule, PowerThresholds, RoomDetails } from "@ohmatrix/core";
 import { Icon, Menu, useTheme, type Anchor, type IconName, type MenuItem } from "@ohmatrix/ui";
 import { useController, useT } from "./context.js";
+import { AddressCard, ConfirmDialog } from "./ConfirmDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { Group, Item } from "./settings/kit.js";
 
@@ -84,6 +86,7 @@ export function RoomSettingsSections(props: {
   /** A space has no messages of its own: leave out the levels that only concern messages. */ space?: boolean;
 }) {
   const { d, report } = props;
+  const notice = useNotice();
   const t = useT();
   const controller = useController();
   const admin = controller.roomAdmin;
@@ -92,8 +95,19 @@ export function RoomSettingsSections(props: {
   const canSettings = d.can.changeSettings;
   const [aliasPrompt, setAliasPrompt] = useState(false);
   const [levelPrompt, setLevelPrompt] = useState<keyof PowerThresholds | null>(null);
+  // An address being made the main one, or being deleted (the first question, and then the one that warns).
+  const [mainOf, setMainOf] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<{ alias: string; sure: boolean } | null>(null);
   const [aliasMenu, setAliasMenu] = useState<{ alias: string; anchor: Anchor } | null>(null);
 
+  // An address of another server: it can only be unlisted here, never freed, so it gets one plain question and no warning.
+  const foreign = (alias: string) => alias.split(":").slice(1).join(":") !== d.me.split(":").slice(1).join(":");
+  const removeAddress = (alias: string) =>
+    act(
+      admin.removeAlias(d.id, alias).then((r) => {
+        if (r === "unlisted" && !foreign(alias)) notice.show(t("address.remove.kept", { alias }), "error");
+      }),
+    );
   const act = (p: Promise<unknown>) => void p.catch(report);
   const thresholds = props.space ? THRESHOLDS.filter((x) => x.key !== "sendMessages" && x.key !== "redact") : THRESHOLDS;
 
@@ -160,19 +174,86 @@ export function RoomSettingsSections(props: {
           aliasMenu
             ? [
                 ...(d.aliases[0] !== aliasMenu.alias
-                  ? [{ label: t("address.makeMain"), icon: "hash" as const, onPress: () => act(admin.setMainAlias(d.id, aliasMenu.alias)) }]
+                  ? [{ label: t("address.makeMain"), icon: "hash" as const, onPress: () => setMainOf(aliasMenu.alias) }]
                   : []),
-                { label: t("address.remove"), icon: "trash" as const, danger: true, onPress: () => act(admin.removeAlias(d.id, aliasMenu.alias)) },
+                {
+                  label: foreign(aliasMenu.alias) ? t("address.unlist") : t("address.remove"),
+                  icon: "trash" as const,
+                  danger: true,
+                  onPress: () => setDeleting({ alias: aliasMenu.alias, sure: false }),
+                },
               ]
             : []
         }
       />
+      <ConfirmDialog
+        visible={!!mainOf}
+        title={t("address.main.title")}
+        message={[t("address.main.body"), d.aliases[0] && d.aliases[0] !== mainOf ? t("address.main.old", { alias: d.aliases[0] }) : ""]
+          .filter(Boolean)
+          .join(" ")}
+        confirmLabel={t("address.main.yes")}
+        onClose={() => setMainOf(null)}
+        onConfirm={() => {
+          const alias = mainOf;
+          setMainOf(null);
+          if (alias) act(admin.setMainAlias(d.id, alias));
+        }}
+      >
+        {mainOf && <AddressCard alias={mainOf} />}
+      </ConfirmDialog>
+      <ConfirmDialog
+        visible={!!deleting && !deleting.sure}
+        title={deleting && foreign(deleting.alias) ? t("address.unlist.title") : t("address.remove.title")}
+        message={
+          deleting && foreign(deleting.alias) ? t("address.unlist.body", { server: deleting.alias.split(":").slice(1).join(":") }) : t("address.remove.body")
+        }
+        confirmLabel={deleting && foreign(deleting.alias) ? t("address.unlist") : t("address.remove")}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => setDeleting((x) => (x ? { ...x, sure: true } : x))}
+      >
+        {deleting && <AddressCard alias={deleting.alias} />}
+      </ConfirmDialog>
+      <ConfirmDialog
+        visible={!!deleting?.sure}
+        modal
+        title={deleting && foreign(deleting.alias) ? t("address.unlist.title2") : t("address.remove.title2")}
+        warning={[
+          deleting && foreign(deleting.alias) ? t("address.unlist.warn", { server: deleting.alias.split(":").slice(1).join(":") }) : t("address.remove.warn"),
+          deleting && d.aliases[0] === deleting.alias
+            ? t("address.remove.main", {
+                next: d.aliases[1] ? t("address.remove.next", { alias: d.aliases[1] }) : t("address.remove.none"),
+              })
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        confirmLabel={deleting && foreign(deleting.alias) ? t("address.unlist.yes") : t("address.remove.yes")}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          const alias = deleting?.alias;
+          setDeleting(null);
+          if (alias) removeAddress(alias);
+        }}
+      >
+        {deleting && <AddressCard alias={deleting.alias} />}
+      </ConfirmDialog>
       <PromptDialog
         visible={aliasPrompt}
         title={t("address.add")}
         message={t("address.add.body")}
         confirmLabel={t("address.add.confirm")}
         fields={[{ label: t("address.localpart"), placeholder: "my-room" }]}
+        check={{
+          field: 0,
+          run: async (value) => {
+            const found = await admin.checkAlias(value);
+            return found === "free" ? null : found === "taken" ? t("address.taken") : t("address.invalid");
+          },
+          checking: t("address.checking"),
+          ok: t("address.available"),
+          failed: t("address.check.failed"),
+        }}
         onClose={() => setAliasPrompt(false)}
         onConfirm={async ([v]) => {
           try {

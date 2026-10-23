@@ -1415,6 +1415,22 @@ test("room administration UI: edit name and topic, invite, roles, remove, mute",
   await page.mouse.click(5, 5);
   await page.getByRole("button", { name: "bob", exact: true }).last().click();
   await page.getByRole("menuitem", { name: "Make moderator" }).click();
+  // Giving power asks first, with the person's picture, name and address; an admin gets a red warning, a moderator does not.
+  await expect(page.getByText("Make this person a moderator?")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("@bob:localhost", { exact: true })).toBeVisible();
+  await expect(page.getByText(/you may not be able to take it back/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel" }).last().click();
+  await expect(page.getByText("Moderator", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "bob", exact: true }).last().click();
+  await page.getByRole("menuitem", { name: "Make admin" }).click();
+  await expect(page.getByText("Make this person an admin?")).toBeVisible();
+  await expect(page.getByText(/you may not be able to take it back/)).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("@bob:localhost", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).last().click();
+  await expect(page.getByText("Admin", { exact: true })).toHaveCount(1); // only me
+  await page.getByRole("button", { name: "bob", exact: true }).last().click();
+  await page.getByRole("menuitem", { name: "Make moderator" }).click();
+  await page.getByRole("button", { name: "Yes, make Moderator" }).click();
   await expect(page.getByText("Moderator", { exact: true })).toBeVisible({ timeout: 15000 });
 
   // Withdraw alice's invitation, remove bob (both ask first).
@@ -2496,15 +2512,62 @@ test("room settings: access, history, addresses, permission levels, custom power
   // Addresses: the first is the main one; a taken address is explained.
   const local = `perm-${Date.now().toString(36)}`;
   await page.getByRole("button", { name: "Add address" }).click();
+  const add = page.getByRole("button", { name: "Add", exact: true });
+  // The name is checked as it is typed: a spinner and "Checking…" first, then "Available", and only then can it be added.
+  await expect(add).toBeDisabled();
   await page.getByRole("dialog").locator("input").fill(local);
-  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText("Checking…")).toBeVisible();
+  await expect(add).toBeDisabled();
+  await expect(page.getByText("Available", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(add).toBeEnabled();
+  // A character an address cannot have is said at once, and the button waits.
+  await page.getByRole("dialog").locator("input").fill("bad!name");
+  await expect(page.getByText("Use letters, digits, dots and dashes.")).toBeVisible({ timeout: 10000 });
+  await expect(add).toBeDisabled();
+  await page.getByRole("dialog").locator("input").fill(local);
+  await expect(page.getByText("Available", { exact: true })).toBeVisible({ timeout: 10000 });
+  await add.click();
   await expect(page.getByText(`#${local}:localhost`).first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("Main", { exact: true })).toBeVisible();
+  // The same name again is found taken while it is typed, not after pressing Add.
   await page.getByRole("button", { name: "Add address" }).click();
   await page.getByRole("dialog").locator("input").fill(local);
-  await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText("That address is already taken.")).toBeVisible({ timeout: 10000 });
+  await expect(add).toBeDisabled();
   await page.getByRole("button", { name: "Cancel" }).click();
+  // A second address; making it the main one asks first and names the one it replaces.
+  const second = `${local}-b`;
+  await page.getByRole("button", { name: "Add address" }).click();
+  await page.getByRole("dialog").locator("input").fill(second);
+  await expect(page.getByText("Available", { exact: true })).toBeVisible({ timeout: 10000 });
+  await add.click();
+  await expect(page.getByText(`#${second}:localhost`).first()).toBeVisible({ timeout: 10000 });
+  await page.getByText(`#${second}:localhost`).first().click();
+  await page.getByRole("menuitem", { name: "Make main address" }).click();
+  await expect(page.getByText("Make this the main address?")).toBeVisible();
+  await expect(page.getByText(`The current main address, #${local}:localhost, stays as another address.`)).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).last().click();
+  await expect(page.getByText("Main", { exact: true })).toHaveCount(1);
+  await page.getByText(`#${second}:localhost`).last().click();
+  await page.getByRole("menuitem", { name: "Make main address" }).click();
+  await page.getByRole("button", { name: "Make main address", exact: true }).click();
+  await expect(page.getByText(`#${second}:localhost`).first()).toBeVisible();
+  // Deleting an address is asked twice, the second time with a red warning; cancelling at either step keeps it.
+  await page.getByText(`#${second}:localhost`).last().click();
+  await page.getByRole("menuitem", { name: "Remove address" }).click();
+  await expect(page.getByText("Remove this address?")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText(`#${second}:localhost`, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove address", exact: true }).last().click();
+  await expect(page.getByText("Delete this address for good?")).toBeVisible();
+  await expect(page.getByText(/This cannot be undone\./)).toBeVisible();
+  await expect(page.getByText(/It is the main address\./)).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).last().click();
+  await expect(page.getByText(`#${second}:localhost`).first()).toBeVisible();
+  await page.getByText(`#${second}:localhost`).last().click();
+  await page.getByRole("menuitem", { name: "Remove address" }).click();
+  await page.getByRole("button", { name: "Remove address", exact: true }).last().click();
+  await page.getByRole("button", { name: "Delete address for good", exact: true }).click();
+  await expect(page.getByText(`#${second}:localhost`)).toHaveCount(0, { timeout: 10000 });
   await shot(page, "64-room-addresses");
 
   // Permission levels: pick a preset, then a custom number.
@@ -2526,6 +2589,7 @@ test("room settings: access, history, addresses, permission levels, custom power
   // A custom power level for a person, then ban and unban.
   await page.getByRole("button", { name: "bob", exact: true }).first().click();
   await page.getByRole("menuitem", { name: "Make moderator" }).click();
+  await page.getByRole("button", { name: "Yes, make Moderator" }).click();
   await expect(page.getByText("Moderator", { exact: true }).first()).toBeVisible({ timeout: 10000 });
   await page.getByRole("button", { name: "bob", exact: true }).first().click();
   await page.getByRole("menuitem", { name: "Set power level…" }).click();
