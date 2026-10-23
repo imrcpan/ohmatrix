@@ -338,12 +338,14 @@ export class CallSignalling {
       if (typeof invitee === "string" && invitee !== this.me()) return;
       const lifetime = Number(e.content["lifetime"]) || INVITE_LIFETIME_MS;
       if (e.ageMs >= Math.min(lifetime, STALE_MS)) return;
-      if (c && c.info.callId !== callId) {
+      // A call that has ended and is only still on the screen does not make the line busy: a new invitation takes its place.
+      if (c && c.info.phase === "ended") this.call = null;
+      if (this.call && this.call.info.callId !== callId) {
         // Busy: another call is on. The caller is told, and nothing rings.
         await this.t.send(e.roomId, "m.call.reject", { call_id: callId, party_id: this.t.newId(), version: VERSION, reason: "user_busy" }).catch(() => {});
         return;
       }
-      if (c) return; // the same invitation again
+      if (this.call) return; // the same invitation again
       const offer = e.content["offer"] as SessionDescription | undefined;
       if (!offer || typeof offer.sdp !== "string") return;
       const next = this.make(e.roomId, e.sender, /m=video/.test(offer.sdp), true, callId);
