@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type React from "react";
 import { useStore } from "zustand";
-import { detectLocale, t, type Locale, type MessageKey } from "@ohmatrix/i18n";
+import { detectLocale, isLocale, t, type Locale, type MessageKey } from "@ohmatrix/i18n";
 import type { AppServices } from "@ohmatrix/core";
 import type { AccountManager, AccountsState, AppController, AppState } from "@ohmatrix/state";
 
@@ -22,8 +22,10 @@ const AccountsCtx = shared<AccountManager | null>("accounts", () => createContex
 
 export function AppProviders(props: { controller: AppController; manager: AccountManager; services: AppServices; children: ReactNode }) {
   const preferred = useStore(props.controller.store, (s) => s.prefs.locale);
+  // A saved language that this version does not have (it came from a newer one) is the same as none saved: the system's is used.
   const locale: Locale =
-    preferred ?? detectLocale((globalThis as { navigator?: { language?: string } }).navigator?.language ?? Intl.DateTimeFormat().resolvedOptions().locale);
+    (isLocale(preferred) ? preferred : null) ??
+    detectLocale((globalThis as { navigator?: { language?: string } }).navigator?.language ?? Intl.DateTimeFormat().resolvedOptions().locale);
   return (
     <Ctx.Provider value={props.controller}>
       <AccountsCtx.Provider value={props.manager}>

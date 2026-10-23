@@ -3295,6 +3295,23 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
   await button.click();
   const zh = page.getByRole("menuitem", { name: "简体中文" });
   await expect(zh).toBeVisible();
+  // Every language is offered, by its own name.
+  for (const name of [
+    "English",
+    "繁體中文",
+    "Español",
+    "Français",
+    "Deutsch",
+    "Português",
+    "Italiano",
+    "Русский",
+    "日本語",
+    "한국어",
+    "हिन्दी",
+    "বাংলা",
+    "Bahasa Indonesia",
+  ])
+    await expect(page.getByRole("menuitem", { name })).toBeVisible();
   const m = (await zh.boundingBox())!;
   expect(m.y + m.height).toBeLessThan(b.y); // above the button
   await shot(page, "42-login-language-menu");
