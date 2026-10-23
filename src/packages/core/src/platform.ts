@@ -113,6 +113,8 @@ export interface PlatformServices {
   pickFiles?(): Promise<AttachmentSource[]>;
   /** Let the user choose one picture, from the system's photo picker (a profile or room picture). Absent = `pickFiles` is used. Null = nothing chosen. */
   pickPhoto?(): Promise<AttachmentSource | null>;
+  /** Like `pickPhoto`, but several pictures at once (stickers). Absent = `pickFiles` is used. Empty = nothing chosen. */
+  pickPhotos?(): Promise<AttachmentSource[]>;
   /**
    * Receive files dropped onto the window or pasted from the clipboard. `onHover(true)` while files
    * are dragged over the window. Returns the unsubscribe function. Absent = no drop/paste.

@@ -76,25 +76,39 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
   const change = (patch: Partial<StickerGroup>) => saveGroups(groups.map((g) => (g.id === current.id ? { ...g, ...patch } : g)));
 
   const add = async () => {
-    const file = services.pickPhoto ? await services.pickPhoto() : ((await services.pickFiles?.()) ?? [])[0];
-    if (!file) return;
-    // Refused here, before anything is uploaded, in the words the engine would use.
-    try {
-      checkSticker(file);
-    } catch (e) {
-      notice.show(t("sticker.add.failed", { reason: failureReason(e, t) }), "error");
-      return;
+    const files = services.pickPhotos
+      ? await services.pickPhotos()
+      : services.pickPhoto
+        ? [await services.pickPhoto()].flatMap((f) => f ?? [])
+        : ((await services.pickFiles?.()) ?? []);
+    if (files.length === 0) return;
+    const added: string[] = [];
+    let failed = 0;
+    notice.show(files.length > 1 ? t("sticker.uploading.n", { n: files.length }) : t("sticker.uploading"), "progress");
+    let reason = "";
+    // One after another, so the order is the one chosen and a failure does not stop the rest.
+    for (const [i, file] of files.entries()) {
+      if (files.length > 1) notice.show(t("sticker.uploading.n", { n: files.length, i: i + 1 }), "progress");
+      try {
+        // Refused here, before anything is uploaded, in the words the engine would use.
+        checkSticker(file);
+        added.push(await controller.addSticker(file));
+      } catch (e) {
+        failed++;
+        reason ||= failureReason(e, t);
+      }
     }
-    try {
-      const code = await controller.addSticker(file);
-      // Added while a group is on show, it goes into that group.
-      if (!current.stickers.includes(code))
-        await saveGroups(
-          groups.map((g) => (g.id === current.id ? { ...g, stickers: [...g.stickers, code] } : { ...g, stickers: g.stickers.filter((x) => x !== code) })),
-        );
-    } catch (e) {
-      notice.show(t("sticker.add.failed", { reason: failureReason(e, t) }), "error");
-    }
+    // Added while a group is on show, they go into that group.
+    const fresh = added.filter((code) => !current.stickers.includes(code));
+    if (fresh.length > 0)
+      await saveGroups(
+        groups.map((g) =>
+          g.id === current.id ? { ...g, stickers: [...g.stickers, ...fresh] } : { ...g, stickers: g.stickers.filter((x) => !fresh.includes(x)) },
+        ),
+      );
+    if (failed === 1 && files.length === 1) notice.show(t("sticker.add.failed", { reason }), "error");
+    else if (failed === 0) notice.show(t("sticker.add.done", { n: added.length }));
+    else if (failed > 0) notice.show(t("sticker.add.some", { n: failed, total: files.length, reason }), "error");
   };
 
   const stop = () => {
