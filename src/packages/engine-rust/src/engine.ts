@@ -47,7 +47,7 @@ import { readAccountData, readPackContent, writeAccountData, writePackContent } 
 import { guard, toEngineError } from "./errors.js";
 import { compareRooms, isListed, toRoomSummary } from "./roomSummary.js";
 import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
-import { addAlias, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
+import { addAlias, checkAlias, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
 import { readStatus, register, writeStatus } from "./account.js";
 import { listDevices, removeDevices, type Account, type Fetch } from "./devices.js";
 import { attachmentKind, forwardContent, pathOf } from "./forward.js";
@@ -936,6 +936,7 @@ export class RustEngineCore implements MatrixEngine {
     setJoinRule: (roomId: string, rule: "public" | "invite") => guard(() => this.room(roomId).setJoinRule(rule)),
     addAlias: (roomId: string, localpart: string) => guard(async () => addAlias(this.fetch(), this.account(), roomId, localpart, await this.aliasesOf(roomId))),
     removeAlias: (roomId: string, alias: string) => guard(async () => removeAlias(this.fetch(), this.account(), roomId, alias, await this.aliasesOf(roomId))),
+    checkAlias: (localpart: string) => guard(async () => checkAlias(this.fetch(), this.account(), localpart)),
     setMainAlias: (roomId: string, alias: string) => guard(async () => setMainAlias(this.fetch(), this.account(), roomId, alias, await this.aliasesOf(roomId))),
   };
   private readonly searches = new Map<string, SdkSearch>();

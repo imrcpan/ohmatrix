@@ -84,7 +84,8 @@ export class MockEngine implements MatrixEngine {
     setHistoryVisibility: async () => {},
     setJoinRule: async () => {},
     addAlias: async (_r: string, localpart: string) => `#${localpart}:mock`,
-    removeAlias: async () => {},
+    checkAlias: async () => "free" as const,
+    removeAlias: async () => "released" as const,
     setMainAlias: async () => {},
   };
 

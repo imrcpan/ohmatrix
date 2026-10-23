@@ -221,7 +221,16 @@ export interface RoomAdminApi {
    * "conflict" when the address is taken and "forbidden" when the server disallows it.
    */
   addAlias(roomId: RoomId, localpart: string): Promise<string>;
-  removeAlias(roomId: RoomId, alias: string): Promise<void>;
+  /**
+   * Whether `#localpart:server` (on my server) can be made: "free", "taken" (the server already points it at a room), or "invalid" (empty, or
+   * with characters an address cannot have). Asks the server, so it is for checking as the name is typed; it makes nothing.
+   */
+  checkAlias(localpart: string): Promise<"free" | "taken" | "invalid">;
+  /**
+   * Stop listing an address and release it. Resolves "released" when the server that owns it freed the name, and "unlisted" when the room no
+   * longer lists it but the name is still taken (it belongs to another server, or the server refused to delete it).
+   */
+  removeAlias(roomId: RoomId, alias: string): Promise<"released" | "unlisted">;
   /** Choose which published address is the main one. */
   setMainAlias(roomId: RoomId, alias: string): Promise<void>;
 }

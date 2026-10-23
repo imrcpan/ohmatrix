@@ -677,6 +677,20 @@ export class JsSdkEngine implements MatrixEngine {
         );
         return alias;
       }),
+    checkAlias: (localpart: string) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const local = aliasLocalpart(localpart);
+        if (!local || !/^[a-z0-9._=\-/+]+$/.test(local)) return "invalid" as const;
+        try {
+          await c.getRoomIdForAlias(`#${local}:${c.getDomain() ?? (c.getUserId() ?? "").split(":").slice(1).join(":")}`);
+          return "taken" as const;
+        } catch (e) {
+          const err = e as { errcode?: string; httpStatus?: number };
+          if (err.errcode === "M_NOT_FOUND" || err.httpStatus === 404) return "free" as const;
+          throw e;
+        }
+      }),
     removeAlias: (roomId: RoomId, alias: string) =>
       guard(async () => {
         const c = this.requireClient();
@@ -689,7 +703,12 @@ export class JsSdkEngine implements MatrixEngine {
           { ...(main ? { alias: main } : {}), alt_aliases: rest.filter((a) => a !== main) } as never,
           "",
         );
-        await c.deleteAlias(alias).catch(() => {}); // only aliases created through the directory can be deleted; the rest are just unpublished
+        // Only the server the name ends with can free it, and only for its creator or a server admin; otherwise the name is just unlisted.
+        if (!alias.endsWith(`:${c.getDomain() ?? (c.getUserId() ?? "").split(":").slice(1).join(":")}`)) return "unlisted" as const;
+        return c.deleteAlias(alias).then(
+          () => "released" as const,
+          () => "unlisted" as const,
+        );
       }),
     setMainAlias: (roomId: RoomId, alias: string) =>
       guard(async () => {
