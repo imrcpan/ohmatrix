@@ -23,6 +23,7 @@ const PATHS = {
   file: "M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM14 3v5h5",
   plus: "M12 5v14M5 12h14",
   plusCircle: "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v8M8 12h8",
+  grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
   sort: "M8 4v16M8 4L4 8M8 4l4 4M16 20V4M16 20l-4-4M16 20l4-4",
   sticker: "M20 12V7a3 3 0 00-3-3H7a3 3 0 00-3 3v10a3 3 0 003 3h6l7-7zM20 12h-4a3 3 0 00-3 3v5M9 9.5h.01M15 9.5h.01M8.5 14a4 4 0 003 1",
   gear: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z",
@@ -76,7 +77,7 @@ const PATHS = {
 export type IconName = keyof typeof PATHS;
 
 /** Line weight per icon. The three dots of "more" are drawn as round-capped points, so their stroke is their diameter: 2 reads as specks next to outlined icons. */
-const WEIGHT: Partial<Record<IconName, number>> = { more: 4.2 };
+const WEIGHT: Partial<Record<IconName, number>> = { more: 4.2, grip: 3.6 };
 
 /** Solid glyphs (playback controls), as in Telegram and Apple's players: filled, with softened corners, not outlines. */
 const SOLID: ReadonlySet<IconName> = new Set<IconName>(["play", "pause", "stop"]);

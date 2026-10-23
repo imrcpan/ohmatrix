@@ -2,6 +2,7 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import {
   adoptSingleSession,
   EngineError,
+  inOrder,
   scopedSessionStore,
   type AccountStore,
   type IncomingNotification,
@@ -31,7 +32,7 @@ export interface AccountSummary {
 }
 
 export interface AccountsState {
-  /** Every account, in the order they were added. */
+  /** Every account, in the order they were added (or the person put them in). */
   accounts: AccountSummary[];
   /** What is showing: an account's user id, or `NEW_ACCOUNT` while one is being signed in. Changes whenever the controller to use does. */
   currentKey: string;
@@ -80,6 +81,8 @@ export interface AccountManager {
   cancelAdd(): void;
   /** Sign an account out (on the server too) and forget it; the next account, or the sign-in screen, takes over. */
   remove(userId: UserId): Promise<void>;
+  /** Put the accounts in this order (user ids; one not named keeps its place after the ones that are), here and in the store. */
+  reorder(userIds: UserId[]): Promise<void>;
   /** A new message in any account that should notify; `userId` says which one. */
   subscribeNotifications(cb: (userId: UserId, n: IncomingNotification) => void): () => void;
   dispose(): void;
@@ -336,6 +339,11 @@ export function createAccountManager(deps: AccountManagerDeps): AccountManager {
       if (!e) return;
       await e.controller.logout().catch(() => {}); // clears the session; the watcher then forgets the account
       await gone(userId);
+    },
+    async reorder(userIds) {
+      // The list on screen changes at once; the store follows, so a restart finds the same order.
+      set((s) => ({ accounts: inOrder(s.accounts, userIds, (a) => a.userId) }));
+      await deps.accounts.reorder(userIds);
     },
     subscribeNotifications(cb) {
       listeners.add(cb);

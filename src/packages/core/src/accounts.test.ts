@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { adoptSingleSession, createMemoryAccountStore, scopedSessionStore } from "./accounts.js";
+import { adoptSingleSession, createMemoryAccountStore, inOrder, scopedSessionStore } from "./accounts.js";
 import type { SessionStore } from "./platform.js";
 import type { Session } from "./types.js";
 
@@ -74,4 +74,15 @@ test("a session the caller already read is handed out once, so the store is not 
   const fresh = scopedSessionStore(counting, { userId: "@a:s", session: session("a", "old") });
   await fresh.save(session("a", "new"));
   expect((await fresh.load())?.accessToken).toBe("new");
+});
+
+test("the accounts can be put in another order: the ones named come first, an unknown id is skipped, the others keep their place after", async () => {
+  const store = createMemoryAccountStore();
+  for (const u of ["a", "b", "c", "d"]) await store.upsert({ session: session(u) });
+  await store.reorder(["@c:s", "@nobody:s", "@a:s"]);
+  expect((await store.list()).map((a) => a.session.userId)).toEqual(["@c:s", "@a:s", "@b:s", "@d:s"]);
+  // A save of an account after that replaces it where it is.
+  await store.upsert({ session: session("a", "fresh") });
+  expect((await store.list()).map((a) => a.session.userId)).toEqual(["@c:s", "@a:s", "@b:s", "@d:s"]);
+  expect(inOrder([1, 2, 3], ["3", "3", "1"], String)).toEqual([3, 1, 2]);
 });

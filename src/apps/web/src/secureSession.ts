@@ -1,4 +1,4 @@
-import type { AccountStore, Session, SessionStore, StoredAccount, UserId } from "@ohmatrix/core";
+import { inOrder, type AccountStore, type Session, type SessionStore, type StoredAccount, type UserId } from "@ohmatrix/core";
 import type { SecureBox } from "./secureBox.js";
 
 const LEGACY_KEY = "ohmatrix.session.v1"; // plaintext JSON, written by early versions
@@ -83,6 +83,10 @@ export function createSecureAccountStore(box: SecureBox, storage: Pick<Storage, 
       change((v) => {
         v.accounts = v.accounts.filter((a) => a.session.userId !== userId);
         if (v.active === userId) v.active = null;
+      }),
+    reorder: (userIds) =>
+      change((v) => {
+        v.accounts = inOrder(v.accounts, userIds, (a) => a.session.userId);
       }),
     activeId: async () => (await read()).active,
     setActive: (userId) =>

@@ -11,12 +11,14 @@ export interface StoredAccount {
   dir?: string;
 }
 
-/** Persists every signed-in account, and which one is showing, in platform secure storage. Accounts keep the order they were added in. */
+/** Persists every signed-in account, and which one is showing, in platform secure storage. Accounts keep the order they were added in, until the person moves them. */
 export interface AccountStore {
   list(): Promise<StoredAccount[]>;
   /** Add the account, or replace the one with the same user id (a refreshed token) without moving it. */
   upsert(account: StoredAccount): Promise<void>;
   remove(userId: UserId): Promise<void>;
+  /** Put the accounts in this order. An id that is not stored is left out; an account not named keeps its place after the ones that are. */
+  reorder(userIds: UserId[]): Promise<void>;
   activeId(): Promise<UserId | null>;
   setActive(userId: UserId | null): Promise<void>;
 }
@@ -82,6 +84,9 @@ export function createMemoryAccountStore(initial: StoredAccount[] = []): Account
       items = items.filter((a) => a.session.userId !== userId);
       if (active === userId) active = null;
     },
+    async reorder(userIds) {
+      items = inOrder(items, userIds, (a) => a.session.userId);
+    },
     async activeId() {
       return active;
     },
@@ -89,4 +94,14 @@ export function createMemoryAccountStore(initial: StoredAccount[] = []): Account
       active = userId;
     },
   };
+}
+
+/** `items` with the ones named by `ids` first, in that order (an id nobody has is skipped), and the rest after them as they were. */
+export function inOrder<T>(items: T[], ids: string[], idOf: (item: T) => string): T[] {
+  const first: T[] = [];
+  for (const id of ids) {
+    const found = items.find((i) => idOf(i) === id);
+    if (found !== undefined && !first.includes(found)) first.push(found);
+  }
+  return [...first, ...items.filter((i) => !first.includes(i))];
 }
