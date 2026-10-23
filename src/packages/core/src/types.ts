@@ -444,9 +444,6 @@ export interface StickerGroup {
 /** The id of the default group: always the first, it holds the stickers that no other group has, and its cover cannot be changed. */
 export const STICKER_DEFAULT_GROUP = "default";
 
-/** The longest a group's name may be (characters). */
-export const STICKER_GROUP_NAME_MAX = 12;
-
 /** The cover a group has when none was chosen and it has no sticker yet. */
 export const STICKER_GROUP_FALLBACK_EMOJI = "😊";
 
