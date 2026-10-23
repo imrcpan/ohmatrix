@@ -3109,16 +3109,6 @@ test("message list: a reply's quote jumps to an original that is not loaded; scr
   await expect(page.getByText(`the answer ${tag}`, { exact: true })).toBeInViewport({ timeout: 10000 });
   await expect(button).toHaveCount(0, { timeout: 5000 });
 
-  // Scrolled up a little, the date of what is in view floats at the top while moving, then goes away. (Let the list
-  // settle after its own jump first: a scroll within a moment of that is taken to be the jump's own.)
-  await page.waitForTimeout(700);
-  await page.mouse.move(850, 400);
-  await page.mouse.wheel(0, -500);
-  const pill = page.getByLabel("Date");
-  await expect(pill).toBeVisible({ timeout: 5000 });
-  await expect(pill).toContainText("Today");
-  await expect(pill).toHaveCount(0, { timeout: 5000 });
-
   // A message from someone else arriving while up in the history is counted on the button.
   await page.waitForTimeout(700);
   await page.mouse.wheel(0, -1500);

@@ -200,13 +200,6 @@ export function MessageList(props: MessageListProps) {
     };
   }, [props.handleRef, p, node, moveTo, toBottom]);
 
-  // The top row in view is the date the chat floats.
-  const viewable = useRef(({ viewableItems }: { viewableItems: Array<{ item: unknown; index?: number | null | undefined }> }) => {
-    const top = viewableItems.filter((v) => v.index != null).sort((a, b) => a.index! - b.index!)[0]?.item as Row | undefined;
-    if (top) p.current.onVisibleTop(top);
-  }).current;
-  const viewConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
-
   return (
     <FlatList
       ref={listRef}
@@ -222,8 +215,6 @@ export function MessageList(props: MessageListProps) {
       // Older history is fetched as the top comes into view.
       onStartReachedThreshold={0.6}
       onStartReached={() => p.current.onReachedStart()}
-      onViewableItemsChanged={viewable}
-      viewabilityConfig={viewConfig}
       onLayout={(e) => {
         s.current.view = e.nativeEvent.layout.height;
       }}
@@ -242,7 +233,6 @@ export function MessageList(props: MessageListProps) {
         else if (mine) st.pinned = false;
         if (st.pinned !== was) p.current.onPinnedChange(st.pinned);
         p.current.onAwayChange(isAway(gap, st.view, st.pinned));
-        if (mine) p.current.onMoving();
       }}
       onContentSizeChange={(_w, h) => {
         const st = s.current;

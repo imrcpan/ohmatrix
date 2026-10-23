@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Pressable, Text, View } from "react-native";
 import { fontFamily, Icon, popoverShadow, Spinner, useNavBottom, useTheme } from "@ohmatrix/ui";
 import { HEADER_HEIGHT } from "./ChatHeader.js";
@@ -41,46 +40,6 @@ export function Toast({ text }: { text: string }) {
     >
       <View style={{ backgroundColor: colors.serviceChip, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}>
         <Text style={{ fontSize: 14, fontWeight: "600", fontFamily, color: colors.serviceChipText }}>{text}</Text>
-      </View>
-    </View>
-  );
-}
-
-/** What the date pill is told from outside, so that changing the date does not redraw the message list. */
-export interface DatePillControls {
-  date(label: string): void;
-  moving(): void;
-}
-
-/** The date of what is in view, floating at the top while the list moves and for a moment after. */
-export function DatePill(props: { controls: MutableRefObject<DatePillControls | null>; label: string }) {
-  const { colors } = useTheme();
-  const [date, setDate] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    props.controls.current = {
-      date: (label) => setDate((d) => (d === label ? d : label)),
-      moving: () => {
-        setVisible(true);
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => setVisible(false), 1100);
-      },
-    };
-    return () => {
-      props.controls.current = null;
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [props.controls]);
-  if (!visible || !date) return null;
-  return (
-    <View
-      pointerEvents="none"
-      accessibilityLabel={props.label}
-      style={{ position: "absolute", top: HEADER_HEIGHT + 10, left: 0, right: 0, alignItems: "center", zIndex: 3 }}
-    >
-      <View style={{ backgroundColor: colors.serviceChip, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", fontFamily, color: colors.serviceChipText }}>{date}</Text>
       </View>
     </View>
   );
