@@ -49,20 +49,7 @@ export function SettingsPage() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <PageHeader title={t("settings")} onBack={() => controller.sidebarBack()} backLabel={t("profile")} />
       <ScrollView contentContainerStyle={{ paddingBottom: 32 + nav }}>
-        <Group
-          title={t("notifications")}
-          footer={t(
-            permission === "denied"
-              ? system
-                ? "notif.footer.deniedSystem"
-                : "notif.footer.denied"
-              : permission === "unsupported"
-                ? system
-                  ? "notif.footer.unsupportedSystem"
-                  : "notif.footer.unsupported"
-                : "notif.footer.default",
-          )}
-        >
+        <Group title={t("notifications")}>
           <Item
             label={t("notif.messages")}
             icon="bell"
@@ -86,6 +73,19 @@ export function SettingsPage() {
               />
             }
           />
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
+            {t(
+              permission === "denied"
+                ? system
+                  ? "notif.footer.deniedSystem"
+                  : "notif.footer.denied"
+                : permission === "unsupported"
+                  ? system
+                    ? "notif.footer.unsupportedSystem"
+                    : "notif.footer.unsupported"
+                  : "notif.footer.default",
+            )}
+          </Text>
           {services.push && (
             <>
               <Item
@@ -163,6 +163,9 @@ export function SettingsPage() {
         </Group>
         <Group title={t("about")}>
           <Item label="GitHub" value={REPOSITORY.replace("https://", "")} icon="external" onPress={() => services.openLink?.(REPOSITORY)} />
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
+            {t("about.feedback")}
+          </Text>
           <Item label="OhMatrix" value={`${t("version")} ${services.appVersion ?? "dev"}`} icon="info" />
         </Group>
         <Text style={{ textAlign: "center", marginTop: 24, fontSize: 12, fontFamily, color: colors.textSecondary }}>OhMatrix · GPL-3.0</Text>
