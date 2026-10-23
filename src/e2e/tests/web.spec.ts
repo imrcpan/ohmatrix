@@ -3561,7 +3561,7 @@ test("several accounts: the accounts can be put in order by dragging, and the or
   // The sort button turns the list into one to drag; a row dragged by its handle moves, and the order stays after a reload.
   const top = (name: string) => page.getByRole("button", { name, exact: true }).evaluate((e) => e.getBoundingClientRect().top);
   expect(await top("test")).toBeLessThan(await top("alice"));
-  await page.getByRole("button", { name: "Reorder accounts" }).click();
+  await page.getByRole("button", { name: "Sort", exact: true }).click();
   await expect(page.getByText("Drag an account by its handle to move it.")).toBeVisible();
   const alice = page.getByRole("button", { name: "alice", exact: true });
   const box = (await alice.boundingBox())!;
