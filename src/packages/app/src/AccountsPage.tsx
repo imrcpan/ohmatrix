@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { PanResponder, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { Avatar, Dialog, fontFamily, Icon, IconButton, Menu, PrimaryButton, TextButton, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import type { AccountSummary } from "@ohmatrix/state";
 import { useAccountManager, useAccountsState, useController, useT } from "./context.js";
-import { Group, PageHeader } from "./settings/kit.js";
+import { Group, HeaderAction, PageHeader } from "./settings/kit.js";
 import { moved, rowDropIndex, type RowLayout } from "./rowDrop.js";
 import { useMediaUrl } from "./useMedia.js";
 
@@ -232,7 +232,7 @@ function ReorderList(props: { accounts: AccountSummary[]; currentKey: string; on
   // Where the dragged row would land, as a bar in the accent colour above (going up) or below (going down) the row it would take the place of.
   const bar = drag && drag.to !== drag.from ? (drag.to > drag.from ? (drag.to + 1) * ROW_H : drag.to * ROW_H) : null;
   return (
-    <View style={{ height: props.accounts.length * ROW_H, marginTop: 4 }}>
+    <View style={{ height: props.accounts.length * ROW_H + 14, marginTop: 4 }}>
       {bar !== null && (
         <View
           pointerEvents="none"
@@ -290,9 +290,9 @@ export function AccountsPage() {
         trailing={
           accounts.length > 1 &&
           (reordering ? (
-            <TextButton title={t("accounts.reorder.done")} onPress={() => setReordering(false)} />
+            <HeaderAction label={t("accounts.reorder.done")} onPress={() => setReordering(false)} />
           ) : (
-            <IconButton icon="sort" label={t("accounts.reorder")} onPress={() => setReordering(true)} />
+            <HeaderAction label={t("accounts.reorder")} onPress={() => setReordering(true)} />
           ))
         }
       />

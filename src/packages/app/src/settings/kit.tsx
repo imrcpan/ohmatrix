@@ -30,6 +30,33 @@ export function PageHeader(props: { title: string; onBack?: (() => void) | undef
   );
 }
 
+/**
+ * A word at the end of a page header (Edit, Done), in the accent colour. It has room of its own at the sides, so that the word is as far
+ * from the edge as the text of the rows below it (the header's own padding is that of an icon button, which has its glyph in the middle).
+ */
+export function HeaderAction(props: { label: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={props.label}
+      onPress={props.onPress}
+      hitSlop={6}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+        height: 36,
+        paddingHorizontal: 12,
+        marginRight: 4,
+        borderRadius: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+      })}
+    >
+      <Text style={{ fontSize: 17, fontWeight: "500", fontFamily, color: colors.accent }}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
 /** A captioned run of rows, with an optional note below. */
 export function Group(props: { title?: string | undefined; footer?: string | undefined; children: ReactNode }) {
   const { colors } = useTheme();
