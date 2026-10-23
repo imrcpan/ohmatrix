@@ -1,0 +1,6 @@
+{
+  "name": "ohmatrix-call-audio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Puts the phone's audio in call mode while a call is on: the sound goes to the earpiece (or the speaker, or a headset), and the volume keys are the call's."
+}

@@ -37,6 +37,14 @@
           "granularPermissions": ["photo"]
         }
       ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "OhMatrix uses the camera for video calls.",
+          "microphonePermission": "OhMatrix uses the microphone for calls and voice messages."
+        }
+      ],
+      "./plugins/withCallPermissions",
       "./plugins/withAppIcons",
       "./plugins/withDismissSelection",
       "./plugins/withSplash"
