@@ -259,7 +259,7 @@ function CallBody(props: { call: CallState; onMinimize: () => void }) {
         ) : (
           <>
             <RoundButton
-              label={call.muted ? t("call.unmute") : t("call.mute")}
+              label={call.muted ? t("call.micOff") : t("call.micOn")}
               icon="mic"
               off={call.muted}
               slash={call.muted}
@@ -267,7 +267,7 @@ function CallBody(props: { call: CallState; onMinimize: () => void }) {
             />
             {call.video && (
               <RoundButton
-                label={call.cameraOff ? t("call.cameraOn") : t("call.cameraOff")}
+                label={call.cameraOff ? t("call.cameraOff") : t("call.cameraOn")}
                 icon="video"
                 off={call.cameraOff}
                 slash={call.cameraOff}

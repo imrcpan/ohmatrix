@@ -91,8 +91,8 @@ test("a one-to-one call: ring, answer, talk, hang up", async ({ browser }) => {
   await expect(pa.getByRole("timer")).toHaveText(/^\d\d:\d\d$/, { timeout: 30000 });
   await expect(pb.getByRole("timer")).toHaveText(/^\d\d:\d\d$/, { timeout: 30000 });
 
-  await pa.getByRole("button", { name: "Mute" }).click();
-  await expect(pa.getByRole("button", { name: "Unmute" })).toBeVisible();
+  await pa.getByRole("button", { name: "Microphone on" }).click();
+  await expect(pa.getByRole("button", { name: "Microphone off" })).toBeVisible();
   // The browser has no earpiece to choose: the phone's speaker button is not there.
   await expect(pa.getByRole("button", { name: "Speaker" })).toHaveCount(0);
 
@@ -123,8 +123,8 @@ test("a video call: the picture shows on both sides, and the camera can be turne
       .poll(() => page.evaluate(() => [...document.querySelectorAll("video")].some((v) => v.videoWidth > 0 && !v.paused)), { timeout: 20000 })
       .toBe(true);
   }
-  await pa.getByRole("button", { name: "Camera off" }).click();
-  await expect(pa.getByRole("button", { name: "Camera on" })).toBeVisible();
+  await pa.getByRole("button", { name: "Camera on" }).click();
+  await expect(pa.getByRole("button", { name: "Camera off" })).toBeVisible();
   await pa.getByRole("button", { name: "End", exact: true }).click();
   await expect(pb.getByText("Call ended")).toBeVisible({ timeout: 15000 });
   await ctxA.close();
@@ -149,10 +149,10 @@ test("a video call: camera off shows the person, screen sharing shows the screen
   await expect.poll(() => playing(pb), { timeout: 20000 }).toBe(true);
 
   // A turns the camera off: B no longer sees a picture of A, and sees A's name and picture instead.
-  await pa.getByRole("button", { name: "Camera off" }).click();
+  await pa.getByRole("button", { name: "Camera on" }).click();
   await pb.waitForTimeout(3000);
   await expect.poll(() => playing(pb), { timeout: 20000 }).toBe(false);
-  await pa.getByRole("button", { name: "Camera on" }).click();
+  await pa.getByRole("button", { name: "Camera off" }).click();
   await expect.poll(() => playing(pb), { timeout: 20000 }).toBe(true);
 
   // A shares the screen: B is told, and the picture it gets is the screen.
