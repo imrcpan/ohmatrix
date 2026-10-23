@@ -11,11 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "15.0.2",
     "@ohmatrix/app": "workspace:*",
     "@ohmatrix/core": "workspace:*",
     "@ohmatrix/engine-mock": "workspace:*",
     "@ohmatrix/engine-rust": "workspace:*",
     "@ohmatrix/state": "workspace:*",
+    "@ohmatrix/ui": "workspace:*",
     "expo": "^57.0.27",
     "expo-audio": "~57.0.5",
     "expo-build-properties": "~57.0.22",
@@ -32,7 +34,8 @@
     "expo-sharing": "~57.0.23",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-safe-area-context": "~5.7.0"
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-webrtc": "155.0.1"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",

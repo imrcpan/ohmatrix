@@ -5,6 +5,7 @@ import * as Crypto from "expo-crypto";
 import { Directory, File, Paths } from "expo-file-system";
 import * as SecureStore from "expo-secure-store";
 import { installLog, type AppServices } from "@ohmatrix/core";
+import { setStreamRenderer } from "@ohmatrix/ui";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAccountManager, type AccountManager } from "@ohmatrix/state";
 import { App as SharedApp, BootScreen } from "@ohmatrix/app";
@@ -14,6 +15,8 @@ import { phoneServices } from "./platform.js";
 import { createPushSync, notifyingAccountStore, type PushNative } from "./pushState.js";
 import { requireOptionalNativeModule } from "expo";
 import { shellInsets } from "./shellInsets.js";
+import { webrtcCalls, type RtcLib } from "./webrtcCalls.js";
+import { streamRendererFrom } from "./StreamViewNative.js";
 import { useKeyboardHeight } from "./useKeyboardHeight.js";
 
 // The accounts go in the Android Keystore (iOS Keychain), through expo-secure-store. The one session saved before there were
@@ -35,6 +38,24 @@ const pushSync = pushNative
   : null;
 const accounts = pushSync ? notifyingAccountStore(baseAccounts, () => pushSync.refresh()) : baseAccounts;
 const services: AppServices = phoneServices();
+
+// The phone's audio mode for a call (modules/ohmatrix-call-audio): without it a call is heard at media volume from the loudspeaker.
+const callAudioNative = requireOptionalNativeModule<{ start(speaker: boolean): void; setSpeaker(on: boolean): void; stop(): void }>("OhMatrixCallAudio");
+const callAudio = callAudioNative
+  ? {
+      start: (speaker: boolean) => callAudioNative.start(speaker),
+      setSpeaker: (on: boolean) => callAudioNative.setSpeaker(on),
+      stop: () => callAudioNative.stop(),
+    }
+  : undefined;
+
+// A call's picture and sound on the phone are drawn by react-native-webrtc's own view, which is loaded with the library when the first call
+// is made (the module is native, and the app starts without it).
+// Where react-native-webrtc is read from: the first call, not the start of the app.
+// (A synchronous `require`, on purpose: Metro loads the module at this call, where an `import()` would be asynchronous.)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const loadRtc = (): RtcLib & { RTCView: unknown } => require("react-native-webrtc") as RtcLib & { RTCView: unknown };
+setStreamRenderer(streamRendererFrom(loadRtc));
 
 /** The databases of the accounts of earlier versions: the files of the first account (in the roots themselves) and the folders of the others. */
 function deleteOldStores(): void {
@@ -80,6 +101,7 @@ async function createManager(): Promise<AccountManager> {
             cacheDir: accountFolder(Paths.cache.uri, dir),
             key: () => databaseKey(SecureStore, (n) => Crypto.getRandomBytes(n)),
             readFile: (path) => new File(`file://${path}`).arrayBuffer(),
+            calls: webrtcCalls(loadRtc, () => Crypto.randomUUID(), callAudio),
           })
         : new MockEngine(),
     newDir: () => `acct-${[...Crypto.getRandomBytes(6)].map((b) => b.toString(16).padStart(2, "0")).join("")}`,
