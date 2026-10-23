@@ -8,6 +8,8 @@ import type { Sdk, SdkClientConfig } from "./sdk.js";
 import { RustEngineCore, type RustEngineOptions } from "./engine.js";
 
 export type { RustEngineOptions } from "./engine.js";
+export type { CallPlatform } from "./calls.js";
+export type { Peer, Media, IceServer, IceCandidate, SessionDescription } from "./callSignalling.js";
 
 /** The SDK, loaded once, the first time a client is made. */
 function lazySdk(): Sdk {
