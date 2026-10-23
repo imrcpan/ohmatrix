@@ -5,7 +5,7 @@
  */
 import type * as Ffi from "./bindings.js";
 import { messageBody, readEvent, type RawEvent } from "./readEvent.js";
-import { toBase64 } from "./base64.js";
+import { hexOf, toBase64 } from "./base64.js";
 import { toEngineError } from "./errors.js";
 import type { RoomInfoLike } from "./roomSummary.js";
 import type { RawSecurity } from "./security.js";
@@ -526,6 +526,11 @@ export function sdkFromBindings(b: Bindings): Sdk {
         new b.ClientBuilder()
           .homeserverUrl(config.homeserverUrl)
           .sqliteStore(store)
+          // The index of the messages' text is kept on disk, one folder for each room, under the account's data folder (it goes with the
+          // account when it is signed out). It is encrypted with the key of the database, written as hex: a random key, so the
+          // passphrase stretching the SDK does when it opens a room's index has nothing to protect, and the index of a room is only
+          // opened when that room is searched or written to, never at start.
+          .withSearchIndexStore(`${config.dataDir.replace(/\/+$/, "")}/search`, hexOf(config.key))
           // Discovery asks the server, which an app opened without a network cannot; the session carries what was found.
           .slidingSyncVersionBuilder(config.restoring ? b.SlidingSyncVersionBuilder.Native : b.SlidingSyncVersionBuilder.DiscoverNative)
           .build(),
