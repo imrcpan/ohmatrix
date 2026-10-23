@@ -46,6 +46,15 @@ rc_joins:
   local: { per_second: 1000, burst_count: 1000 }
 YAML
 fi
+# Calls need a TURN server: the one `turn.sh` starts. (Added to a homeserver.yaml made before it was there, too.)
+if ! grep -q '^turn_uris' "$DATA/homeserver.yaml"; then
+  cat >> "$DATA/homeserver.yaml" <<'YAML'
+turn_uris: ["turn:localhost:3478?transport=udp", "turn:localhost:3478?transport=tcp"]
+turn_shared_secret: "ohmatrix-dev-turn"
+turn_user_lifetime: 86400000
+turn_allow_guests: false
+YAML
+fi
 
 $DOCKER rm -f $NAME >/dev/null 2>&1 || true
 $DOCKER run -d --name $NAME $IDS -p 127.0.0.1:8008:8008 -v "$DATA:/data" $IMAGE >/dev/null
