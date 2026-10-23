@@ -219,7 +219,7 @@ export interface Preferences {
   /** A registered theme id, or "system" to follow the OS. */
   theme: string;
   /** Interface language; null = detect from the system. */
-  locale: "en" | "zh-CN" | null;
+  locale: string | null;
   /** Landscape chat-list width in px; null = automatic. */
   sidebarWidth: number | null;
   /** Whole-interface zoom factor (1 = 100%). */

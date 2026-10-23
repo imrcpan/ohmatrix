@@ -1,6 +1,32 @@
-export type Locale = "en" | "zh-CN";
+/**
+ * The interface languages, each with its name in its own language (never translated). The first is the fallback of every other: a text that a
+ * language does not have yet is shown in English, so a language can be added before it is complete.
+ */
+export const LANGUAGES = [
+  { id: "en", label: "English" },
+  { id: "zh-CN", label: "简体中文" },
+  { id: "zh-TW", label: "繁體中文" },
+  { id: "es", label: "Español" },
+  { id: "fr", label: "Français" },
+  { id: "de", label: "Deutsch" },
+  { id: "pt", label: "Português" },
+  { id: "it", label: "Italiano" },
+  { id: "ru", label: "Русский" },
+  { id: "ja", label: "日本語" },
+  { id: "ko", label: "한국어" },
+  { id: "hi", label: "हिन्दी" },
+  { id: "bn", label: "বাংলা" },
+  { id: "id", label: "Bahasa Indonesia" },
+] as const;
 
-const en = {
+export type Locale = (typeof LANGUAGES)[number]["id"];
+
+/** Whether `id` is one of the languages above (a saved preference may name one this version does not have). */
+export function isLocale(id: unknown): id is Locale {
+  return typeof id === "string" && LANGUAGES.some((l) => l.id === id);
+}
+
+export const en = {
   chats: "Chats",
   connecting: "Connecting…",
   search: "Search",
@@ -1135,10 +1161,31 @@ const zh: Record<MessageKey, string> = {
   "accounts.reorder.hint": "按住账号右侧的把手拖动，调整顺序。",
 };
 
-const catalogs: Record<Locale, Record<MessageKey, string>> = { en, "zh-CN": zh };
+/**
+ * What each language has translated (the files of `locales/`, each complete: a `Record<MessageKey, string>`, so a text added to English
+ * cannot be forgotten). A language with nothing yet is not here, and a key it lacks falls back to English (see `t`).
+ */
+const catalogs: Partial<Record<Locale, Partial<Record<MessageKey, string>>>> = { en, "zh-CN": zh };
 
+/** Whether `locale` has texts of its own (English always does; a language of the list may not yet). */
+export function hasCatalog(locale: Locale): boolean {
+  return catalogs[locale] !== undefined;
+}
+
+/**
+ * The language to use for a system language tag (`fr-CA`, `zh-Hant-HK`, `pt_BR`): the one of the same language, else English. Chinese is
+ * split by script or region: Traditional for `zh-Hant`, `zh-TW`, `zh-HK` and `zh-MO`, Simplified for any other.
+ */
 export function detectLocale(tag: string | undefined): Locale {
-  return tag?.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+  const parts = (tag ?? "").toLowerCase().replace(/_/g, "-").split("-");
+  const language = parts[0] ?? "";
+  if (language === "zh") {
+    const traditional = parts.includes("hant") || parts.some((p) => p === "tw" || p === "hk" || p === "mo");
+    return traditional ? "zh-TW" : "zh-CN";
+  }
+  // Indonesian was `in` in Java's old tags.
+  const id = language === "in" ? "id" : language;
+  return LANGUAGES.find((l) => l.id === id)?.id ?? "en";
 }
 
 /** Translates `key`; a missing translation falls back to English and then to the key itself, never to an exception. */

@@ -27,6 +27,28 @@ test("last-active times read the same without Intl.RelativeTimeFormat (Hermes ha
     expect(formatRelative(now - 60_000, now, "en")).toBe("1 minute ago");
     expect(formatRelative(now - 3 * 3_600_000, now, "zh-CN")).toBe("3小时前");
     expect(formatRelative(now - 2 * 86_400_000, now, "zh-CN")).toBe("2天前");
+    // Every language of the app has its words, with the plural forms where the language has them.
+    const ago = (l: Parameters<typeof formatRelative>[2], ms: number) => formatRelative(now - ms, now, l);
+    expect(ago("zh-TW", 5 * 60_000)).toBe("5分鐘前");
+    expect(ago("es", 3_600_000)).toBe("hace 1 hora");
+    expect(ago("es", 5 * 3_600_000)).toBe("hace 5 horas");
+    expect(ago("fr", 2 * 86_400_000)).toBe("il y a 2 jours");
+    expect(ago("de", 86_400_000)).toBe("vor 1 Tag");
+    expect(ago("de", 3 * 86_400_000)).toBe("vor 3 Tagen");
+    expect(ago("pt", 5 * 60_000)).toBe("há 5 minutos");
+    expect(ago("it", 2 * 3_600_000)).toBe("2 ore fa");
+    expect(ago("ja", 3 * 3_600_000)).toBe("3時間前");
+    expect(ago("ko", 5 * 60_000)).toBe("5분 전");
+    expect(ago("hi", 2 * 86_400_000)).toBe("2 दिन पहले");
+    expect(ago("bn", 5 * 60_000)).toBe("5 মিনিট আগে");
+    expect(ago("id", 3 * 3_600_000)).toBe("3 jam yang lalu");
+    // Russian: 1 / 2-4 / 5-20, and 21 is like 1, 11 is like 5.
+    expect(ago("ru", 60_000)).toBe("1 минуту назад");
+    expect(ago("ru", 3 * 60_000)).toBe("3 минуты назад");
+    expect(ago("ru", 11 * 60_000)).toBe("11 минут назад");
+    expect(ago("ru", 21 * 60_000)).toBe("21 минуту назад");
+    expect(ago("ru", 5 * 3_600_000)).toBe("5 часов назад");
+    expect(ago("ru", 2 * 86_400_000)).toBe("2 дня назад");
   } finally {
     intl.RelativeTimeFormat = real;
   }
