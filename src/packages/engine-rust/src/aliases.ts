@@ -41,6 +41,25 @@ const all = (s: Aliases) => [...(s.main ? [s.main] : []), ...s.others];
 const canonical = (f: Fetch, a: Account, roomId: string, main: string | undefined, others: string[]) =>
   putState(f, a, roomId, "m.room.canonical_alias", "", { ...(main ? { alias: main } : {}), alt_aliases: others.filter((x) => x !== main) });
 
+/** Whether the address can be made: the server's directory answers 404 for a name nobody has, and a room for one that is taken. */
+export async function checkAlias(f: Fetch, a: Account, input: string): Promise<"free" | "taken" | "invalid"> {
+  const local = aliasLocalpart(input);
+  if (!local || !/^[a-z0-9._=\-/+]+$/.test(local)) return "invalid";
+  const alias = `#${local}:${a.userId.split(":").slice(1).join(":")}`;
+  let res;
+  try {
+    res = await f(`${a.homeserverUrl.replace(/\/+$/, "")}/_matrix/client/v3/directory/room/${encodeURIComponent(alias)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${a.accessToken}` },
+    });
+  } catch (e) {
+    throw new EngineError("network", e instanceof Error ? e.message : "could not reach the server");
+  }
+  if (res.ok) return "taken";
+  if (res.status === 404) return "free";
+  throw new EngineError("unknown", `could not check the address (${res.status})`);
+}
+
 /** Make an address for the room and list it (as the main one when the room has none). Resolves with the address. */
 export async function addAlias(f: Fetch, a: Account, roomId: string, input: string, now: Aliases): Promise<string> {
   const alias = aliasOn(a, input);
@@ -51,11 +70,16 @@ export async function addAlias(f: Fetch, a: Account, roomId: string, input: stri
 }
 
 /** Stop listing an address and delete it (an address this server did not make is only unlisted). */
-export async function removeAlias(f: Fetch, a: Account, roomId: string, alias: string, now: Aliases): Promise<void> {
+export async function removeAlias(f: Fetch, a: Account, roomId: string, alias: string, now: Aliases): Promise<"released" | "unlisted"> {
   const rest = all(now).filter((x) => x !== alias);
   const main = now.main === alias ? rest[0] : now.main;
   await canonical(f, a, roomId, main, rest);
-  await directory(f, a, alias, "DELETE").catch(() => {});
+  // Only the server the name ends with can free it (and only for its creator or a server admin); otherwise it stays taken, unlisted.
+  if (!alias.endsWith(`:${a.userId.split(":").slice(1).join(":")}`)) return "unlisted";
+  return directory(f, a, alias, "DELETE").then(
+    () => "released" as const,
+    () => "unlisted" as const,
+  );
 }
 
 export async function setMainAlias(f: Fetch, a: Account, roomId: string, alias: string, now: Aliases): Promise<void> {
