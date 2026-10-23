@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { EngineError, type MemberRole, type RoomDetails, type RoomMember, type SpaceChild } from "@ohmatrix/core";
 import { Avatar, Dialog, fontFamily, Menu, Spinner, PrimaryButton, TextButton, Toggle, useTheme, type Anchor, type MenuItem, useNavBottom } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
+import { ConfirmDialog, MemberCard } from "./ConfirmDialog.js";
 import { InviteDialog } from "./InviteDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { MEMBERS_SHOWN, topMembers } from "./memberOrder.js";
@@ -36,6 +37,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
   const [menu, setMenu] = useState<{ member: RoomMember; anchor: Anchor } | null>(null);
   const [removing, setRemoving] = useState<RoomMember | null>(null);
   const [leveling, setLeveling] = useState<RoomMember | null>(null);
+  // A person about to be made admin or moderator, asked about first.
+  const [promoting, setPromoting] = useState<{ member: RoomMember; role: "admin" | "moderator" } | null>(null);
   const [banning, setBanning] = useState<RoomMember | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   // The person whose page is open (opened from this panel, the list of members or a picture in the chat), and where it leads back to.
@@ -83,7 +86,8 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
           out.push({
             label: t(role === "admin" ? "makeAdmin" : role === "moderator" ? "makeModerator" : "makeMember"),
             icon: "user",
-            onPress: () => void controller.roomAdmin.setRole(d.id, m.userId, role).catch(report),
+            // Giving power asks first; taking it back to an ordinary member does not.
+            onPress: () => (role === "member" ? void controller.roomAdmin.setRole(d.id, m.userId, role).catch(report) : setPromoting({ member: m, role })),
           }),
         );
     }
@@ -255,6 +259,22 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         )}
       </ScrollView>
       <Menu visible={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} items={menu ? memberMenu(menu.member) : []} />
+      <ConfirmDialog
+        visible={!!promoting}
+        modal
+        title={promoting ? t(promoting.role === "admin" ? "role.confirm.admin.title" : "role.confirm.moderator.title") : ""}
+        message={promoting ? t(promoting.role === "admin" ? "role.confirm.admin.body" : "role.confirm.moderator.body") : undefined}
+        warning={promoting?.role === "admin" ? t("role.confirm.admin.warn") : undefined}
+        confirmLabel={promoting ? t("role.confirm.yes", { role: t(promoting.role === "admin" ? "role.admin" : "role.moderator") }) : ""}
+        onClose={() => setPromoting(null)}
+        onConfirm={() => {
+          const p = promoting;
+          setPromoting(null);
+          if (p && d) void controller.roomAdmin.setRole(d.id, p.member.userId, p.role).catch(report);
+        }}
+      >
+        {promoting && <MemberCard member={promoting.member} />}
+      </ConfirmDialog>
       <PromptDialog
         visible={edit === "name"}
         title={t(forSpace ? "space.name" : "room.editName")}
