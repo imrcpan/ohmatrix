@@ -60,23 +60,31 @@ async function withRealName(f: AttachmentSource): Promise<AttachmentSource> {
   }
 }
 
-/** One picture from the photo picker (the system's own: no permission is asked, and it shows photos, not folders). */
-async function pickPhoto(): Promise<AttachmentSource | null> {
+/** Pictures from the photo picker (the system's own: no permission is asked, and it shows photos, not folders). */
+async function pickPhotosFrom(multiple: boolean): Promise<AttachmentSource[]> {
   const Pictures = await import("expo-image-picker");
-  const r = await Pictures.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: false, quality: 1 });
-  const a = r.canceled ? undefined : r.assets[0];
-  if (!a) return null;
-  const size =
-    a.fileSize ??
-    (() => {
-      try {
-        return new File(a.uri).size;
-      } catch {
-        return 0;
-      }
-    })();
-  const [file] = fromDocuments([{ uri: a.uri, name: a.fileName ?? "", size, mimeType: a.mimeType ?? "image/jpeg" }]);
-  return file ? { ...(await withRealName(file)), width: a.width, height: a.height } : null;
+  const r = await Pictures.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: multiple, quality: 1 });
+  if (r.canceled) return [];
+  const out: AttachmentSource[] = [];
+  for (const a of r.assets) {
+    const size =
+      a.fileSize ??
+      (() => {
+        try {
+          return new File(a.uri).size;
+        } catch {
+          return 0;
+        }
+      })();
+    const [file] = fromDocuments([{ uri: a.uri, name: a.fileName ?? "", size, mimeType: a.mimeType ?? "image/jpeg" }]);
+    if (file) out.push({ ...(await withRealName(file)), width: a.width, height: a.height });
+  }
+  return out;
+}
+
+/** One picture from the photo picker. */
+async function pickPhoto(): Promise<AttachmentSource | null> {
+  return (await pickPhotosFrom(false))[0] ?? null;
 }
 
 async function pickFiles(): Promise<AttachmentSource[]> {
@@ -383,6 +391,7 @@ export function phoneServices(): AppServices {
     preferences: filePreferences(),
     pickFiles,
     pickPhoto,
+    pickPhotos: () => pickPhotosFrom(true),
     recordMedia,
     recordKinds: ["audio"],
     createAudio,
