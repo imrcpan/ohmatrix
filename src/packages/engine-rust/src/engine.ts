@@ -49,6 +49,7 @@ import { compareRooms, isListed, toRoomSummary } from "./roomSummary.js";
 import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
 import { addAlias, checkAlias, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
 import { readStatus, register, writeStatus } from "./account.js";
+import { RustCalls, type CallPlatform } from "./calls.js";
 import { listDevices, removeDevices, type Account, type Fetch } from "./devices.js";
 import { attachmentKind, forwardContent, pathOf } from "./forward.js";
 import { personName } from "./serviceText.js";
@@ -79,6 +80,8 @@ export interface RustEngineOptions {
   readFile?(path: string): Promise<ArrayBuffer>;
   /** For the requests the SDK cannot make (the list of sessions); the platform's `fetch` when not given. */
   fetch?: Fetch;
+  /** The WebRTC and the devices for calls; without it the engine does not offer calls. */
+  calls?: CallPlatform;
 }
 
 /** The name the SDK shows for this device in the list of sessions. */
@@ -117,10 +120,30 @@ export class RustEngineCore implements MatrixEngine {
   private rooms_ = new RoomList();
   private roomsTask: (SdkTask & { loadMore(): void }) | null = null;
 
+  /** Calls between two people (the engine offers them when the platform gave it WebRTC and the library has the call events). */
+  readonly calls: RustCalls;
+
   constructor(
     private readonly sdk: Sdk,
     private readonly options: RustEngineOptions,
-  ) {}
+  ) {
+    this.calls = new RustCalls(
+      this.options.calls,
+      () => this.fetch(),
+      async (userId) => {
+        const p = await this.need().userProfile(userId);
+        return { name: p.displayName || userId.replace(/^@/, "").replace(/:.*$/, ""), ...(p.avatarUrl ? { avatar: p.avatarUrl } : {}) };
+      },
+      async (roomId) => {
+        const me = this.need().userId();
+        const d = await this.room(roomId).details();
+        const others = d.members.filter((m) => m.membership === "Join" && m.userId !== me);
+        // A call goes to the other person of a chat with exactly one other person (the other may still be only invited).
+        const invited = d.members.filter((m) => m.membership === "Invite" && m.userId !== me);
+        return others.length === 1 && !invited.length ? others[0]!.userId : others.length === 0 && invited.length === 1 ? invited[0]!.userId : undefined;
+      },
+    );
+  }
 
   private need(): SdkClient {
     if (!this.client) throw new EngineError("unauthorized", "not signed in");
@@ -157,6 +180,7 @@ export class RustEngineCore implements MatrixEngine {
     this.pins.clear();
     this.pinWatchers.clear();
     this.client?.releaseMedia?.();
+    this.calls.detach();
     this.client = null;
     this.rooms_ = new RoomList();
     this.lastProfile = null;
@@ -206,6 +230,7 @@ export class RustEngineCore implements MatrixEngine {
         const client = await this.makeClient(await this.resolve(homeserver));
         await client.login(username, password, DEVICE_NAME);
         this.client = client;
+        this.calls.attach(client);
         void this.loadProfile();
         this.watchSecurity();
         void this.watchVerification()?.catch(() => {});
@@ -222,6 +247,7 @@ export class RustEngineCore implements MatrixEngine {
         const client = await this.makeClient(session.homeserver, true);
         await client.restore(fromSession(session, this.sdk.defaultSlidingSync));
         this.client = client;
+        this.calls.attach(client);
         void this.loadProfile();
         this.watchSecurity();
         void this.watchVerification()?.catch(() => {});

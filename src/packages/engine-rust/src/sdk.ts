@@ -248,6 +248,18 @@ export interface SdkClient {
   mediaUrl(mxc: string, opts: { source?: string; width?: number; height?: number; mimeType?: string }): Promise<string>;
   /** Let go of the files `mediaUrl` kept on disk; their URLs stop working. */
   releaseMedia?(): void;
+  /** The call events (`m.call.*`) of every room: each is handed to `cb` as it arrives. Absent in a build of the library without them. */
+  onCallEvents?(cb: (e: RawCallEvent) => void): SdkTask;
+}
+
+/** A call event as the library hands it over: its type, room, sender and age, and its content as JSON. */
+export interface RawCallEvent {
+  roomId: string;
+  type: string;
+  sender: string;
+  eventId: string;
+  ageMs: number;
+  contentJson: string;
 }
 
 export interface SdkClientConfig {

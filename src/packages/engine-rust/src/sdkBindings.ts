@@ -17,6 +17,7 @@ import type {
   SdkClient,
   EventRef,
   SdkClientConfig,
+  RawCallEvent,
   RawHit,
   RawLevels,
   RawMember,
@@ -47,6 +48,13 @@ async function call<T>(f: () => Promise<T>): Promise<T> {
 const powerOf = (p: Ffi.PowerLevel): number => (p.tag === "Value" ? Number((p as { inner: { value: bigint } }).inner.value) : 100);
 
 const task = (h: { cancel(): void } | undefined): SdkTask => ({ cancel: () => h?.cancel() });
+
+/** The client of a library built with the call-events patch (the generated bindings of a build without it have no such method). */
+interface ClientWithCalls {
+  subscribeToCallEvents(listener: {
+    onCallEvent(roomId: string, eventType: string, sender: string, eventId: string, ageMs: bigint, contentJson: string): void;
+  }): { cancel(): void };
+}
 
 export function sdkFromBindings(b: Bindings): Sdk {
   /** Downloaded files that must stay on disk while the app runs. */
@@ -340,6 +348,18 @@ export function sdkFromBindings(b: Bindings): Sdk {
     restore: (s) => call(() => c.restoreSession(s as unknown as Ffi.Session)),
     logout: () => call(() => c.logout()),
     syncService: async () => syncOf(await call(async () => c.syncService().finish())),
+    // The patched library has `subscribeToCallEvents` (patches/matrix-rust-sdk-call-events.patch); one built without the patch has none, and
+    // the app then cannot make calls. Its listener and subscription are the generated `CallEventListener` / `CallEventSubscription`.
+    ...("subscribeToCallEvents" in c
+      ? {
+          onCallEvents: (cb: (e: RawCallEvent) => void): SdkTask => {
+            const sub = (c as ClientWithCalls).subscribeToCallEvents({
+              onCallEvent: (roomId, type, sender, eventId, ageMs, contentJson) => cb({ roomId, type, sender, eventId, ageMs: Number(ageMs), contentJson }),
+            });
+            return { cancel: () => sub.cancel() };
+          },
+        }
+      : {}),
     async profile() {
       const p = await call(() => c.getProfile(c.userId()));
       return { displayName: p.displayName, avatarUrl: p.avatarUrl };
