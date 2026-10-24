@@ -108,7 +108,7 @@ export const hi: Record<MessageKey, string> = {
   "register.mismatch": "दोनों पासवर्ड एक जैसे नहीं हैं।",
   "register.taken": "यह उपयोगकर्ता नाम पहले से लिया जा चुका है। कोई दूसरा चुनें।",
   "register.closed": "यह सर्वर यहाँ नए खाते बनाने की अनुमति नहीं देता।",
-  "register.token": "पंजीकरण टोकन (अगर सर्वर माँगे)",
+  "register.token": "पंजीकरण टोकन (वैकल्पिक)",
   "register.tokenNeeded": "यह सर्वर सिर्फ़ पंजीकरण टोकन के साथ खाते बनाता है। इसे नीचे दर्ज करें।",
   "register.tokenWrong": "यह पंजीकरण टोकन मान्य नहीं है, या इस्तेमाल हो चुका है।",
   "register.unsupported":

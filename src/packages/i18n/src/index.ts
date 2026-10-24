@@ -146,7 +146,7 @@ export const en = {
   "register.mismatch": "The two passwords are not the same.",
   "register.taken": "That username is taken. Choose another.",
   "register.closed": "This server does not allow new accounts to be created here.",
-  "register.token": "Registration token (if the server asks for one)",
+  "register.token": "Registration token (optional)",
   "register.tokenNeeded": "This server creates accounts only with a registration token. Enter it below.",
   "register.tokenWrong": "That registration token is not valid, or has been used up.",
   "register.unsupported":
@@ -726,7 +726,7 @@ const zh: Record<MessageKey, string> = {
   "register.mismatch": "两次输入的密码不一致。",
   "register.taken": "该用户名已被占用，请换一个。",
   "register.closed": "该服务器不允许在这里创建新账号。",
-  "register.token": "注册令牌（服务器要求时填写）",
+  "register.token": "注册令牌（可选）",
   "register.tokenNeeded": "该服务器需要注册令牌才能创建账号，请在下方填写。",
   "register.tokenWrong": "注册令牌无效，或已被用完。",
   "register.unsupported": "该服务器要求的不止用户名和密码（如邮箱、验证码或同意条款）。请先在服务器自己的网站上创建账号，再回到这里登录。",

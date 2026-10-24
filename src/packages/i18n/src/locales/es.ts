@@ -108,7 +108,7 @@ export const es: Record<MessageKey, string> = {
   "register.mismatch": "Las dos contraseñas no coinciden.",
   "register.taken": "Ese nombre de usuario ya está en uso. Elige otro.",
   "register.closed": "Este servidor no permite crear cuentas nuevas aquí.",
-  "register.token": "Token de registro (si el servidor lo pide)",
+  "register.token": "Token de registro (opcional)",
   "register.tokenNeeded": "Este servidor solo crea cuentas con un token de registro. Introdúcelo abajo.",
   "register.tokenWrong": "Ese token de registro no es válido o ya se ha agotado.",
   "register.unsupported":

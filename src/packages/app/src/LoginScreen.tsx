@@ -78,25 +78,46 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 24 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 24, paddingBottom: 24 + 104 }}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={{ width: "100%", maxWidth: 380, gap: 16 }}>
-          <View style={{ alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 }}>
             {logo ? (
               // The app's own logo (the icon chosen on a phone, the page's icon on the web), in its SVG form.
-              <Logo xml={logo} size={104} />
+              <Logo xml={logo} size={84} />
             ) : (
-              <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-                <Icon name="chat" size={52} strokeWidth={1.8} color={colors.onAccent} />
+              <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
+                <Icon name="chat" size={42} strokeWidth={1.8} color={colors.onAccent} />
               </View>
             )}
-            <Text style={{ fontSize: 30, fontWeight: "700", fontFamily, color: colors.text, marginTop: 8 }}>{t("welcome.title")}</Text>
-            <Text style={{ fontSize: 16, fontFamily, color: colors.textSecondary, textAlign: "center" }}>
-              {creating ? t("register.title") : t("welcome.subtitle")}
-            </Text>
+            {/* The name above, what this page is for below, to the right of the logo. */}
+            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+              <Text style={{ fontSize: 28, fontWeight: "700", fontFamily, color: colors.text }}>{t("welcome.title")}</Text>
+              <Text style={{ fontSize: 18, fontWeight: "600", fontFamily, color: colors.text }}>{creating ? t("register.title") : t("welcome.subtitle")}</Text>
+            </View>
           </View>
-          <TextField label={t("homeserver")} value={homeserver} onChangeText={setHomeserver} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
-          <TextField label={t("username")} value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} textContentType="username" />
           <TextField
+            icon="globe"
+            label={t("homeserver")}
+            value={homeserver}
+            onChangeText={setHomeserver}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <TextField
+            icon="user"
+            label={t("username")}
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="username"
+          />
+          <TextField
+            icon="lock"
             label={t("password")}
             value={password}
             onChangeText={setPassword}
@@ -106,6 +127,7 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
           />
           {creating && (
             <TextField
+              icon="lock"
               label={t("register.confirm")}
               value={confirm}
               onChangeText={setConfirm}
@@ -115,7 +137,15 @@ export function LoginScreen(props: { defaultHomeserver: string; back?: { label: 
             />
           )}
           {creating && (
-            <TextField label={t("register.token")} value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} onSubmitEditing={submit} />
+            <TextField
+              icon="key"
+              label={t("register.token")}
+              value={token}
+              onChangeText={setToken}
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={submit}
+            />
           )}
           {mismatch && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("register.mismatch")}</Text>}
           {!!error && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{error}</Text>}

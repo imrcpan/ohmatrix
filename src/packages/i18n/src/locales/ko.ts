@@ -108,7 +108,7 @@ export const ko: Record<MessageKey, string> = {
   "register.mismatch": "두 비밀번호가 같지 않아요.",
   "register.taken": "이미 사용 중인 사용자 이름이에요. 다른 이름을 고르세요.",
   "register.closed": "이 서버에서는 새 계정을 만들 수 없어요.",
-  "register.token": "가입 토큰(서버에서 요구하는 경우)",
+  "register.token": "가입 토큰(선택)",
   "register.tokenNeeded": "이 서버는 가입 토큰이 있어야 계정을 만들 수 있어요. 아래에 입력하세요.",
   "register.tokenWrong": "가입 토큰이 올바르지 않거나 이미 사용됐어요.",
   "register.unsupported":
