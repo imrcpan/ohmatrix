@@ -296,6 +296,7 @@ export const zhTW: Record<MessageKey, string> = {
   "ban.reason": "原因（選填）",
   "role.admin": "管理員",
   "role.moderator": "版主",
+  "role.owner": "擁有者",
   invited: "已邀請",
   "room.encrypted": "已加密",
   "room.notEncrypted": "未加密",

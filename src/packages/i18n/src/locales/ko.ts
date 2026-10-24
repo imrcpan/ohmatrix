@@ -298,6 +298,7 @@ export const ko: Record<MessageKey, string> = {
   "ban.reason": "사유(선택)",
   "role.admin": "관리자",
   "role.moderator": "중재자",
+  "role.owner": "소유자",
   invited: "초대됨",
   "room.encrypted": "암호화됨",
   "room.notEncrypted": "암호화 안 됨",

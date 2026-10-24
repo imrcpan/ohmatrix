@@ -44,8 +44,8 @@ async function call<T>(f: () => Promise<T>): Promise<T> {
   }
 }
 
-/** A power level as a number; an unbounded one (a room's creator) reads as 100. */
-const powerOf = (p: Ffi.PowerLevel): number => (p.tag === "Value" ? Number((p as { inner: { value: bigint } }).inner.value) : 100);
+/** A power level as a number; an unbounded one (a room's creator, room version 12 on) is Infinity: the one who is an owner, not just an admin. */
+const powerOf = (p: Ffi.PowerLevel): number => (p.tag === "Value" ? Number((p as { inner: { value: bigint } }).inner.value) : Infinity);
 
 const task = (h: { cancel(): void } | undefined): SdkTask => ({ cancel: () => h?.cancel() });
 

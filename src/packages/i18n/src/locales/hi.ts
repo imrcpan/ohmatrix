@@ -302,6 +302,7 @@ export const hi: Record<MessageKey, string> = {
   "ban.reason": "कारण (वैकल्पिक)",
   "role.admin": "एडमिन",
   "role.moderator": "मॉडरेटर",
+  "role.owner": "स्वामी",
   invited: "आमंत्रित",
   "room.encrypted": "एन्क्रिप्टेड",
   "room.notEncrypted": "एन्क्रिप्टेड नहीं",
