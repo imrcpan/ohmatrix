@@ -563,4 +563,11 @@ export const zhTW: Record<MessageKey, string> = {
   "accounts.reorder": "排序",
   "accounts.reorder.done": "完成",
   "accounts.reorder.hint": "拖曳帳號的把手來移動它。",
+  "push.photo": "[圖片]",
+  "push.video": "[影片]",
+  "push.voice": "[語音]",
+  "push.audio": "[音訊]",
+  "push.file": "[檔案]",
+  "push.location": "[位置]",
+  "push.invited": "{name} 邀請了你",
 };

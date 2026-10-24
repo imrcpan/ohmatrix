@@ -569,4 +569,11 @@ export const es: Record<MessageKey, string> = {
   "accounts.reorder": "Ordenar",
   "accounts.reorder.done": "Listo",
   "accounts.reorder.hint": "Arrastra una cuenta por su asa para moverla.",
+  "push.photo": "Foto",
+  "push.video": "Vídeo",
+  "push.voice": "Mensaje de voz",
+  "push.audio": "Audio",
+  "push.file": "Archivo",
+  "push.location": "Ubicación",
+  "push.invited": "{name} te ha invitado",
 };

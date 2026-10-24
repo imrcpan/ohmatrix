@@ -569,4 +569,11 @@ export const bn: Record<MessageKey, string> = {
   "accounts.reorder": "সাজান",
   "accounts.reorder.done": "হয়েছে",
   "accounts.reorder.hint": "কোনো অ্যাকাউন্টের হ্যান্ডেল ধরে টেনে সরান।",
+  "push.photo": "ছবি",
+  "push.video": "ভিডিও",
+  "push.voice": "ভয়েস বার্তা",
+  "push.audio": "অডিও",
+  "push.file": "ফাইল",
+  "push.location": "লোকেশন",
+  "push.invited": "{name} আপনাকে আমন্ত্রণ জানিয়েছেন",
 };

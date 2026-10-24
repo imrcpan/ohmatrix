@@ -569,4 +569,11 @@ export const ru: Record<MessageKey, string> = {
   "accounts.reorder": "Порядок",
   "accounts.reorder.done": "Готово",
   "accounts.reorder.hint": "Перетащите учётную запись за ручку, чтобы переместить.",
+  "push.photo": "Фото",
+  "push.video": "Видео",
+  "push.voice": "Голосовое сообщение",
+  "push.audio": "Аудио",
+  "push.file": "Файл",
+  "push.location": "Геопозиция",
+  "push.invited": "{name} приглашает вас",
 };

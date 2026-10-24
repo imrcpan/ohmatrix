@@ -606,6 +606,13 @@ export const en = {
   "accounts.reorder": "Sort",
   "accounts.reorder.done": "Done",
   "accounts.reorder.hint": "Drag an account by its handle to move it.",
+  "push.photo": "Photo",
+  "push.video": "Video",
+  "push.voice": "Voice message",
+  "push.audio": "Audio",
+  "push.file": "File",
+  "push.location": "Location",
+  "push.invited": "{name} invited you",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1172,6 +1179,13 @@ const zh: Record<MessageKey, string> = {
   "accounts.reorder": "排序",
   "accounts.reorder.done": "完成",
   "accounts.reorder.hint": "按住账号右侧的把手拖动，调整顺序。",
+  "push.photo": "[图片]",
+  "push.video": "[视频]",
+  "push.voice": "[语音]",
+  "push.audio": "[音频]",
+  "push.file": "[文件]",
+  "push.location": "[位置]",
+  "push.invited": "{name} 邀请了你",
 };
 
 /**

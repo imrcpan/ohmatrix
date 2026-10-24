@@ -569,4 +569,11 @@ export const hi: Record<MessageKey, string> = {
   "accounts.reorder": "क्रम",
   "accounts.reorder.done": "हो गया",
   "accounts.reorder.hint": "किसी खाते को हैंडल से खींचकर उसकी जगह बदलें।",
+  "push.photo": "फ़ोटो",
+  "push.video": "वीडियो",
+  "push.voice": "वॉइस संदेश",
+  "push.audio": "ऑडियो",
+  "push.file": "फ़ाइल",
+  "push.location": "लोकेशन",
+  "push.invited": "{name} ने आपको आमंत्रित किया",
 };

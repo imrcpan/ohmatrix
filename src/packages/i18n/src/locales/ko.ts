@@ -565,4 +565,11 @@ export const ko: Record<MessageKey, string> = {
   "accounts.reorder": "정렬",
   "accounts.reorder.done": "완료",
   "accounts.reorder.hint": "계정의 핸들을 끌어서 옮기세요.",
+  "push.photo": "사진",
+  "push.video": "동영상",
+  "push.voice": "음성 메시지",
+  "push.audio": "오디오",
+  "push.file": "파일",
+  "push.location": "위치",
+  "push.invited": "{name}님이 초대했어요",
 };
