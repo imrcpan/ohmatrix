@@ -72,6 +72,8 @@ export interface AppState {
   verification: VerificationFlow | null;
   profile: Profile | null;
   rooms: RoomSummary[];
+  /** The chat list has finished its first load after start: before that rooms are still arriving and the list would jump about. */
+  roomsSettled: boolean;
   timelines: Record<RoomId, TimelineItem[]>;
   /** Navigation state shared by all layouts; platform shells may mirror it to the URL/back stack. */
   selectedRoomId: RoomId | null;
@@ -293,6 +295,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     verification: null,
     profile: null,
     rooms: [],
+    roomsSettled: false,
     timelines: {},
     selectedRoomId: null,
     prefs: DEFAULT_PREFERENCES,
@@ -315,12 +318,45 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     if (!engine.verification) throw new EngineError("unsupported", "this app cannot verify yet");
     return engine.verification;
   };
+  // The first load is over when the list has been still for a moment once syncing, or after a while at most.
+  let quiet: unknown;
+  let cap: unknown;
+  const settle = () => {
+    timers.clearTimeout(quiet);
+    timers.clearTimeout(cap);
+    cap = undefined;
+    set({ roomsSettled: true });
+  };
+  const unsettle = () => {
+    timers.clearTimeout(quiet);
+    timers.clearTimeout(cap);
+    cap = undefined;
+    set({ roomsSettled: false });
+  };
   const offs = [
-    engine.sync.onState((syncState) => set({ syncState })),
+    () => {
+      timers.clearTimeout(quiet);
+      timers.clearTimeout(cap);
+    },
+    engine.sync.onState((syncState) => {
+      set({ syncState });
+      if (syncState === "syncing" && !store.getState().roomsSettled) {
+        timers.clearTimeout(quiet);
+        quiet = timers.setTimeout(settle, 700);
+        cap ??= timers.setTimeout(settle, 6000);
+      }
+    }),
     engine.security.onState((security) => set({ security })),
     ...(engine.verification ? [engine.verification.onFlow((verification) => set({ verification }))] : []),
     engine.profile.subscribe((profile) => set({ profile })),
-    engine.rooms.subscribe((updates) => set((s) => ({ rooms: applyUpdates(s.rooms, updates) }))),
+    engine.rooms.subscribe((updates) => {
+      set((s) => ({ rooms: applyUpdates(s.rooms, updates) }));
+      const { syncState, roomsSettled } = store.getState();
+      if (syncState === "syncing" && !roomsSettled) {
+        timers.clearTimeout(quiet);
+        quiet = timers.setTimeout(settle, 700);
+      }
+    }),
   ];
 
   // Opening a chat closes the space's info panel: the one panel on the right belongs to what is on screen.
@@ -331,7 +367,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
 
   const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
 
-  const signedOut = (authError: string | null = null, authErrorCode: EngineErrorCode | null = null) =>
+  const signedOut = (authError: string | null = null, authErrorCode: EngineErrorCode | null = null) => {
+    unsettle();
     set({
       auth: "signedOut",
       authError,
@@ -345,6 +382,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       roomInfoOpen: false,
       infoPage: null,
     });
+  };
 
   /** Signing in and registering end the same way: keep the session, remember the server, start syncing. */
   const signIn = async (homeserver: string, start: () => Promise<Session>) => {
