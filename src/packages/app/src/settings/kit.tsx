@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { Dialog, fontFamily, Icon, IconButton, Menu, PrimaryButton, useTheme, type Anchor, type IconName } from "@ohmatrix/ui";
 import { useServices, useT } from "../context.js";
 
@@ -66,9 +66,7 @@ export function Group(props: { title?: string | undefined; footer?: string | und
         <Text style={{ fontSize: 14, fontWeight: "600", fontFamily, color: colors.accent, marginHorizontal: 18, marginBottom: 4 }}>{props.title}</Text>
       )}
       {props.children}
-      {!!props.footer && (
-        <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>{props.footer}</Text>
-      )}
+      {!!props.footer && <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{props.footer}</Text>}
     </View>
   );
 }
@@ -112,6 +110,7 @@ export function Item(props: {
         paddingHorizontal: 12,
         paddingVertical: props.subtitle ? 7 : 0,
         borderRadius: 12,
+        overflow: "hidden",
         backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
       }}
     >
@@ -132,7 +131,7 @@ export function Item(props: {
           <Text
             numberOfLines={1}
             ellipsizeMode="tail"
-            selectable={!props.copyable}
+            selectable={Platform.OS === "web" && !props.copyable}
             style={{ fontSize: 15, fontFamily, color: colors.textSecondary, flexShrink: 1, textAlign: "right" }}
           >
             {props.value}
@@ -174,7 +173,7 @@ export function Item(props: {
         </Pressable>
         <Menu width={130} visible={!!menu} anchor={menu} onClose={() => setMenu(null)} items={[{ label: t("copy"), icon: "copy", onPress: copy }]} />
         <Dialog visible={preview} title={props.label} onClose={() => setPreview(false)}>
-          <Text selectable style={{ fontSize: 16, lineHeight: 22, fontFamily, color: colors.text, textAlign: "center" }}>
+          <Text selectable={Platform.OS === "web"} style={{ fontSize: 16, lineHeight: 22, fontFamily, color: colors.text, textAlign: "center" }}>
             {props.value}
           </Text>
           <PrimaryButton title={copied ? t("error.copied") : t("copy")} onPress={copy} />
