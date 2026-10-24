@@ -460,6 +460,8 @@ export const ja: Record<MessageKey, string> = {
   "advanced.options": "詳細オプション",
   logs: "ログ",
   "logs.view": "ログを表示",
+  pullRefresh: "引っ張って更新",
+  "pullRefresh.footer": "チャット一覧を引き下げて更新します。（実際にはあまり役に立ちません）",
   "logs.clear": "ログを消去",
   "logs.empty": "まだ何も記録されていません。",
   "theme.preview": "テーマのプレビュー",

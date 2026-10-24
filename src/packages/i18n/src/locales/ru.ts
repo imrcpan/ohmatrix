@@ -461,6 +461,8 @@ export const ru: Record<MessageKey, string> = {
   "advanced.options": "Дополнительные параметры",
   logs: "Журналы",
   "logs.view": "Посмотреть журналы",
+  pullRefresh: "Потянуть для обновления",
+  "pullRefresh.footer": "Потяните список чатов вниз, чтобы обновить его. (На самом деле это почти ничего не даёт.)",
   "logs.clear": "Очистить журнал",
   "logs.empty": "В журнал пока ничего не записано.",
   "theme.preview": "Предпросмотр темы",

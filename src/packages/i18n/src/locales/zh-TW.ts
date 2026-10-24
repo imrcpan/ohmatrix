@@ -455,6 +455,8 @@ export const zhTW: Record<MessageKey, string> = {
   "advanced.options": "進階選項",
   logs: "記錄",
   "logs.view": "檢視記錄",
+  pullRefresh: "下拉重新整理",
+  "pullRefresh.footer": "在聊天列表下拉以重新整理。（這其實並沒有什麼用）",
   "logs.clear": "清除記錄",
   "logs.empty": "還沒有任何記錄。",
   "theme.preview": "主題預覽",

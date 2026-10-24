@@ -462,6 +462,8 @@ export const indonesian: Record<MessageKey, string> = {
   "advanced.options": "Opsi lanjutan",
   logs: "Log",
   "logs.view": "Lihat log",
+  pullRefresh: "Tarik untuk menyegarkan",
+  "pullRefresh.footer": "Tarik daftar obrolan ke bawah untuk menyegarkan. (Sebenarnya ini tidak banyak berguna.)",
   "logs.clear": "Hapus log",
   "logs.empty": "Belum ada yang dicatat.",
   "theme.preview": "Pratinjau tema",

@@ -461,6 +461,8 @@ export const hi: Record<MessageKey, string> = {
   "advanced.options": "उन्नत विकल्प",
   logs: "लॉग",
   "logs.view": "लॉग देखें",
+  pullRefresh: "खींचकर रिफ्रेश करें",
+  "pullRefresh.footer": "चैट सूची को नीचे खींचकर रिफ्रेश करें। (इसका असल में कोई खास फ़ायदा नहीं है।)",
   "logs.clear": "लॉग साफ़ करें",
   "logs.empty": "अभी तक कुछ भी लॉग नहीं हुआ है।",
   "theme.preview": "थीम का पूर्वावलोकन",

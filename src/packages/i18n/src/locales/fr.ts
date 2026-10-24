@@ -464,6 +464,8 @@ export const fr: Record<MessageKey, string> = {
   "advanced.options": "Options avancées",
   logs: "Journaux",
   "logs.view": "Voir les journaux",
+  pullRefresh: "Tirer pour actualiser",
+  "pullRefresh.footer": "Tirez la liste des discussions vers le bas pour l'actualiser. (Cela ne sert pas à grand-chose, en fait.)",
   "logs.clear": "Effacer le journal",
   "logs.empty": "Rien n’a encore été journalisé.",
   "theme.preview": "Aperçu du thème",

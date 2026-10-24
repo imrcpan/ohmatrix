@@ -173,6 +173,7 @@ test("preferences load on bootstrap and persist on change", async () => {
     notificationPreview: true,
     ownBubbleAccent: true,
     pushEnabled: true,
+    pullToRefresh: false,
     lastHomeserver: null,
   });
   app.setPreferences({ sidebarWidth: 400 });
@@ -187,6 +188,7 @@ test("preferences load on bootstrap and persist on change", async () => {
     notificationPreview: true,
     ownBubbleAccent: true,
     pushEnabled: true,
+    pullToRefresh: false,
     lastHomeserver: null,
   });
 });

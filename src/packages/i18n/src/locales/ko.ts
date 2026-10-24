@@ -457,6 +457,8 @@ export const ko: Record<MessageKey, string> = {
   "advanced.options": "고급 옵션",
   logs: "로그",
   "logs.view": "로그 보기",
+  pullRefresh: "당겨서 새로고침",
+  "pullRefresh.footer": "채팅 목록을 아래로 당겨 새로고침합니다. (사실 별로 쓸모는 없습니다.)",
   "logs.clear": "로그 지우기",
   "logs.empty": "아직 기록된 내용이 없어요.",
   "theme.preview": "테마 미리보기",
