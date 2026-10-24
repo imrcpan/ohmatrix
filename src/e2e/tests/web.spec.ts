@@ -3315,7 +3315,15 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
   const m = (await zh.boundingBox())!;
   expect(m.y + m.height).toBeLessThan(b.y); // above the button
   await shot(page, "42-login-language-menu");
-  await zh.click();
+  // A language that is translated shows in its words, the longest of them (German) without breaking the page.
+  await page.getByRole("menuitem", { name: "Deutsch" }).click();
+  await expect(page.getByText("Melde dich bei deinem Matrix-Konto an")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sprache" })).toContainText("Deutsch");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await shot(page, "i18n-login-de");
+  await page.getByRole("button", { name: "Sprache" }).click();
+  await page.getByRole("menuitem", { name: "简体中文" }).click();
   await expect(page.getByText("登录你的 Matrix 账号")).toBeVisible();
   await expect(page.getByRole("button", { name: "语言" })).toContainText("简体中文");
   await page.reload();

@@ -19,6 +19,10 @@ export const LANGUAGES = [
   { id: "id", label: "Bahasa Indonesia" },
 ] as const;
 
+import { de } from "./locales/de.js";
+import { es } from "./locales/es.js";
+import { fr } from "./locales/fr.js";
+
 export type Locale = (typeof LANGUAGES)[number]["id"];
 
 /** Whether `id` is one of the languages above (a saved preference may name one this version does not have). */
@@ -1165,7 +1169,7 @@ const zh: Record<MessageKey, string> = {
  * What each language has translated (the files of `locales/`, each complete: a `Record<MessageKey, string>`, so a text added to English
  * cannot be forgotten). A language with nothing yet is not here, and a key it lacks falls back to English (see `t`).
  */
-const catalogs: Partial<Record<Locale, Partial<Record<MessageKey, string>>>> = { en, "zh-CN": zh };
+const catalogs: Partial<Record<Locale, Partial<Record<MessageKey, string>>>> = { en, "zh-CN": zh, es, fr, de };
 
 /** Whether `locale` has texts of its own (English always does; a language of the list may not yet). */
 export function hasCatalog(locale: Locale): boolean {
