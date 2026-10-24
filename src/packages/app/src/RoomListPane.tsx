@@ -215,7 +215,7 @@ export function RoomListPane() {
         onClose={() => setDialog(null)}
         onConfirm={([id]) => controller.joinRoom(id!)}
       />
-      <PullToRefresh enabled={pullToRefresh} onRefresh={refresh}>
+      <PullToRefresh<RoomSummary> enabled={pullToRefresh} onRefresh={refresh}>
         {(scroll) => (
           <FlatList
             {...scroll}
