@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { Animated, Modal, Pressable, Text, View } from "react-native";
+import { Animated, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
-import { useUnzoom, useViewport } from "./viewport.js";
+import { useInsets, useUnzoom, useViewport } from "./viewport.js";
+import { placeMenu } from "./menuPlace.js";
 import { Icon, type IconName } from "./Icon.js";
 import { fontFamily, popoverShadow, useTheme } from "./theme.js";
 import { useQuickFade } from "./quickFade.js";
@@ -63,8 +64,20 @@ export function Menu(props: {
   const MENU_WIDTH = props.width ?? DEFAULT_WIDTH;
   const rawLeft = props.alignRight ? a.x + a.width - MENU_WIDTH : a.x;
   const left = Math.max(8, Math.min(rawLeft, win.width - MENU_WIDTH - 8));
-  const below = a.y + a.height + 6;
-  const top = props.up || below + h > win.height - 8 ? Math.max(8, a.y - h - 6) : below;
+  // The menu stays clear of the status bar at the top and the gesture bar at the bottom, and is cut to the room there is (and scrolls).
+  const insets = useInsets();
+  const {
+    top,
+    height: shown,
+    scrolls,
+  } = placeMenu({
+    y: a.y,
+    height: a.height,
+    contentHeight: h,
+    up: !!props.up,
+    minTop: Math.max(8, insets.top + 8),
+    bottomLimit: win.height - Math.max(8, insets.bottom + (insets.navBottom ?? 0) + 8),
+  });
   return (
     <Modal transparent visible={fade.mounted} animationType="none" onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>
@@ -80,37 +93,51 @@ export function Menu(props: {
             } as object)}
           >
             <View
-              onLayout={(e) => setMeasured(Math.round(e.nativeEvent.layout.height))}
-              style={[{ position: "absolute", left, top, width: MENU_WIDTH, padding: 2, borderRadius: 12, backgroundColor: colors.bg }, popoverShadow(dark)]}
+              style={[
+                {
+                  position: "absolute",
+                  left,
+                  top,
+                  width: MENU_WIDTH,
+                  borderRadius: 12,
+                  backgroundColor: colors.bg,
+                  ...(scrolls ? { height: shown, overflow: "hidden" as const } : {}),
+                },
+                popoverShadow(dark),
+              ]}
             >
-              {props.items.map((it) => (
-                <Pressable
-                  key={it.label}
-                  accessibilityRole="menuitem"
-                  accessibilityLabel={it.label}
-                  accessibilityState={{ checked: !!it.checked }}
-                  onPress={() => {
-                    props.onClose();
-                    it.onPress();
-                  }}
-                  style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                    minHeight: ROW,
-                    paddingVertical: 7,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    paddingHorizontal: 14,
-                    borderRadius: 10,
-                    backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                  })}
-                >
-                  {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
-                  <Text style={{ flex: 1, minWidth: 0, fontSize: 15, lineHeight: 20, fontFamily, color: it.danger ? colors.danger : colors.text }}>
-                    {it.label}
-                  </Text>
-                  {it.checked && <Icon name="check" size={18} color={colors.accent} />}
-                </Pressable>
-              ))}
+              <ScrollView scrollEnabled={scrolls} showsVerticalScrollIndicator={scrolls} keyboardShouldPersistTaps="handled" bounces={false}>
+                <View onLayout={(e) => setMeasured(Math.round(e.nativeEvent.layout.height))} style={{ padding: 2 }}>
+                  {props.items.map((it) => (
+                    <Pressable
+                      key={it.label}
+                      accessibilityRole="menuitem"
+                      accessibilityLabel={it.label}
+                      accessibilityState={{ checked: !!it.checked }}
+                      onPress={() => {
+                        props.onClose();
+                        it.onPress();
+                      }}
+                      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                        minHeight: ROW,
+                        paddingVertical: 7,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingHorizontal: 14,
+                        borderRadius: 10,
+                        backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                      })}
+                    >
+                      {it.icon && <Icon name={it.icon} size={18} color={it.danger ? colors.danger : colors.textSecondary} />}
+                      <Text style={{ flex: 1, minWidth: 0, fontSize: 15, lineHeight: 20, fontFamily, color: it.danger ? colors.danger : colors.text }}>
+                        {it.label}
+                      </Text>
+                      {it.checked && <Icon name="check" size={18} color={colors.accent} />}
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </Pressable>
         </Animated.View>

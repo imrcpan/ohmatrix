@@ -3358,6 +3358,27 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
   await expect(page.getByText("Sign in to your Matrix account")).toBeVisible();
 });
 
+test("sign-in: a menu taller than the window is cut to it and scrolls, so the last language can still be reached", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 420 });
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  await page.getByRole("button", { name: "Language" }).click();
+  const first = page.getByRole("menuitem", { name: "English" });
+  await expect(first).toBeVisible();
+  // The menu is inside the window (the status bar of a phone is the top of it), with all 14 languages in it.
+  const items = page.getByRole("menuitem");
+  await expect(items).toHaveCount(14);
+  const f = (await first.boundingBox())!;
+  expect(f.y).toBeGreaterThanOrEqual(0);
+  const last = page.getByRole("menuitem", { name: "Bahasa Indonesia" });
+  // Out of sight until scrolled to, then chosen.
+  await last.scrollIntoViewIfNeeded();
+  const l = (await last.boundingBox())!;
+  expect(l.y + l.height).toBeLessThanOrEqual(420);
+  await last.click();
+  await expect(page.getByRole("button", { name: "Masuk", exact: true })).toBeVisible();
+});
+
 test("sign-in: the zoom is chosen at the bottom left, tried first and kept only when confirmed", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
