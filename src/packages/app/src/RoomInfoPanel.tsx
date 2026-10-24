@@ -71,8 +71,10 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
 
   const myPower = d?.members.find((m) => m.userId === d.me)?.power ?? 0;
   const maxLevel = Number.isFinite(myPower) ? myPower : 1000;
-  // You can only manage people below your own level (the server enforces the same rule).
-  const manageable = (m: RoomMember) => !!d && m.userId !== d.me && m.power < myPower;
+  // You can only manage people below your own level (the server enforces the same rule), and yourself, but only downwards: an owner's power
+  // is not in the room's levels, so it cannot be given up this way.
+  const isMe = (m: RoomMember) => !!d && m.userId === d.me;
+  const manageable = (m: RoomMember) => !!d && (isMe(m) ? Number.isFinite(myPower) : m.power < myPower);
   const openMember = (m: RoomMember) => controller.openMember({ userId: m.userId, name: m.name, from: infoPage === "members" ? "members" : null });
   const memberMenu = (m: RoomMember): MenuItem[] => {
     if (!d) return [];
@@ -81,7 +83,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
     if (!manageable(m)) return out;
     if (d.can.changeRoles && !m.invited) {
       (["admin", "moderator", "member"] as const)
-        .filter((r) => ROLE_POWER[r] !== m.power && ROLE_POWER[r] <= myPower)
+        .filter((r) => ROLE_POWER[r] !== m.power && (isMe(m) ? ROLE_POWER[r] < myPower : ROLE_POWER[r] <= myPower))
         .forEach((role) =>
           out.push({
             label: t(role === "admin" ? "makeAdmin" : role === "moderator" ? "makeModerator" : "makeMember"),
@@ -92,6 +94,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
         );
     }
     if (d.can.changeRoles && !m.invited) out.push({ label: t("setLevel"), icon: "edit", onPress: () => setLeveling(m) });
+    if (isMe(m)) return out;
     if (d.can.kick) out.push({ label: t(m.invited ? "withdrawInvite" : "removeMember"), icon: "close", danger: true, onPress: () => setRemoving(m) });
     if (d.can.ban) out.push({ label: t("ban"), icon: "trash", danger: true, onPress: () => setBanning(m) });
     return out;
@@ -261,7 +264,6 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
       <Menu visible={!!menu} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)} items={menu ? memberMenu(menu.member) : []} />
       <ConfirmDialog
         visible={!!promoting}
-        modal
         title={promoting ? t(promoting.role === "admin" ? "role.confirm.admin.title" : "role.confirm.moderator.title") : ""}
         message={promoting ? t(promoting.role === "admin" ? "role.confirm.admin.body" : "role.confirm.moderator.body") : undefined}
         warning={promoting?.role === "admin" ? t("role.confirm.admin.warn") : undefined}
