@@ -568,4 +568,11 @@ export const ja: Record<MessageKey, string> = {
   "accounts.reorder": "並べ替え",
   "accounts.reorder.done": "完了",
   "accounts.reorder.hint": "アカウントのハンドルをドラッグして移動します。",
+  "push.photo": "写真",
+  "push.video": "動画",
+  "push.voice": "ボイスメッセージ",
+  "push.audio": "音声",
+  "push.file": "ファイル",
+  "push.location": "位置情報",
+  "push.invited": "{name} さんがあなたを招待しました",
 };

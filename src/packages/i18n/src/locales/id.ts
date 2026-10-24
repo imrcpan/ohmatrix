@@ -570,4 +570,11 @@ export const indonesian: Record<MessageKey, string> = {
   "accounts.reorder": "Urutkan",
   "accounts.reorder.done": "Selesai",
   "accounts.reorder.hint": "Seret akun pada gagangnya untuk memindahkannya.",
+  "push.photo": "Foto",
+  "push.video": "Video",
+  "push.voice": "Pesan suara",
+  "push.audio": "Audio",
+  "push.file": "File",
+  "push.location": "Lokasi",
+  "push.invited": "{name} mengundang Anda",
 };

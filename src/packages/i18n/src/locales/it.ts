@@ -570,4 +570,11 @@ export const it: Record<MessageKey, string> = {
   "accounts.reorder": "Ordina",
   "accounts.reorder.done": "Fatto",
   "accounts.reorder.hint": "Trascina un account dalla maniglia per spostarlo.",
+  "push.photo": "Foto",
+  "push.video": "Video",
+  "push.voice": "Messaggio vocale",
+  "push.audio": "Audio",
+  "push.file": "File",
+  "push.location": "Posizione",
+  "push.invited": "{name} ti ha inviato un invito",
 };
