@@ -301,6 +301,7 @@ export const pt: Record<MessageKey, string> = {
   "ban.reason": "Motivo (opcional)",
   "role.admin": "Administrador",
   "role.moderator": "Moderador",
+  "role.owner": "Proprietário",
   invited: "Convidado",
   "room.encrypted": "Criptografada",
   "room.notEncrypted": "Sem criptografia",

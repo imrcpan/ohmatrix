@@ -86,7 +86,7 @@ export interface RawMember {
   displayName?: string | undefined;
   avatarUrl?: string | undefined;
   membership: "Join" | "Invite" | "Ban" | "Other";
-  /** The power level; an unbounded one (a room's creator) is read as 100. */
+  /** The power level; an unbounded one (a room's creator) is Infinity. */
   power: number;
   /** Why they were banned or removed. */
   reason?: string | undefined;

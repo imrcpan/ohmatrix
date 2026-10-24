@@ -12,7 +12,7 @@ type T = ReturnType<typeof useT>;
 
 /** "Admin · 100", "Moderator · 50", "Member · 0" or "Level 25" for anything in between. */
 export function levelLabel(level: number, t: T): string {
-  if (!Number.isFinite(level)) return t("role.admin"); // room creators (room version 12) have unlimited power
+  if (!Number.isFinite(level)) return t("role.owner"); // room creators (room version 12) have unlimited power
   if (level >= 100) return `${t("role.admin")} · ${level}`;
   if (level === 50) return `${t("role.moderator")} · 50`;
   if (level === 0) return `${t("role.member")} · 0`;

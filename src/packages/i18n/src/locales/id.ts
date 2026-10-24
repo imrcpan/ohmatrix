@@ -302,6 +302,7 @@ export const indonesian: Record<MessageKey, string> = {
   "ban.reason": "Alasan (opsional)",
   "role.admin": "Admin",
   "role.moderator": "Moderator",
+  "role.owner": "Pemilik",
   invited: "Diundang",
   "room.encrypted": "Terenkripsi",
   "room.notEncrypted": "Tidak terenkripsi",

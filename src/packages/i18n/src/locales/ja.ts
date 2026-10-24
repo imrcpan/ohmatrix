@@ -301,6 +301,7 @@ export const ja: Record<MessageKey, string> = {
   "ban.reason": "理由（任意）",
   "role.admin": "管理者",
   "role.moderator": "モデレーター",
+  "role.owner": "オーナー",
   invited: "招待済み",
   "room.encrypted": "暗号化あり",
   "room.notEncrypted": "暗号化なし",

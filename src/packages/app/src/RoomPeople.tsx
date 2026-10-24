@@ -34,15 +34,17 @@ export const MemberRow = memo(function MemberRow(props: { member: RoomMember; ac
   const avatar = useMediaUrl(m.avatar, { width: 72, height: 72, fit: "crop" });
   const tag = m.invited
     ? t("invited")
-    : m.power === 100 || !Number.isFinite(m.power)
-      ? t("role.admin")
-      : m.power === 50
-        ? t("role.moderator")
-        : m.power > 100
-          ? levelLabel(m.power, t)
-          : m.power > 0
-            ? t("level.custom", { n: m.power })
-            : null;
+    : !Number.isFinite(m.power)
+      ? t("role.owner")
+      : m.power === 100
+        ? t("role.admin")
+        : m.power === 50
+          ? t("role.moderator")
+          : m.power > 100
+            ? levelLabel(m.power, t)
+            : m.power > 0
+              ? t("level.custom", { n: m.power })
+              : null;
   const body = (hovered?: boolean, pressed?: boolean) => (
     <View
       style={{
