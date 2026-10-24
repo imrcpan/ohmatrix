@@ -576,4 +576,6 @@ export const ru: Record<MessageKey, string> = {
   "push.file": "Файл",
   "push.location": "Геопозиция",
   "push.invited": "{name} приглашает вас",
+  "call.video.switching": "Изображение не приходит. Пробуем другой формат видео…",
+  "call.video.unavailable": "На этом соединении изображение показать не удаётся. Разговор продолжается со звуком.",
 };

@@ -104,6 +104,160 @@ test("a one-to-one call: ring, answer, talk, hang up", async ({ browser }) => {
   await ctxB.close();
 });
 
+test("a group chat has no call buttons (calls are one to one for now); a chat of two still has them", async ({ browser }) => {
+  const { a, b, pa, ctxA, ctxB } = await twoPeople(browser);
+  // A group of three, made by the first of them.
+  const third = `cc${Date.now().toString(36)}`;
+  await register(third);
+  const ta = await token(a);
+  const name = `Crew ${Date.now().toString(36)}`;
+  await fetch(`${HS}/_matrix/client/v3/createRoom`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${ta}` },
+    body: JSON.stringify({ name, invite: [`@${b}:localhost`, `@${third}:localhost`], preset: "private_chat" }),
+  });
+  await pa.getByPlaceholder("Search").fill(name);
+  await pa
+    .getByRole("button", { name: new RegExp(name) })
+    .first()
+    .click();
+  await pa.getByRole("button", { name: "Attach" }).click();
+  // The attach menu is there (photo, file), without the call entries.
+  await expect(pa.getByRole("menuitem", { name: "Send file" })).toBeVisible();
+  await expect(pa.getByRole("menuitem", { name: "Voice call" })).toHaveCount(0);
+  await expect(pa.getByRole("menuitem", { name: "Video call" })).toHaveCount(0);
+
+  // A room that has just the two of them, though it was not made as a direct chat, is a chat of two as well.
+  await pa.keyboard.press("Escape");
+  await pa.getByRole("button", { name: "Back" }).first().click();
+  const pair = `Pair ${Date.now().toString(36)}`;
+  const made = (await (
+    await fetch(`${HS}/_matrix/client/v3/createRoom`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${ta}` },
+      body: JSON.stringify({ name: pair, invite: [`@${b}:localhost`], preset: "private_chat" }),
+    })
+  ).json()) as { room_id: string };
+  await fetch(`${HS}/_matrix/client/v3/join/${encodeURIComponent(made.room_id)}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${await token(b)}` },
+    body: "{}",
+  });
+  await pa.getByPlaceholder("Search").fill(pair);
+  await pa
+    .getByRole("button", { name: new RegExp(pair) })
+    .first()
+    .click();
+  await expect(async () => {
+    await pa.keyboard.press("Escape");
+    await pa.getByRole("button", { name: "Attach" }).click();
+    await expect(pa.getByRole("menuitem", { name: "Voice call" })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 20000 });
+
+  // The chat of two keeps them.
+  await pa.keyboard.press("Escape");
+  await pa.getByRole("button", { name: "Back" }).first().click();
+  await pa.getByPlaceholder("Search").fill(b);
+  await pa
+    .getByRole("button", { name: new RegExp(b) })
+    .first()
+    .click();
+  await pa.getByRole("button", { name: "Attach" }).click();
+  await expect(pa.getByRole("menuitem", { name: "Voice call" })).toBeVisible();
+  await expect(pa.getByRole("menuitem", { name: "Video call" })).toBeVisible();
+  await ctxA.close();
+  await ctxB.close();
+});
+
+test("the answer's video codec is one this browser can send: the offer's order stands unless its first cannot be encoded here", async ({ page }) => {
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const r = await page.evaluate(
+    async ([calls, core]) => {
+      const c = (await import(/* @vite-ignore */ calls!)) as {
+        sendableVideoCodecs(): string[];
+        applyVideoCodecOrder(pc: RTCPeerConnection, order: string[]): void;
+      };
+      const k = (await import(/* @vite-ignore */ core!)) as {
+        orderVideoCodecs(o: { offered: string[]; sendable: string[]; failed: string[] }): string[];
+        sdpVideoCodecs(sdp: string): string[];
+      };
+      const first = (sdp: string) => k.sdpVideoCodecs(sdp)[0];
+      const all = RTCRtpReceiver.getCapabilities("video")!.codecs;
+      const h264 = all.filter((x) => /H264/i.test(x.mimeType));
+      if (!h264.length) return { skipped: true as const };
+      // An offer like the phone's: H264 is the first codec of the video.
+      const phone = new RTCPeerConnection();
+      const tr = phone.addTransceiver("video", { direction: "sendrecv" });
+      tr.setCodecPreferences([...h264, ...all.filter((x) => !/H264/i.test(x.mimeType))]);
+      const offer = await phone.createOffer();
+      const answerFor = async (sendable: string[] | null) => {
+        const pc = new RTCPeerConnection();
+        await pc.setRemoteDescription(offer);
+        if (sendable) c.applyVideoCodecOrder(pc, k.orderVideoCodecs({ offered: k.sdpVideoCodecs(offer.sdp!), sendable, failed: [] }));
+        const answer = await pc.createAnswer();
+        pc.close();
+        return first(answer.sdp!);
+      };
+      const real = c.sendableVideoCodecs();
+      const out = {
+        skipped: false as const,
+        sendable: real,
+        offered: first(offer.sdp!),
+        unaided: await answerFor(null),
+        withThisBrowser: await answerFor(real),
+        withoutH264: await answerFor(real.filter((n) => n !== "H264")),
+        failedFirst: await (async () => {
+          const pc = new RTCPeerConnection();
+          await pc.setRemoteDescription(offer);
+          c.applyVideoCodecOrder(pc, k.orderVideoCodecs({ offered: k.sdpVideoCodecs(offer.sdp!), sendable: real, failed: ["H264"] }));
+          const answer = await pc.createAnswer();
+          pc.close();
+          return first(answer.sdp!);
+        })(),
+      };
+      phone.close();
+      return out;
+    },
+    ["/@fs/home/prc/Desktop/oh-matrix/repo/src/packages/engine-js/src/calls.ts", "/@fs/home/prc/Desktop/oh-matrix/repo/src/packages/core/src/videoCodecs.ts"],
+  );
+  if (r.skipped) test.skip(true, "this browser has no H264 to put first");
+  else {
+    expect(r.offered).toBe("H264");
+    // Left to itself, an answer follows the offer: H264, which a browser without an encoder for it cannot send.
+    expect(r.unaided).toBe("H264");
+    // With this browser's own list of what it can send: H264 stays first if it can send it, and is passed over if it cannot.
+    expect(r.withThisBrowser).toBe(r.sendable.includes("H264") ? "H264" : r.sendable[0]);
+    // A browser that cannot send H264 (made so here) answers with a codec it can send.
+    expect(r.withoutH264).not.toBe("H264");
+    expect(r.sendable).toContain(r.withoutH264);
+    // A codec that was tried and sent nothing is not asked for again.
+    expect(r.failedFirst).not.toBe("H264");
+  }
+});
+
+test("the codecs this browser encodes are found by trying: one that is listed and cannot be used is left out", async ({ page }) => {
+  await page.goto("/");
+  await page.getByText("Sign in to your Matrix account").waitFor();
+  const r = await page.evaluate(async (path) => {
+    const m = (await import(/* @vite-ignore */ path)) as { probeEncodableVideoCodecs(n: string[], ms?: number): Promise<string[]> };
+    const real = RTCRtpSender.getCapabilities.bind(RTCRtpSender);
+    const plain = await m.probeEncodableVideoCodecs(["VP8"], 4000);
+    // A browser that lists a codec it cannot use: the list has one more entry, which the connection refuses.
+    (RTCRtpSender as unknown as { getCapabilities: (k: string) => unknown }).getCapabilities = (k: string) => {
+      const c = real(k)!;
+      return { ...c, codecs: [...c.codecs, { mimeType: "video/FAKE", clockRate: 90000 }] };
+    };
+    const lying = await m.probeEncodableVideoCodecs(["VP8", "FAKE"], 1500);
+    // Where nothing can be tried, nothing is taken away.
+    const none = await m.probeEncodableVideoCodecs(["ZZZ"], 500);
+    return { plain, lying, none };
+  }, "/@fs/home/prc/Desktop/oh-matrix/repo/src/packages/engine-js/src/videoProbe.ts");
+  expect(r.plain).toEqual(["VP8"]);
+  expect(r.lying).toEqual(["VP8"]);
+  expect(r.none).toEqual(["ZZZ"]);
+});
+
 test("a video call: the picture shows on both sides, and the camera can be turned off", async ({ browser }) => {
   const { b, pa, pb, ctxA, ctxB } = await twoPeople(browser);
   await pa.getByPlaceholder("Search").fill(b);
@@ -127,6 +281,47 @@ test("a video call: the picture shows on both sides, and the camera can be turne
   await expect(pa.getByRole("button", { name: "Camera off" })).toBeVisible();
   await pa.getByRole("button", { name: "End", exact: true }).click();
   await expect(pb.getByText("Call ended")).toBeVisible({ timeout: 15000 });
+  await ctxA.close();
+  await ctxB.close();
+});
+
+test("a picture that is not sent: the person is told another codec is being tried, and then that nothing more can be done", async ({ browser }) => {
+  test.setTimeout(120000);
+  const { b, pa, pb, ctxA, ctxB } = await twoPeople(browser);
+  await pa.getByPlaceholder("Search").fill(b);
+  await pa
+    .getByRole("button", { name: new RegExp(b) })
+    .first()
+    .click();
+  await pa.getByRole("button", { name: "Attach" }).click();
+  await pa.getByRole("menuitem", { name: "Video call" }).click();
+  await pa.getByRole("button", { name: "Start video call" }).click();
+  await openIncoming(pb, "video");
+  await pb.getByRole("button", { name: "Accept" }).click();
+  await expect(pb.getByRole("timer")).toHaveText(/^\d\d:\d\d$/, { timeout: 30000 });
+  // No notice while the picture goes.
+  await expect(pb.getByRole("alert")).toHaveCount(0);
+
+  // From here on the answering browser's statistics say that its video encodes no frame and leaves no byte, as when its codec has no working encoder.
+  await pb.evaluate(() => {
+    const orig = RTCPeerConnection.prototype.getStats;
+    RTCPeerConnection.prototype.getStats = async function (...a: []) {
+      const r = await orig.apply(this, a);
+      const m = new Map<string, unknown>();
+      r.forEach((v: Record<string, unknown>, k: string) =>
+        m.set(k, v["type"] === "outbound-rtp" && (v["kind"] ?? v["mediaType"]) === "video" ? { ...v, bytesSent: 0, framesEncoded: 0, framesSent: 0 } : v),
+      );
+      return m as unknown as RTCStatsReport;
+    };
+  });
+  // The person is told, in words, within a few seconds, instead of being left at a black picture ...
+  await expect(pb.getByText("Trying another video format")).toBeVisible({ timeout: 25000 });
+  await pb.screenshot({ path: ".out/call-video-switching.png" });
+  // ... and, when every codec has been tried and none sends, that nothing more can be done (the call goes on with sound).
+  await expect(pb.getByText("The picture can't be shown on this connection")).toBeVisible({ timeout: 80000 });
+  await expect(pb.getByText("Trying another video format")).toHaveCount(0);
+  await expect(pb.getByRole("timer")).toHaveText(/^\d\d:\d\d$/);
+  await pb.getByRole("button", { name: "End", exact: true }).click();
   await ctxA.close();
   await ctxB.close();
 });

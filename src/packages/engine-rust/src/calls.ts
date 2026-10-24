@@ -149,6 +149,7 @@ export class RustCalls implements CallsApi {
       sharing: false,
       remoteSharing: false,
       poor: now.poor,
+      ...(now.videoNotice ? { videoNotice: now.videoNotice } : {}),
       ...(this.platform?.speaker ? { speaker: this.platform.speaker.get() } : {}),
       ...(now.connectedAt ? { connectedAt: now.connectedAt } : {}),
       ...(streams.remote ? { remote: streams.remote } : {}),

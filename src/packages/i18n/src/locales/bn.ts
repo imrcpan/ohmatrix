@@ -576,4 +576,6 @@ export const bn: Record<MessageKey, string> = {
   "push.file": "ফাইল",
   "push.location": "লোকেশন",
   "push.invited": "{name} আপনাকে আমন্ত্রণ জানিয়েছেন",
+  "call.video.switching": "ছবি আসছে না। অন্য ভিডিও ফরম্যাট চেষ্টা করা হচ্ছে…",
+  "call.video.unavailable": "এই সংযোগে ছবি দেখানো যাচ্ছে না। কল শব্দ নিয়ে চলতে থাকবে।",
 };

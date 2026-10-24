@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Modal, PanResponder, Pressable, Text, View } from "react-native";
 import type { CallDevice, CallEndReason, CallState } from "@ohmatrix/core";
-import { Avatar, fontFamily, Icon, Menu, ScaleRoot, StreamView, useInsets, useNavBottom, useScale, useTheme, type Anchor, type MenuItem } from "@ohmatrix/ui";
+import {
+  Avatar,
+  fontFamily,
+  Icon,
+  Menu,
+  ScaleRoot,
+  Spinner,
+  StreamView,
+  useInsets,
+  useNavBottom,
+  useScale,
+  useTheme,
+  type Anchor,
+  type MenuItem,
+} from "@ohmatrix/ui";
 import { useController, useServices, useT } from "./context.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useNotice } from "./useNotice.js";
@@ -242,6 +256,27 @@ function CallBody(props: { call: CallState; onMinimize: () => void }) {
         >
           {status}
         </Text>
+        {call.videoNotice && live && (
+          // The picture is not coming and something is being done about it (or nothing can be): said, so that a black picture is not waited at.
+          <View
+            accessibilityRole="alert"
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              maxWidth: 320,
+              borderRadius: 16,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              backgroundColor: "rgba(0,0,0,0.55)",
+            }}
+          >
+            {call.videoNotice === "switching" && <Spinner size={16} />}
+            <Text style={{ flexShrink: 1, fontSize: 13, lineHeight: 18, fontWeight: "600", fontFamily, color: "#FFB224" }}>
+              {t(call.videoNotice === "switching" ? "call.video.switching" : "call.video.unavailable")}
+            </Text>
+          </View>
+        )}
         {banner && live && (
           <View style={{ borderRadius: 14, paddingHorizontal: 12, height: 28, justifyContent: "center", backgroundColor: "rgba(48,164,108,0.9)" }}>
             <Text style={{ fontSize: 13, fontWeight: "600", fontFamily, color: "#FFFFFF" }}>{banner}</Text>

@@ -577,4 +577,6 @@ export const indonesian: Record<MessageKey, string> = {
   "push.file": "File",
   "push.location": "Lokasi",
   "push.invited": "{name} mengundang Anda",
+  "call.video.switching": "Gambar tidak masuk. Mencoba format video lain…",
+  "call.video.unavailable": "Gambar tidak dapat ditampilkan pada koneksi ini. Panggilan tetap berlanjut dengan suara.",
 };

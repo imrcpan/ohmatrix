@@ -570,4 +570,6 @@ export const zhTW: Record<MessageKey, string> = {
   "push.file": "[檔案]",
   "push.location": "[位置]",
   "push.invited": "{name} 邀請了你",
+  "call.video.switching": "畫面沒有出現，正在嘗試其他影片格式…",
+  "call.video.unavailable": "這個連線上無法顯示畫面，通話仍可繼續聽到聲音。",
 };

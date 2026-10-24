@@ -613,6 +613,8 @@ export const en = {
   "push.file": "File",
   "push.location": "Location",
   "push.invited": "{name} invited you",
+  "call.video.switching": "The picture isn't coming through. Trying another video format…",
+  "call.video.unavailable": "The picture can't be shown on this connection. The call goes on with sound.",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1186,6 +1188,8 @@ const zh: Record<MessageKey, string> = {
   "push.file": "[文件]",
   "push.location": "[位置]",
   "push.invited": "{name} 邀请了你",
+  "call.video.switching": "画面没有出来，正在尝试其他视频格式…",
+  "call.video.unavailable": "这个连接上无法显示画面，通话仍可继续听到声音。",
 };
 
 /**

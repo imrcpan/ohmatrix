@@ -576,4 +576,6 @@ export const hi: Record<MessageKey, string> = {
   "push.file": "फ़ाइल",
   "push.location": "लोकेशन",
   "push.invited": "{name} ने आपको आमंत्रित किया",
+  "call.video.switching": "तस्वीर नहीं आ रही है। दूसरा वीडियो फ़ॉर्मेट आज़माया जा रहा है…",
+  "call.video.unavailable": "इस कनेक्शन पर तस्वीर नहीं दिखाई जा सकती। कॉल आवाज़ के साथ जारी है।",
 };

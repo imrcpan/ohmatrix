@@ -483,6 +483,12 @@ export interface CallState {
   remoteSharing: boolean;
   /** The connection is shaky right now (it dropped and is being brought back). */
   poor: boolean;
+  /**
+   * The picture is not coming through and something is being done about it, or nothing more can be: `switching` while another video codec
+   * is being tried (a few seconds, so that the person is not left waiting at a black picture without being told), `unavailable` when none is
+   * left to try. Absent when the picture is fine.
+   */
+  videoNotice?: "switching" | "unavailable";
   /** The sound is coming out of the loudspeaker (a phone; absent where the device has no choice of that). */
   speaker?: boolean;
   /** When the call was picked up (ms since epoch), for the clock on the screen. */
