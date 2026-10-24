@@ -19,6 +19,17 @@ test("the translated languages say it in their own words", () => {
   expect(t("pt", "signIn")).toBe("Entrar");
   expect(t("it", "signIn")).toBe("Accedi");
   expect(t("it", "typing.two", { a: "A", b: "B" })).toBe("A e B stanno scrivendo...");
+  expect(t("ja", "signIn")).toBe("ログイン");
+  expect(t("ko", "signIn")).toBe("로그인");
+  expect(t("zh-TW", "signIn")).toBe("登入");
+  expect(t("zh-TW", "members", { n: 3 })).toBe("3 位成員");
+  expect(t("ko", "typing.many", { a: "A", n: 4 })).toBe("A님 외 4명이 입력 중...");
+  // Written without spaces between words, the pieces of the sticker group warning are joined with none, and still read as one sentence.
+  for (const l of ["ja", "ko", "zh-TW"] as const) {
+    const whole = t(l, "sticker.group.delete.2a") + t(l, "sticker.group.delete.2b", { name: "X", n: 2 }) + t(l, "sticker.group.delete.2c");
+    expect(whole).toContain("X");
+    expect(whole).not.toMatch(/\{|\}/);
+  }
   expect(t("de", "members", { n: 3 })).toBe("3 Mitglieder");
   expect(t("fr", "typing.two", { a: "A", b: "B" })).toBe("A et B sont en train d’écrire...");
   // The three pieces of the sticker group warning are read one after the other: the spaces at their ends are part of them.
