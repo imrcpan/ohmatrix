@@ -11,3 +11,6 @@ export * from "./accounts.js";
 export * from "./discovery.js";
 export * from "./stickerPack.js";
 export * from "./stickerGroups.js";
+export * from "./sdpSummary.js";
+export * from "./videoCodecs.js";
+export * from "./videoStats.js";
