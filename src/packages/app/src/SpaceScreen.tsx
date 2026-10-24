@@ -305,7 +305,7 @@ function ShareDialog(props: { visible: boolean; spaceId: string; name: string; o
     setCopied(false);
     setFailed(false);
     setAlias(null);
-    return controller.subscribeRoomDetails(props.spaceId, (d) => setAlias(d.alias ?? null));
+    return controller.subscribeRoomDetails(props.spaceId, (d) => setAlias(d.alias ?? d.aliases[0] ?? null));
   }, [props.visible, props.spaceId, controller]);
   const link = `https://matrix.to/#/${alias ?? props.spaceId}`;
   const copy = () => {

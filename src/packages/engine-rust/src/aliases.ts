@@ -41,6 +41,31 @@ const all = (s: Aliases) => [...(s.main ? [s.main] : []), ...s.others];
 const canonical = (f: Fetch, a: Account, roomId: string, main: string | undefined, others: string[]) =>
   putState(f, a, roomId, "m.room.canonical_alias", "", { ...(main ? { alias: main } : {}), alt_aliases: others.filter((x) => x !== main) });
 
+/** The addresses in the content of an `m.room.canonical_alias` event: the main one, then the others (none that is not text). */
+export function aliasesOf(content: unknown): Aliases {
+  const c = (content ?? {}) as { alias?: unknown; alt_aliases?: unknown };
+  const main = typeof c.alias === "string" && c.alias ? c.alias : undefined;
+  const others = Array.isArray(c.alt_aliases) ? c.alt_aliases.filter((x): x is string => typeof x === "string" && x !== main) : [];
+  return { main, others };
+}
+
+/**
+ * The room's addresses as the server has them now. The SDK's own view of a room can lack them (it only holds what the chat list asked for), so
+ * the details page asks when the SDK has none. A room with no address, or one that cannot be read, gives none.
+ */
+export async function readAliases(f: Fetch, a: Account, roomId: string): Promise<Aliases> {
+  const url = `${a.homeserverUrl.replace(/\/+$/, "")}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/m.room.canonical_alias/`;
+  let res;
+  try {
+    res = await f(url, { method: "GET", headers: { Authorization: `Bearer ${a.accessToken}` } });
+  } catch (e) {
+    throw new EngineError("network", e instanceof Error ? e.message : "could not reach the server");
+  }
+  if (res.status === 404 || res.status === 403) return { others: [] };
+  if (!res.ok) throw new EngineError("unknown", `could not read the addresses (${res.status})`);
+  return aliasesOf(await res.json().catch(() => undefined));
+}
+
 /** Whether the address can be made: the server's directory answers 404 for a name nobody has, and a room for one that is taken. */
 export async function checkAlias(f: Fetch, a: Account, input: string): Promise<"free" | "taken" | "invalid"> {
   const local = aliasLocalpart(input);

@@ -47,7 +47,7 @@ import { readAccountData, readPackContent, writeAccountData, writePackContent } 
 import { guard, toEngineError } from "./errors.js";
 import { compareRooms, isListed, toRoomSummary } from "./roomSummary.js";
 import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
-import { addAlias, checkAlias, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
+import { addAlias, checkAlias, readAliases, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
 import { readStatus, register, writeStatus } from "./account.js";
 import { RustCalls, type CallPlatform } from "./calls.js";
 import { listDevices, removeDevices, type Account, type Fetch } from "./devices.js";
@@ -477,6 +477,26 @@ export class RustEngineCore implements MatrixEngine {
       let again = false;
       // Changes arrive in bursts (a member joins: info, members, levels); one read at a time, and one more after it.
       let first = true;
+      // The addresses the server has, asked for once when the SDK has none to show (it can lack them for a room it does not follow); the page
+      // is not held for the answer, it is shown again when it comes.
+      let served: Aliases | null = null;
+      let asked = false;
+      const withAddresses = (d: RoomDetails): RoomDetails => {
+        if (d.aliases.length) return d;
+        if (!asked) {
+          asked = true;
+          void readAliases(this.fetch(), this.account(), roomId).then(
+            (a) => {
+              served = a;
+              if (live && (a.main || a.others.length)) void refresh();
+            },
+            () => {},
+          );
+        }
+        if (!served?.main && !served?.others.length) return d;
+        const aliases = [...(served.main ? [served.main] : []), ...served.others];
+        return { ...d, aliases, ...(served.main && { alias: served.main }) };
+      };
       const refresh = async () => {
         if (busy) {
           again = true;
@@ -488,12 +508,12 @@ export class RustEngineCore implements MatrixEngine {
             // The page does not wait for the people: what is not about them goes out at once, marked as still loading them.
             first = false;
             const basics = toRoomDetails({ ...(await room.details({ people: false })), members: [] }, true);
-            if (live) cb(basics);
+            if (live) cb(withAddresses(basics));
           }
           do {
             again = false;
             const details = toRoomDetails(await room.details());
-            if (live) cb(details);
+            if (live) cb(withAddresses(details));
           } while (again && live);
         } catch {
           /* the room is gone, or the SDK is not ready: the next change tries again */
