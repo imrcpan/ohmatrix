@@ -16,10 +16,13 @@ test("the translated languages say it in their own words", () => {
   expect(t("es", "signIn")).toBe("Iniciar sesión");
   expect(t("fr", "signIn")).toBe("Se connecter");
   expect(t("de", "signIn")).toBe("Anmelden");
+  expect(t("pt", "signIn")).toBe("Entrar");
+  expect(t("it", "signIn")).toBe("Accedi");
+  expect(t("it", "typing.two", { a: "A", b: "B" })).toBe("A e B stanno scrivendo...");
   expect(t("de", "members", { n: 3 })).toBe("3 Mitglieder");
   expect(t("fr", "typing.two", { a: "A", b: "B" })).toBe("A et B sont en train d’écrire...");
   // The three pieces of the sticker group warning are read one after the other: the spaces at their ends are part of them.
-  for (const l of ["en", "es", "fr", "de"] as const) {
+  for (const l of ["en", "es", "fr", "de", "pt", "it"] as const) {
     const whole = t(l, "sticker.group.delete.2a") + t(l, "sticker.group.delete.2b", { name: "X", n: 2 }) + t(l, "sticker.group.delete.2c");
     expect(whole).not.toMatch(/\S\{|\}\S| {2}/);
     expect(whole).toContain("X");
