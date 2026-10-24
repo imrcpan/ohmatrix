@@ -106,9 +106,7 @@ export function SessionsPage() {
           ListFooterComponent={
             others.length > 0 ? (
               <View>
-                <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
-                  {t("sessions.footer")}
-                </Text>
+                <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("sessions.footer")}</Text>
                 <View style={{ marginTop: 14 }}>
                   <Item
                     label={t("sessions.signOutAll")}

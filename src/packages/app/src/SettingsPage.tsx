@@ -72,7 +72,7 @@ export function SettingsPage() {
               />
             }
           />
-          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>
             {t(
               permission === "denied"
                 ? system
@@ -93,9 +93,7 @@ export function SettingsPage() {
                 chevron={false}
                 right={<Toggle label={t("push.enable")} value={prefs.pushEnabled} onChange={(v) => controller.setPreferences({ pushEnabled: v })} />}
               />
-              <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
-                {t("push.footer")}
-              </Text>
+              <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("push.footer")}</Text>
             </>
           )}
           {((prefs.notifications && permission === "granted") || (services.push && prefs.pushEnabled)) && (
@@ -140,7 +138,7 @@ export function SettingsPage() {
               }
             />
           </View>
-          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>{t("zoom.footer")}</Text>
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("zoom.footer")}</Text>
           <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
           {services.appIcons && <Item label={t("appIcon")} icon="image" onPress={() => controller.openSidebarPage("appIcon")} />}
           <Item
@@ -149,9 +147,7 @@ export function SettingsPage() {
             chevron={false}
             right={<Toggle label={t("ownAccent")} value={prefs.ownBubbleAccent} onChange={(v) => controller.setPreferences({ ownBubbleAccent: v })} />}
           />
-          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
-            {t("ownAccent.footer")}
-          </Text>
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("ownAccent.footer")}</Text>
         </Group>
         <Group title={t("advanced")}>
           <Item label={t("advanced.options")} icon="gear" onPress={() => controller.openSidebarPage("advanced")} />
@@ -162,9 +158,7 @@ export function SettingsPage() {
         </Group>
         <Group title={t("about")}>
           <Item label="GitHub" value={REPOSITORY.replace("https://", "")} icon="external" onPress={() => services.openLink?.(REPOSITORY)} />
-          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18, marginTop: -6 }}>
-            {t("about.feedback")}
-          </Text>
+          <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("about.feedback")}</Text>
           <Item label="OhMatrix" value={`${t("version")} ${services.appVersion ?? "dev"}`} icon="info" />
         </Group>
         <Text style={{ textAlign: "center", marginTop: 24, fontSize: 12, fontFamily, color: colors.textSecondary }}>OhMatrix · GPL-3.0</Text>
