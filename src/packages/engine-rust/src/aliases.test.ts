@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { addAlias, aliasLocalpart, aliasOn, checkAlias, removeAlias, setMainAlias } from "./aliases.js";
+import { addAlias, aliasesOf, aliasLocalpart, aliasOn, checkAlias, readAliases, removeAlias, setMainAlias } from "./aliases.js";
 import type { Account, Fetch } from "./devices.js";
 
 const account: Account = { homeserverUrl: "http://s", accessToken: "t", userId: "@me:example.org", deviceId: "D" };
@@ -66,4 +66,23 @@ test("the name is checked against the directory without making anything: free on
     throw new Error("offline");
   };
   await expect(checkAlias(down, account, "team")).rejects.toMatchObject({ code: "network" });
+});
+
+test("the addresses of a canonical alias event: the main one, then the others that are text", () => {
+  expect(aliasesOf({ alias: "#a:x", alt_aliases: ["#b:x", 3, "#a:x"] })).toEqual({ main: "#a:x", others: ["#b:x"] });
+  expect(aliasesOf({ alt_aliases: ["#b:x"] })).toEqual({ main: undefined, others: ["#b:x"] });
+  expect(aliasesOf(undefined)).toEqual({ main: undefined, others: [] });
+});
+
+test("reading the addresses asks the server for the room's canonical alias state; no event is no address", async () => {
+  const a: Account = { homeserverUrl: "https://hs/", accessToken: "t", userId: "@me:hs", deviceId: "D" };
+  const urls: string[] = [];
+  const ok: Fetch = async (url) => {
+    urls.push(String(url));
+    return new Response(JSON.stringify({ alias: "#r:hs" }), { status: 200 });
+  };
+  expect(await readAliases(ok, a, "!r:hs")).toEqual({ main: "#r:hs", others: [] });
+  expect(urls[0]).toBe("https://hs/_matrix/client/v3/rooms/!r%3Ahs/state/m.room.canonical_alias/");
+  const none: Fetch = async () => new Response("{}", { status: 404 });
+  expect(await readAliases(none, a, "!r:hs")).toEqual({ others: [] });
 });

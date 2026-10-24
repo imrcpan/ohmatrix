@@ -159,7 +159,7 @@ export function RoomInfoPanel(props: { roomId: string; mode: "dock" | "overlay" 
                   chevron={canEdit}
                 />
               )}
-              <Item label={t("address")} value={d.alias ?? d.id} copyable />
+              <Item label={t("address")} value={d.alias ?? d.aliases[0] ?? d.id} copyable />
               {/* A space is a container with no conversation of its own to encrypt. */}
               {!forSpace && (
                 <Item
