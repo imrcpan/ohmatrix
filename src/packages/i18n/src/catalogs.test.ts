@@ -6,7 +6,7 @@ const values = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sor
 
 test("a language with texts has every text of English, none empty, and the same {values} in each", () => {
   const have = LANGUAGES.map((l) => l.id).filter(hasCatalog);
-  for (const id of ["zh-CN", "es", "fr", "de"] as const) expect(have).toContain(id);
+  for (const id of ["zh-CN", "es", "fr", "de", "pt", "it"] as const) expect(have).toContain(id);
   const problems: string[] = [];
   for (const id of have) {
     for (const k of KEYS) {
