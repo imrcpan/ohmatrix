@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Animated, Easing, PanResponder, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { Animated, Easing, PanResponder, Platform, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Icon, useTheme } from "@ohmatrix/ui";
 
 /** How far the list has to be pulled (after the drag's resistance) to refresh, and where it rests while it does. */
 const TRIGGER = 64;
 const HOLD = 52;
 const MAX = 120;
+const START = 0.55;
+const FLOOR = 0.04;
+const REACH = 200;
+
+/** The list's offset for a finger travel: it follows at about half the speed at first, and the speed falls off to a small floor (never zero). */
+export function damped(travel: number): number {
+  const d = Math.max(0, travel);
+  return FLOOR * d + (START - FLOOR) * REACH * Math.tanh(d / REACH);
+}
 
 export interface Scroller {
   scrollToOffset(o: { offset: number; animated: boolean }): void;
@@ -51,11 +60,15 @@ export function PullToRefresh(props: {
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponderCapture: (_, g) =>
-          live.current.enabled && !busy.current && top.current && Math.abs(g.dy) > 8 && Math.abs(g.dy) > 2 * Math.abs(g.dx),
+          live.current.enabled &&
+          !busy.current &&
+          top.current &&
+          (Platform.OS === "web" ? g.dy > 8 : Math.abs(g.dy) > 8) &&
+          Math.abs(g.dy) > 2 * Math.abs(g.dx),
         onPanResponderTerminationRequest: () => false,
         onPanResponderMove: (_, g) => {
           if (g.dy < 0) listRef.current?.scrollToOffset({ offset: -g.dy, animated: false });
-          y.setValue(Math.min(MAX, Math.max(0, g.dy) * 0.5));
+          y.setValue(damped(g.dy));
         },
         onPanResponderRelease: () => {
           // `_value` is the animated value's current number: there is no public read of it.
@@ -96,7 +109,14 @@ export function PullToRefresh(props: {
             backgroundColor: colors.hover,
             // Centred in the gap between the top and the list; the gap never counts as less than HOLD, so below that the list slides over it.
             transform: [
-              { translateY: y.interpolate({ inputRange: [0, HOLD, MAX], outputRange: [HOLD / 2 - 20, HOLD / 2 - 20, MAX / 2 - 20], extrapolate: "clamp" }) },
+              {
+                translateY: y.interpolate({
+                  inputRange: [0, HOLD, MAX],
+                  outputRange: [HOLD / 2 - 20, HOLD / 2 - 20, MAX / 2 - 20],
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "extend",
+                }),
+              },
             ],
           }}
         >
@@ -114,7 +134,7 @@ export function PullToRefresh(props: {
         </Animated.View>
       </View>
       <Animated.View style={{ flex: 1, backgroundColor: colors.bg, transform: [{ translateY: y }] }} {...pan.panHandlers}>
-        {props.children({ onScroll, scrollEventThrottle: 16, scrollEnabled: !(props.enabled && atTop && !spinning), listRef })}
+        {props.children({ onScroll, scrollEventThrottle: 16, scrollEnabled: !(Platform.OS !== "web" && props.enabled && atTop && !spinning), listRef })}
       </Animated.View>
     </View>
   );
