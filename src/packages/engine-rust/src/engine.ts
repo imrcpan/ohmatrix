@@ -190,6 +190,8 @@ export class RustEngineCore implements MatrixEngine {
     this.searches.clear();
     this.spaceViews.clear();
     this.securityTask?.cancel();
+    if (this.securityTimer) clearTimeout(this.securityTimer);
+    this.securityTimer = null;
     this.securityTask = null;
     this.verifier = null;
     this.incoming = null;
@@ -737,8 +739,22 @@ export class RustEngineCore implements MatrixEngine {
   private lastSecurity: SecurityState = "unavailable";
   private securityTask: SdkTask | null = null;
 
+  private securityTimer: ReturnType<typeof setTimeout> | null = null;
+
   private setSecurity(state: SecurityState) {
+    if (this.securityTimer) clearTimeout(this.securityTimer);
+    this.securityTimer = null;
     if (state === this.lastSecurity) return;
+    // Right after start the SDK has not yet found the account's keys, and for a moment it looks as if nothing is set up: a "set up" that
+    // stays for a few seconds is believed, one that is gone by then was never shown.
+    if (state === "needs_setup" && this.lastSecurity === "unavailable") {
+      this.securityTimer = setTimeout(() => {
+        this.securityTimer = null;
+        this.lastSecurity = state;
+        this.securityListeners.forEach((cb) => cb(state));
+      }, 4000);
+      return;
+    }
     this.lastSecurity = state;
     this.securityListeners.forEach((cb) => cb(state));
   }
