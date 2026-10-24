@@ -51,18 +51,24 @@ private fun inForeground(context: Context): Boolean {
 }
 private const val CHANNEL = "messages" // the channel the app's own notifications use (platform.ts)
 
-private fun zh(lang: String?) = (lang ?: java.util.Locale.getDefault().toLanguageTag()).startsWith("zh")
+/**
+ * The words for `lang`, the language the app says is in use (it decides that, from Settings or the phone's language: pushState.ts). An
+ * older copy of the state has none, and one of a language this version lacks is not in the table: then the phone's language, and last
+ * English.
+ */
+private fun wordsOf(lang: String?): PushWords =
+    PUSH_WORDS[lang ?: ""] ?: PUSH_WORDS[java.util.Locale.getDefault().language] ?: PUSH_WORDS.getValue("en")
 
 private fun words(lang: String?, kind: Kind): String {
-    val cn = zh(lang)
+    val w = wordsOf(lang)
     return when (kind) {
-        Kind.PHOTO -> if (cn) "[图片]" else "Photo"
-        Kind.VIDEO -> if (cn) "[视频]" else "Video"
-        Kind.VOICE -> if (cn) "[语音]" else "Voice message"
-        Kind.AUDIO -> if (cn) "[音频]" else "Audio"
-        Kind.FILE -> if (cn) "[文件]" else "File"
-        Kind.LOCATION -> if (cn) "[位置]" else "Location"
-        else -> if (cn) "新消息" else "New message"
+        Kind.PHOTO -> w.photo
+        Kind.VIDEO -> w.video
+        Kind.VOICE -> w.voice
+        Kind.AUDIO -> w.audio
+        Kind.FILE -> w.file
+        Kind.LOCATION -> w.location
+        else -> w.newMessage
     }
 }
 
@@ -72,7 +78,7 @@ private fun show(context: Context, state: PushState, userId: String, roomId: Str
         when (r) {
             is Fetched.Skip -> return
             is Fetched.Unknown -> "OhMatrix" to words(lang, Kind.OTHER)
-            is Fetched.Invite -> "OhMatrix" to (if (zh(lang)) "${r.sender} 邀请了你" else "${r.sender} invited you")
+            is Fetched.Invite -> "OhMatrix" to wordsOf(lang).invited.replace("{name}", r.sender)
             is Fetched.Message -> {
                 // The setting "Show message content" off: only that a message came, and where from.
                 val what = if (state.content) (r.text ?: words(lang, r.kind)) else words(lang, Kind.OTHER)

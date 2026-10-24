@@ -66,6 +66,9 @@ importers:
       '@ohmatrix/engine-rust':
         specifier: workspace:*
         version: link:../../packages/engine-rust
+      '@ohmatrix/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@ohmatrix/state':
         specifier: workspace:*
         version: link:../../packages/state

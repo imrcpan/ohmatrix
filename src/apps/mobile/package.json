@@ -16,6 +16,7 @@
     "@ohmatrix/core": "workspace:*",
     "@ohmatrix/engine-mock": "workspace:*",
     "@ohmatrix/engine-rust": "workspace:*",
+    "@ohmatrix/i18n": "workspace:*",
     "@ohmatrix/state": "workspace:*",
     "@ohmatrix/ui": "workspace:*",
     "expo": "^57.0.27",
