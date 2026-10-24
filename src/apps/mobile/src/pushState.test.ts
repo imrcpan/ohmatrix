@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { AccountStore, Session, StoredAccount } from "@ohmatrix/core";
-import { createPushSync, notifyingAccountStore, pushStateJson, type PushNative } from "./pushState.js";
+import { createPushSync, notifyingAccountStore, pushLanguage, pushStateJson, type PushNative } from "./pushState.js";
 
 const roots = { documents: "file:///data/user/0/org.ohmatrix.app/files", cache: "file:///data/user/0/org.ohmatrix.app/cache" };
 const prefs = { pushEnabled: true, notificationPreview: true, locale: null as "en" | "zh-CN" | null };
@@ -93,4 +93,23 @@ test("a module that is not in the build, or one that throws, does not break the 
     roots,
   );
   await expect(sync.refresh()).resolves.toBeUndefined();
+});
+
+test("the service writes in the language chosen in Settings, else in the phone's, and in English for one this version does not have", () => {
+  expect(pushLanguage("ru", "en-US")).toBe("ru");
+  expect(pushLanguage("zh-TW", "en-US")).toBe("zh-TW");
+  expect(pushLanguage(null, "fr-CA")).toBe("fr");
+  expect(pushLanguage(null, "zh-Hant-HK")).toBe("zh-TW");
+  expect(pushLanguage(null, "zh-CN")).toBe("zh-CN");
+  expect(pushLanguage(null, "pt_BR")).toBe("pt");
+  expect(pushLanguage(null, "in")).toBe("id"); // Java's old tag for Indonesian
+  expect(pushLanguage(null, "ar-EG")).toBe("en");
+  expect(pushLanguage("ur", "ar-EG")).toBe("en"); // a language of a newer version, saved in the settings
+  expect(pushLanguage("ur", "de-DE")).toBe("de"); // ... is the same as none chosen
+  expect(pushLanguage(null, undefined)).toBe("en");
+});
+
+test("with no language chosen, the json carries the phone's", () => {
+  const json = JSON.parse(pushStateJson([{ session: session("@a:h") }], "p", roots, { ...prefs, locale: null })) as { lang: string };
+  expect(["en", "zh-CN", "zh-TW", "es", "fr", "de", "pt", "it", "ru", "ja", "ko", "hi", "bn", "id"]).toContain(json.lang);
 });

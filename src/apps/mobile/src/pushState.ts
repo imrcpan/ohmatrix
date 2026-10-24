@@ -1,4 +1,5 @@
 import type { AccountStore, Preferences, StoredAccount } from "@ohmatrix/core";
+import { detectLocale, isLocale } from "@ohmatrix/i18n";
 import { inAccountDir, pathOfFileUri } from "./secureStorage.js";
 
 /** What the native push module takes (see modules/ohmatrix-push): one call that replaces everything it knows. */
@@ -16,6 +17,17 @@ interface PushAccountJson {
   slidingSyncNative: boolean;
   dataDir: string;
   cacheDir: string;
+}
+
+/** The language of the phone, as the system says it (`fr-CA`, `zh-Hant-TW`): what is used when none was chosen in Settings. */
+const systemLanguage = () => Intl.DateTimeFormat().resolvedOptions().locale;
+
+/**
+ * The language the service writes its notifications in: the one chosen in Settings, else the phone's. It is decided here, with the same
+ * rules as the screens, so that the service only looks the words up (a language this version does not have is English).
+ */
+export function pushLanguage(chosen: string | null, system: string | undefined = systemLanguage()): string {
+  return isLocale(chosen) ? chosen : detectLocale(system);
 }
 
 /**
@@ -49,7 +61,7 @@ export function pushStateJson(
       cacheDir: pathOfFileUri(inAccountDir(roots.cache, a.dir)),
     };
   });
-  return JSON.stringify({ enabled: prefs.pushEnabled, content: prefs.notificationPreview, lang: prefs.locale ?? "", key, accounts: list });
+  return JSON.stringify({ enabled: prefs.pushEnabled, content: prefs.notificationPreview, lang: pushLanguage(prefs.locale), key, accounts: list });
 }
 
 /**
