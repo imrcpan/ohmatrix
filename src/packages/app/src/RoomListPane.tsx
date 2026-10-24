@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
-import { Animated, Easing, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
@@ -9,6 +9,7 @@ import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useAppState, useController, useLocale, useT } from "./context.js";
+import { PullToRefresh } from "./PullToRefresh.js";
 import { formatListTime, typingLabel } from "./format.js";
 
 function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
@@ -96,11 +97,9 @@ export function RoomListPane() {
   const myAvatar = useMediaUrl(profile?.avatar, { width: 68, height: 68, fit: "crop" });
   const plusRef = useRef<ComponentRef<typeof View>>(null);
   const pullToRefresh = useAppState((s) => s.prefs.pullToRefresh);
-  const [refreshing, setRefreshing] = useState(false);
-  // The spinner stays a moment even when nothing needed doing, so the pull is seen to have been taken.
-  const refresh = useCallback(() => {
-    setRefreshing(true);
-    void Promise.all([controller.refresh(), new Promise<void>((resolve) => setTimeout(() => resolve(), 700))]).finally(() => setRefreshing(false));
+  // The mark stays a moment even when nothing needed doing, so the pull is seen to have been taken.
+  const refresh = useCallback(async () => {
+    await Promise.all([controller.refresh(), new Promise<void>((resolve) => setTimeout(() => resolve(), 700))]);
   }, [controller]);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [addMenu, setAddMenu] = useState(false);
@@ -216,38 +215,33 @@ export function RoomListPane() {
         onClose={() => setDialog(null)}
         onConfirm={([id]) => controller.joinRoom(id!)}
       />
-      <FlatList
-        data={data}
-        keyExtractor={(r) => r.id}
-        refreshControl={
-          pullToRefresh ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              tintColor={colors.accent}
-              colors={[colors.accent]}
-              progressBackgroundColor={colors.bg}
-            />
-          ) : undefined
-        }
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
-        ListFooterComponent={
-          query.trim().length >= 2 ? (
-            <View style={{ marginTop: 8 }}>
-              <Text style={{ fontSize: 13, fontFamily, color: colors.textSecondary, marginLeft: 18, marginBottom: 4 }}>{t("search.messages")}</Text>
-              <MessageResults term={query} showRoom onPick={(r) => controller.openMessage(r.roomId, r.eventId)} />
-            </View>
-          ) : (
-            <View />
-          )
-        }
-        ListEmptyComponent={
-          <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
-            {query ? t("noResults") : t("noChats")}
-          </Text>
-        }
-        renderItem={({ item }) => <RoomListItem room={item} selected={selected === item.id} now={now} onOpenSpace={onOpenSpace} onMenu={onMenu} />}
-      />
+      <PullToRefresh enabled={pullToRefresh} onRefresh={refresh}>
+        {(scroll) => (
+          <FlatList
+            {...scroll}
+            ref={scroll.listRef}
+            data={data}
+            keyExtractor={(r) => r.id}
+            contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
+            ListFooterComponent={
+              query.trim().length >= 2 ? (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 13, fontFamily, color: colors.textSecondary, marginLeft: 18, marginBottom: 4 }}>{t("search.messages")}</Text>
+                  <MessageResults term={query} showRoom onPick={(r) => controller.openMessage(r.roomId, r.eventId)} />
+                </View>
+              ) : (
+                <View />
+              )
+            }
+            ListEmptyComponent={
+              <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
+                {query ? t("noResults") : t("noChats")}
+              </Text>
+            }
+            renderItem={({ item }) => <RoomListItem room={item} selected={selected === item.id} now={now} onOpenSpace={onOpenSpace} onMenu={onMenu} />}
+          />
+        )}
+      </PullToRefresh>
       <SlideOverSpace open={space !== null} id={space} />
     </View>
   );
