@@ -3330,6 +3330,10 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
     ["繁體中文", "登入", "語言"],
     ["Español", "Iniciar sesión", "Idioma"],
     ["Français", "Se connecter", "Langue"],
+    ["Русский", "Войти", "Язык"],
+    ["हिन्दी", "साइन इन करें", "भाषा"],
+    ["বাংলা", "সাইন ইন করুন", "ভাষা"],
+    ["Bahasa Indonesia", "Masuk", "Bahasa"],
   ] as const) {
     await page.getByRole("button", { name: current, exact: true }).click();
     await page.getByRole("menuitem", { name: menu }).click();
