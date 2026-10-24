@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { Avatar } from "./Avatar.js";
 import { EllipsisText } from "./EllipsisText.js";
 import { Icon } from "./Icon.js";
@@ -129,5 +130,48 @@ export function RoomRow(props: {
         )}
       </View>
     </Pressable>
+  );
+}
+
+/** A row that stands where a chat will be, while the list is still arriving: same size as `RoomRow`, so nothing moves when the real ones replace it. */
+export function RoomRowSkeleton(props: { index: number }) {
+  const { colors } = useTheme();
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 800, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 800, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const bar = { backgroundColor: colors.hover, borderRadius: 6 };
+  // The lines differ a little from row to row, so the list does not look like a pattern.
+  const title = 90 + ((props.index * 37) % 70);
+  const preview = 140 + ((props.index * 53) % 90);
+  return (
+    <Animated.View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 11,
+        marginHorizontal: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 7,
+        height: ROW_HEIGHT,
+        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
+      }}
+    >
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.hover }} />
+      <View style={{ flex: 1, gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ ...bar, width: title, height: 14 }} />
+          <View style={{ ...bar, width: 30, height: 11 }} />
+        </View>
+        <View style={{ ...bar, width: preview, maxWidth: "100%", height: 12 }} />
+      </View>
+    </Animated.View>
   );
 }

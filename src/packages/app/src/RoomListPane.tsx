@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
-import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, RoomRowSkeleton, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
 import { NewSpaceDialog, SpaceScreen } from "./SpaceScreen.js";
 import { MessageResults } from "./MessageResults.js";
@@ -11,6 +11,8 @@ import { useMediaUrl } from "./useMedia.js";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 import { PullToRefresh } from "./PullToRefresh.js";
 import { formatListTime, typingLabel } from "./format.js";
+
+const NONE: RoomSummary[] = [];
 
 function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
   if (room.invite) return t("invite.from", { name: room.invite.inviter });
@@ -93,6 +95,7 @@ export function RoomListPane() {
   const selected = useAppState((s) => s.selectedRoomId);
   const syncing = useAppState((s) => s.syncState === "syncing");
   const security = useAppState((s) => s.security);
+  const settled = useAppState((s) => s.roomsSettled);
   const profile = useAppState((s) => s.profile);
   const myAvatar = useMediaUrl(profile?.avatar, { width: 68, height: 68, fit: "crop" });
   const plusRef = useRef<ComponentRef<typeof View>>(null);
@@ -220,7 +223,7 @@ export function RoomListPane() {
           <FlatList
             {...scroll}
             ref={scroll.listRef}
-            data={data}
+            data={settled ? data : NONE}
             keyExtractor={(r) => r.id}
             contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
             ListFooterComponent={
@@ -234,9 +237,17 @@ export function RoomListPane() {
               )
             }
             ListEmptyComponent={
-              <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
-                {query ? t("noResults") : t("noChats")}
-              </Text>
+              settled ? (
+                <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
+                  {query ? t("noResults") : t("noChats")}
+                </Text>
+              ) : (
+                <View>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <RoomRowSkeleton key={i} index={i} />
+                  ))}
+                </View>
+              )
             }
             renderItem={({ item }) => <RoomListItem room={item} selected={selected === item.id} now={now} onOpenSpace={onOpenSpace} onMenu={onMenu} />}
           />
