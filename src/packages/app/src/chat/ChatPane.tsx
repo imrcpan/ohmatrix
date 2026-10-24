@@ -141,7 +141,8 @@ function Chat(props: ChatPaneProps) {
   };
   const reveal = useReveal({ roomId: props.roomId, rows: allRows, items, handle, list: revealList, t });
   const composer = useComposer(props.roomId, handle, t);
-  const attachments = useAttachments(handle, t, props.roomId);
+  // Calls are for a chat of two: one marked as direct, or a room that has just the two of them (some one-to-one chats are made that way).
+  const attachments = useAttachments(handle, t, props.roomId, isGroup && room?.memberCount !== 2);
   // The platform's back folds the attach panel first, before it leaves the chat.
   useBackHandler(attachments.panel ? () => (attachments.closePanel(), true) : null);
   const nw = useNewWhileAway(items);

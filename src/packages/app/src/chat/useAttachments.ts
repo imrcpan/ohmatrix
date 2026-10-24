@@ -13,7 +13,11 @@ import type { Translate } from "./types.js";
  * confirms), and voice and video recording. Returns the props the `Composer` needs for the buttons and the state
  * the dialogs show.
  */
-export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate, roomId: string) {
+/**
+ * `noCalls`: the room is not a chat of two. Calls are one to one only for now (group calls are MatrixRTC, which is not built), so such a
+ * room does not show the call buttons; the code that places a call is all still here.
+ */
+export function useAttachments(handle: { readonly current: OpenRoom | null }, t: Translate, roomId: string, noCalls = false) {
   const services = useServices();
   const controller = useController();
   const notice = useNotice();
@@ -76,9 +80,12 @@ export function useAttachments(handle: { readonly current: OpenRoom | null }, t:
               },
             ]
           : []),
-        // Calls are not there yet: the buttons say so rather than being left out.
-        { key: "voiceCall", icon: "fluentCall" as const, label: t("call.voice"), onPress: () => setCallAsk("voice") },
-        { key: "videoCall", icon: "fluentVideo" as const, label: t("call.video"), onPress: () => setCallAsk("video") },
+        ...(noCalls
+          ? []
+          : [
+              { key: "voiceCall", icon: "fluentCall" as const, label: t("call.voice"), onPress: () => setCallAsk("voice") },
+              { key: "videoCall", icon: "fluentVideo" as const, label: t("call.video"), onPress: () => setCallAsk("video") },
+            ]),
       ],
     },
   };
