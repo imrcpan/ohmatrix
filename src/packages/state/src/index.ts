@@ -239,6 +239,8 @@ export interface AppController {
   addSpaceChild(spaceId: RoomId, roomId: RoomId): Promise<void>;
   removeSpaceChild(spaceId: RoomId, roomId: RoomId): Promise<void>;
   moveSpaceChild(spaceId: RoomId, roomId: RoomId, to: "first" | "last"): Promise<void>;
+  /** Pull to refresh: starts the sync again when it is not running (offline, failed); a live sync is already as fresh as it gets. */
+  refresh(): Promise<void>;
   /** Join a room by id or alias, then select it. */
   joinRoom(idOrAlias: string): Promise<void>;
   /** Create encryption keys; resolves with the recovery key to show the user exactly once. */
@@ -572,6 +574,10 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     addSpaceChild: (spaceId, roomId) => engine.spaces.addChild(spaceId, roomId),
     removeSpaceChild: (spaceId, roomId) => engine.spaces.removeChild(spaceId, roomId),
     moveSpaceChild: (spaceId, roomId, to) => engine.spaces.moveChild(spaceId, roomId, to),
+    async refresh() {
+      if (store.getState().syncState === "syncing") return;
+      await engine.sync.start().catch(() => {});
+    },
     async joinRoom(idOrAlias) {
       select(await engine.rooms.joinRoom(idOrAlias));
     },

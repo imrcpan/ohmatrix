@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
-import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
+import { Animated, Easing, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
@@ -95,6 +95,13 @@ export function RoomListPane() {
   const profile = useAppState((s) => s.profile);
   const myAvatar = useMediaUrl(profile?.avatar, { width: 68, height: 68, fit: "crop" });
   const plusRef = useRef<ComponentRef<typeof View>>(null);
+  const pullToRefresh = useAppState((s) => s.prefs.pullToRefresh);
+  const [refreshing, setRefreshing] = useState(false);
+  // The spinner stays a moment even when nothing needed doing, so the pull is seen to have been taken.
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    void Promise.all([controller.refresh(), new Promise<void>((resolve) => setTimeout(() => resolve(), 700))]).finally(() => setRefreshing(false));
+  }, [controller]);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [addMenu, setAddMenu] = useState(false);
   const [roomMenu, setRoomMenu] = useState<{ room: RoomSummary; anchor: Anchor } | null>(null);
@@ -212,6 +219,17 @@ export function RoomListPane() {
       <FlatList
         data={data}
         keyExtractor={(r) => r.id}
+        refreshControl={
+          pullToRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+              progressBackgroundColor={colors.bg}
+            />
+          ) : undefined
+        }
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
         ListFooterComponent={
           query.trim().length >= 2 ? (

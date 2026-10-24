@@ -461,6 +461,8 @@ export const es: Record<MessageKey, string> = {
   "advanced.options": "Opciones avanzadas",
   logs: "Registros",
   "logs.view": "Ver registros",
+  pullRefresh: "Tirar para actualizar",
+  "pullRefresh.footer": "Tira de la lista de chats hacia abajo para actualizarla. (En realidad no sirve de mucho.)",
   "logs.clear": "Borrar el registro",
   "logs.empty": "Aún no se ha registrado nada.",
   "theme.preview": "Vista previa del tema",

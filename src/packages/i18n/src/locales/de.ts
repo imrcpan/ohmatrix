@@ -464,6 +464,8 @@ export const de: Record<MessageKey, string> = {
   "advanced.options": "Erweiterte Optionen",
   logs: "Protokolle",
   "logs.view": "Protokolle anzeigen",
+  pullRefresh: "Zum Aktualisieren ziehen",
+  "pullRefresh.footer": "Chatliste nach unten ziehen, um zu aktualisieren. (Das bringt eigentlich nicht viel.)",
   "logs.clear": "Protokoll löschen",
   "logs.empty": "Es wurde noch nichts protokolliert.",
   "theme.preview": "Theme-Vorschau",

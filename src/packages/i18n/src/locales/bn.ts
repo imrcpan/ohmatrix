@@ -461,6 +461,8 @@ export const bn: Record<MessageKey, string> = {
   "advanced.options": "উন্নত বিকল্প",
   logs: "লগ",
   "logs.view": "লগ দেখুন",
+  pullRefresh: "টেনে রিফ্রেশ করুন",
+  "pullRefresh.footer": "চ্যাট তালিকা নিচে টেনে রিফ্রেশ করুন। (এটি আসলে খুব একটা কাজে লাগে না।)",
   "logs.clear": "লগ মুছুন",
   "logs.empty": "এখনও কিছু লগ করা হয়নি।",
   "theme.preview": "থিমের প্রিভিউ",

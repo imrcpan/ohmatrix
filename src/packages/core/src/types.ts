@@ -232,6 +232,8 @@ export interface Preferences {
   ownBubbleAccent: boolean;
   /** Push through FCM, so a message arrives with the app closed (Android only; on by default). */
   pushEnabled: boolean;
+  /** Pull the chat list down to refresh it (off by default; Advanced options). */
+  pullToRefresh: boolean;
   /** The server last signed in to (as typed), offered again on the sign-in screen; null = none yet. */
   lastHomeserver: string | null;
 }
@@ -245,6 +247,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   notificationPreview: true,
   ownBubbleAccent: true,
   pushEnabled: true,
+  pullToRefresh: false,
   lastHomeserver: null,
 };
 
