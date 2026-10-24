@@ -19,13 +19,20 @@ test("the translated languages say it in their own words", () => {
   expect(t("pt", "signIn")).toBe("Entrar");
   expect(t("it", "signIn")).toBe("Accedi");
   expect(t("it", "typing.two", { a: "A", b: "B" })).toBe("A e B stanno scrivendo...");
+  expect(t("ru", "signIn")).toBe("Войти");
+  expect(t("hi", "signIn")).toBe("साइन इन करें");
+  expect(t("bn", "signIn")).toBe("সাইন ইন করুন");
+  expect(t("id", "signIn")).toBe("Masuk");
+  expect(t("ru", "typing.two", { a: "А", b: "Б" })).toBe("А и Б печатают...");
+  // Russian counts are written as "Участников: {n}", the same for any number: no form that is wrong for 2, 5 or 21.
+  for (const n of [1, 2, 5, 11, 21, 22, 100]) expect(t("ru", "members", { n })).toBe(`Участников: ${n}`);
   expect(t("ja", "signIn")).toBe("ログイン");
   expect(t("ko", "signIn")).toBe("로그인");
   expect(t("zh-TW", "signIn")).toBe("登入");
   expect(t("zh-TW", "members", { n: 3 })).toBe("3 位成員");
   expect(t("ko", "typing.many", { a: "A", n: 4 })).toBe("A님 외 4명이 입력 중...");
   // Written without spaces between words, the pieces of the sticker group warning are joined with none, and still read as one sentence.
-  for (const l of ["ja", "ko", "zh-TW"] as const) {
+  for (const l of ["ja", "ko", "zh-TW", "ru", "hi", "bn"] as const) {
     const whole = t(l, "sticker.group.delete.2a") + t(l, "sticker.group.delete.2b", { name: "X", n: 2 }) + t(l, "sticker.group.delete.2c");
     expect(whole).toContain("X");
     expect(whole).not.toMatch(/\{|\}/);

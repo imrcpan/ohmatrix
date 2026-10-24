@@ -22,10 +22,14 @@ export const LANGUAGES = [
 import { de } from "./locales/de.js";
 import { es } from "./locales/es.js";
 import { fr } from "./locales/fr.js";
+import { bn } from "./locales/bn.js";
+import { hi } from "./locales/hi.js";
+import { indonesian } from "./locales/id.js";
 import { it } from "./locales/it.js";
 import { ja } from "./locales/ja.js";
 import { ko } from "./locales/ko.js";
 import { pt } from "./locales/pt.js";
+import { ru } from "./locales/ru.js";
 import { zhTW } from "./locales/zh-TW.js";
 
 export type Locale = (typeof LANGUAGES)[number]["id"];
@@ -1174,7 +1178,22 @@ const zh: Record<MessageKey, string> = {
  * What each language has translated (the files of `locales/`, each complete: a `Record<MessageKey, string>`, so a text added to English
  * cannot be forgotten). A language with nothing yet is not here, and a key it lacks falls back to English (see `t`).
  */
-const catalogs: Partial<Record<Locale, Partial<Record<MessageKey, string>>>> = { en, "zh-CN": zh, "zh-TW": zhTW, es, fr, de, pt, it, ja, ko };
+const catalogs: Partial<Record<Locale, Partial<Record<MessageKey, string>>>> = {
+  en,
+  "zh-CN": zh,
+  "zh-TW": zhTW,
+  es,
+  fr,
+  de,
+  pt,
+  it,
+  ja,
+  ko,
+  ru,
+  hi,
+  bn,
+  id: indonesian,
+};
 
 /** Whether `locale` has texts of its own (English always does; a language of the list may not yet). */
 export function hasCatalog(locale: Locale): boolean {
