@@ -3243,7 +3243,7 @@ test("sign-in: create an account, and the server signed in to is offered again a
   // Switching to registration asks for the password twice, and says so when they differ.
   await page.getByRole("button", { name: "No account yet? Create one" }).click();
   await expect(page.getByText("Create a Matrix account")).toBeVisible();
-  await expect(inputs).toHaveCount(4);
+  await expect(inputs).toHaveCount(5);
   const name = `reg${Date.now().toString(36)}`;
   // A server typed differently from the default is what must come back later.
   await inputs.nth(0).fill("http://localhost:8008");

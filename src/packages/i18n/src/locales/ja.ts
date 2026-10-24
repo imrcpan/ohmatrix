@@ -108,7 +108,7 @@ export const ja: Record<MessageKey, string> = {
   "register.mismatch": "2 つのパスワードが一致しません。",
   "register.taken": "そのユーザー名は使われています。別の名前を選んでください。",
   "register.closed": "このサーバーでは新しいアカウントを作成できません。",
-  "register.token": "登録トークン（サーバーが求める場合）",
+  "register.token": "登録トークン（任意）",
   "register.tokenNeeded": "このサーバーは登録トークンがある場合のみアカウントを作成します。下に入力してください。",
   "register.tokenWrong": "その登録トークンは無効か、使用済みです。",
   "register.unsupported":

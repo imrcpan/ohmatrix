@@ -108,7 +108,7 @@ export const indonesian: Record<MessageKey, string> = {
   "register.mismatch": "Kedua kata sandi tidak sama.",
   "register.taken": "Nama pengguna itu sudah dipakai. Pilih yang lain.",
   "register.closed": "Server ini tidak mengizinkan pembuatan akun baru di sini.",
-  "register.token": "Token pendaftaran (jika server memintanya)",
+  "register.token": "Token pendaftaran (opsional)",
   "register.tokenNeeded": "Server ini hanya membuat akun dengan token pendaftaran. Masukkan di bawah.",
   "register.tokenWrong": "Token pendaftaran itu tidak valid atau sudah habis dipakai.",
   "register.unsupported":

@@ -108,7 +108,7 @@ export const bn: Record<MessageKey, string> = {
   "register.mismatch": "দুটি পাসওয়ার্ড একই নয়।",
   "register.taken": "এই ব্যবহারকারীর নামটি নেওয়া হয়ে গেছে। অন্য একটি বেছে নিন।",
   "register.closed": "এই সার্ভার এখানে নতুন অ্যাকাউন্ট তৈরির অনুমতি দেয় না।",
-  "register.token": "নিবন্ধন টোকেন (সার্ভার চাইলে)",
+  "register.token": "নিবন্ধন টোকেন (ঐচ্ছিক)",
   "register.tokenNeeded": "এই সার্ভার শুধু নিবন্ধন টোকেন থাকলেই অ্যাকাউন্ট তৈরি করে। নিচে সেটি লিখুন।",
   "register.tokenWrong": "এই নিবন্ধন টোকেনটি বৈধ নয়, অথবা ব্যবহৃত হয়ে গেছে।",
   "register.unsupported":

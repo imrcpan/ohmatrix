@@ -108,7 +108,7 @@ export const zhTW: Record<MessageKey, string> = {
   "register.mismatch": "兩次輸入的密碼不一致。",
   "register.taken": "這個使用者名稱已被使用。請換一個。",
   "register.closed": "這個伺服器不允許在此建立新帳號。",
-  "register.token": "註冊權杖（若伺服器要求）",
+  "register.token": "註冊權杖（選填）",
   "register.tokenNeeded": "這個伺服器只允許持有註冊權杖的人建立帳號。請在下方輸入。",
   "register.tokenWrong": "這個註冊權杖無效，或已被用完。",
   "register.unsupported": "這個伺服器除了使用者名稱和密碼，還需要更多資料（電子郵件、驗證碼或同意條款）。請到伺服器自己的網站建立帳號，再回到這裡登入。",

@@ -37,12 +37,67 @@ export function PrimaryButton(props: { title: string; onPress: () => void; loadi
 /**
  * A labelled text box. With `revealLabels` (a password box) there is a button at its right end that shows what is typed and hides it
  * again; the text is hidden when the box is made. The two labels are for a screen reader: "show" while it is hidden, "hide" while shown.
+ * With `icon` the box is drawn like the search field (44 high, the icon at its left) and the label is its placeholder, not a line above:
+ * for forms with several fields.
  */
-export function TextField(props: TextInputProps & { label: string; revealLabels?: { show: string; hide: string } }) {
+export function TextField(props: TextInputProps & { label: string; revealLabels?: { show: string; hide: string }; icon?: IconName }) {
   const { colors } = useTheme();
   const [focus, setFocus] = useState(false);
   const [shown, setShown] = useState(false);
-  const { label, style: _style, revealLabels, ...rest } = props;
+  const { label, style: _style, revealLabels, icon, ...rest } = props;
+  const reveal = revealLabels && (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={shown ? revealLabels.hide : revealLabels.show}
+      onPress={() => setShown((v) => !v)}
+      hitSlop={6}
+      style={
+        icon
+          ? { width: 32, height: 44, alignItems: "center", justifyContent: "center", marginRight: -8 }
+          : { position: "absolute", right: 2, bottom: 0, width: 44, height: 48, alignItems: "center", justifyContent: "center" }
+      }
+    >
+      <Icon name={shown ? "eye" : "eyeOff"} size={20} color={colors.textSecondary} />
+    </Pressable>
+  );
+  const handlers = {
+    onFocus: (e: Parameters<NonNullable<TextInputProps["onFocus"]>>[0]) => {
+      setFocus(true);
+      rest.onFocus?.(e);
+    },
+    onBlur: (e: Parameters<NonNullable<TextInputProps["onBlur"]>>[0]) => {
+      setFocus(false);
+      rest.onBlur?.(e);
+    },
+  };
+  if (icon)
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          height: 44,
+          borderRadius: radius.control,
+          backgroundColor: colors.bgSecondary,
+          paddingHorizontal: 12,
+          gap: 8,
+          borderWidth: 2,
+          borderColor: focus ? colors.accent : "transparent",
+        }}
+      >
+        <Icon name={icon} size={18} color={colors.textSecondary} />
+        <TextInput
+          {...rest}
+          {...(revealLabels ? { secureTextEntry: !shown } : {})}
+          accessibilityLabel={label}
+          placeholder={label}
+          placeholderTextColor={colors.textSecondary}
+          {...handlers}
+          style={[{ flex: 1, fontSize: 16, fontFamily, color: colors.text, padding: 0 }, { outlineStyle: "none" } as object]}
+        />
+        {reveal}
+      </View>
+    );
   return (
     <View>
       <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 6, marginLeft: 4, fontFamily }}>{label}</Text>
@@ -50,14 +105,7 @@ export function TextField(props: TextInputProps & { label: string; revealLabels?
         {...rest}
         {...(revealLabels ? { secureTextEntry: !shown } : {})}
         placeholderTextColor={colors.textSecondary}
-        onFocus={(e) => {
-          setFocus(true);
-          rest.onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setFocus(false);
-          rest.onBlur?.(e);
-        }}
+        {...handlers}
         style={[
           {
             ...(rest.multiline ? { minHeight: 96, paddingTop: 12, paddingBottom: 12, textAlignVertical: "top" as const } : { height: 48 }),
@@ -74,17 +122,7 @@ export function TextField(props: TextInputProps & { label: string; revealLabels?
           { outlineStyle: "none" } as object,
         ]}
       />
-      {revealLabels && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={shown ? revealLabels.hide : revealLabels.show}
-          onPress={() => setShown((v) => !v)}
-          hitSlop={6}
-          style={{ position: "absolute", right: 2, bottom: 0, width: 44, height: 48, alignItems: "center", justifyContent: "center" }}
-        >
-          <Icon name={shown ? "eye" : "eyeOff"} size={20} color={colors.textSecondary} />
-        </Pressable>
-      )}
+      {reveal}
     </View>
   );
 }
