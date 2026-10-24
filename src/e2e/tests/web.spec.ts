@@ -3320,21 +3320,24 @@ test("sign-in: the language is chosen at the bottom right, from a menu that open
   await expect(page.getByText("Melde dich bei deinem Matrix-Konto an")).toBeVisible();
   await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sprache" })).toContainText("Deutsch");
-  // The others that are translated: each says its sign-in in its own words.
+  // The others that are translated: each says its sign-in in its own words, and names its language button in them.
+  let current = "Sprache";
   for (const [menu, signIn, language] of [
     ["Português", "Entrar", "Idioma"],
     ["Italiano", "Accedi", "Lingua"],
+    ["日本語", "ログイン", "言語"],
+    ["한국어", "로그인", "언어"],
+    ["繁體中文", "登入", "語言"],
+    ["Español", "Iniciar sesión", "Idioma"],
+    ["Français", "Se connecter", "Langue"],
   ] as const) {
-    await page
-      .getByRole("button", { name: "Sprache" })
-      .or(page.getByRole("button", { name: /^(Idioma|Lingua|Language)$/ }))
-      .first()
-      .click();
+    await page.getByRole("button", { name: current, exact: true }).click();
     await page.getByRole("menuitem", { name: menu }).click();
     await expect(page.getByRole("button", { name: signIn, exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: language })).toContainText(menu);
+    await expect(page.getByRole("button", { name: language, exact: true })).toContainText(menu);
+    current = language;
   }
-  await page.getByRole("button", { name: "Lingua" }).click();
+  await page.getByRole("button", { name: current, exact: true }).click();
   await page.getByRole("menuitem", { name: "Deutsch" }).click();
   await expect(page.getByRole("button", { name: "Sprache" })).toContainText("Deutsch");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
