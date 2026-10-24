@@ -575,4 +575,6 @@ export const ja: Record<MessageKey, string> = {
   "push.file": "ファイル",
   "push.location": "位置情報",
   "push.invited": "{name} さんがあなたを招待しました",
+  "call.video.switching": "映像が届いていません。別の映像形式を試しています…",
+  "call.video.unavailable": "この接続では映像を表示できません。通話は音声で続けられます。",
 };

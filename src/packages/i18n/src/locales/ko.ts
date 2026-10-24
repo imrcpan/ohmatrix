@@ -572,4 +572,6 @@ export const ko: Record<MessageKey, string> = {
   "push.file": "파일",
   "push.location": "위치",
   "push.invited": "{name}님이 초대했어요",
+  "call.video.switching": "화면이 나오지 않아요. 다른 영상 형식을 시도하는 중…",
+  "call.video.unavailable": "이 연결에서는 화면을 표시할 수 없어요. 통화는 소리로 계속돼요.",
 };

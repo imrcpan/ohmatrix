@@ -18,7 +18,28 @@ class FakePeer implements Peer {
   closed = false;
   private cand: (c: IceCandidate | null) => void = () => {};
   private conn: (s: "connected" | "disconnected" | "failed") => void = () => {};
-  constructor(readonly sdp = "v=0 m=audio") {}
+  /** The video abilities (set by `setup({ videoPeer })`): what it can send, the orders asked for, the descriptions in force and what moved. */
+  orders: string[][] = [];
+  local: string | undefined;
+  remote: string | undefined;
+  bytes: { sent: number; received: number; sendingCodec?: string } = { sent: 0, received: 0 };
+  sendableVideoCodecs?: () => string[];
+  setVideoCodecOrder?: (order: string[]) => void;
+  descriptions?: () => { local?: string | undefined; remote?: string | undefined };
+  videoBytes?: () => Promise<{ sent: number; received: number; sendingCodec?: string | undefined } | undefined>;
+  constructor(
+    readonly sdp = "v=0 m=audio",
+    video?: { sendable: string[] },
+  ) {
+    if (!video) return;
+    this.sendableVideoCodecs = () => video.sendable;
+    this.setVideoCodecOrder = (order) => {
+      this.orders.push(order);
+      this.log.push(`order:${order.join("+")}`);
+    };
+    this.descriptions = () => ({ local: this.local, remote: this.remote });
+    this.videoBytes = async () => ({ ...this.bytes });
+  }
   async createOffer(): Promise<SessionDescription> {
     this.log.push("createOffer");
     return { type: "offer", sdp: this.sdp };
@@ -54,7 +75,7 @@ class FakePeer implements Peer {
   }
 }
 
-function setup(opts: { me?: string; refuseMedia?: boolean } = {}) {
+function setup(opts: { me?: string; refuseMedia?: boolean; videoPeer?: { sendable: string[] } } = {}) {
   const sent: { roomId: string; type: string; content: Record<string, unknown> }[] = [];
   const peers: FakePeer[] = [];
   const timers: { cb: () => void; ms: number; live: boolean }[] = [];
@@ -74,7 +95,7 @@ function setup(opts: { me?: string; refuseMedia?: boolean } = {}) {
   const t: Transport = {
     send: async (roomId, type, content) => void sent.push({ roomId, type, content }),
     newPeer: (_s: IceServer[]) => {
-      const p = new FakePeer(peers.length === 0 && wantVideo ? "v=0 m=audio m=video" : "v=0 m=audio");
+      const p = new FakePeer(peers.length === 0 && wantVideo ? "v=0 m=audio m=video" : "v=0 m=audio", opts.videoPeer);
       peers.push(p);
       return p;
     },
@@ -312,5 +333,225 @@ describe("during a call", () => {
     expect(h.last()).toMatchObject({ phase: "ended" });
     h.s.dismiss();
     expect(h.last()).toBeNull();
+  });
+});
+
+/** A description with an audio section and a video section that lists these codecs, in this order (a payload type for each). */
+const sdpWith = (...codecs: string[]) =>
+  [
+    "v=0",
+    "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+    "a=rtpmap:111 opus/48000/2",
+    `m=video 9 UDP/TLS/RTP/SAVPF ${codecs.map((_, i) => 96 + i).join(" ")}`,
+    ...codecs.map((c, i) => `a=rtpmap:${96 + i} ${c}/90000`),
+    "",
+  ].join("\r\n");
+
+/** Lets the watch's look (which waits for the statistics) finish before the next second. */
+const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+async function seconds(h: ReturnType<typeof setup>, n: number) {
+  for (let i = 0; i < n; i++) {
+    h.tick(1000);
+    await flush();
+  }
+}
+
+/** A video call that I placed and the other side answered with `answerCodecs` (the first is what each side sends), and which is up. */
+async function upVideoCall(h: ReturnType<typeof setup>, answerCodecs: string[], meta: Record<string, unknown> = {}) {
+  h.video();
+  await h.s.place("!r:s", "@you:s", true);
+  const callId = h.sent[0]!.content["call_id"];
+  const peer = h.peers[0]!;
+  await h.s.receive(ev("m.call.answer", { call_id: callId, party_id: "theirs", answer: { type: "answer", sdp: sdpWith(...answerCodecs) }, ...meta }));
+  peer.local = sdpWith(...answerCodecs);
+  peer.remote = sdpWith(...answerCodecs);
+  peer.up("connected");
+  return { callId, peer };
+}
+const cameraOn = { "org.matrix.msc3077.sdp_stream_metadata": { s: { purpose: "m.usermedia", audio_muted: false, video_muted: false } } };
+
+describe("the video codecs of an incoming call", () => {
+  it("are asked for in the order the other side offered them, with what this device cannot send behind what it can, before the answer is made", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "VP9"] } });
+    await h.s.receive(
+      ev("m.call.invite", { call_id: "c1", party_id: "theirs", lifetime: 60000, offer: { type: "offer", sdp: sdpWith("H264", "VP8", "VP9") } }),
+    );
+    await h.s.answer(true);
+    expect(h.peers[0]!.orders).toEqual([["VP8", "VP9", "H264"]]);
+    const log = h.peers[0]!.log;
+    expect(log.indexOf("order:VP8+VP9+H264")).toBeGreaterThan(log.indexOf("remote:offer"));
+    expect(log.indexOf("order:VP8+VP9+H264")).toBeLessThan(log.indexOf("createAnswer"));
+  });
+
+  it("keep the offer's order when the device can send them all (a phone offers H264 first, and a phone can send it)", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264", "VP9"] } });
+    await h.s.receive(
+      ev("m.call.invite", { call_id: "c1", party_id: "theirs", lifetime: 60000, offer: { type: "offer", sdp: sdpWith("H264", "VP8", "VP9") } }),
+    );
+    await h.s.answer(true);
+    expect(h.peers[0]!.orders).toEqual([["H264", "VP8", "VP9"]]);
+  });
+
+  it("are left as they come by a peer that cannot tell what it sends", async () => {
+    const h = setup();
+    await h.s.receive(ev("m.call.invite", { call_id: "c1", party_id: "theirs", lifetime: 60000, offer: { type: "offer", sdp: sdpWith("H264", "VP8") } }));
+    await h.s.answer(true);
+    expect(h.peers[0]!.log.some((l) => l.startsWith("order:"))).toBe(false);
+  });
+});
+
+describe("negotiating again in the middle of a call (m.call.negotiate)", () => {
+  it("answers an offer of the other side: sets it, asks for the codecs, answers with a negotiate event", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { callId, peer } = await upVideoCall(h, ["H264", "VP8"]);
+    const before = h.sent.length;
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "theirs", description: { type: "offer", sdp: sdpWith("VP8", "H264") } }));
+    expect(peer.log.slice(-4)).toEqual(["remote:offer", "order:VP8+H264", "createAnswer", "local:answer"]);
+    const sent = h.sent.slice(before);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.type).toBe("m.call.negotiate");
+    expect(sent[0]!.content["description"]).toEqual({ type: "answer", sdp: "answer-sdp" });
+    expect(sent[0]!.content["call_id"]).toBe(callId);
+  });
+
+  it("takes the answer to an offer of its own, and ignores an answer to none", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { callId, peer } = await upVideoCall(h, ["H264", "VP8"], cameraOn);
+    // An answer nobody asked for is left alone.
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "theirs", description: { type: "answer", sdp: "x" } }));
+    expect(peer.log.filter((l) => l === "remote:answer")).toHaveLength(1); // the call's own answer, from the start
+    // After a stall an offer of my own is out: its answer is then taken.
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(h, 8);
+    expect(h.sent.some((x) => x.type === "m.call.negotiate" && (x.content["description"] as { type: string }).type === "offer")).toBe(true);
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "theirs", description: { type: "answer", sdp: "y" } }));
+    expect(peer.log.filter((l) => l === "remote:answer")).toHaveLength(2);
+  });
+
+  it("is not for my own echo, another session, or a call that is not up", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8"] } });
+    const { callId, peer } = await upVideoCall(h, ["VP8"]);
+    const offer = { type: "offer", sdp: sdpWith("VP8") };
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "mine", description: offer }, { sender: "@me:s" }));
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "someone-else", description: offer }));
+    expect(peer.log.includes("remote:offer")).toBe(false);
+    const h2 = setup({ videoPeer: { sendable: ["VP8"] } });
+    h2.video();
+    await h2.s.place("!r:s", "@you:s", true);
+    await h2.s.receive(ev("m.call.negotiate", { call_id: h2.sent[0]!.content["call_id"], party_id: "theirs", description: offer }));
+    expect(h2.peers[0]!.log.includes("remote:offer")).toBe(false);
+  });
+
+  it("when both offer at once, the one that was called gives way and the caller ignores the other's offer", async () => {
+    // I am the caller (impolite) with an offer out: the offer that crosses it is ignored.
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { callId, peer } = await upVideoCall(h, ["H264", "VP8"], cameraOn);
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(h, 8);
+    expect(h.sent.some((x) => x.type === "m.call.negotiate")).toBe(true);
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "theirs", description: { type: "offer", sdp: sdpWith("VP8") } }));
+    expect(peer.log.includes("remote:offer")).toBe(false);
+  });
+});
+
+describe("watching the picture of a video call", () => {
+  it("a picture that is sent and does not leave: the codec in use goes last and the call is offered again with the next, once", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { peer } = await upVideoCall(h, ["H264", "VP8"]);
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(h, 10);
+    const offers = h.sent.filter((x) => x.type === "m.call.negotiate");
+    expect(offers).toHaveLength(1);
+    expect((offers[0]!.content["description"] as { type: string }).type).toBe("offer");
+    expect(peer.orders[peer.orders.length - 1]).toEqual(["VP8", "H264"]);
+  });
+
+  it("a picture that moves is left alone", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { peer } = await upVideoCall(h, ["H264", "VP8"], cameraOn);
+    for (let i = 0; i < 12; i++) {
+      peer.bytes = { sent: 1000 * (i + 1), received: 2000 * (i + 1), sendingCodec: "H264" };
+      await seconds(h, 1);
+    }
+    expect(h.sent.some((x) => x.type === "m.call.negotiate")).toBe(false);
+  });
+
+  it("a camera that is off sends nothing and that is no stall", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { peer } = await upVideoCall(h, ["H264", "VP8"]);
+    h.s.setCameraOff(true);
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(h, 10);
+    expect(h.sent.some((x) => x.type === "m.call.negotiate")).toBe(false);
+  });
+
+  it("a picture that is to come and never does: the call is offered again with another codec first", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { peer } = await upVideoCall(h, ["H264", "VP8"], cameraOn);
+    // The camera here is off (nothing is expected to leave), the other side's is on and nothing arrives.
+    h.s.setCameraOff(true);
+    peer.bytes = { sent: 0, received: 0 };
+    await seconds(h, 10);
+    expect(h.sent.filter((x) => x.type === "m.call.negotiate")).toHaveLength(1);
+    expect(peer.orders[peer.orders.length - 1]).toEqual(["VP8", "H264"]);
+  });
+
+  it("with no other codec to try nothing is offered", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8"] } });
+    const { peer } = await upVideoCall(h, ["VP8"]);
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "VP8" };
+    await seconds(h, 10);
+    expect(h.sent.some((x) => x.type === "m.call.negotiate")).toBe(false);
+  });
+
+  it("the person is told while another codec is tried, and told no more once the picture moves", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { callId, peer } = await upVideoCall(h, ["H264", "VP8"]);
+    expect(h.last()!.videoNotice).toBeUndefined();
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(h, 8);
+    expect(h.last()!.videoNotice).toBe("switching");
+    // The other side answers the new offer, and the new codec sends: the notice goes.
+    await h.s.receive(ev("m.call.negotiate", { call_id: callId, party_id: "theirs", description: { type: "answer", sdp: "y" } }));
+    peer.bytes = { sent: 5000, received: 9000, sendingCodec: "VP8" };
+    await seconds(h, 2);
+    expect(h.last()!.videoNotice).toBeUndefined();
+  });
+
+  it("the person is told that nothing more can be done when no other codec is left", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8"] } });
+    const { peer } = await upVideoCall(h, ["VP8"]);
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "VP8" };
+    await seconds(h, 10);
+    expect(h.last()!.videoNotice).toBe("unavailable");
+  });
+
+  it("an offer for another codec that is never answered ends in 'unavailable', not in 'trying' for ever", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { peer } = await upVideoCall(h, ["H264", "VP8"]);
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(h, 8);
+    expect(h.last()!.videoNotice).toBe("switching");
+    // Nobody answers.
+    h.tick(10_000);
+    await flush();
+    expect(h.last()!.videoNotice).toBe("unavailable");
+  });
+
+  it("a voice call is not watched, and the watch stops with the call", async () => {
+    const h = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    await h.s.place("!r:s", "@you:s", false);
+    await h.s.receive(ev("m.call.answer", { call_id: h.sent[0]!.content["call_id"], party_id: "theirs", answer: { type: "answer", sdp: "a" } }));
+    h.peers[0]!.up("connected");
+    h.peers[0]!.bytes = { sent: 0, received: 0 };
+    await seconds(h, 10);
+    expect(h.sent.some((x) => x.type === "m.call.negotiate")).toBe(false);
+
+    const g = setup({ videoPeer: { sendable: ["VP8", "H264"] } });
+    const { peer } = await upVideoCall(g, ["H264", "VP8"]);
+    await g.s.hangup();
+    peer.bytes = { sent: 0, received: 1000, sendingCodec: "H264" };
+    await seconds(g, 10);
+    expect(g.sent.some((x) => x.type === "m.call.negotiate")).toBe(false);
   });
 });

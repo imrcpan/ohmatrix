@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { webrtcCalls, type RtcLib, type RtcPeer, type RtcStream, type RtcTrack } from "./webrtcCalls.js";
+import { inVideoOrder, videoCodecNames, webrtcCalls, type RtcCodec, type RtcLib, type RtcPeer, type RtcStream, type RtcTrack } from "./webrtcCalls.js";
 
 const track = (kind: string): RtcTrack & { stopped: boolean } => {
   const t = {
@@ -181,5 +181,68 @@ describe("the phone's WebRTC for calls", () => {
     for (const f of pc.listeners["track"]!) f({ streams: [remote] } as never);
     expect(p.streams().remote).toBe(remote);
     expect(changes).toBe(1);
+  });
+});
+
+const codec = (mimeType: string): RtcCodec => ({ mimeType });
+const caps = [codec("video/H264"), codec("video/rtx"), codec("video/VP8"), codec("video/H264"), codec("video/VP9"), codec("video/red"), codec("video/ulpfec")];
+
+describe("the video codecs of the phone", () => {
+  it("are named without the repairing ones and without repeats, in the order the device lists them", () => {
+    expect(videoCodecNames(caps)).toEqual(["H264", "VP8", "VP9"]);
+    expect(videoCodecNames(undefined)).toEqual([]);
+  });
+
+  it("are put in the order asked for: the ones named first, in that order, the rest after in the order they were", () => {
+    expect(inVideoOrder(caps, ["VP8", "VP9", "H264"]).map((c) => c.mimeType)).toEqual([
+      "video/VP8",
+      "video/VP9",
+      "video/H264",
+      "video/H264",
+      "video/rtx",
+      "video/red",
+      "video/ulpfec",
+    ]);
+    expect(inVideoOrder(caps, []).map((c) => c.mimeType)).toEqual(caps.map((c) => c.mimeType));
+  });
+
+  it("the peer says which it can send (the sender's list), and asks the video's transceivers for the order, not the audio's", () => {
+    const { l, peers } = lib();
+    const asked: RtcCodec[][] = [];
+    const audioAsked: RtcCodec[][] = [];
+    l.RTCRtpSender = { getCapabilities: () => ({ codecs: [codec("video/VP8"), codec("video/rtx"), codec("video/VP9")] }) };
+    l.RTCRtpReceiver = { getCapabilities: () => ({ codecs: caps }) };
+    const p = webrtcCalls(
+      () => l,
+      () => "id",
+    ).newPeer([]);
+    (peers[0] as unknown as { getTransceivers: () => unknown[] }).getTransceivers = () => [
+      { receiver: { track: { kind: "audio" } }, setCodecPreferences: (c: RtcCodec[]) => void audioAsked.push(c) },
+      { receiver: { track: { kind: "video" } }, setCodecPreferences: (c: RtcCodec[]) => void asked.push(c) },
+    ];
+    expect(p.sendableVideoCodecs!()).toEqual(["VP8", "VP9"]);
+    p.setVideoCodecOrder!(["VP8", "VP9", "H264"]);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.map((c) => c.mimeType).slice(0, 4)).toEqual(["video/VP8", "video/VP9", "video/H264", "video/H264"]);
+    expect(audioAsked).toEqual([]);
+  });
+
+  it("a device that refuses the order, or has no list, does not break the call", () => {
+    const { l, peers } = lib();
+    l.RTCRtpReceiver = { getCapabilities: () => ({ codecs: caps }) };
+    const p = webrtcCalls(
+      () => l,
+      () => "id",
+    ).newPeer([]);
+    (peers[0] as unknown as { getTransceivers: () => unknown[] }).getTransceivers = () => [
+      {
+        receiver: { track: { kind: "video" } },
+        setCodecPreferences: () => {
+          throw new Error("refused");
+        },
+      },
+    ];
+    expect(() => p.setVideoCodecOrder!(["VP8"])).not.toThrow();
+    expect(p.sendableVideoCodecs!()).toEqual([]); // no sender list: nothing is claimed
   });
 });

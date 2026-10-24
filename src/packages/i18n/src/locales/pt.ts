@@ -576,4 +576,6 @@ export const pt: Record<MessageKey, string> = {
   "push.file": "Arquivo",
   "push.location": "Localização",
   "push.invited": "{name} convidou você",
+  "call.video.switching": "A imagem não está chegando. Tentando outro formato de vídeo…",
+  "call.video.unavailable": "Não é possível mostrar a imagem nesta conexão. A chamada continua com som.",
 };

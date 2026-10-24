@@ -5,10 +5,13 @@
  * React Native or the bindings (both are handed in), so it is run by the unit tests with a peer connection that only records.
  *
  * What it does: place a call, answer one, hang up or reject, and carry ICE candidates both ways (a call whose answer comes before its
- * candidates, or the other way round, is the usual case). What it leaves out: changing the kind of a call in the middle (voice to video),
- * sharing the screen, putting a call on hold, and several devices of the same account answering the same call (the first answer wins, the
+ * candidates, or the other way round, is the usual case). It also negotiates again in the middle of a call (`m.call.negotiate`), both when the
+ * other side asks and to change the video codec when the one in use does not work (see `watchVideo`). What it leaves out: changing the kind
+ * of a call in the middle (voice to video), sharing the screen, putting a call on hold, and several devices of the same account answering the same call (the first answer wins, the
  * others are told with `m.call.select_answer`).
  */
+
+import { orderVideoCodecs, sdpVideoCodecs, VideoWatch } from "@ohmatrix/core";
 
 /** The protocol's version, as the other clients send it. */
 const VERSION = "1";
@@ -42,6 +45,16 @@ export interface Peer {
   onCandidate(cb: (c: IceCandidate | null) => void): void;
   /** Called when the connection is up or has gone down. */
   onConnection(cb: (state: "connected" | "disconnected" | "failed") => void): void;
+  /** The video codecs this device can send (not only receive), by name, as the device says: a codec it only decodes is not in it. */
+  sendableVideoCodecs?(): string[];
+  /** Ask for the video codecs in this order (names): the first is what is sent once the other side agrees. */
+  setVideoCodecOrder?(order: string[]): void;
+  /** The descriptions now in force (what was set last), for reading which codecs are on offer and which is in use. */
+  descriptions?(): { local?: string | undefined; remote?: string | undefined };
+  /** What the video's encoder and decoder were doing, in one line for the log (frames, key frames, the implementations). */
+  videoDetail?(): Promise<string | undefined>;
+  /** What the video has moved so far (frames, or bytes where the device gives no frame count), and the codec it is sent with if that can be told. */
+  videoBytes?(): Promise<{ sent: number; received: number; sendingCodec?: string | undefined } | undefined>;
 }
 
 /** The microphone and camera, and what the other side sends. */
@@ -94,6 +107,8 @@ export interface CallInfo {
   cameraOff: boolean;
   /** The ICE connection dropped and has not come back. */
   poor: boolean;
+  /** The picture is not coming through: another video codec is being tried, or none is left (see `CallState.videoNotice`). */
+  videoNotice?: "switching" | "unavailable";
 }
 
 /** An event of the call kind, as the subscription delivers it. */
@@ -124,7 +139,34 @@ interface Live {
   offer: SessionDescription | null;
   /** The invitation's sender and its ICE servers for an incoming call, taken at answer time. */
   inviteLifetime: number;
+  /** An offer of mine is out and not answered yet (a second one waits, and an offer of theirs that crosses it is settled by who is polite). */
+  makingOffer: boolean;
+  /** The other side said, with the call, that its camera was on (from the stream metadata it sent with its invitation or answer). */
+  remoteCameraOn: boolean;
+  /** The watch of the video: stops it. */
+  stopWatch: (() => void) | null;
+  /** Video codecs that were tried and moved no picture, by direction. */
+  failedSend: Set<string>;
+  failedReceive: Set<string>;
 }
+
+/** Whether the stream metadata of an event says that the other side's camera is on (a user-media stream whose video is not muted). */
+function cameraOnIn(content: Record<string, unknown>): boolean {
+  const meta = content["org.matrix.msc3077.sdp_stream_metadata"];
+  if (!meta || typeof meta !== "object") return false;
+  return Object.values(meta as Record<string, { purpose?: string; video_muted?: boolean }>).some(
+    (m) => m?.purpose === "m.usermedia" && m.video_muted === false,
+  );
+}
+
+/** How often the video of a connected call is looked at. */
+const WATCH_MS = 1000;
+/** How long an offer of mine may wait for its answer before it is given up (a second one may then be made). */
+const OFFER_TIMEOUT_MS = 10_000;
+/** How long the handling of a negotiation of the other side may take before it is given up. */
+const NEGOTIATE_TIMEOUT_MS = 8000;
+/** A picture that never came is looked for only in this time after the call was connected: a camera turned off later is not a stall. */
+const FIRST_PICTURE_MS = 15_000;
 
 /**
  * The state machine. `onChange` is told after each change, with the call as it is now (null once it is gone from the screen).
@@ -176,6 +218,7 @@ export class CallSignalling {
           c.info.connectedAt = this.t.now();
           c.stopTimer?.();
           c.stopTimer = null;
+          this.watchVideo(c);
         }
       } else if (s === "disconnected") c.info.poor = true;
       else this.end(c, "failed", true);
@@ -231,6 +274,11 @@ export class CallSignalling {
       stopTimer: null,
       offer: null,
       inviteLifetime: INVITE_LIFETIME_MS,
+      makingOffer: false,
+      remoteCameraOn: false,
+      stopWatch: null,
+      failedSend: new Set(),
+      failedReceive: new Set(),
     };
   }
 
@@ -265,6 +313,7 @@ export class CallSignalling {
     }
     await peer.setRemoteDescription(c.offer);
     c.remoteSet = true;
+    this.orderVideo(c, c.offer.sdp);
     for (const x of c.pendingRemote.splice(0)) await peer.addIceCandidate(x).catch(() => {});
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
@@ -306,12 +355,164 @@ export class CallSignalling {
     }
   }
 
+  /**
+   * Asks the peer for its video codecs in the order that suits this device: what the other side offered keeps its order, with the codecs
+   * this device cannot send behind the ones it can, and the ones that were tried and moved no picture last (see `orderVideoCodecs`).
+   */
+  private orderVideo(c: Live, offeredSdp: string | undefined, extraFailed: readonly string[] = []): string[] | null {
+    const peer = c.peer;
+    if (!peer?.setVideoCodecOrder || !peer.sendableVideoCodecs) return null;
+    const order = orderVideoCodecs({
+      offered: sdpVideoCodecs(offeredSdp),
+      sendable: peer.sendableVideoCodecs(),
+      failed: [...c.failedSend, ...c.failedReceive, ...extraFailed],
+    });
+    if (order.length) peer.setVideoCodecOrder(order);
+    this.t.log?.("video codecs, asked in the order:", order.join("+") || "none");
+    return order;
+  }
+
+  /** Offer the call again, with the codecs as they are now asked for; the answer comes as an `m.call.negotiate` of the other side. */
+  private async renegotiate(c: Live): Promise<void> {
+    const peer = c.peer;
+    if (!peer || c.makingOffer || c.info.phase !== "connected") return;
+    c.makingOffer = true;
+    try {
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      await this.send(c, "m.call.negotiate", { description: offer, lifetime: OFFER_TIMEOUT_MS, ...this.streamMetadata(c) });
+      // An answer that does not come must not shut the door on the next try.
+      this.t.later(() => {
+        if (this.call !== c || !c.makingOffer) return;
+        // No answer to the new codec: the picture will not come, and the person is told that instead of "trying".
+        c.makingOffer = false;
+        if (c.info.videoNotice === "switching") this.notice(c, "unavailable");
+        // The other side does not take part in this (it may not know the event): trying again would meet the same silence.
+        c.stopWatch?.();
+        c.stopWatch = null;
+      }, OFFER_TIMEOUT_MS);
+    } catch {
+      c.makingOffer = false;
+    }
+  }
+
+  /**
+   * Watches the picture of a connected call, a second at a time. A camera that is on here and a picture that does not leave, or one that is
+   * on there and never arrives, is a video codec that does not work on one of the two devices (listed, but with no working encoder). The
+   * codec is put last and the call is offered again with the next one; each is tried once. A camera turned off by the other side later is
+   * not looked at (this side is not told of it), only the first seconds of the call are.
+   */
+  private watchVideo(c: Live) {
+    const peer = c.peer;
+    if (c.stopWatch || !peer?.videoBytes || !peer.descriptions || !c.info.video) return;
+    const watch = new VideoWatch();
+    const startedAt = this.t.now();
+    let everReceived = false;
+    let cancel: (() => void) | null = null;
+    let stopped = false;
+    /** After a codec was changed: what the picture that was missing has moved so far, to see it move again. */
+    let waitingFor: { dir: "sent" | "received"; bytes: number } | null = null;
+    const tick = async () => {
+      if (stopped || this.call !== c || c.info.phase !== "connected") return;
+      try {
+        // An offer of mine is out and not answered: its codec is being tried, nothing more is to be judged until it is.
+        if (c.makingOffer) {
+          cancel = this.t.later(() => void tick(), WATCH_MS);
+          return;
+        }
+        const bytes = await peer.videoBytes!();
+        if (bytes && !stopped) {
+          if (bytes.received > 0) everReceived = true;
+          // The picture that was missing is moving: the person is told no more.
+          if (waitingFor && bytes[waitingFor.dir] > waitingFor.bytes && c.info.videoNotice === "switching") {
+            delete c.info.videoNotice;
+            waitingFor = null;
+            this.emit();
+          }
+          const verdict = watch.sample({
+            now: this.t.now(),
+            sentBytes: bytes.sent,
+            receivedBytes: bytes.received,
+            sending: !c.info.cameraOff,
+            receiving: c.remoteCameraOn && !everReceived && this.t.now() - startedAt < FIRST_PICTURE_MS,
+          });
+          if (verdict !== "ok") {
+            const changed = await this.changeCodec(c, verdict, bytes.sendingCodec, watch);
+            if (changed)
+              waitingFor = { dir: verdict === "send-stalled" ? "sent" : "received", bytes: verdict === "send-stalled" ? bytes.sent : bytes.received };
+          }
+        }
+      } catch {
+        /* the connection is going away: the next look finds out */
+      }
+      if (!stopped) cancel = this.t.later(() => void tick(), WATCH_MS);
+    };
+    cancel = this.t.later(() => void tick(), WATCH_MS);
+    c.stopWatch = () => {
+      stopped = true;
+      cancel?.();
+    };
+  }
+
+  /** Tells the person (`videoNotice`), so that a black picture is not waited at in silence. */
+  private notice(c: Live, n: "switching" | "unavailable" | null) {
+    if (n) c.info.videoNotice = n;
+    else delete c.info.videoNotice;
+    this.emit();
+  }
+
+  /** Returns whether another codec was asked for (false: none was left, and the person is told so). */
+  private async changeCodec(c: Live, verdict: "send-stalled" | "receive-stalled", sendingCodec: string | undefined, watch: VideoWatch): Promise<boolean> {
+    const peer = c.peer!;
+    const d = peer.descriptions!();
+    // The codec in use is the first of the answer, whichever side made it.
+    const answer = c.info.incoming ? d.local : d.remote;
+    const inUse = (verdict === "send-stalled" ? sendingCodec?.toUpperCase() : undefined) ?? sdpVideoCodecs(answer)[0];
+    if (inUse) (verdict === "send-stalled" ? c.failedSend : c.failedReceive).add(inUse);
+    const order = this.orderVideo(c, d.remote);
+    this.t.log?.("video", verdict, "with", inUse ?? "?", "| asking for", order?.join("+") ?? "none");
+    // What the encoder and decoder were doing when the picture stopped: an encoder with no frames, a decoder with frames missing.
+    this.t.log?.("video at the stall:", (await peer.videoDetail?.().catch(() => undefined)) ?? "no detail");
+    if (!order?.length || !order[0] || order[0] === inUse || c.failedSend.has(order[0]) || c.failedReceive.has(order[0])) {
+      this.t.log?.("video: no other codec to try");
+      this.notice(c, "unavailable");
+      return false;
+    }
+    this.notice(c, "switching");
+    await this.renegotiate(c);
+    watch.reset(this.t.now());
+    return true;
+  }
+
+  /** The other side offers again (`m.call.negotiate` with an offer), or answers an offer of mine. */
+  private async negotiated(c: Live, content: Record<string, unknown>): Promise<void> {
+    const peer = c.peer;
+    const d = content["description"] as SessionDescription | undefined;
+    if (!peer || !d || typeof d.sdp !== "string" || (d.type !== "offer" && d.type !== "answer")) return;
+    if (d.type === "answer") {
+      if (!c.makingOffer) return;
+      c.makingOffer = false;
+      await peer.setRemoteDescription(d);
+      return;
+    }
+    // Both sides offering at once: the one that is polite (the one called) gives way, the other ignores the offer that crossed its own.
+    const polite = c.info.incoming;
+    if (c.makingOffer && !polite) return;
+    c.makingOffer = false;
+    await peer.setRemoteDescription(d);
+    this.orderVideo(c, d.sdp);
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    await this.send(c, "m.call.negotiate", { description: answer, lifetime: OFFER_TIMEOUT_MS, ...this.streamMetadata(c) });
+  }
+
   private end(c: Live, reason: EndReason, keep: boolean) {
     if (c.info.phase === "ended") return;
     c.info.phase = "ended";
     c.info.endReason = reason;
     c.stopTimer?.();
     c.stopBatch?.();
+    c.stopWatch?.();
     c.peer?.close();
     this.t.media.stop();
     if (this.call === c) {
@@ -351,6 +552,7 @@ export class CallSignalling {
       const next = this.make(e.roomId, e.sender, /m=video/.test(offer.sdp), true, callId);
       next.offer = offer;
       next.remoteParty = typeof e.content["party_id"] === "string" ? (e.content["party_id"] as string) : null;
+      next.remoteCameraOn = cameraOnIn(e.content);
       next.inviteLifetime = lifetime;
       this.call = next;
       // The call stops ringing when its lifetime has gone by (less the time it took to arrive).
@@ -375,6 +577,7 @@ export class CallSignalling {
       }
       if (c.info.incoming || c.remoteParty) return; // an answer to a call I did not place, or a second answer: the first one stands
       c.remoteParty = typeof e.content["party_id"] === "string" ? (e.content["party_id"] as string) : "unknown";
+      c.remoteCameraOn = cameraOnIn(e.content);
       c.stopTimer?.();
       c.stopTimer = null;
       c.info.phase = "connecting";
@@ -392,6 +595,22 @@ export class CallSignalling {
       await this.send(c, "m.call.select_answer", { selected_party_id: c.remoteParty });
       this.flushCandidates(c);
       this.emit();
+      return;
+    }
+
+    if (e.type === "m.call.negotiate") {
+      // Only the other side's session that is in the call, not my own echo.
+      if (mine || (c.remoteParty && e.content["party_id"] !== c.remoteParty) || c.info.phase !== "connected") return;
+      try {
+        // A negotiation that does not finish must not hold the call: it is given a little time, and what it says is in the log.
+        await Promise.race([
+          this.negotiated(c, e.content),
+          new Promise<never>((_, reject) => void this.t.later(() => reject(new Error("no end to it after 8 s")), NEGOTIATE_TIMEOUT_MS)),
+        ]);
+      } catch (err) {
+        // The call goes on as it was.
+        this.t.log?.("negotiation failed:", err instanceof Error ? err.message : String(err));
+      }
       return;
     }
 

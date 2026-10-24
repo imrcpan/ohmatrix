@@ -581,4 +581,6 @@ export const de: Record<MessageKey, string> = {
   "push.file": "Datei",
   "push.location": "Standort",
   "push.invited": "{name} hat dich eingeladen",
+  "call.video.switching": "Das Bild kommt nicht an. Es wird ein anderes Videoformat versucht…",
+  "call.video.unavailable": "Auf dieser Verbindung kann das Bild nicht angezeigt werden. Das Gespräch läuft mit Ton weiter.",
 };

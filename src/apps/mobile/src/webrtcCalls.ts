@@ -1,3 +1,4 @@
+import { describeVideoStats, readVideoProgress, sdpSummary } from "@ohmatrix/core";
 import type { CallPlatform, Peer } from "@ohmatrix/engine-rust";
 
 /**
@@ -15,6 +16,18 @@ export interface RtcLib {
   RTCPeerConnection: new (config: { iceServers: { urls: string[]; username?: string; credential?: string }[]; bundlePolicy?: string }) => RtcPeer;
   mediaDevices: { getUserMedia(c: { audio: unknown; video: unknown }): Promise<RtcStream> };
   MediaStream: new (tracks?: RtcTrack[]) => RtcStream;
+  /** What the device can send and receive, by kind: the sender's list holds only what it can encode. */
+  RTCRtpSender?: { getCapabilities(kind: string): { codecs: RtcCodec[] } | null };
+  RTCRtpReceiver?: { getCapabilities(kind: string): { codecs: RtcCodec[] } | null };
+}
+
+export interface RtcCodec {
+  mimeType: string;
+}
+
+export interface RtcTransceiver {
+  receiver: { track?: { kind: string } };
+  setCodecPreferences(codecs: RtcCodec[]): void;
 }
 
 export interface RtcTrack {
@@ -41,8 +54,33 @@ export interface RtcPeer {
   close(): void;
   addEventListener(name: string, cb: (e: never) => void): void;
   readonly iceConnectionState: string;
+  readonly localDescription?: { sdp?: string } | null;
+  readonly remoteDescription?: { sdp?: string } | null;
+  getTransceivers?(): RtcTransceiver[];
   /** The connection's statistics (react-native-webrtc returns a report that can be walked with `forEach`). */
   getStats?(): Promise<{ forEach(cb: (v: Record<string, unknown>) => void): void }>;
+}
+
+/** The names of the video codecs of a capability list, in its order, without the ones that only repair (rtx, red, ulpfec, flexfec). */
+export function videoCodecNames(codecs: readonly RtcCodec[] | undefined): string[] {
+  const names: string[] = [];
+  for (const c of codecs ?? []) {
+    const n = c.mimeType.replace(/^video\//i, "").toUpperCase();
+    if (!/^(RTX|RED|ULPFEC|FLEXFEC-03)$/.test(n) && !names.includes(n)) names.push(n);
+  }
+  return names;
+}
+
+/** The capability list with the codecs in this order (by name; a codec not named, and the repairing ones, follow in the order they were). */
+export function inVideoOrder(codecs: readonly RtcCodec[], order: readonly string[]): RtcCodec[] {
+  const rank = (c: RtcCodec) => {
+    const i = order.indexOf(c.mimeType.replace(/^video\//i, "").toUpperCase());
+    return i < 0 ? order.length : i;
+  };
+  return codecs
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i)
+    .map((x) => x.c);
 }
 
 /** What a call writes to the app's log (Settings > Advanced options) and to logcat: the steps of the connection, not its content. */
@@ -66,6 +104,7 @@ async function traceStats(pc: RtcPeer, label: string) {
         rows.push(`${type === "local-candidate" ? "L" : "R"}:${String(v["id"])}=${String(v["candidateType"])}/${String(v["protocol"] ?? "")}`);
     });
     trace(label, rows.join(" | "));
+    trace(label, describeVideoStats(report));
   } catch (e) {
     trace(label, "stats failed", e instanceof Error ? e.message : String(e));
   }
@@ -109,6 +148,7 @@ export function webrtcCalls(load: () => RtcLib, newId: () => string, audio?: Cal
         if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
           setTimeout(() => void traceStats(pc, "stats@3s"), 3000);
           setTimeout(() => void traceStats(pc, "stats@8s"), 8000);
+          setTimeout(() => void traceStats(pc, "stats@15s"), 15000);
         }
       });
       // The other side's picture and sound: the first stream that comes.
@@ -131,10 +171,46 @@ export function webrtcCalls(load: () => RtcLib, newId: () => string, audio?: Cal
         connection: pc,
         createOffer: async () => ({ type: "offer", sdp: (await pc.createOffer()).sdp ?? "" }),
         createAnswer: async () => ({ type: "answer", sdp: (await pc.createAnswer()).sdp ?? "" }),
-        setLocalDescription: (d) => pc.setLocalDescription(d),
-        setRemoteDescription: (d) => pc.setRemoteDescription(d),
+        setLocalDescription: (d) => {
+          trace("local description:", d.type, sdpSummary(d.sdp));
+          return pc.setLocalDescription(d).catch((e: unknown) => {
+            trace("local description refused:", e instanceof Error ? e.message : String(e));
+            throw e;
+          });
+        },
+        setRemoteDescription: (d) => {
+          trace("remote description:", d.type, sdpSummary(d.sdp));
+          return pc.setRemoteDescription(d).catch((e: unknown) => {
+            trace("remote description refused:", e instanceof Error ? e.message : String(e));
+            throw e;
+          });
+        },
         addIceCandidate: (c) => pc.addIceCandidate(c),
         close: () => pc.close(),
+        // What this device can really send, as it says itself: the sender's list has no codec that it can only decode.
+        sendableVideoCodecs: () => videoCodecNames(rtc().RTCRtpSender?.getCapabilities("video")?.codecs),
+        setVideoCodecOrder: (order) => {
+          const all = rtc().RTCRtpReceiver?.getCapabilities("video")?.codecs;
+          if (!all) return;
+          const codecs = inVideoOrder(all, order);
+          for (const t of pc.getTransceivers?.() ?? []) {
+            if (t.receiver.track?.kind !== "video") continue;
+            try {
+              t.setCodecPreferences(codecs);
+            } catch (e) {
+              trace("codec order refused:", e instanceof Error ? e.message : String(e));
+            }
+          }
+        },
+        descriptions: () => ({ local: pc.localDescription?.sdp, remote: pc.remoteDescription?.sdp }),
+        videoDetail: async () => {
+          const report = await pc.getStats?.();
+          return report ? describeVideoStats(report) : undefined;
+        },
+        videoBytes: async () => {
+          const report = await pc.getStats?.();
+          return report ? readVideoProgress(report) : undefined;
+        },
         onCandidate: (cb) =>
           pc.addEventListener("icecandidate", (e: { candidate: { candidate: string; sdpMid?: string | null; sdpMLineIndex?: number | null } | null }) =>
             cb(e.candidate ? { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid ?? null, sdpMLineIndex: e.candidate.sdpMLineIndex ?? null } : null),
