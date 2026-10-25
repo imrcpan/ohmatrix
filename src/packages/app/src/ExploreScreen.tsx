@@ -16,8 +16,8 @@ const PAD = 16;
 const CARD_MIN = 300;
 /** A room with more members than this is slow to join (the homeserver does it over on the room's own server): the notice says so. */
 const BIG_ROOM = 1000;
-/** How long the notice of a big room being joined stays; after it the room is shown at the top of the chat list while it goes on. */
-const BIG_NOTICE_MS = 6000;
+/** How long the notice of a room being joined stays; after it the room is shown at the top of the chat list while the join goes on. */
+const NOTICE_MS = 3000;
 /** The directory of the homeserver itself, as a choice among the servers. */
 const OWN = "";
 const TOPIC_LINES = 3;
@@ -286,10 +286,10 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
     notice.show(
       big ? `${t("explore.joining", { name: room.name })} ${t("explore.joining.big")}` : t("explore.joining", { name: room.name }),
       "progress",
-      big ? BIG_NOTICE_MS : undefined,
+      NOTICE_MS,
     );
     const since = Date.now();
-    const shown = big ? setTimeout(() => addJoining({ id: room.roomId, name: room.name, avatar: room.avatar, since }), BIG_NOTICE_MS) : undefined;
+    const shown = setTimeout(() => addJoining({ id: room.roomId, name: room.name, avatar: room.avatar, since }), NOTICE_MS);
     controller
       .joinRoom(room.roomId, [...new Set(via)])
       .then(
