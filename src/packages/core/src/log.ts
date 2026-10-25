@@ -15,6 +15,8 @@ export interface LogLine {
 const LIMIT = 2000;
 /** One line is cut at this many characters: a long error or a dump of an object must not fill the memory. */
 const MAX_LINE = 4000;
+/** A line that must stay whole (a failure with everything it carries) may be this long. */
+const MAX_WHOLE = 50000;
 
 type Listener = () => void;
 const lines: LogLine[] = [];
@@ -32,10 +34,43 @@ function show(value: unknown): string {
   }
 }
 
+/**
+ * Everything an error says, for a log line: its name and message, and the fields it carries (an error from the Rust library holds the
+ * variant, the server's answer and details in them), then what caused it, down the chain. Nothing the error holds is left out.
+ */
+export function describeError(e: unknown, depth = 0): string {
+  if (depth > 4) return "(cause chain cut here)";
+  if (e === null || typeof e !== "object") return String(e);
+  const own: Record<string, unknown> = {};
+  for (const k of Object.getOwnPropertyNames(e)) {
+    if (k === "stack" || k === "cause") continue;
+    own[k] = (e as Record<string, unknown>)[k];
+  }
+  const fields = ((): string => {
+    try {
+      return JSON.stringify(own, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v));
+    } catch {
+      return String(own);
+    }
+  })();
+  const head = e instanceof Error ? `${e.name}: ${e.message}` : (e.constructor?.name ?? "object");
+  const stack = e instanceof Error && e.stack ? `\n${e.stack}` : "";
+  const cause = (e as { cause?: unknown }).cause;
+  return `${head} ${fields}${stack}${cause === undefined ? "" : `\ncaused by: ${describeError(cause, depth + 1)}`}`;
+}
+
 /** Add a line. */
 export function logLine(level: LogLine["level"], ...args: unknown[]): void {
-  let text = args.map(show).join(" ");
-  if (text.length > MAX_LINE) text = `${text.slice(0, MAX_LINE)}… (${text.length - MAX_LINE} more characters)`;
+  add(level, args.map(show).join(" "), MAX_LINE);
+}
+
+/** Add a line that is kept whole: for a failure that has to be understood later, with all it carries. */
+export function logWhole(level: LogLine["level"], text: string): void {
+  add(level, text, MAX_WHOLE);
+}
+
+function add(level: LogLine["level"], text: string, max: number): void {
+  if (text.length > max) text = `${text.slice(0, max)}… (${text.length - max} more characters)`;
   lines.push({ id: next++, ts: Date.now(), level, text });
   if (lines.length > LIMIT) lines.splice(0, lines.length - LIMIT);
   listeners.forEach((l) => l());

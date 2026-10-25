@@ -53,3 +53,14 @@ test("the lines are a new array only when the log changed, and the listener is c
   logLine("info", "b");
   expect(cb).toHaveBeenCalledTimes(2);
 });
+
+test("describeError keeps the fields an error carries and what caused it", async () => {
+  const { describeError } = await import("./log.js");
+  const root = Object.assign(new Error("connection refused"), { tag: "Generic", inner: { msg: "error sending request", details: "dns" } });
+  const top = new Error("join failed", { cause: root });
+  const text = describeError(top);
+  expect(text).toContain("Error: join failed");
+  expect(text).toContain("caused by: Error: connection refused");
+  expect(text).toContain('"tag":"Generic"');
+  expect(text).toContain('"details":"dns"');
+});
