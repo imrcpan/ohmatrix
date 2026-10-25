@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import type { PublicRoom } from "@ohmatrix/core";
-import { Avatar, fontFamily, IconButton, ScaleRoot, SearchField, useInsets, useScale, useTheme, useViewport } from "@ohmatrix/ui";
+import { Avatar, fontFamily, Icon, IconButton, ScaleRoot, SearchField, useInsets, useScale, useTheme, useViewport } from "@ohmatrix/ui";
 import { ConfirmDialog } from "./ConfirmDialog.js";
+import { PromptDialog } from "./PromptDialog.js";
+import { serverName } from "./serverName.js";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { addJoining, removeJoining } from "./joining.js";
 import { useNotice } from "./useNotice.js";
@@ -200,6 +202,10 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
           { id: "matrix.org", name: "matrix.org" },
           { id: OWN, name: own },
         ];
+  // The servers the person added are kept with the other settings.
+  const extra = useAppState((s) => s.prefs.exploreServers);
+  const [adding, setAdding] = useState(false);
+  const all = [...servers, ...extra.filter((x) => !servers.some((s) => s.name === x)).map((x) => ({ id: x, name: x }))];
   const chosen = pick ?? servers[0]!.id;
   const server = chosen === OWN ? undefined : chosen;
   const scale = useScale();
@@ -311,7 +317,7 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
             <SearchField value={query} onChangeText={setQuery} placeholder={t("explore.search")} />
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: PAD, paddingBottom: 10 }}>
-            {servers.map((sv) => (
+            {all.map((sv) => (
               <Pressable
                 key={sv.name}
                 accessibilityRole="button"
@@ -322,6 +328,24 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
                 <Text style={{ fontSize: 14, fontWeight: "600", fontFamily, color: chosen === sv.id ? colors.onAccent : colors.text }}>{sv.name}</Text>
               </Pressable>
             ))}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("explore.add")}
+              onPress={() => setAdding(true)}
+              style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                borderRadius: 14,
+                paddingLeft: 10,
+                paddingRight: 14,
+                paddingVertical: 6,
+                backgroundColor: pressed || hovered ? colors.separator : colors.hover,
+              })}
+            >
+              <Icon name="plus" size={16} strokeWidth={2.6} color={colors.text} />
+              <Text style={{ fontSize: 14, fontWeight: "600", fontFamily, color: colors.text }}>{t("explore.add")}</Text>
+            </Pressable>
           </View>
           {!!error && (
             <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center", paddingHorizontal: PAD, paddingBottom: 8 }}>{error}</Text>
@@ -351,6 +375,23 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
             )}
           </ScrollView>
         </View>
+        <PromptDialog
+          visible={adding}
+          title={t("explore.add.title")}
+          message={t("explore.add.body")}
+          confirmLabel={t("explore.add")}
+          fields={[{ label: t("explore.add.server"), placeholder: "kde.org" }]}
+          onClose={() => setAdding(false)}
+          onConfirm={async ([typed]) => {
+            const name = serverName(typed ?? "");
+            if (!name) throw new Error(t("explore.add.invalid"));
+            // Asked once now, so that a server that does not share its rooms is said so here and does not become a button that only fails.
+            await controller.exploreRooms("", undefined, name);
+            if (!extra.includes(name) && name !== own && name !== "matrix.org") controller.setPreferences({ exploreServers: [...extra, name] });
+            setPick(name);
+            setAdding(false);
+          }}
+        />
         <ConfirmDialog
           visible={!!asking}
           title={t("explore.confirm", { name: asking?.name ?? "" })}
