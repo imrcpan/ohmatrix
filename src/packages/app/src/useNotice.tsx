@@ -7,7 +7,8 @@ export interface Notice {
   kind: "success" | "error" | "progress";
 }
 
-type Show = (message: string, kind?: Notice["kind"]) => void;
+/** `ms` is how long a message stays; by default a few seconds, and for a message about something going on, until the next one. */
+type Show = (message: string, kind?: Notice["kind"], ms?: number) => void;
 const NoticeContext = createContext<{ show: Show }>({ show: () => {} });
 
 /**
@@ -18,11 +19,12 @@ export function NoticeProvider(props: { children: ReactNode }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
-  const show = useCallback<Show>((message, kind = "success") => {
+  const show = useCallback<Show>((message, kind = "success", ms) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     setNotice({ message, kind });
-    if (kind !== "progress") timer.current = setTimeout(() => setNotice(null), kind === "error" ? 4000 : 2500);
+    const stay = ms ?? (kind === "progress" ? undefined : kind === "error" ? 4000 : 2500);
+    if (stay !== undefined) timer.current = setTimeout(() => setNotice(null), stay);
   }, []);
   const value = useMemo(() => ({ show }), [show]);
   return (

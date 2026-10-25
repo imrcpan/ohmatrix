@@ -4,6 +4,9 @@ import { contentText, type RoomSummary } from "@ohmatrix/core";
 import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, RoomRowSkeleton, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
 import { NewSpaceDialog, SpaceScreen } from "./SpaceScreen.js";
+import { ExploreScreen } from "./ExploreScreen.js";
+import { JoiningRows } from "./JoiningRows.js";
+import { useJoining } from "./joining.js";
 import { MessageResults } from "./MessageResults.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
@@ -96,6 +99,7 @@ export function RoomListPane() {
   const syncing = useAppState((s) => s.syncState === "syncing");
   const security = useAppState((s) => s.security);
   const settled = useAppState((s) => s.roomsSettled);
+  const joining = useJoining();
   const profile = useAppState((s) => s.profile);
   const myAvatar = useMediaUrl(profile?.avatar, { width: 68, height: 68, fit: "crop" });
   const plusRef = useRef<ComponentRef<typeof View>>(null);
@@ -107,7 +111,7 @@ export function RoomListPane() {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [addMenu, setAddMenu] = useState(false);
   const [roomMenu, setRoomMenu] = useState<{ room: RoomSummary; anchor: Anchor } | null>(null);
-  const [dialog, setDialog] = useState<"chat" | "group" | "join" | "space" | null>(null);
+  const [dialog, setDialog] = useState<"chat" | "group" | "join" | "space" | "explore" | null>(null);
   const [sheet, setSheet] = useState(false);
   const [query, setQuery] = useState("");
   const space = useAppState((s) => s.spaceId);
@@ -178,8 +182,9 @@ export function RoomListPane() {
         items={[
           { label: t("newChat"), icon: "user", onPress: () => setDialog("chat") },
           { label: t("newGroup"), icon: "users", onPress: () => setDialog("group") },
-          { label: t("joinRoom"), icon: "hash", onPress: () => setDialog("join") },
           { label: t("newSpace"), icon: "users", onPress: () => setDialog("space") },
+          { label: t("joinRoom"), icon: "hash", onPress: () => setDialog("join") },
+          { label: t("explore"), icon: "globe", onPress: () => setDialog("explore") },
         ]}
       />
       <Menu
@@ -207,6 +212,7 @@ export function RoomListPane() {
         }
       />
       <NewChatDialog visible={dialog === "chat"} onClose={() => setDialog(null)} />
+      <ExploreScreen visible={dialog === "explore"} onClose={() => setDialog(null)} />
       <NewSpaceDialog visible={dialog === "space"} onClose={() => setDialog(null)} />
       <NewGroupDialog visible={dialog === "group"} onClose={() => setDialog(null)} />
       <PromptDialog
@@ -226,6 +232,7 @@ export function RoomListPane() {
             data={settled ? data : NONE}
             keyExtractor={(r) => r.id}
             contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
+            ListHeaderComponent={joining.length && !query.trim() ? <JoiningRows rooms={joining} /> : null}
             ListFooterComponent={
               query.trim().length >= 2 ? (
                 <View style={{ marginTop: 8 }}>
