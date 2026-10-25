@@ -22,12 +22,11 @@ export function MemberInfoPage(props: { d: RoomDetails; member: RoomMember; onBa
   const me = m.userId === props.d.me;
   const avatar = useMediaUrl(m.avatar, { width: 192, height: 192, fit: "crop" });
 
-  const copyLink = () => {
-    const link = `https://matrix.to/#/${m.userId}`;
+  const copy = (text: string) => {
     const nav = (globalThis as { navigator?: { clipboard?: { writeText(s: string): Promise<void> } } }).navigator;
     const write = services.copyText ?? nav?.clipboard?.writeText.bind(nav.clipboard);
     if (!write) return notice.show(t("copyFailed"), "error");
-    void write(link).then(
+    void write(text).then(
       () => notice.show(t("copied")),
       () => notice.show(t("copyFailed"), "error"),
     );
@@ -70,12 +69,14 @@ export function MemberInfoPage(props: { d: RoomDetails; member: RoomMember; onBa
           >
             {m.name}
           </Text>
-          <Text selectable style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
+          {/* The whole address, wrapped wherever it has to be (it can be long and has no spaces). */}
+          <Text selectable style={{ fontSize: 14, fontFamily, color: colors.textSecondary, textAlign: "center", ...({ overflowWrap: "anywhere" } as object) }}>
             {m.userId}
           </Text>
         </View>
         <Group>
-          <Item label={t("member.copyLink")} icon="copy" chevron={false} onPress={copyLink} />
+          <Item label={t("member.copyLink")} icon="copy" chevron={false} onPress={() => copy(`https://matrix.to/#/${m.userId}`)} />
+          <Item label={t("member.copyAddress")} icon="copy" chevron={false} onPress={() => copy(m.userId)} />
           {!me && <Item label={t("member.message")} icon="chat" chevron={false} onPress={() => setChatting(true)} />}
           {!me && controller.canVerify && (
             <Item label={t("member.verify")} icon="lock" chevron={false} onPress={() => void controller.verifyUser(m.userId).catch(() => {})} />

@@ -437,6 +437,7 @@ export const indonesian: Record<MessageKey, string> = {
   "member.view": "Lihat info anggota",
   "member.info": "Info anggota",
   "member.copyLink": "Salin tautan",
+  "member.copyAddress": "Salin alamat",
   "member.message": "Kirim pesan",
   "member.message.title": "Mulai obrolan dengan {name}?",
   "member.message.body": "Obrolan pribadi dibuka dengan orang ini (atau yang sudah ada ditampilkan).",

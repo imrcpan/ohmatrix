@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useState, type DependencyList, type ReactElement } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 import type { BannedMember, RoomDetails, RoomMember } from "@ohmatrix/core";
-import { Avatar, fontFamily, Icon, Menu, Spinner, useNavBottom, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Avatar, EllipsisText, fontFamily, Icon, Menu, Spinner, useNavBottom, useTheme, type Anchor } from "@ohmatrix/ui";
 import { useController, useT } from "./context.js";
 import { levelLabel } from "./RoomSettings.js";
 import { sortMembers } from "./memberOrder.js";
@@ -59,13 +59,14 @@ export const MemberRow = memo(function MemberRow(props: { member: RoomMember; ac
       }}
     >
       <Avatar id={m.userId} name={m.name} size={36} src={avatar} />
-      <View style={{ flex: 1 }}>
+      {/* minWidth 0: without it a long address keeps the column as wide as the text and pushes past the row instead of being cut. */}
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ fontSize: 16, fontFamily, color: colors.text }}>
           {m.name}
         </Text>
-        <Text numberOfLines={1} selectable style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
+        <EllipsisText selectable style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
           {m.userId}
-        </Text>
+        </EllipsisText>
       </View>
       {tag && <Text style={{ fontSize: 13, fontFamily, color: m.invited ? colors.textSecondary : colors.accent }}>{tag}</Text>}
     </View>

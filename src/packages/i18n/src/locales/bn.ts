@@ -437,6 +437,7 @@ export const bn: Record<MessageKey, string> = {
   "member.view": "সদস্যের তথ্য দেখুন",
   "member.info": "সদস্যের তথ্য",
   "member.copyLink": "লিংক কপি করুন",
+  "member.copyAddress": "ঠিকানা কপি করুন",
   "member.message": "বার্তা পাঠান",
   "member.message.title": "{name}-এর সঙ্গে চ্যাট শুরু করবেন?",
   "member.message.body": "এই ব্যক্তির সঙ্গে একটি ব্যক্তিগত চ্যাট খোলা হয় (অথবা আগে থেকে থাকলে সেটি দেখানো হয়)।",

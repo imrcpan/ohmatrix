@@ -439,6 +439,7 @@ export const fr: Record<MessageKey, string> = {
   "member.view": "Voir les infos du membre",
   "member.info": "Infos du membre",
   "member.copyLink": "Copier le lien",
+  "member.copyAddress": "Copier l'adresse",
   "member.message": "Envoyer un message",
   "member.message.title": "Démarrer une discussion avec {name} ?",
   "member.message.body": "Une discussion privée est ouverte avec cette personne (ou celle qui existe déjà est affichée).",

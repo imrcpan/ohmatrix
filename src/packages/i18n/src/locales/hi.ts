@@ -437,6 +437,7 @@ export const hi: Record<MessageKey, string> = {
   "member.view": "सदस्य की जानकारी देखें",
   "member.info": "सदस्य की जानकारी",
   "member.copyLink": "लिंक कॉपी करें",
+  "member.copyAddress": "पता कॉपी करें",
   "member.message": "संदेश भेजें",
   "member.message.title": "{name} के साथ चैट शुरू करें?",
   "member.message.body": "इस व्यक्ति के साथ एक निजी चैट खुलती है (या पहले से मौजूद चैट दिखाई जाती है)।",

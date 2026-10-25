@@ -436,6 +436,7 @@ export const pt: Record<MessageKey, string> = {
   "member.view": "Ver informações do membro",
   "member.info": "Informações do membro",
   "member.copyLink": "Copiar link",
+  "member.copyAddress": "Copiar endereço",
   "member.message": "Enviar mensagem",
   "member.message.title": "Iniciar uma conversa com {name}?",
   "member.message.body": "Uma conversa privada é aberta com esta pessoa (ou a que já existe é mostrada).",

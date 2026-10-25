@@ -431,6 +431,7 @@ export const zhTW: Record<MessageKey, string> = {
   "member.view": "檢視成員資訊",
   "member.info": "成員資訊",
   "member.copyLink": "複製連結",
+  "member.copyAddress": "複製地址",
   "member.message": "傳送訊息",
   "member.message.title": "要和 {name} 開始聊天嗎？",
   "member.message.body": "會和這個人開啟一個私人聊天（若已有，則顯示既有的聊天）。",
