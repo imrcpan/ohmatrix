@@ -50,6 +50,7 @@ import { orderFor, putState, readChildren, toSpaceChild } from "./spaces.js";
 import { addAlias, checkAlias, readAliases, removeAlias, setMainAlias, type Aliases } from "./aliases.js";
 import { readStatus, register, writeStatus } from "./account.js";
 import { RustCalls, type CallPlatform } from "./calls.js";
+import { exploreRooms } from "./explore.js";
 import { listDevices, removeDevices, type Account, type Fetch } from "./devices.js";
 import { attachmentKind, forwardContent, pathOf } from "./forward.js";
 import { personName } from "./serviceText.js";
@@ -471,7 +472,8 @@ export class RustEngineCore implements MatrixEngine {
           }),
         ),
       ),
-    joinRoom: (idOrAlias: string) => guard(async () => this.listed(await this.need().joinRoom(idOrAlias.trim()))),
+    explore: (term: string, since?: string, server?: string) => guard(() => exploreRooms(this.fetch(), this.account(), term, since, server)),
+    joinRoom: (idOrAlias: string, via?: string[]) => guard(async () => this.listed(await this.need().joinRoom(idOrAlias.trim(), via))),
     subscribeDetails: (roomId: string, cb: Listener<RoomDetails>): Unsubscribe => {
       const room = this.room(roomId);
       let live = true;

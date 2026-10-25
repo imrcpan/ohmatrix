@@ -224,7 +224,7 @@ export interface SdkClient {
   /** Make a room and resolve with its id. */
   createRoom(opts: { name: string; topic?: string; invite: string[]; encrypted: boolean; space: boolean; direct: boolean }): Promise<string>;
   /** Join by room id or alias; resolves with the room id. */
-  joinRoom(idOrAlias: string): Promise<string>;
+  joinRoom(idOrAlias: string, via?: string[]): Promise<string>;
   /** The one-to-one chat with a user, if there is one. */
   directRoom(userId: string): string | undefined;
   searchUsers(term: string, limit: number): Promise<RawProfile[]>;

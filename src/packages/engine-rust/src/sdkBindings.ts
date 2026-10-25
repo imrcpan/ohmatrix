@@ -56,6 +56,9 @@ interface ClientWithCalls {
   }): { cancel(): void };
 }
 
+// No limit that matters: a week. (The largest value the library takes would overflow its clock.)
+const REQUEST_TIMEOUT_MS = BigInt(7 * 24 * 3600 * 1000);
+
 export function sdkFromBindings(b: Bindings): Sdk {
   /** Downloaded files that must stay on disk while the app runs. */
   const files: Ffi.MediaFileHandleLike[] = [];
@@ -395,7 +398,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
           isSpace: o.space,
         }),
       ),
-    joinRoom: async (idOrAlias) => (await call(() => c.joinRoomByIdOrAlias(idOrAlias, []))).id(),
+    joinRoom: async (idOrAlias, via) => (await call(() => c.joinRoomByIdOrAlias(idOrAlias, via ?? []))).id(),
     directRoom: (userId) => c.getDmRoom(userId)?.id(),
     ignoreUser: (userId) => call(() => c.ignoreUser(userId)),
     searchUsers: async (term, limit) => (await call(() => c.searchUsers(term, BigInt(limit)))).results,
@@ -525,6 +528,10 @@ export function sdkFromBindings(b: Bindings): Sdk {
       const client = await call(() =>
         new b.ClientBuilder()
           .homeserverUrl(config.homeserverUrl)
+          // Joining a big room on another server makes the homeserver do the join over there first, which can take well over the default
+          // 30 seconds a request is given: it answers the app only when it is done, and an app that gave up before would see a failure
+          // for a room it did join. The app waits as long as it takes.
+          .requestConfig({ timeout: REQUEST_TIMEOUT_MS })
           .sqliteStore(store)
           // The index of the messages' text is kept on disk, one folder for each room, under the account's data folder (it goes with the
           // account when it is signed out). It is encrypted with the key of the database, written as hex: a random key, so the
