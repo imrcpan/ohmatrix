@@ -433,6 +433,7 @@ export const ko: Record<MessageKey, string> = {
   "member.view": "멤버 정보 보기",
   "member.info": "멤버 정보",
   "member.copyLink": "링크 복사",
+  "member.copyAddress": "주소 복사",
   "member.message": "메시지 보내기",
   "member.message.title": "{name}님과 채팅을 시작할까요?",
   "member.message.body": "이 사람과의 개인 채팅이 열려요(이미 있으면 그 채팅을 보여줘요).",

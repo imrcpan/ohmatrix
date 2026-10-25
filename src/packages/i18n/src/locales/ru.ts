@@ -436,6 +436,7 @@ export const ru: Record<MessageKey, string> = {
   "member.view": "Информация об участнике",
   "member.info": "Об участнике",
   "member.copyLink": "Копировать ссылку",
+  "member.copyAddress": "Копировать адрес",
   "member.message": "Написать",
   "member.message.title": "Начать чат с {name}?",
   "member.message.body": "Откроется личный чат с этим человеком (или покажется уже существующий).",

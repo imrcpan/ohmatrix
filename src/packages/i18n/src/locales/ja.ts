@@ -436,6 +436,7 @@ export const ja: Record<MessageKey, string> = {
   "member.view": "メンバー情報を表示",
   "member.info": "メンバー情報",
   "member.copyLink": "リンクをコピー",
+  "member.copyAddress": "アドレスをコピー",
   "member.message": "メッセージを送信",
   "member.message.title": "{name} さんとチャットを始めますか？",
   "member.message.body": "この人とのプライベートチャットを開きます（すでにある場合はそれを表示します）。",
