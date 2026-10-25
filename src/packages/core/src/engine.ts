@@ -17,6 +17,7 @@ import type {
   MxcUri,
   RoomId,
   UserId,
+  PublicRoom,
   RoomSummary,
   SecurityState,
   VerificationFlow,
@@ -79,8 +80,11 @@ export interface RoomListApi {
   createGroup(opts: { name: string; invite: UserId[] }): Promise<RoomId>;
   /** Create a space: an unencrypted container that holds other rooms. */
   createSpace(opts: { name: string; topic?: string; invite?: UserId[] }): Promise<RoomId>;
+  /** Search the server's public room directory (an empty `term` lists the popular rooms); `next` is passed back as `since` for the following page. `server` asks another server's directory (through the homeserver); omitted, it is the homeserver's own. */
+  explore(term: string, since?: string, server?: string): Promise<{ rooms: PublicRoom[]; next?: string }>;
   /** Join by room id (`!x:server`) or alias (`#x:server`). */
-  joinRoom(idOrAlias: string): Promise<RoomId>;
+  /** `via`: servers to try for a room that is on another server (the homeserver finds out for an alias by itself). */
+  joinRoom(idOrAlias: string, via?: string[]): Promise<RoomId>;
 }
 
 export interface MediaOptions {

@@ -197,6 +197,14 @@ export class MockEngine implements MatrixEngine {
     createDirect: async (userId: string) => `!dm-${userId}`,
     createSpace: async () => "!space:mock",
     createGroup: async (o: { name: string }) => `!group-${o.name}`,
+    explore: async (term: string) => {
+      const t = term.trim().toLowerCase();
+      const all = [
+        { roomId: "!lobby:example.org", name: "Lobby", topic: "Say hello", alias: "#lobby:example.org", members: 120 },
+        { roomId: "!dev:example.org", name: "Developers", alias: "#dev:example.org", members: 48 },
+      ];
+      return { rooms: all.filter((r) => !t || r.name.toLowerCase().includes(t)) };
+    },
     joinRoom: async (idOrAlias: string) => idOrAlias,
   };
 

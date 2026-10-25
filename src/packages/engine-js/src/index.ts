@@ -1523,10 +1523,27 @@ export class JsSdkEngine implements MatrixEngine {
         await waitForJoinedRoom(c, room_id);
         return room_id;
       }),
-    joinRoom: (idOrAlias: string) =>
+    explore: (term: string, since?: string, server?: string) =>
       guard(async () => {
         const c = this.requireClient();
-        const id = (await c.joinRoom(idOrAlias.trim())).roomId;
+        const t = term.trim();
+        const res = await c.publicRooms({ limit: 20, ...(t && { filter: { generic_search_term: t } }), ...(since && { since }), ...(server && { server }) });
+        return {
+          rooms: res.chunk.map((r) => ({
+            roomId: r.room_id,
+            name: r.name || r.canonical_alias || r.room_id,
+            ...(r.topic && { topic: r.topic }),
+            ...(r.canonical_alias && { alias: r.canonical_alias }),
+            ...(r.avatar_url && { avatar: r.avatar_url }),
+            members: r.num_joined_members,
+          })),
+          ...(res.next_batch && { next: res.next_batch }),
+        };
+      }),
+    joinRoom: (idOrAlias: string, via?: string[]) =>
+      guard(async () => {
+        const c = this.requireClient();
+        const id = (await c.joinRoom(idOrAlias.trim(), via?.length ? { viaServers: via } : undefined)).roomId;
         await waitForJoinedRoom(c, id);
         return id;
       }),

@@ -375,6 +375,17 @@ export interface RoomDetails {
 }
 
 /** A person found in the user directory (or looked up by full user id). */
+/** A room listed in the server's public directory. */
+export interface PublicRoom {
+  roomId: RoomId;
+  name: string;
+  topic?: string;
+  /** The room's main address, `#name:server`; joining by it works for rooms on any server. */
+  alias?: string;
+  avatar?: MxcUri;
+  members: number;
+}
+
 export interface UserSuggestion {
   userId: UserId;
   displayName: string;

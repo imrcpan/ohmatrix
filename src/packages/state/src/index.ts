@@ -16,6 +16,9 @@ import {
   type MediaOptions,
   type Profile,
   type UserSuggestion,
+  describeError,
+  logWhole,
+  type PublicRoom,
   type MxcUri,
   type PlatformServices,
   type Session,
@@ -243,8 +246,10 @@ export interface AppController {
   moveSpaceChild(spaceId: RoomId, roomId: RoomId, to: "first" | "last"): Promise<void>;
   /** Pull to refresh: starts the sync again when it is not running (offline, failed); a live sync is already as fresh as it gets. */
   refresh(): Promise<void>;
+  /** The public rooms of the homeserver matching `term` (all, most popular first, when empty); `since` is the previous page's `next`. */
+  exploreRooms(term: string, since?: string, server?: string): Promise<{ rooms: PublicRoom[]; next?: string }>;
   /** Join a room by id or alias, then select it. */
-  joinRoom(idOrAlias: string): Promise<void>;
+  joinRoom(idOrAlias: string, via?: string[]): Promise<void>;
   /** Create encryption keys; resolves with the recovery key to show the user exactly once. */
   /** Whether this engine can verify sessions and people. */
   canVerify: boolean;
@@ -616,8 +621,18 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       if (store.getState().syncState === "syncing") return;
       await engine.sync.start().catch(() => {});
     },
-    async joinRoom(idOrAlias) {
-      select(await engine.rooms.joinRoom(idOrAlias));
+    exploreRooms: (term, since, server) => engine.rooms.explore(term, since, server),
+    async joinRoom(idOrAlias, via) {
+      try {
+        select(await engine.rooms.joinRoom(idOrAlias, via));
+      } catch (e) {
+        // Kept for good: why a join failed is hard to learn afterwards (the server's answer, or that it never answered).
+        logWhole(
+          "error",
+          `join room failed: target=${idOrAlias} via=${JSON.stringify(via ?? [])} homeserver=${store.getState().homeserver ?? "?"}\n${describeError(e)}`,
+        );
+        throw e;
+      }
     },
     canVerify: !!engine.verification,
     canStickers: !!engine.stickers,

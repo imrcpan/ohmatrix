@@ -13,10 +13,10 @@ export interface Account {
   deviceId: string;
 }
 
-const base = (a: Account) => `${a.homeserverUrl.replace(/\/+$/, "")}/_matrix/client/v3`;
+export const base = (a: Account) => `${a.homeserverUrl.replace(/\/+$/, "")}/_matrix/client/v3`;
 const headers = (a: Account) => ({ Authorization: `Bearer ${a.accessToken}`, "Content-Type": "application/json" });
 
-async function ask(f: Fetch, url: string, a: Account, init: { method?: string; body?: unknown } = {}) {
+export async function ask(f: Fetch, url: string, a: Account, init: { method?: string; body?: unknown } = {}) {
   let res;
   try {
     res = await f(url, { method: init.method ?? "GET", headers: headers(a), ...(init.body !== undefined && { body: JSON.stringify(init.body) }) });
