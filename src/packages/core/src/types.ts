@@ -236,6 +236,8 @@ export interface Preferences {
   pullToRefresh: boolean;
   /** The server last signed in to (as typed), offered again on the sign-in screen; null = none yet. */
   lastHomeserver: string | null;
+  /** Servers added to Explore by name (`kde.org`), whose public rooms it can list; in the order they were added. */
+  exploreServers: string[];
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -249,6 +251,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pushEnabled: true,
   pullToRefresh: false,
   lastHomeserver: null,
+  exploreServers: [],
 };
 
 /** The signed-in user's own profile. */
