@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "identifier": "org.ohmatrix.app",
   "build": {
-    "beforeDevCommand": "pnpm --filter @ohmatrix/web dev",
-    "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm --filter @ohmatrix/web build",
-    "frontendDist": "../../web/dist"
+    "beforeDevCommand": "pnpm page",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm page:build",
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [{ "title": "OhMatrix", "width": 1200, "height": 800, "minWidth": 360, "minHeight": 480 }],
