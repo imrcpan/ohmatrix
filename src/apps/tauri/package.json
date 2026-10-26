@@ -13,7 +13,9 @@
     "build": "pnpm icons && tauri build"
   },
   "dependencies": {
-    "@ohmatrix/web": "workspace:*"
+    "@ohmatrix/web": "workspace:*",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-notification": "^2.7.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",
