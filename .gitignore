@@ -27,3 +27,8 @@ src/apps/mobile/.generated/
 # `expo prebuild` writes the native projects (the build makes them; they are not kept)
 src/apps/mobile/android/
 src/apps/mobile/ios/
+
+# tauri: the Rust build output, what it generates, and the icons made from the logo at build time
+src/apps/tauri/src-tauri/target/
+src/apps/tauri/src-tauri/gen/
+src/apps/tauri/src-tauri/icons/

@@ -1,0 +1,19 @@
+{
+  "name": "@ohmatrix/tauri",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "icons": "node scripts/makeIcons.mjs",
+    "dev": "pnpm icons && tauri dev",
+    "build": "pnpm icons && tauri build"
+  },
+  "dependencies": {
+    "@ohmatrix/web": "workspace:*"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}
