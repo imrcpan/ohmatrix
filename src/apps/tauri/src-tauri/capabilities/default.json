@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the window may ask of the app: nothing beyond its own page.",
+  "description": "What the window may ask of the app: its own page, and to show notifications.",
   "windows": ["main"],
-  "permissions": []
+  "permissions": ["notification:default"]
 }
