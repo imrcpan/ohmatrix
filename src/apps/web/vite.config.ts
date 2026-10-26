@@ -32,7 +32,7 @@ function webPlatformFiles() {
  * once, in logo/, and nothing made from it. (Every current browser takes an SVG as a favicon; there is no .ico or .png to make.)
  */
 function faviconFromLogo(): Plugin {
-  const logo = resolve(__dirname, "../../../logo/colorful/1.svg");
+  const logo = resolve(import.meta.dirname, "../../../logo/colorful/1.svg");
   return {
     name: "ohmatrix-favicon",
     configureServer(server) {
