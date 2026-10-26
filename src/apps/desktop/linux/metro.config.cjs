@@ -5,14 +5,21 @@ const path = require("node:path");
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, "../../../..");
 
+// react-native-linux is not on npm: its checkout is named by RNL_DIR (the folder `git clone` made), and its resolver, which swaps in the
+// Linux versions of React Native's platform files (`Platform`, colours, native components), is read from there.
+const rnlDir = process.env.RNL_DIR;
+if (!rnlDir) throw new Error("Set RNL_DIR to the react-native-linux checkout (see README.md).");
+const { linuxResolverConfig } = require(path.join(rnlDir, "packages/cli/src/linux-resolver-config.ts"));
+const linux = linuxResolverConfig(projectRoot);
+
 const config = mergeConfig(getDefaultConfig(projectRoot), {
   // The shared packages (src/packages/*) are outside this app's folder: watch them, and look for modules in the
   // workspace root first (the layout is hoisted, see .npmrc).
-  watchFolders: [workspaceRoot],
+  watchFolders: [workspaceRoot, path.join(rnlDir, "packages/core")],
   resolver: {
-    // Metro knows ios, android, windows and web; `linux` has to be added for a bundle to be made for it (and for `*.linux.ts` files to be picked).
-    platforms: ["linux", "ios", "android", "windows", "web"],
+    platforms: linux.platforms,
     nodeModulesPaths: [path.resolve(workspaceRoot, "node_modules"), path.resolve(projectRoot, "node_modules")],
+    resolveRequest: linux.resolveRequest,
   },
 });
 
