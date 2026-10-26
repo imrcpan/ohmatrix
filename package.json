@@ -13,7 +13,6 @@
     "dev:web": "pnpm --filter @ohmatrix/web dev",
     "dev:www": "pnpm --filter @ohmatrix/site-www dev",
     "dev:mobile": "pnpm --filter @ohmatrix/mobile start",
-    "dev:desktop": "pnpm --filter @ohmatrix/desktop dev",
     "synapse:up": "src/dev/synapse/up.sh && node src/dev/synapse/seed.mjs",
     "synapse:down": "src/dev/synapse/up.sh down",
     "test:e2e": "pnpm --filter @ohmatrix/e2e e2e",
