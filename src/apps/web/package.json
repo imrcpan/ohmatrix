@@ -4,6 +4,10 @@
   "private": true,
   "license": "GPL-3.0-only",
   "type": "module",
+  "exports": {
+    "./start": "./src/start.tsx",
+    "./vite.config": "./vite.config.ts"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
