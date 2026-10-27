@@ -16,6 +16,7 @@ import {
   useNavBottom,
 } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
+import { FontDialog } from "./FontDialog.js";
 import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
 import { SCALES, useZoomChange } from "./useZoomChange.js";
@@ -40,6 +41,8 @@ export function SettingsPage() {
   const scaleRef = useRef<ComponentRef<typeof View>>(null);
   const [scaleAnchor, setScaleAnchor] = useState<Anchor | null>(null);
   const [scaleMenu, setScaleMenu] = useState(false);
+  const [fonts, setFonts] = useState<string[] | null>(null);
+  const [fontDialog, setFontDialog] = useState(false);
   const zoom = useZoomChange();
   const themeName = prefs.theme === SYSTEM_THEME ? t("theme.system") : themeLabel(listThemes().find((x) => x.id === prefs.theme) ?? listThemes()[0]!, locale);
   const current = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
@@ -139,6 +142,17 @@ export function SettingsPage() {
             />
           </View>
           <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("zoom.footer")}</Text>
+          {services.listFonts && (
+            <Item
+              label={t("font")}
+              icon="font"
+              value={prefs.font ?? t("font.system")}
+              onPress={() => {
+                setFontDialog(true);
+                if (!fonts) services.listFonts?.().then(setFonts, () => setFonts([]));
+              }}
+            />
+          )}
           <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
           {services.appIcons && <Item label={t("appIcon")} icon="image" onPress={() => controller.openSidebarPage("appIcon")} />}
           <Item
@@ -181,6 +195,16 @@ export function SettingsPage() {
           checked: v === prefs.uiScale,
           onPress: () => zoom.start(v),
         }))}
+      />
+      <FontDialog
+        visible={fontDialog}
+        fonts={fonts ?? []}
+        current={prefs.font}
+        onClose={() => setFontDialog(false)}
+        onConfirm={(font) => {
+          setFontDialog(false);
+          controller.setPreferences({ font });
+        }}
       />
       {/* Not saved until Keep: left alone, the zoom goes back by itself when the time is up. */}
       <Dialog
