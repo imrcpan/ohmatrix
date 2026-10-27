@@ -21,8 +21,11 @@ The window shows the web app, with these made for the system (`src-tauri/capabil
 - Notifications for new messages, as the desktop's own, with a click bringing the window back.
 - Links open in the system browser.
 - Files to send are chosen with the system's file chooser; files dragged onto the window arrive as in a browser (Tauri's own drop handling is off for that).
+- Files to save go into the Downloads folder, under a name that is free, with a notification saying so.
+- A tray icon (Show, Quit): closing the window hides it there and the app keeps running, so notifications keep coming. Where there is no tray, closing quits as usual.
+- The window opens with the size and place it was closed with (a Wayland desktop decides the place itself).
 - Settings, Appearance, has Fonts: any font installed on the system for the whole interface.
 
-Not done yet: saving files (it needs a folder the person can choose), the system key store for sessions, a tray icon, and updates.
+Not done yet: a folder for saved files that the person can choose, the system key store for sessions, and updates.
 
 Run as a bare binary the window has no desktop entry, so the shell shows a generic icon; installed from the package it shows the logo.
