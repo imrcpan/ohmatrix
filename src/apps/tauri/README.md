@@ -16,6 +16,13 @@ pnpm --filter @ohmatrix/tauri exec tauri build --bundles deb          # a packag
 
 ## State
 
-A window that shows the web app, and nothing the page may ask of the system beyond what a browser allows (`src-tauri/capabilities/default.json` lists no permissions). Not done yet: the system key store for sessions, notifications, a tray icon, links opening in the browser, and updates.
+The window shows the web app, with these made for the system (`src-tauri/capabilities/default.json` lists what the page may ask of it):
+
+- Notifications for new messages, as the desktop's own, with a click bringing the window back.
+- Links open in the system browser.
+- Files to send are chosen with the system's file chooser; files dragged onto the window arrive as in a browser (Tauri's own drop handling is off for that).
+- Settings, Appearance, has Fonts: any font installed on the system for the whole interface.
+
+Not done yet: saving files (it needs a folder the person can choose), the system key store for sessions, a tray icon, and updates.
 
 Run as a bare binary the window has no desktop entry, so the shell shows a generic icon; installed from the package it shows the logo.
