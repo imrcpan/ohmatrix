@@ -18,7 +18,9 @@ export function createTauriNotifications(): SystemNotifications & { refresh(): P
   void onAction((event) => {
     const tag = event.notification?.extra?.["tag"];
     if (typeof tag !== "string") return;
-    void getCurrentWindow().show().then(() => getCurrentWindow().setFocus());
+    void getCurrentWindow()
+      .show()
+      .then(() => getCurrentWindow().setFocus());
     clicks.get(tag)?.();
   });
 
