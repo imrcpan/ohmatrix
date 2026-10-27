@@ -8,7 +8,7 @@ import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
 import { mix } from "./themes.js";
-import { fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
+import { canvasFontFamily, fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
 
 /** Message bubble: large continuous radii, joined corners inside a run of plain text, time + state inside. */
 /** Which corners of a bubble touch a neighbour: they are tight there (only plain text bubbles do). */
@@ -604,7 +604,7 @@ export function Composer(props: {
     ).document?.createElement("canvas");
     const ctx = canvas?.getContext("2d");
     if (!ctx) return 0;
-    ctx.font = `16px ${fontFamily}`;
+    ctx.font = `16px ${canvasFontFamily(fontFamily)}`;
     return ctx.measureText(line).width;
   })();
   const menuLeft = Math.max(8, Math.min(field.x + 1 + 14 + atX, Math.max(8, box.width - MENU_W - 8)));

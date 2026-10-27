@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { truncateWithDots } from "./truncate.js";
+import { canvasFontFamily } from "./theme.js";
 import { Platform, StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 
 let canvas: { getContext(id: "2d"): { font: string; measureText(s: string): { width: number } } | null } | null | undefined;
@@ -7,7 +8,7 @@ function webMeasurer(style: TextStyle) {
   if (canvas === undefined) canvas = (globalThis as { document?: { createElement(t: "canvas"): typeof canvas } }).document?.createElement("canvas") ?? null;
   const ctx = canvas?.getContext("2d");
   if (!ctx) return null;
-  ctx.font = `${style.fontWeight ?? "400"} ${style.fontSize ?? 16}px ${style.fontFamily ?? "sans-serif"}`;
+  ctx.font = `${style.fontWeight ?? "400"} ${style.fontSize ?? 16}px ${canvasFontFamily(style.fontFamily)}`;
   return (s: string) => ctx.measureText(s).width;
 }
 

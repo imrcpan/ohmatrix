@@ -17,11 +17,39 @@ export const popoverShadow = (dark: boolean) =>
 
 export const radius = { control: 10, bubble: 18, bubbleTight: 5, pill: 999 } as const;
 
-/** System UI fonts: SF on Apple, Segoe UI (Variable) on Windows, platform default elsewhere. */
+const systemFonts = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, "Helvetica Neue", sans-serif';
+
+/**
+ * System UI fonts: SF on Apple, Segoe UI (Variable) on Windows, platform default elsewhere. On the web it is a CSS variable, so a font
+ * chosen by the person (`setUiFont`) reaches every text at once, without the screens having to draw again.
+ */
 export const fontFamily = Platform.select({
-  web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, "Helvetica Neue", sans-serif',
+  web: "var(--om-font)",
   default: undefined,
 });
+
+let chosenFont: string | null = null;
+
+/** The font stack text is drawn with now: the chosen font first, the system ones behind it for the characters it lacks. */
+function fontStack() {
+  return chosenFont ? `"${chosenFont.replace(/"/g, "")}", ${systemFonts}` : systemFonts;
+}
+
+/** Use this installed font for the interface (null = the system's own). Web only: the other platforms keep theirs. */
+export function setUiFont(name: string | null) {
+  chosenFont = name;
+  (globalThis as { document?: { documentElement: { style: { setProperty(k: string, v: string): void } } } }).document?.documentElement.style.setProperty(
+    "--om-font",
+    fontStack(),
+  );
+}
+
+/** A canvas does not know CSS variables: its text is measured with the stack the variable stands for. */
+export function canvasFontFamily(family: string | undefined) {
+  return family === fontFamily && family ? fontStack() : (family ?? "sans-serif");
+}
+
+if (Platform.OS === "web") setUiFont(null);
 
 const Ctx = createContext<Theme | null>(null);
 
