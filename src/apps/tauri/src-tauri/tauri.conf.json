@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "OhMatrix", "width": 1200, "height": 800, "minWidth": 360, "minHeight": 480 }],
+    "windows": [{ "title": "OhMatrix", "width": 1200, "height": 800, "minWidth": 360, "minHeight": 480, "dragDropEnabled": false }],
     "security": { "csp": null }
   },
   "bundle": {
