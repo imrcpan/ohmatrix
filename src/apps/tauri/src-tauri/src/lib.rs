@@ -13,6 +13,11 @@ fn list_fonts() -> Vec<String> {
 }
 
 pub fn run() {
+    // WebKitGTK's dmabuf renderer makes the window flicker whenever a dialog or page fades in or out (seen on Wayland with Intel graphics).
+    // Set before the web view exists, and left alone when the person has set it.
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
