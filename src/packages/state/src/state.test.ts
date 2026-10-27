@@ -176,6 +176,7 @@ test("preferences load on bootstrap and persist on change", async () => {
     pullToRefresh: false,
     lastHomeserver: null,
     exploreServers: [],
+    font: null,
   });
   app.setPreferences({ sidebarWidth: 400 });
   await Promise.resolve();
@@ -192,6 +193,7 @@ test("preferences load on bootstrap and persist on change", async () => {
     pullToRefresh: false,
     lastHomeserver: null,
     exploreServers: [],
+    font: null,
   });
 });
 
