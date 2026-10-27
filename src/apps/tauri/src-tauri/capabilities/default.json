@@ -1,7 +1,29 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the window may ask of the app: its own page, to show notifications, and to open a web link in the browser, and to pick files and read them.",
+  "description": "What the window may ask of the app: its own page, to show notifications, to open a web link in the browser, to pick files and read them, and to save files into the Downloads folder.",
   "windows": ["main"],
-  "permissions": ["notification:default", "opener:default", "dialog:default", "fs:allow-read-file"]
+  "permissions": [
+    "notification:default",
+    "core:path:default",
+    "opener:default",
+    "dialog:default",
+    "fs:allow-read-file",
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        {
+          "path": "$DOWNLOAD/**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        {
+          "path": "$DOWNLOAD/**"
+        }
+      ]
+    }
+  ]
 }
