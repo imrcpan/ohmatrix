@@ -12,7 +12,7 @@ pnpm --filter @ohmatrix/tauri exec tauri build --debug --no-bundle    # a debug 
 pnpm --filter @ohmatrix/tauri exec tauri build --bundles deb          # a package: also rpm, appimage
 ```
 
-`dev` and `build` first make the icons from `logo/colorful-full/1.svg` (`pnpm --filter @ohmatrix/tauri icons`; nothing made from the logo is kept in the repository) and build or serve the web app.
+`dev` and `build` first make the icons from `logo/colorful/1.svg` (`pnpm --filter @ohmatrix/tauri icons`; nothing made from the logo is kept in the repository) and build or serve the web app.
 
 ## State
 
