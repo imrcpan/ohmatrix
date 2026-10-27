@@ -1,4 +1,4 @@
-import { useRef, useState, type ComponentRef } from "react";
+import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, View } from "react-native";
 import {
   Dialog,
@@ -24,6 +24,9 @@ import { SCALES, useZoomChange } from "./useZoomChange.js";
 /** The project page, opened outside the app from the About group. */
 const REPOSITORY = "https://github.com/imrcpan/ohmatrix";
 
+/** How long a dialog takes to fade away. */
+const FADE_MS = 300;
+
 export function SettingsPage() {
   const { colors } = useTheme();
   const nav = useNavBottom();
@@ -43,6 +46,10 @@ export function SettingsPage() {
   const [scaleMenu, setScaleMenu] = useState(false);
   const [fonts, setFonts] = useState<string[] | null>(null);
   const [fontDialog, setFontDialog] = useState(false);
+  // Read when the page opens, so that the dialog has them at once.
+  useEffect(() => {
+    services.listFonts?.().then(setFonts, () => setFonts([]));
+  }, [services]);
   const zoom = useZoomChange();
   const themeName = prefs.theme === SYSTEM_THEME ? t("theme.system") : themeLabel(listThemes().find((x) => x.id === prefs.theme) ?? listThemes()[0]!, locale);
   const current = LANGUAGES.find((l) => l.id === locale) ?? LANGUAGES[0];
@@ -142,17 +149,7 @@ export function SettingsPage() {
             />
           </View>
           <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("zoom.footer")}</Text>
-          {services.listFonts && (
-            <Item
-              label={t("font")}
-              icon="font"
-              value={prefs.font ?? t("font.system")}
-              onPress={() => {
-                setFontDialog(true);
-                if (!fonts) services.listFonts?.().then(setFonts, () => setFonts([]));
-              }}
-            />
-          )}
+          {services.listFonts && <Item label={t("font")} icon="font" value={prefs.font ?? t("font.system")} onPress={() => setFontDialog(true)} />}
           <Item label={t("theme")} icon="palette" value={themeName} onPress={() => controller.openSidebarPage("theme")} />
           {services.appIcons && <Item label={t("appIcon")} icon="image" onPress={() => controller.openSidebarPage("appIcon")} />}
           <Item
@@ -198,12 +195,13 @@ export function SettingsPage() {
       />
       <FontDialog
         visible={fontDialog}
-        fonts={fonts ?? []}
+        fonts={fonts}
         current={prefs.font}
         onClose={() => setFontDialog(false)}
         onConfirm={(font) => {
           setFontDialog(false);
-          controller.setPreferences({ font });
+          // After the dialog has faded out: the font of its own text would change under the person's eyes while it does.
+          setTimeout(() => controller.setPreferences({ font }), FADE_MS);
         }}
       />
       {/* Not saved until Keep: left alone, the zoom goes back by itself when the time is up. */}
