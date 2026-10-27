@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Platform, View, useWindowDimensions } from "react-native";
-import { InsetsContext, KeyboardHoldContext, ScaleProvider, Spinner, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
+import { InsetsContext, KeyboardHoldContext, ScaleProvider, setUiFont, Spinner, ThemeProvider, useTheme, useUnzoom } from "@ohmatrix/ui";
 import { useStore } from "zustand";
 import type { AppServices } from "@ohmatrix/core";
 import type { AccountManager } from "@ohmatrix/state";
@@ -227,6 +227,8 @@ function Framed(props: { insets: Insets | undefined; children: ReactNode }) {
 function Themed({ children }: { children: ReactNode }) {
   const themeId = useAppState((s) => s.prefs.theme);
   const scale = useAppState((s) => s.zoomTrial?.to ?? s.prefs.uiScale);
+  const font = useAppState((s) => s.prefs.font);
+  useEffect(() => setUiFont(font), [font]);
   return (
     <ThemeProvider themeId={themeId}>
       <ScaleProvider scale={scale}>{children}</ScaleProvider>
