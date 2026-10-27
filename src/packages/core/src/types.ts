@@ -238,6 +238,8 @@ export interface Preferences {
   lastHomeserver: string | null;
   /** Servers added to Explore by name (`kde.org`), whose public rooms it can list; in the order they were added. */
   exploreServers: string[];
+  /** The interface's font, by the name of an installed one; null = the system's own. Offered only where the platform can list its fonts. */
+  font: string | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -252,6 +254,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pullToRefresh: false,
   lastHomeserver: null,
   exploreServers: [],
+  font: null,
 };
 
 /** The signed-in user's own profile. */
