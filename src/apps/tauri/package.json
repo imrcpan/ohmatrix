@@ -16,7 +16,8 @@
     "@ohmatrix/core": "workspace:*",
     "@ohmatrix/web": "workspace:*",
     "@tauri-apps/api": "^2.12.4",
-    "@tauri-apps/plugin-notification": "^2.7.0"
+    "@tauri-apps/plugin-notification": "^2.7.0",
+    "@tauri-apps/plugin-opener": "^2.7.2"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",
