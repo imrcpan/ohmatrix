@@ -14,7 +14,7 @@
 # The passwords are read from the environment, never from the command line (which others can see in the process list):
 #   OHM_KEYSTORE_PASSWORD   the keystore's password
 #   OHM_KEY_PASSWORD        the key's password (default: the keystore's, which is what a PKCS12 keystore has)
-# The SDK is found from ANDROID_HOME / ANDROID_SDK_ROOT or in OHM_TOOLS (where build-android.sh installs it).
+# The SDK is found from ANDROID_HOME / ANDROID_SDK_ROOT or in OHM_TOOLS (where the build-android scripts install it).
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib/common.sh
@@ -87,7 +87,7 @@ for sdk in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$OHM_TOOLS/android-sdk";
     break
   fi
 done
-[ -n "$tools" ] || die "no Android build-tools $ANDROID_BUILD_TOOLS (set ANDROID_HOME, or run build-android.sh once to install the SDK)"
+[ -n "$tools" ] || die "no Android build-tools $ANDROID_BUILD_TOOLS (set ANDROID_HOME, or run a build-android script once to install the SDK)"
 zipalign="$tools/zipalign"
 apksigner="$tools/apksigner"
 [ -x "$zipalign" ] || die "no zipalign in $tools"
