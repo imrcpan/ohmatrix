@@ -3,10 +3,11 @@
 # (no curl, git, sudo, node, java). If the scripts get through here they need nothing from the machine, so a CI runner
 # (GitHub's ubuntu-latest) will do too. The container's CPU and memory can be limited to see the scripts follow them.
 #
-#   scripts/verify/docker.sh [--entry web|android|both] [--version A.B.C] [--image IMAGE] [--cpus N] [--memory SIZE]
-#                            [-- extra args for build-android.sh]
+#   scripts/verify/docker.sh [--entry ENTRY] [--version A.B.C] [--image IMAGE] [--cpus N] [--memory SIZE]
+#                            [-- extra args for the build script]
 #
-#   --entry    which build to run (default both)
+#   --entry    which build to run: the name of a script without its build- and .sh, like web, android-arm64-v8a or
+#              tauri-linux-x86_64; or both, web and android-arm64-v8a (default both)
 #   --version  the version to build (default 9.9.9); the result is checked for it
 #   --keep DIR keep what is built: DIR (on this machine) is where the container's release folder is written, instead of vanishing with it
 #   --image    the base image (default debian:bookworm-slim, the older of the two current Debians)
@@ -64,11 +65,10 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-case "$entry" in web | android | both) ;; *)
-  echo "--entry is web, android or both" >&2
+[ "$entry" = both ] || [ -f "$here/../build-$entry.sh" ] || {
+  echo "--entry is both, or the name of a script here without build- and .sh (web, android-arm64-v8a, tauri-linux-x86_64...)" >&2
   exit 2
-  ;;
-esac
+}
 [ -z "$keep" ] || mkdir -p "$keep"
 command -v docker >/dev/null || {
   echo "docker is not installed here" >&2
@@ -91,7 +91,7 @@ for t in curl git sudo unzip node java cargo; do command -v "$t" >/dev/null && e
 df -h / | tail -1 | sed 's/^/    disk: /'
 for e in $ENTRIES; do
   extra=""
-  [ "$e" = android ] && extra="$EXTRA"
+  case "$e" in web) ;; *) extra="$EXTRA" ;; esac
   echo; echo "### build-$e.sh --check on the bare system (it must name what is missing)"
   bash "scripts/build-$e.sh" --check --version "$VERSION" $extra && echo "    (nothing missing: not a bare system?)" || echo "    exit $? : as expected"
   echo; echo "### build-$e.sh --version $VERSION"
@@ -110,13 +110,13 @@ echo; echo "### disk used"
 df -h / | tail -1
 du -sh "$HOME/.ohmatrix-tools" "$HOME/release" /work/repo/build-out 2>/dev/null || true
 echo; echo "### result: $HOME/release"
-ls -la "$HOME/release/web/index.html" "$HOME/release/android/" 2>/dev/null || true
+ls -la "$HOME/release/web/index.html" "$HOME/release/android/" "$HOME/release/tauri-linux/" 2>/dev/null || true
 echo "### DONE"
 INNER
 )
 
 entries=$entry
-[ "$entry" = both ] && entries="web android"
+[ "$entry" = both ] && entries="web android-arm64-v8a"
 
 echo "version $version, image $image, cpus ${cpus:-unlimited}, memory ${memory:-unlimited}, entries: $entries"
 cd "$root"
