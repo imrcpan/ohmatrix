@@ -31,9 +31,12 @@ ANDROID_NDK=27.1.12297006
 ANDROID_PLATFORM=35
 ANDROID_BUILD_TOOLS=35.0.0
 
-# Packages from the distribution. Both builds need the first group; the Rust and Android side needs the second.
+# Packages from the distribution. Every build needs the first group; the Android side needs the second, the Tauri window the third.
 APT_BASE=(ca-certificates curl git unzip xz-utils)
 APT_ANDROID=(build-essential cmake pkg-config zip protobuf-compiler libssl-dev python3 perl clang lld ninja-build)
+# The Tauri window on Linux: the compiler, the system web view and toolkit it is built against, the tray icon library (the packager looks it up
+# with pkg-config), and what the packages are made with.
+APT_TAURI=(build-essential pkg-config file patchelf libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev librsvg2-dev libssl-dev libayatana-appindicator3-dev xdg-utils)
 
 # ABI (as the Android build and ubrn.yaml name it) -> Rust target.
 rust_target_of() {
@@ -42,6 +45,16 @@ rust_target_of() {
     x86_64) echo x86_64-linux-android ;;
     armeabi-v7a) echo armv7-linux-androideabi ;;
     x86) echo i686-linux-android ;;
+    *) return 1 ;;
+  esac
+}
+
+# Linux CPU (what `uname -m` says) -> Rust target of the Tauri window. A window is built on a machine of its own architecture: the web view
+# it is linked against comes from that machine's system packages.
+tauri_rust_target_of() {
+  case "$1" in
+    x86_64) echo x86_64-unknown-linux-gnu ;;
+    aarch64) echo aarch64-unknown-linux-gnu ;;
     *) return 1 ;;
   esac
 }
