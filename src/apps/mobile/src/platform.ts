@@ -383,7 +383,7 @@ export function phonePush(): NonNullable<AppServices["push"]> | undefined {
 export function phoneServices(): AppServices {
   const push = phonePush();
   return {
-    // Set by the build (scripts/build-android.sh --version a.b.c), the same number the APK carries as its versionName.
+    // Set by the build (scripts/build-android-<abi>.sh --version a.b.c), the same number the APK carries as its versionName.
     ...(process.env["EXPO_PUBLIC_APP_VERSION"] ? { appVersion: process.env["EXPO_PUBLIC_APP_VERSION"] } : {}),
     notifications: phoneNotifications(),
     ...(push && { push }),

@@ -1,11 +1,11 @@
-// Expo hands the static app.json to this function. A release build (scripts/build-android.sh) sets OHM_VERSION and OHM_ABI: the
+// Expo hands the static app.json to this function. A release build (scripts/build-android-<abi>.sh) sets OHM_VERSION and OHM_ABI: the
 // APK then carries that version name and a version code of its own for that ABI. Without them (development) app.json is used as it is.
 //
 // The app icon is made from logo/main-full.svg by scripts/makeIcons.mjs (the repository keeps the SVG only), into .generated/. When it has
 // been made it is the icon; without it (nobody has run `pnpm icons`) the app keeps Expo's default.
 //
 // Firebase (push through FCM) is set up from google-services.json, the one in this folder or the file OHM_GOOGLE_SERVICES names (what
-// `build-android.sh --google-services` sets). The file is the app's own and is not a secret: its API key is limited to this package and
+// `build-android-<abi>.sh --google-services` sets). The file is the app's own and is not a secret: its API key is limited to this package and
 // its signing certificates in the Google Cloud console. Without a file the app is built with no push, and works as before.
 const { existsSync } = require("node:fs");
 const { join, resolve } = require("node:path");

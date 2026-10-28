@@ -25,7 +25,7 @@ keytool -list -v -keystore ohmatrix-release.jks -alias ohmatrix
 ## 3. Build, then sign
 
 ```
-scripts/build-android.sh --version 1.2.3
+scripts/build-android-arm64-v8a.sh --version 1.2.3   # and -armeabi-v7a, -x86_64: one script for each ABI
 
 read -rs OHM_KEYSTORE_PASSWORD && export OHM_KEYSTORE_PASSWORD
 scripts/sign-android.sh \
