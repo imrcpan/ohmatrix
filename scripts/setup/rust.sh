@@ -1,15 +1,15 @@
 # shellcheck shell=bash disable=SC2153
-# Rust for the Android libraries: rustup, the pinned toolchain, the Android targets and cargo-ndk. A rustup that is already
+# Rust: rustup, the pinned toolchain and the targets asked for; and, for the Android libraries, cargo-ndk. A rustup that is already
 # on the system is used as it is (and gets what it lacks); otherwise one is installed under OHM_TOOLS, away from ~/.cargo.
 
 # setup_rust TARGET...  (Rust target triples)
 setup_rust() {
-  local target have_targets missing_targets=() ndk_ok=0 own=0
+  local target have_targets missing_targets=() own=0
   if [ -x "$OHM_TOOLS/cargo/bin/rustup" ]; then
     own=1
   elif ! have rustup; then
     if [ "$OHM_CHECK" = 1 ]; then
-      missing "rustup, rust $RUST_TOOLCHAIN, targets $*, cargo-ndk $CARGO_NDK_VERSION"
+      missing "rustup, rust $RUST_TOOLCHAIN, targets $*"
       return 0
     fi
     note "installing rustup and rust $RUST_TOOLCHAIN"
@@ -48,7 +48,11 @@ setup_rust() {
   else
     ok "rust targets $*"
   fi
+}
 
+# setup_cargo_ndk: what builds a Rust library for Android; after setup_rust.
+setup_cargo_ndk() {
+  local ndk_ok=0
   if cargo ndk --version 2>/dev/null | grep -q "$CARGO_NDK_VERSION"; then ndk_ok=1; fi
   if [ "$ndk_ok" = 1 ]; then
     ok "cargo-ndk $CARGO_NDK_VERSION"

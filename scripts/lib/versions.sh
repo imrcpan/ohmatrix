@@ -25,7 +25,7 @@ CARGO_NDK_VERSION=4.1.2
 # Android command line tools, from https://developer.android.com/studio (the checksum is the one published there).
 ANDROID_CMDLINE_TOOLS=15859902
 ANDROID_CMDLINE_TOOLS_SHA256=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
-# The NDK React Native asks for (node_modules/react-native/gradle/libs.versions.toml). build-android.sh checks this against it:
+# The NDK React Native asks for (node_modules/react-native/gradle/libs.versions.toml). The build-android scripts check this against it:
 # with a different one here, Gradle would download the one it wants on its own, a second NDK of 1.5 GB.
 ANDROID_NDK=27.1.12297006
 ANDROID_PLATFORM=35
@@ -34,9 +34,6 @@ ANDROID_BUILD_TOOLS=35.0.0
 # Packages from the distribution. Both builds need the first group; the Rust and Android side needs the second.
 APT_BASE=(ca-certificates curl git unzip xz-utils)
 APT_ANDROID=(build-essential cmake pkg-config zip protobuf-compiler libssl-dev python3 perl clang lld ninja-build)
-
-# The ABIs a release is built for, one APK each: real phones (arm64-v8a, and the older 32-bit armeabi-v7a) and the emulator (x86_64).
-DEFAULT_ABIS=arm64-v8a,armeabi-v7a,x86_64
 
 # ABI (as the Android build and ubrn.yaml name it) -> Rust target.
 rust_target_of() {

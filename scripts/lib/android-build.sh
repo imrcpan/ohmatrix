@@ -1,34 +1,6 @@
-#!/usr/bin/env bash
-# Builds the Android app, one APK for each ABI, into ~/release/android. On a bare Debian this is one command: it installs what is
-# missing (system packages, Node, pnpm, a JDK, Rust with the Android targets, the Android SDK and NDK), builds the Rust Matrix SDK
-# bindings, and then the app. What is already there is used as it is. The compile settings follow what the machine, or the
-# container, really has.
-#
-#   scripts/build-android.sh --version a.b.c [--targets ABIS] [--release-dir DIR] [--debug|--release]
-#                            [--google-services FILE] [--check] [--skip-setup] [--jobs N] [--save-disk|--no-save-disk]
-#
-#   --version      the version of this build, like 1.2.3 (required, except with --check). It is the APK's version name, and what
-#                  Settings shows; each ABI gets its own version code from it.
-#   --targets      the ABIs to build, comma separated (default arm64-v8a,armeabi-v7a,x86_64: phones, older 32-bit phones, the emulator)
-#   --release-dir  where the result goes: DIR/android/OhMatrix_android_<version>_<abi>.apk (default ~/release)
-#   --release      the default; --debug builds the debug variant (the file names then end in _debug)
-#   --google-services  the Firebase file to build with, instead of src/apps/mobile/google-services.json (push through FCM)
-#   --check        only report what is missing (and whether the machine is big enough); install and build nothing
-#   --skip-setup   do not install anything, use what is on the machine
-#   --jobs N       parallel compile jobs, instead of what the machine's CPUs and memory allow
-#   --save-disk    delete the Rust build output of each ABI once its library is built, and the crates at the end (about 5 GB). The
-#                  default is to do it when less than 30 GB are free, which is what a GitHub runner has; --no-save-disk never does.
-#
-# A release build compiles the Rust library with the "dist" profile of the Matrix SDK and one codegen unit (lib/versions.sh): the
-# library is 42 MB instead of 84, and takes longer to build. The libraries are stored compressed in the APK and unpacked when it is
-# installed (useLegacyPackaging in app.json): the APK is smaller, and the installed app takes the same room as before.
-# The ABIs are built one after the other (the biggest compile needs 7.3 GB, so two at once would not fit): the time is about the
-# same for each. The APKs are signed with the debug key (what `expo prebuild` sets up): fine for installing, not for publishing;
-# sign-android.sh signs them with the release key afterwards (the build never sees that key).
-# Environment: OHM_TOOLS (where tools are installed, default ~/.ohmatrix-tools), OHM_OUT (caches and logs, default build-out),
-# OHM_RELEASE_DIR (default ~/release), EXPO_PUBLIC_DEFAULT_HOMESERVER (the server offered on the sign-in screen).
+# shellcheck shell=bash disable=SC2154
+# Sourced by build-android-<abi>.sh, which sets `here` (this folder) and `ABI` (the one ABI the script builds).
 set -euo pipefail
-here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib/common.sh
 source "$here/lib/common.sh"
 source "$here/lib/versions.sh"
@@ -43,7 +15,6 @@ source "$here/setup/rust.sh"
 source "$here/setup/android-sdk.sh"
 
 variant=release
-targets=$DEFAULT_ABIS
 save_disk=auto
 ohm_parse_common "$@"
 set -- "${OHM_REST[@]+"${OHM_REST[@]}"}"
@@ -51,12 +22,6 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --release) variant=release ;;
     --debug) variant=debug ;;
-    --targets)
-      [ $# -ge 2 ] || die "--targets needs a list of ABIs"
-      targets=$2
-      shift
-      ;;
-    --targets=*) targets=${1#--targets=} ;;
     --google-services)
       [ $# -ge 2 ] || die "--google-services needs a file"
       export OHM_GOOGLE_SERVICES=$2
@@ -70,11 +35,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 require_version
-rust_targets=()
-IFS=',' read -r -a abis <<<"$targets"
-for abi in "${abis[@]}"; do
-  rust_targets+=("$(rust_target_of "$abi")") || die "unknown ABI '$abi' (arm64-v8a, armeabi-v7a, x86_64, x86)"
-done
+rust_target=$(rust_target_of "$ABI") || die "unknown ABI '$ABI'"
 
 resources_init
 if [ "$save_disk" = auto ]; then
@@ -94,7 +55,8 @@ if [ "$OHM_SKIP_SETUP" = 0 ]; then
   setup_node
   setup_pnpm
   setup_java
-  setup_rust "${rust_targets[@]}"
+  setup_rust "$rust_target"
+  setup_cargo_ndk
   setup_android_sdk
 fi
 if [ "$OHM_CHECK" = 1 ]; then
@@ -157,8 +119,8 @@ check_apk() {
 }
 
 build_abi() {
-  local abi=$1 first=$2 triple apk dir name clean=() lib
-  triple=$(rust_target_of "$abi")
+  local abi=$1 triple apk dir name lib
+  triple=$rust_target
   step "== $abi, version $OHM_VERSION"
   export OHM_ABI=$abi
 
@@ -174,9 +136,8 @@ build_abi() {
     note "free disk $(free_disk_gb) GB after deleting the Rust build output of $abi"
   fi
 
-  # The first one starts the Android project afresh; the others only update it (the version code), which keeps Gradle's work.
-  [ "$first" = 1 ] && clean=(--clean)
-  run_step "generate the Android project ($abi)" bash -c 'cd src/apps/mobile && pnpm exec expo prebuild --platform android --no-install "$@"' _ "${clean[@]+"${clean[@]}"}"
+  run_step "generate the Android project ($abi)" bash -c 'cd src/apps/mobile && pnpm exec expo prebuild --platform android --no-install --clean'
+
 
   # Metro's cache of an earlier build (in the temporary folder, outside the build folder) must not be used: it keeps the JavaScript of
   # files as they were then, so a build that follows a change of the sources (a new file in a package) can pack an app that lacks it.
@@ -199,16 +160,13 @@ build_abi() {
   ok "$dir/$name ($(du -h "$dir/$name" | cut -f1), sha256 $(sha256sum "$dir/$name" | cut -d' ' -f1))"
 }
 
-first=1
-for abi in "${abis[@]}"; do
-  build_abi "$abi" "$first"
-  first=0
-done
+build_abi "$ABI"
 
 if [ "$save_disk" = 1 ] && [ -d "$OHM_TOOLS/cargo/registry" ]; then
   rm -rf "$OHM_TOOLS/cargo/registry" "$OHM_TOOLS/cargo/git"
   note "free disk $(free_disk_gb) GB after deleting the crates"
 fi
 step "done"
-for apk in "$OHM_RELEASE_DIR"/android/OhMatrix_android_"$OHM_VERSION"_*; do note "$apk ($(du -h "$apk" | cut -f1))"; done
+apk="$OHM_RELEASE_DIR/android/OhMatrix_android_${OHM_VERSION}_${ABI}${suffix}.apk"
+note "$apk ($(du -h "$apk" | cut -f1))"
 warn "signed with the debug key: fine to install, not to publish"
