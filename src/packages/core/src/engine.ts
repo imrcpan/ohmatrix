@@ -202,6 +202,11 @@ export interface SecurityApi {
   setUp(opts: { password: string }): Promise<{ recoveryKey: string }>;
   /** Unlock secret storage with the recovery key, import cross-signing secrets and restore the key backup. */
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
+  /**
+   * The room keys of this device, encrypted with `passphrase` in the Matrix key export format (the file Element reads). Absent =
+   * the engine cannot export them.
+   */
+  exportKeys?(passphrase: string): Promise<string>;
 }
 
 /** Verifying a session of mine, or another person, by comparing pictures on two devices. */
