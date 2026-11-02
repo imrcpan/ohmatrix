@@ -1,6 +1,7 @@
 import type { MatrixClient } from "matrix-js-sdk";
 import { decodeRecoveryKey } from "matrix-js-sdk/lib/crypto-api/recovery-key";
 import { EngineError, type Listener, type SecurityApi, type SecurityState } from "@ohmatrix/core";
+import { encryptMegolmExport } from "./megolmExport.js";
 
 /** Holds secret-storage keys the user unlocked this session; the SDK pulls them via callbacks. */
 export class SecretKeyCache {
@@ -101,6 +102,16 @@ export class JsSecurity implements SecurityApi {
       if (e instanceof EngineError) throw e;
       const msg = e instanceof Error ? e.message : String(e);
       throw new EngineError(/forbidden|password|401/i.test(msg) ? "forbidden" : "unknown", msg, e);
+    }
+  }
+
+  async exportKeys(passphrase: string): Promise<string> {
+    const crypto = this.getClient()?.getCrypto();
+    if (!crypto) throw new EngineError("unsupported", "encryption unavailable");
+    try {
+      return await encryptMegolmExport(await crypto.exportRoomKeysAsJson(), passphrase);
+    } catch (e) {
+      throw new EngineError("unknown", e instanceof Error ? e.message : String(e), e);
     }
   }
 
