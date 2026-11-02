@@ -48,7 +48,7 @@ export interface ViewedMember {
 
 export type InfoPage = "media" | "members" | "banned" | "member" | "pinned";
 
-export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "logs";
+export type SidebarPage = "chats" | "profile" | "settings" | "sessions" | "accounts" | "theme" | "appIcon" | "advanced" | "encryption" | "logs";
 
 /** The page a sidebar page was opened from, which is where back goes. */
 const sidebarParent = (page: SidebarPage): SidebarPage =>
@@ -56,7 +56,7 @@ const sidebarParent = (page: SidebarPage): SidebarPage =>
     ? "advanced"
     : page === "sessions" || page === "theme" || page === "appIcon" || page === "advanced"
       ? "settings"
-      : page === "settings" || page === "accounts"
+      : page === "settings" || page === "accounts" || page === "encryption"
         ? "profile"
         : "chats";
 
@@ -270,6 +270,9 @@ export interface AppController {
   dismissVerification(): void;
   setUpEncryption(password: string): Promise<string>;
   restoreWithRecoveryKey(recoveryKey: string): Promise<void>;
+  /** Whether this engine can export the room keys (see SecurityApi.exportKeys). */
+  canExportKeys: boolean;
+  exportEncryptionKeys(passphrase: string): Promise<string>;
   openRoom(roomId: RoomId): OpenRoom;
   /** A page of the room's shared media of one kind, newest first (see MediaApi.sharedPage). */
   sharedMedia(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number; scan?: number }): Promise<SharedMediaPage>;
@@ -645,6 +648,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     dismissVerification: () => engine.verification?.dismiss(),
     setUpEncryption: async (password) => (await engine.security.setUp({ password })).recoveryKey,
     restoreWithRecoveryKey: (key) => engine.security.restoreWithRecoveryKey(key),
+    canExportKeys: !!engine.security.exportKeys,
+    exportEncryptionKeys: (passphrase) => {
+      const exportKeys = engine.security.exportKeys;
+      if (!exportKeys) return Promise.reject(new EngineError("unsupported", "this engine cannot export the keys"));
+      return exportKeys.call(engine.security, passphrase);
+    },
     forwardMessage: (fromRoomId, eventId, toRoomId) => engine.messages.forward({ fromRoomId, eventId, toRoomId }),
     resolveMedia: (mxc, opts) => engine.media.resolve(mxc, opts),
     sharedMedia: (roomId, opts) => engine.media.sharedPage(roomId, opts),
