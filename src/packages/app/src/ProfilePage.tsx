@@ -3,7 +3,6 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Avatar, Dialog, fontFamily, Icon, PrimaryButton, TextButton, TextField, useTheme, useNavBottom } from "@ohmatrix/ui";
 import { EngineError } from "@ohmatrix/core";
 import { useAppState, useController, useServices, useT } from "./context.js";
-import { SecuritySheet } from "./SecuritySheet.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
 import { AvatarViewer } from "./AvatarViewer.js";
 import { useMediaUrl } from "./useMedia.js";
@@ -27,13 +26,11 @@ export function ProfilePage(props: { homeserver: string }) {
   const [statusText, setStatusText] = useState("");
   const [statusError, setStatusError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const notice = useNotice();
 
   const encValue =
     security === "ready" ? t("enc.on") : security === "needs_setup" ? t("enc.setup") : security === "needs_recovery" ? t("enc.verify") : t("enc.unavailable");
-  const actionable = security === "needs_setup" || security === "needs_recovery";
   const displayName = profile?.displayName ?? "";
   const changePhoto = async () => {
     const file = services.pickPhoto ? await services.pickPhoto() : ((await services.pickFiles?.()) ?? [])[0];
@@ -112,7 +109,7 @@ export function ProfilePage(props: { homeserver: string }) {
           <Item label={t("homeserver")} value={props.homeserver} icon="info" />
         </Group>
         <Group title={t("security")}>
-          <Item label={t("encryption")} icon="lock" value={encValue} onPress={actionable ? () => setSheet(true) : undefined} />
+          <Item label={t("encryption")} icon="lock" value={encValue} onPress={() => controller.openSidebarPage("encryption")} />
         </Group>
       </ScrollView>
       <View
@@ -183,7 +180,6 @@ export function ProfilePage(props: { homeserver: string }) {
         />
         <TextButton title={t("cancel")} onPress={() => setEditingStatus(false)} />
       </Dialog>
-      <SecuritySheet visible={sheet} onClose={() => setSheet(false)} />
     </View>
   );
 }

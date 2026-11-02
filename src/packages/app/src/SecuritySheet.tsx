@@ -4,7 +4,8 @@ import { Dialog, PrimaryButton, TextButton, TextField, fontFamily, useTheme } fr
 import { useAppState, useController, useServices, useT } from "./context.js";
 
 /** Encryption onboarding: create keys (new accounts) or unlock history with the recovery key (new devices). */
-export function SecuritySheet(props: { visible: boolean; onClose: () => void }) {
+/** `reset`: the account has keys already, and this makes new ones (the old recovery key stops working). */
+export function SecuritySheet(props: { visible: boolean; onClose: () => void; reset?: boolean }) {
   const t = useT();
   const { colors } = useTheme();
   const controller = useController();
@@ -80,7 +81,7 @@ export function SecuritySheet(props: { visible: boolean; onClose: () => void }) 
     );
   }
 
-  const setup = state === "needs_setup";
+  const setup = state === "needs_setup" || !!props.reset;
   return (
     <Dialog
       visible={props.visible}
