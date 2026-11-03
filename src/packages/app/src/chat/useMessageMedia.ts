@@ -39,6 +39,10 @@ export function useMessageMedia(m: TimelineItem) {
   const previews = c.kind === "text" ? (c.previews ?? []).slice(0, 2) : [];
   const previewImage = useMediaUrl(previews.find((p) => p.image)?.image, { width: 400, height: 400, fit: "crop" });
 
+  // A reply to a photo quotes it by a small picture of it.
+  const quoted = m.replyTo?.image;
+  const replyImage = useMediaUrl(quoted?.url, quoted ? { width: 192, height: 192, fit: "scale", ...decryptOpts(quoted) } : {});
+
   const audio = useAudioPlayer(
     () => (c.kind === "audio" ? controller.resolveMedia(c.url, decryptOpts(c)) : Promise.reject(new Error("not audio"))),
     c.kind === "audio" ? c.durationMs : undefined,
@@ -54,6 +58,7 @@ export function useMessageMedia(m: TimelineItem) {
     videoFile,
     previews,
     previewImage,
+    replyImage,
     audio,
     viewingImage,
     setViewingImage,

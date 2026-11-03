@@ -103,6 +103,7 @@ export function MessageRow(props: {
     audio: { state: media.audio.state, toggle: () => void media.audio.toggle() },
     previews: media.previews,
     previewImageUrl: media.previewImage,
+    replyImage: media.replyImage,
     openImage: () => media.setViewingImage(true),
     openVideo: () => media.setViewingVideo(true),
   });

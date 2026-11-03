@@ -99,6 +99,17 @@ test("a reply's quote jumps to the original, and mentions and pins carry over", 
   expect(p).toMatchObject({ pinned: true, mentionsMe: true, editedLabel: "edited", muted: false });
 });
 
+test("a reply to a photo quotes its picture, and says photo instead of the file name", () => {
+  const m = item({
+    replyTo: { id: "$orig", sender: "@b:s", senderName: "Bob", preview: "IMG_1.png", image: { url: "mxc://s/a", width: 320, height: 200 } },
+    content: { kind: "text", body: "x" },
+  });
+  expect(bubbleProps(inputs(m, { replyImage: "blob:thumb" })).reply).toMatchObject({ image: { uri: "blob:thumb" }, preview: "photo" });
+  expect(
+    bubbleProps(inputs(item({ replyTo: { id: "$o", sender: "@b:s", senderName: "Bob", preview: "hi" }, content: { kind: "text", body: "x" } }))).reply?.image,
+  ).toBeUndefined();
+});
+
 test("a picture that is still uploading shows the local preview and cannot be opened; cancelling uses the transaction", () => {
   const a = actions();
   const m = item({

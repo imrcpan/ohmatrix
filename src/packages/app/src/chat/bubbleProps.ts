@@ -33,6 +33,8 @@ export interface BubbleInputs {
   audio: { state: AudioState; toggle(): void };
   previews: { url: string; title?: string; description?: string; siteName?: string; image?: string; imageWidth?: number; imageHeight?: number }[];
   previewImageUrl: string | undefined;
+  /** The picture a reply quotes (when it quotes a photo), once fetched. */
+  replyImage?: string | undefined;
   openImage(): void;
   openVideo(): void;
 }
@@ -126,7 +128,8 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
       ? {
           senderName: m.replyTo.senderName,
           senderId: m.replyTo.sender,
-          preview: m.replyTo.preview,
+          preview: m.replyTo.image ? t("photo") : m.replyTo.preview,
+          ...(m.replyTo.image && { image: { uri: i.replyImage } }),
           onPress: () => actions.jump(m.replyTo!.id),
         }
       : undefined,

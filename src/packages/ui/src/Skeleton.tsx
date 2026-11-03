@@ -23,7 +23,7 @@ export function Pulse(props: { children: ReactNode }) {
 }
 
 /** A grey shape where something is still to come: a circle when `circle`, else a bar with rounded ends. */
-export function SkeletonBlock(props: { width: DimensionValue; height: number; circle?: boolean }) {
+export function SkeletonBlock(props: { width: DimensionValue; height: number; circle?: boolean; color?: string | undefined }) {
   const { colors } = useTheme();
   return (
     <View
@@ -31,7 +31,7 @@ export function SkeletonBlock(props: { width: DimensionValue; height: number; ci
         width: props.width,
         height: props.height,
         borderRadius: props.circle ? props.height / 2 : Math.min(6, props.height / 2),
-        backgroundColor: colors.hover,
+        backgroundColor: props.color ?? colors.hover,
       }}
     />
   );
