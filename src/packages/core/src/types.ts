@@ -240,6 +240,8 @@ export interface Preferences {
   exploreServers: string[];
   /** The interface's font, by the name of an installed one; null = the system's own. Offered only where the platform can list its fonts. */
   font: string | null;
+  /** The sticker group last on show in the picker, opened again next time; null = none yet. A group that is gone is not opened. */
+  stickerGroup: string | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -255,6 +257,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastHomeserver: null,
   exploreServers: [],
   font: null,
+  stickerGroup: null,
 };
 
 /** The signed-in user's own profile. */
