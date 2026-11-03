@@ -2307,6 +2307,16 @@ test("mentions: a message that names me is tinted and the name is a pill", async
   // The @name is a pill (it matched the mention block I sent).
   await expect(page.getByLabel(/Mention test/).last()).toBeVisible();
   await shot(page, "58-mention-pill");
+  // Pressing it opens the person's page here (like a member of the group), not the matrix.to page in another tab.
+  const opened: string[] = [];
+  page.context().on("page", (p) => opened.push(p.url()));
+  await page
+    .getByLabel(/Mention test/)
+    .last()
+    .click();
+  await expect(page.getByText("Member info", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(me, { exact: true }).first()).toBeVisible();
+  expect(opened).toEqual([]);
 });
 
 test("pin: a pinned message shows a pin marker and lands in the chat-info panel", async ({ page }) => {

@@ -27,6 +27,7 @@ import { useSelection } from "./selection.js";
 import { gapAbove } from "./rowWindow.js";
 import { useMessageMedia } from "./useMessageMedia.js";
 import { GroupChoice } from "./StickerGroups.js";
+import { userOfLink } from "./userLink.js";
 import { CustomEmoji } from "./CustomEmoji.js";
 
 const AVATAR = 32;
@@ -100,7 +101,12 @@ export function MessageRow(props: {
     locale,
     actions,
     runs,
-    openLink: (url) => services.openLink?.(url),
+    openLink: (url) => {
+      // A link to a person (a mention, or one pasted) opens that person's page here, not a web page.
+      const user = userOfLink(url);
+      if (user) controller.openMember({ userId: user, name: user.slice(1).split(":")[0]!, from: "chat" });
+      else services.openLink?.(url);
+    },
     image: media.imageDims ? { uri: media.image, ...media.imageDims } : undefined,
     video: media.videoDims ? { poster: media.poster, ...media.videoDims } : undefined,
     audio: { state: media.audio.state, toggle: () => void media.audio.toggle() },
