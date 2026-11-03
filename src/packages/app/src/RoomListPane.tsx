@@ -264,7 +264,7 @@ export function RoomListPane() {
             data={settled ? data : NONE}
             keyExtractor={(r) => r.id}
             contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
-            ListHeaderComponent={joining.length && !query.trim() ? <JoiningRows rooms={joining} /> : null}
+            ListHeaderComponent={<>{joining.length && !query.trim() ? <JoiningRows rooms={joining} /> : null}</>}
             ListFooterComponent={
               query.trim().length >= 2 ? (
                 <View style={{ marginTop: 8 }}>

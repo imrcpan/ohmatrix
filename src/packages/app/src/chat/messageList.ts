@@ -13,6 +13,10 @@ export interface MessageListProps {
   /** The room's messages have been read (an empty room has none to wait for). */
   loaded: boolean;
   renderRow(row: Row): ReactNode;
+  /** Older history is being fetched: skeleton bubbles stand above the oldest row until it arrives. */
+  olderLoading?: boolean | undefined;
+  /** Those skeleton bubbles have an avatar beside them (a group chat). */
+  skeletonAvatars?: boolean | undefined;
   /** Near the oldest loaded row: ask for older history. */
   onReachedStart(): void;
   /** The list is placed on the newest message and has stopped moving: it may be shown. */
