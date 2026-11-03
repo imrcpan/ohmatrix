@@ -3,7 +3,6 @@ import { FlatList, View } from "react-native";
 import type { Row } from "../timelineRows.js";
 import type { MessageListProps } from "./messageList.js";
 import { gapToBottom, isAtBottom, isAway, needsFill, offsetAfterPrepend } from "./scrollMath.js";
-import { useTheme } from "@ohmatrix/ui";
 import { ChatSkeleton } from "./ChatSkeleton.js";
 import { OLDER_SKELETON, OLDER_SKELETON_HEIGHT } from "./olderSkeleton.js";
 import { useLatest } from "./useLatest.js";
@@ -38,7 +37,6 @@ const GIVE_UP_MS = 10_000;
  */
 export function MessageList(props: MessageListProps) {
   const p = useLatest(props);
-  const { colors } = useTheme();
   const listRef = useRef<FlatList<Row>>(null);
   const s = useRef({ offset: 0, content: 0, view: 0, pinned: true, firstKey: "", filledFor: -1 });
   const [ready, setReady] = useState(false);
@@ -204,6 +202,25 @@ export function MessageList(props: MessageListProps) {
     };
   }, [props.handleRef, p, node, moveTo, toBottom]);
 
+  // When the older-loading skeleton appears at the top of the list, compensate so the view does not jump up.
+  const prevOlderLoading = useRef(props.olderLoading);
+  useEffect(() => {
+    const was = prevOlderLoading.current;
+    const now = props.olderLoading;
+    prevOlderLoading.current = now;
+    if (!was && now) {
+      // Skeleton just appeared above the current content: scroll down by its height so the view stays put.
+      const n = node();
+      if (n) {
+        const st = s.current;
+        if (!st.pinned) {
+          moveTo(n.scrollTop + OLDER_SKELETON_HEIGHT);
+          st.offset = n.scrollTop + OLDER_SKELETON_HEIGHT;
+        }
+      }
+    }
+  }, [props.olderLoading, node, moveTo]);
+
   return (
     <View style={{ flex: 1 }}>
       <FlatList
@@ -211,6 +228,8 @@ export function MessageList(props: MessageListProps) {
         data={props.rows}
         keyExtractor={(r) => r.key}
         renderItem={({ item }) => <>{props.renderRow(item)}</>}
+        // Older history is on its way: skeleton bubbles at the top of the list, inline with real messages.
+        ListHeaderComponent={props.olderLoading ? <ChatSkeleton count={OLDER_SKELETON} avatars={!!props.skeletonAvatars} /> : null}
         style={{ flex: 1, opacity: ready ? 1 : 0 }}
         contentContainerStyle={{ paddingVertical: 8 }}
         keyboardShouldPersistTaps="handled"
@@ -262,16 +281,6 @@ export function MessageList(props: MessageListProps) {
           }
         }}
       />
-      {/* Older history is on its way: skeleton bubbles over the top of the list. They are laid over it, not in it, so that the way the
-          list keeps its place when rows are added above is not touched. */}
-      {props.olderLoading && (
-        <View
-          pointerEvents="none"
-          style={{ position: "absolute", top: 0, left: 0, right: 0, height: OLDER_SKELETON_HEIGHT, overflow: "hidden", backgroundColor: colors.chatBg }}
-        >
-          <ChatSkeleton count={OLDER_SKELETON} avatars={!!props.skeletonAvatars} />
-        </View>
-      )}
     </View>
   );
 }
