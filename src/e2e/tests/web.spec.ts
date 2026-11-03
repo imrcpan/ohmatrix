@@ -913,6 +913,49 @@ test("spaces: a room of the space that I have not joined is listed by its name, 
   expect(await page.evaluate(() => (window as unknown as { __empty: number }).__empty)).toBe(0);
 });
 
+test("spaces: pressing a room that is not joined opens its card at once, grey bars while the server has not told more, and Join joins it", async ({ page }) => {
+  test.setTimeout(90000);
+  const alice = await apiLogin("alice");
+  const stamp = Date.now().toString(36);
+  const roomName = `Card Room ${stamp}`;
+  const topic = `All about the card ${stamp}`;
+  const { room_id: roomId } = await api(alice, "POST", "/createRoom", { name: roomName, topic, preset: "public_chat" });
+  const { room_id: spaceId } = await api(alice, "POST", "/createRoom", {
+    name: `Space ${stamp}`,
+    preset: "public_chat",
+    creation_content: { type: "m.space" },
+    initial_state: [{ type: "m.space.child", state_key: roomId, content: { via: ["localhost"], order: "1" } }],
+  });
+  // The server's answer about the space is held back until the test lets it through: the card is pressed before it.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/hierarchy**", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.evaluate(async (id) => {
+    const c = (window as unknown as { __ohmatrix: { controller: { joinRoom(id: string): Promise<void>; openSpace(id: string): void } } }).__ohmatrix.controller;
+    await c.joinRoom(id);
+    c.openSpace(id);
+  }, spaceId);
+  // Not named yet: the row is by its id. Pressing it opens the card at once.
+  await page.getByRole("button", { name: roomId }).click({ timeout: 20000 });
+  const join = page.getByRole("button", { name: /^Join /, exact: false });
+  await expect(join).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(topic)).toHaveCount(0); // bars stand where the text and the count will be
+  const counts = page.getByText(/^\d+ members$/);
+  const before = await counts.count(); // the space has its own somewhere on the page
+  release();
+  await expect(page.getByText(topic)).toBeVisible({ timeout: 10000 });
+  await expect(counts).toHaveCount(before + 1); // the card's own, now that the server has told
+  await expect(page.getByText(roomName, { exact: true }).first()).toBeVisible();
+  // Join: the card closes and the room opens.
+  await join.click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
+});
+
 test("landscape: the contents of a space slide in over the list from the divider, and are never drawn over the chat", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 800 });

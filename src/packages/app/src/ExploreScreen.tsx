@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import type { PublicRoom } from "@ohmatrix/core";
-import { Avatar, fontFamily, Icon, IconButton, ScaleRoot, SearchField, useInsets, useScale, useTheme, useViewport } from "@ohmatrix/ui";
+import { Avatar, fontFamily, Icon, IconButton, Pulse, ScaleRoot, SearchField, SkeletonBlock, useInsets, useScale, useTheme, useViewport } from "@ohmatrix/ui";
 import { ConfirmDialog } from "./ConfirmDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { serverName } from "./serverName.js";
@@ -23,8 +23,11 @@ const OWN = "";
 const TOPIC_LINES = 3;
 const TOPIC_LINE_HEIGHT = 19;
 
-/** What a card shows, small on the page or large over it: who the room is, its text (`topic`) and the buttons (`actions`). */
-function CardFace(props: { room: PublicRoom; avatar: string | undefined; topic: ReactNode; actions: ReactNode }) {
+/**
+ * What a card shows, small on the page or large over it: who the room is, its text (`topic`) and the buttons (`actions`). `loading` is for a card
+ * opened before the server has told how many people are in the room: a grey bar stands in the line of the count.
+ */
+export function CardFace(props: { room: PublicRoom; avatar: string | undefined; topic: ReactNode; actions: ReactNode; loading?: boolean }) {
   const { colors } = useTheme();
   const t = useT();
   const { room } = props;
@@ -36,9 +39,17 @@ function CardFace(props: { room: PublicRoom; avatar: string | undefined; topic: 
           <Text numberOfLines={2} style={{ fontSize: 17, fontWeight: "700", fontFamily, color: colors.text }}>
             {room.name}
           </Text>
-          <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
-            {t("explore.members", { count: room.members })}
-          </Text>
+          {props.loading ? (
+            <View style={{ height: 17, justifyContent: "center" }}>
+              <Pulse>
+                <SkeletonBlock width={90} height={11} />
+              </Pulse>
+            </View>
+          ) : (
+            <Text numberOfLines={1} style={{ fontSize: 13, fontFamily, color: colors.textSecondary }}>
+              {t("explore.members", { count: room.members })}
+            </Text>
+          )}
         </View>
       </View>
       {props.topic}

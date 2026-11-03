@@ -25,6 +25,8 @@ import { PromptDialog } from "./PromptDialog.js";
 import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { InviteDialog } from "./InviteDialog.js";
+import { RoomCardDialog } from "./RoomCardDialog.js";
+import { useNotice } from "./useNotice.js";
 
 /** A space's own contents, styled exactly like the main chat list but showing the space's children. */
 export function SpaceScreen(props: { id: string; onClose: () => void }) {
@@ -45,10 +47,22 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
   const [sharing, setSharing] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [roomMenu, setRoomMenu] = useState<{ room: RoomSummary; anchor: Anchor } | null>(null);
+  // A room of the space that is not joined, pressed: its card is open.
+  const [cardId, setCardId] = useState<string | null>(null);
+  const notice = useNotice();
   const moreRef = useRef<ComponentRef<typeof View>>(null);
   const now = Date.now();
 
   const space = rooms.find((r) => r.id === spaceId);
+  const cardChild = cardId ? children?.find((c) => c.roomId === cardId) : undefined;
+  // Joined by id through the servers the space names for it; a notice says it is going on, and the room opens when it is done.
+  const joinChild = (c: SpaceChild) => {
+    notice.show(t("explore.joining", { name: c.name }), "progress", 3000);
+    controller.joinRoom(c.roomId, c.via ?? []).then(
+      () => notice.show(t("explore.joined", { name: c.name })),
+      (e: unknown) => notice.show(e instanceof Error ? e.message : String(e), "error"),
+    );
+  };
 
   useEffect(() => {
     if (!spaceId) return;
@@ -148,11 +162,11 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
               onOpenSpace={(id) => controller.openSpace(id)}
             />
           ) : (
-            // Not joined yet: shown greyed, tapping joins through the space.
+            // Not joined yet: tapping opens its card at once, with the button to join.
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={item.name}
-              onPress={() => void controller.joinRoom(item.child.via?.[0] ? `${item.id}?via=${item.child.via[0]}` : item.id).catch(() => {})}
+              onPress={() => setCardId(item.id)}
               style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
                 flexDirection: "row",
                 alignItems: "center",
@@ -192,6 +206,22 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
             : []
         }
       />
+      {cardChild && (
+        <RoomCardDialog
+          visible
+          room={{
+            roomId: cardChild.roomId,
+            name: cardChild.name,
+            ...(cardChild.avatar && { avatar: cardChild.avatar }),
+            ...(cardChild.topic && { topic: cardChild.topic }),
+            ...(cardChild.alias && { alias: cardChild.alias }),
+            members: cardChild.members ?? 0,
+          }}
+          loading={!cardChild.detailed}
+          onClose={() => setCardId(null)}
+          onJoin={() => joinChild(cardChild)}
+        />
+      )}
       <NewGroupDialog visible={dialog === "create"} onClose={() => setDialog(null)} inSpace={spaceId} />
       <AddRoomsDialog visible={dialog === "add"} onClose={() => setDialog(null)} />
       <ManageRoomsDialog visible={dialog === "manage"} onClose={() => setDialog(null)} />

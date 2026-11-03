@@ -314,6 +314,13 @@ export interface SpaceChild {
   isSpace: boolean;
   /** Set before the room is joined; the server's view of a space we only partly know. */
   via?: string[];
+  /** What the server says of a room that is not joined, for the card shown when it is pressed. */
+  topic?: string;
+  alias?: string;
+  /** Joined members, as the server counts them. */
+  members?: number;
+  /** The server has answered about this room (the topic and the count above are all it knows): until then they are only not known yet. */
+  detailed?: boolean;
   unreadCount: number;
   highlightCount: number;
 }

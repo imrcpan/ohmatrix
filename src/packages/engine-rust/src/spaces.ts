@@ -9,6 +9,9 @@ export interface ListedChild {
   name?: string | undefined;
   avatar?: string | undefined;
   isSpace: boolean;
+  topic?: string | undefined;
+  alias?: string | undefined;
+  members?: number | undefined;
 }
 
 const root = (a: Account) => a.homeserverUrl.replace(/\/+$/, "");
@@ -31,6 +34,9 @@ export async function readChildren(f: Fetch, a: Account, spaceId: string): Promi
       room_id: string;
       name?: string;
       avatar_url?: string;
+      topic?: string;
+      canonical_alias?: string;
+      num_joined_members?: number;
       room_type?: string;
       children_state?: { state_key: string; content: { order?: string; via?: string[] } }[];
     }[];
@@ -63,6 +69,9 @@ export async function readChildren(f: Fetch, a: Account, spaceId: string): Promi
       name: r?.name,
       avatar: r?.avatar_url,
       isSpace: r?.room_type === "m.space",
+      topic: r?.topic,
+      alias: r?.canonical_alias,
+      members: r?.num_joined_members,
     };
   });
 }
@@ -100,6 +109,10 @@ export function toSpaceChild(
     ...(avatar && { avatar }),
     isSpace: mine?.isSpace ?? k.isSpace,
     ...(!mine && k.via.length ? { via: k.via } : {}),
+    ...(!mine && k.topic ? { topic: k.topic } : {}),
+    ...(!mine && k.alias ? { alias: k.alias } : {}),
+    ...(!mine && k.members !== undefined ? { members: k.members } : {}),
+    ...(!mine ? { detailed: true } : {}),
     unreadCount: mine?.unreadCount ?? 0,
     highlightCount: mine?.highlightCount ?? 0,
   };
