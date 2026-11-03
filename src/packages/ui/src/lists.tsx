@@ -109,8 +109,6 @@ export function NavBar(props: { title: string; onBack?: (() => void) | undefined
         alignItems: "center",
         paddingHorizontal: 8,
         backgroundColor: colors.bg,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.separator,
       }}
     >
       <View style={{ width: 44 }}>{props.onBack && <IconButton icon="back" label={props.backLabel ?? "Back"} size={26} onPress={props.onBack} />}</View>

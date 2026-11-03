@@ -117,7 +117,7 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
           </View>
         }
       />
-      <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 }}>
+      <View style={{ paddingHorizontal: 12, paddingTop: 2, paddingBottom: 8 }}>
         <SearchField value={query} onChangeText={setQuery} placeholder={t("search")} />
       </View>
       <FlatList
