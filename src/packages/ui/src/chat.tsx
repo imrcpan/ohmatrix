@@ -353,7 +353,7 @@ export function Bubble(props: {
             // phone it was 9.7 dp, so the text is lifted by the 2.55 dp between them. The size of the bubble is not touched.
             // The last line's descenders (g, y) are drawn under the box the line takes and the phone cuts them at the edge of the text's own view, so
             // the view gets 5 more at the foot, taken back with the same margin: the bubble keeps its size.
-            ...(Platform.OS === "android" ? { top: -2.55, paddingBottom: 5, marginBottom: -5 } : {}),
+            ...(Platform.OS === "android" ? { top: -1.75, paddingBottom: 5, marginBottom: -5 } : {}),
           }}
         >
           {richRuns ? (
