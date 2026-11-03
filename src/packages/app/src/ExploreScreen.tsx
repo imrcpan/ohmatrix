@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View, type DimensionValue } from "react-native";
 import type { PublicRoom } from "@ohmatrix/core";
 import { Avatar, fontFamily, Icon, IconButton, Pulse, ScaleRoot, SearchField, SkeletonBlock, useInsets, useScale, useTheme, useViewport } from "@ohmatrix/ui";
 import { ConfirmDialog } from "./ConfirmDialog.js";
@@ -58,7 +58,7 @@ export function CardFace(props: { room: PublicRoom; avatar: string | undefined; 
   );
 }
 
-function Card(props: { room: PublicRoom; width: number; busy: boolean; joined: boolean; onJoin: () => void }) {
+function Card(props: { room: PublicRoom; width: DimensionValue; busy: boolean; joined: boolean; onJoin: () => void }) {
   const { colors } = useTheme();
   const t = useT();
   const { room } = props;
@@ -222,6 +222,10 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
   const scale = useScale();
   const insets = useInsets();
   const { width } = useViewport();
+  // On the web the browser lays the cards out: as many columns as fit the room the list has, each as wide as that room shares out among them (CSS grid),
+  // so a scrollbar, the zoom of the interface or the width of the window need not be reckoned with here. Elsewhere the width of a card is worked out
+  // from the window (a phone's scroll indicator takes no room from the list).
+  const web = Platform.OS === "web";
   const inner = width - insets.left - insets.right - 2 * PAD;
   const columns = Math.max(1, Math.floor((inner + GAP) / (CARD_MIN + GAP)));
   const cardWidth = Math.floor((inner - GAP * (columns - 1)) / columns);
@@ -362,7 +366,9 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
             <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center", paddingHorizontal: PAD, paddingBottom: 8 }}>{error}</Text>
           )}
           <ScrollView
-            style={{ flex: 1 }}
+            // The scrollbar is always there (on the web), so the width the cards have does not change when it comes and goes as the list grows: the
+            // columns are laid out for the width they will keep.
+            style={{ flex: 1, ...({ overflowY: "scroll" } as object) }}
             contentContainerStyle={{ padding: PAD, paddingTop: 6, paddingBottom: PAD + (insets.bottom ?? 0), gap: GAP }}
             keyboardShouldPersistTaps="handled"
             scrollEventThrottle={64}
@@ -371,9 +377,22 @@ export function ExploreScreen(props: { visible: boolean; onClose: () => void }) 
               if (n.contentOffset.y + n.layoutMeasurement.height > n.contentSize.height - 200) more();
             }}
           >
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: GAP }}>
+            <View
+              style={
+                web
+                  ? ({ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_MIN}px, 1fr))`, gap: GAP } as object)
+                  : { flexDirection: "row", flexWrap: "wrap", gap: GAP }
+              }
+            >
               {rooms.map((r) => (
-                <Card key={r.roomId} room={r} width={cardWidth} busy={joining !== null} joined={mine.has(r.roomId)} onJoin={() => setAsking(r)} />
+                <Card
+                  key={r.roomId}
+                  room={r}
+                  width={web ? "100%" : cardWidth}
+                  busy={joining !== null}
+                  joined={mine.has(r.roomId)}
+                  onJoin={() => setAsking(r)}
+                />
               ))}
             </View>
             {busy && (
