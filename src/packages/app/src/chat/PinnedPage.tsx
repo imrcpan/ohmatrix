@@ -1,5 +1,5 @@
 import { FlatList, Pressable, Text, View } from "react-native";
-import { fontFamily, Icon, useNavBottom, useTheme } from "@ohmatrix/ui";
+import { fontFamily, Icon, Pulse, SkeletonBlock, useNavBottom, useTheme } from "@ohmatrix/ui";
 import { useT } from "../context.js";
 import { PageHeader } from "../settings/kit.js";
 import { pinnedPreview } from "./pinnedPreview.js";
@@ -38,7 +38,13 @@ export function PinnedPage(props: { roomId: string; ids: readonly string[]; back
             >
               <Icon name="pin" size={18} color={colors.accent} />
               <Text numberOfLines={3} style={{ flex: 1, fontSize: 15, lineHeight: 21, fontFamily, color: m ? colors.text : colors.textSecondary }}>
-                {m ? pinnedPreview(m, t) : "…"}
+                {m ? (
+                  pinnedPreview(m, t)
+                ) : (
+                  <Pulse>
+                    <SkeletonBlock width={200} height={14} />
+                  </Pulse>
+                )}
               </Text>
               <Icon name="chevronRight" size={18} color={colors.textTertiary} />
             </Pressable>

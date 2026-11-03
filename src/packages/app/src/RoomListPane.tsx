@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
-import { contentText, type RoomSummary } from "@ohmatrix/core";
+import { contentText, stripReplyFallback, type RoomSummary } from "@ohmatrix/core";
 import {
   Avatar,
   Banner,
@@ -45,7 +45,7 @@ function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
           ? m.content.voice
             ? `🎤 ${t("voiceMessage")}`
             : `🎵 ${m.content.name}`
-          : contentText(m.content)
+          : stripReplyFallback(contentText(m.content))
   )
     .replace(/\s+/g, " ")
     .trim();
