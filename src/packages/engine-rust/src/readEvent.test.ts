@@ -81,6 +81,14 @@ test("notices and emotes are text; a media message without a source says what it
 test("a message that cannot be decrypted, one that was removed, and one of a kind we do not know", () => {
   const kind = (k: object) => raw({ content: { tag: "MsgLike", inner: { content: { kind: k, reactions: [] } } } });
   expect(readEvent(kind({ tag: "UnableToDecrypt" })).content).toEqual({ type: "undecryptable" });
+  // The SDK says why, as its UtdCause (a number, in the order it declares them): the keys are missing, or the message is older than this device.
+  const megolm = (cause: unknown) => kind({ tag: "UnableToDecrypt", inner: { msg: { tag: "MegolmV1AesSha2", inner: { sessionId: "s", cause } } } });
+  expect(readEvent(megolm(0)).content).toEqual({ type: "undecryptable", reason: "waiting" });
+  expect(readEvent(megolm(1)).content).toEqual({ type: "undecryptable", reason: "beforeJoin" });
+  expect(readEvent(megolm(5)).content).toEqual({ type: "undecryptable", reason: "noBackup" });
+  expect(readEvent(megolm(8)).content).toEqual({ type: "undecryptable", reason: "unverified" });
+  expect(readEvent(megolm("WithheldBySender")).content).toEqual({ type: "undecryptable", reason: "withheld" });
+  expect(readEvent(megolm(3)).content).toEqual({ type: "undecryptable", reason: "waiting" });
   expect(readEvent(kind({ tag: "Redacted" })).content).toEqual({ type: "redacted" });
   expect(readEvent(kind({ tag: "Poll" })).content).toEqual({ type: "unsupported", description: "Poll" });
   expect(readEvent(raw({ content: { tag: "CallInvite" } })).content).toEqual({ type: "call" });

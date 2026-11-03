@@ -58,6 +58,7 @@ test("service lines: someone joined, the room was renamed; the ones with no word
 
 test("a message that cannot be read, and one that was removed", () => {
   expect(to(ev({ content: { type: "undecryptable" } }))!.content).toEqual({ kind: "undecryptable" });
+  expect(to(ev({ content: { type: "undecryptable", reason: "noBackup" } }))!.content).toEqual({ kind: "undecryptable", reason: "noBackup" });
   expect(to(ev({ content: { type: "redacted" } }))).toBeNull();
   expect(to(ev({ content: { type: "unsupported", description: "Poll" } }))!.content).toEqual({ kind: "unsupported", body: "Poll" });
   // The invitation of a call is a line of its own: who called whom.

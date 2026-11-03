@@ -1,4 +1,4 @@
-import type { MessageContent, ReactionSummary, TimelineItem } from "@ohmatrix/core";
+import type { MessageContent, ReactionSummary, TimelineItem, UndecryptableReason } from "@ohmatrix/core";
 import { membershipText, personName, stateText, type MembershipChange, type StateChange } from "./serviceText.js";
 
 /**
@@ -59,7 +59,7 @@ export type ItemContent =
   | { type: "membership"; userId: string; userName?: string | undefined; change?: MembershipChange | undefined }
   | { type: "state"; state: StateChange }
   | { type: "call" }
-  | { type: "undecryptable" }
+  | { type: "undecryptable"; reason?: UndecryptableReason | undefined }
   | { type: "redacted" }
   | { type: "unsupported"; description: string };
 
@@ -141,7 +141,7 @@ export function toTimelineItem(e: EventItemLike, roomId: string, me: string): Ti
       content = { kind: "service", body: e.isOwn ? "You called" : `${sender} called you` };
       break;
     case "undecryptable":
-      content = { kind: "undecryptable" };
+      content = c.reason ? { kind: "undecryptable", reason: c.reason } : { kind: "undecryptable" };
       break;
     case "redacted":
       return null;
