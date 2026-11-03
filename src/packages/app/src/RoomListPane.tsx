@@ -1,7 +1,21 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Animated, Easing, FlatList, Pressable, Text, View } from "react-native";
 import { contentText, type RoomSummary } from "@ohmatrix/core";
-import { Avatar, Banner, fontFamily, IconButton, Menu, RoomRow, RoomRowSkeleton, SearchField, useTheme, type Anchor, useNavBottom } from "@ohmatrix/ui";
+import {
+  Avatar,
+  Banner,
+  fontFamily,
+  IconButton,
+  Menu,
+  RoomRow,
+  Pulse,
+  RoomRowSkeleton,
+  SearchField,
+  SkeletonBlock,
+  useTheme,
+  type Anchor,
+  useNavBottom,
+} from "@ohmatrix/ui";
 import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
 import { NewSpaceDialog, SpaceScreen } from "./SpaceScreen.js";
 import { ExploreScreen } from "./ExploreScreen.js";
@@ -144,11 +158,24 @@ export function RoomListPane() {
               backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
             })}
           >
-            <Avatar id={profile?.userId ?? "?"} name={profile?.displayName ?? "?"} size={34} src={myAvatar} />
+            {/* Until the profile has come (the picture and the name are read from the server), grey shapes stand where they will be. */}
+            {profile ? (
+              <Avatar id={profile.userId} name={profile.displayName ?? "?"} size={34} src={myAvatar} />
+            ) : (
+              <Pulse>
+                <SkeletonBlock width={34} height={34} circle />
+              </Pulse>
+            )}
             {/* One line, fixed bar height: while connecting the status takes the name's place, styled like the name. */}
-            <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", fontFamily, color: colors.text }}>
-              {syncing ? (profile?.displayName ?? "") : t("connecting")}
-            </Text>
+            {syncing && !profile ? (
+              <Pulse>
+                <SkeletonBlock width={110} height={20} />
+              </Pulse>
+            ) : (
+              <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", fontFamily, color: colors.text }}>
+                {syncing ? (profile?.displayName ?? "") : t("connecting")}
+              </Text>
+            )}
           </Pressable>
           <View ref={plusRef}>
             <IconButton
