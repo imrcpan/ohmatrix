@@ -25,5 +25,16 @@ export function floatingSidebar(windowWidth: number): number {
   return Math.min(560, Math.max(380, Math.round(windowWidth * 0.4)));
 }
 
+/** Width of the chat info beside the chat (docked), and of the same panel when it floats over the chat. */
+export const INFO_DOCK = 340;
+export const INFO_FLOAT = 400;
+/** The least the chat may be left with beside the docked info: a fifth wider than the info itself. */
+export const CHAT_MIN = Math.round(INFO_DOCK * 1.2);
+
+/** Whether the chat info floats over the chat, rather than pushing it aside: the chat would be left too narrow beside it. */
+export function infoFloats(windowWidth: number, sidebar: number): boolean {
+  return windowWidth - sidebar - 1 - INFO_DOCK < CHAT_MIN;
+}
+
 /** Whether a width is the strip with only the pictures. */
 export const isRail = (width: number) => width <= SIDEBAR_RAIL;

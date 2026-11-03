@@ -5,7 +5,7 @@ import { ChatPane } from "./chat/ChatPane.js";
 import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { useAppState, useController, useT } from "./context.js";
-import { autoSidebar, clampSidebar, floatingSidebar, isRail } from "./layout.js";
+import { autoSidebar, clampSidebar, floatingSidebar, INFO_FLOAT, infoFloats, isRail } from "./layout.js";
 import { RailContext } from "./railContext.js";
 import { FloatingSidebar } from "./FloatingSidebar.js";
 import { RoomListPane } from "./RoomListPane.js";
@@ -111,9 +111,16 @@ export function MainScreen() {
                   <View style={{ flex: 1 }}>
                     <ChatPane roomId={roomId} onInfo={() => controller.openRoomInfo(!infoOpen)} />
                   </View>
-                  <SlidePanel mode="dock" open={infoOpen}>
-                    <RoomInfoPanel roomId={roomId} mode="dock" />
-                  </SlidePanel>
+                  {infoFloats(width, sidebar) ? (
+                    // Beside the chat there would be too little room for it: the panel floats over it instead, and pressing the chat closes it.
+                    <SlidePanel mode="float" width={INFO_FLOAT} open={infoOpen} onClose={() => controller.openRoomInfo(false)}>
+                      <RoomInfoPanel roomId={roomId} mode="overlay" />
+                    </SlidePanel>
+                  ) : (
+                    <SlidePanel mode="dock" open={infoOpen}>
+                      <RoomInfoPanel roomId={roomId} mode="dock" />
+                    </SlidePanel>
+                  )}
                 </View>
               </RoomGate>
             ) : (
