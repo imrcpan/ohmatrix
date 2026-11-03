@@ -3,6 +3,7 @@ import type React from "react";
 import { Animated, Image, Keyboard, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon, type IconName } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
+import { Pulse, SkeletonBlock } from "./Skeleton.js";
 import { useQuickFade } from "./quickFade.js";
 import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
@@ -75,7 +76,16 @@ export function Bubble(props: {
   /** Corners that touch a neighbouring plain text bubble. */
   stuck?: BubbleStuck | undefined;
   /** Quoted message shown at the top; press jumps to the original. */
-  reply?: { senderName: string; senderId: string; preview: string; onPress: () => void } | undefined;
+  reply?:
+    | {
+        senderName: string;
+        senderId: string;
+        preview: string;
+        /** The original is a photo: its square thumbnail is shown to the left of the name and `preview` (`uri` is empty until it is fetched). */
+        image?: { uri: string | undefined } | undefined;
+        onPress: () => void;
+      }
+    | undefined;
   /** Localised "edited" marker shown before the time. */
   editedLabel?: string | undefined;
   status?: "sending" | "sent" | "read" | "failed" | undefined;
@@ -221,14 +231,56 @@ export function Bubble(props: {
               backgroundColor: tinted ? "rgba(255,255,255,0.8)" : peerColor(props.reply.senderId),
             }}
           />
-          <View style={{ flexShrink: 1 }}>
+          {/* A quoted photo is a small square of it, with the name and the word "Photo" to its right. */}
+          {props.reply.image && (
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                marginVertical: 4,
+                marginLeft: -2,
+                alignSelf: "center",
+                borderRadius: 6,
+                overflow: "hidden",
+              }}
+            >
+              {props.reply.image.uri ? (
+                <Image source={{ uri: props.reply.image.uri }} resizeMode="cover" style={{ width: "100%", height: "100%" }} />
+              ) : (
+                // Not fetched yet: a pulsing square, like the chat list while it arrives.
+                <Pulse>
+                  <SkeletonBlock width={32} height={32} color={tinted ? "rgba(255,255,255,0.3)" : undefined} />
+                </Pulse>
+              )}
+            </View>
+          )}
+          {/* Beside a photo the two lines fill its height: the name at its top edge, "Photo" at its bottom edge. */}
+          <View
+            style={{ flexShrink: 1, ...(props.reply.image ? { height: 32, marginVertical: 4, alignSelf: "center", justifyContent: "space-between" } : {}) }}
+          >
             <Text
               numberOfLines={1}
-              style={{ fontSize: 14, fontWeight: "600", fontFamily, color: tinted ? colors.bubbleOutText : peerColor(props.reply.senderId) }}
+              style={{
+                fontSize: 14,
+                fontWeight: "600",
+                fontFamily,
+                color: tinted ? colors.bubbleOutText : peerColor(props.reply.senderId),
+                // A line box of 18 does not cut the glyphs (a tighter one does, on the web the line is clipped to it); the 3 of empty space above the letters is taken back.
+                ...(props.reply.image ? { lineHeight: 18, marginTop: -3 } : {}),
+              }}
             >
               {props.reply.senderName}
             </Text>
-            <Text numberOfLines={2} style={{ fontSize: 14, lineHeight: 18, fontFamily, color: tinted ? colors.bubbleOutMeta : colors.textSecondary }}>
+            <Text
+              numberOfLines={props.reply.image ? 1 : 2}
+              style={{
+                fontSize: props.reply.image ? 15 : 14,
+                lineHeight: props.reply.image ? 19 : 18,
+                fontFamily,
+                color: tinted ? colors.bubbleOutMeta : colors.textSecondary,
+                ...(props.reply.image ? { marginBottom: -3 } : {}),
+              }}
+            >
               {props.reply.preview}
             </Text>
           </View>
