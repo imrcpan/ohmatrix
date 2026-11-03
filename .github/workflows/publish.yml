@@ -107,6 +107,12 @@ jobs:
           KEY_ALIAS: ${{ vars.OHM_KEY_ALIAS }}
           CERT_SHA256: ${{ vars.OHM_CERT_SHA256 }}
         run: |
+          missing=
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing secret:OHM_KEYSTORE_BASE64"
+          [ -n "$OHM_KEYSTORE_PASSWORD" ] || missing="$missing secret:OHM_KEYSTORE_PASSWORD"
+          [ -n "$KEY_ALIAS" ] || missing="$missing variable:OHM_KEY_ALIAS"
+          [ -n "$CERT_SHA256" ] || missing="$missing variable:OHM_CERT_SHA256"
+          [ -z "$missing" ] || { echo "not set in the environment 'release':$missing"; exit 1; }
           ks="$RUNNER_TEMP/release.jks"
           trap 'rm -f "$ks"' EXIT
           echo "$KEYSTORE_BASE64" | base64 -d > "$ks"
