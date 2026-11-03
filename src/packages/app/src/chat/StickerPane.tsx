@@ -207,7 +207,11 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
           </>
         )}
       </View>
+      {/* flex 1 and minHeight 0: the grid takes the height the bar and the tabs leave and scrolls inside it; with the content's own height it overflowed the pane and never scrolled. */}
       <ScrollView
+        style={{ flex: 1, minHeight: 0 }}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         contentContainerStyle={mode === "reorder" ? undefined : { flexDirection: "row", flexWrap: "wrap", padding: STICKER_PAD, gap: STICKER_GAP }}
       >
