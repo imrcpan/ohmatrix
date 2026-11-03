@@ -1,4 +1,5 @@
 import { EventType, MsgType, NotificationCountType, RelationType, type MatrixClient, type MatrixEvent, type Room } from "matrix-js-sdk";
+import { stripReplyFallback } from "@ohmatrix/core";
 import type { LinkPreview, MessageContent, Reader, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
 
 const localpart = (id: string) => id.replace(/^@/, "").replace(/:.*$/, "");
@@ -224,12 +225,7 @@ export function reactionsOf(client: MatrixClient, room: Room | null, eventId: st
 }
 
 /** Body without the legacy "> <@user> quoted" reply fallback that older clients prepend. */
-export function stripReplyFallback(body: string): string {
-  if (!body.startsWith("> ")) return body;
-  const i = body.indexOf("\n\n");
-  // Whatever separated the quote from the reply, the reply itself never starts with blank lines.
-  return i === -1 ? body : body.slice(i + 2).replace(/^\n+/, "");
-}
+export { stripReplyFallback };
 
 function replyOf(client: MatrixClient, room: Room | null, ev: MatrixEvent): TimelineItem["replyTo"] | undefined {
   const id = ev.getContent()["m.relates_to"]?.["m.in_reply_to"]?.event_id as string | undefined;
