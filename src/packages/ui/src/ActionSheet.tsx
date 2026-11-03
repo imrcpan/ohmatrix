@@ -175,28 +175,33 @@ export function ReactionChips(props: { items: { key: string; count: number; mine
   const strong = mix(base, fg, 0.2);
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
-      {props.items.map((r) => (
-        <Pressable
-          key={r.key}
-          accessibilityRole="button"
-          accessibilityLabel={`${r.key} ${r.count}`}
-          accessibilityState={{ selected: r.mine }}
-          onPress={() => props.onToggle(r.key)}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-            height: 26,
-            paddingHorizontal: 9,
-            borderRadius: 13,
-            backgroundColor: r.mine ? strong : base,
-            opacity: pressed ? 0.8 : 1,
-          })}
-        >
-          <Text style={{ fontSize: 14 }}>{r.key}</Text>
-          {r.count > 1 || !r.mine ? <Text style={{ fontSize: 13, fontWeight: r.mine ? "700" : "600", fontFamily, color: fg }}>{r.count}</Text> : null}
-        </Pressable>
-      ))}
+      {props.items.map((r) => {
+        // Custom emoji reactions have mxc:// URIs or long text as keys; standard emoji are short (1-4 chars).
+        // Skip custom ones for now — they need image rendering which we'll add later.
+        if (r.key.startsWith("mxc://") || r.key.length > 12) return null;
+        return (
+          <Pressable
+            key={r.key}
+            accessibilityRole="button"
+            accessibilityLabel={`${r.key} ${r.count}`}
+            accessibilityState={{ selected: r.mine }}
+            onPress={() => props.onToggle(r.key)}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              height: 26,
+              paddingHorizontal: 9,
+              borderRadius: 13,
+              backgroundColor: r.mine ? strong : base,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 14 }}>{r.key}</Text>
+            {r.count > 1 || !r.mine ? <Text style={{ fontSize: 13, fontWeight: r.mine ? "700" : "600", fontFamily, color: fg }}>{r.count}</Text> : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
