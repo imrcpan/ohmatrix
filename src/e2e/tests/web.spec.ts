@@ -878,6 +878,41 @@ test("landscape: the profile always floats over the window, whatever the width o
   }
 });
 
+test("spaces: a room of the space that I have not joined is listed by its name, not by its id", async ({ page }) => {
+  test.setTimeout(90000);
+  const alice = await apiLogin("alice");
+  const stamp = Date.now().toString(36);
+  const roomName = `Hidden Gem ${stamp}`;
+  const { room_id: roomId } = await api(alice, "POST", "/createRoom", { name: roomName, preset: "public_chat" });
+  // A space of alice's that lists it, which I join: the room is one I know nothing of but the id.
+  const { room_id: spaceId } = await api(alice, "POST", "/createRoom", {
+    name: `Space ${stamp}`,
+    preset: "public_chat",
+    creation_content: { type: "m.space" },
+    initial_state: [{ type: "m.space.child", state_key: roomId, content: { via: ["localhost"], order: "1" } }],
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  // Watched on every frame: while the space is being read it does not say that it is empty.
+  await page.evaluate(() => {
+    const w = window as unknown as { __empty: number };
+    w.__empty = 0;
+    const tick = () => {
+      if (document.body.innerText.includes("No rooms in this space yet")) w.__empty++;
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+  await page.evaluate(async (id) => {
+    const c = (window as unknown as { __ohmatrix: { controller: { joinRoom(id: string): Promise<void>; openSpace(id: string): void } } }).__ohmatrix.controller;
+    await c.joinRoom(id);
+    c.openSpace(id);
+  }, spaceId);
+  await expect(page.getByRole("button", { name: new RegExp(roomName) })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText(roomId, { exact: false })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __empty: number }).__empty)).toBe(0);
+});
+
 test("landscape: the contents of a space slide in over the list from the divider, and are never drawn over the chat", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 800 });

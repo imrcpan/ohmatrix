@@ -10,6 +10,7 @@ import {
   NavBar,
   PrimaryButton,
   Row,
+  RoomRowSkeleton,
   SearchField,
   TextButton,
   useTheme,
@@ -34,7 +35,8 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
   const spaceId = props.id;
   const rooms = useAppState((s) => s.rooms);
   const selected = useAppState((s) => s.selectedRoomId);
-  const [children, setChildren] = useState<SpaceChild[]>([]);
+  // Not known until the space has answered: it is not "empty" before that.
+  const [children, setChildren] = useState<SpaceChild[] | null>(null);
   const [query, setQuery] = useState("");
   const [menuAnchor, setMenuAnchor] = useState<Anchor | null>(null);
   const [menu, setMenu] = useState(false);
@@ -50,23 +52,25 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
 
   useEffect(() => {
     if (!spaceId) return;
-    setChildren([]);
+    setChildren(null);
     return controller.subscribeSpace(spaceId, setChildren);
   }, [controller, spaceId]);
 
   // Children that are also joined rooms keep their live unread counts and last message from the room list.
   const rows = useMemo(() => {
-    const list: { id: string; name: string; avatar?: RoomSummary["avatar"]; isSpace: boolean; room?: RoomSummary; child: SpaceChild }[] = children.map((c) => {
-      const room = rooms.find((r) => r.id === c.roomId);
-      return {
-        id: c.roomId,
-        name: room?.name ?? c.name,
-        ...(room?.avatar ? { avatar: room.avatar } : c.avatar ? { avatar: c.avatar } : {}),
-        isSpace: c.isSpace,
-        ...(room ? { room } : {}),
-        child: c,
-      };
-    });
+    const list: { id: string; name: string; avatar?: RoomSummary["avatar"]; isSpace: boolean; room?: RoomSummary; child: SpaceChild }[] = (children ?? []).map(
+      (c) => {
+        const room = rooms.find((r) => r.id === c.roomId);
+        return {
+          id: c.roomId,
+          name: room?.name ?? c.name,
+          ...(room?.avatar ? { avatar: room.avatar } : c.avatar ? { avatar: c.avatar } : {}),
+          isSpace: c.isSpace,
+          ...(room ? { room } : {}),
+          child: c,
+        };
+      },
+    );
     const q = query.trim().toLowerCase();
     return q ? list.filter((r) => r.name.toLowerCase().includes(q)) : list;
   }, [children, rooms, query, spaceId]);
@@ -121,9 +125,18 @@ export function SpaceScreen(props: { id: string; onClose: () => void }) {
         keyExtractor={(r) => r.id}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
         ListEmptyComponent={
-          <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
-            {query ? t("noResults") : t("space.empty")}
-          </Text>
+          children === null ? (
+            // The rooms are on their way: rows stand where they will be, as in the main list.
+            <View>
+              {Array.from({ length: 8 }, (_, i) => (
+                <RoomRowSkeleton key={i} index={i} />
+              ))}
+            </View>
+          ) : (
+            <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
+              {query ? t("noResults") : t("space.empty")}
+            </Text>
+          )
         }
         renderItem={({ item }) =>
           item.room ? (
@@ -244,20 +257,28 @@ function ManageRoomsDialog(props: { visible: boolean; onClose: () => void }) {
   const t = useT();
   const controller = useController();
   const spaceId = useAppState((s) => s.spaceId);
-  const [children, setChildren] = useState<SpaceChild[]>([]);
+  const [children, setChildren] = useState<SpaceChild[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!props.visible || !spaceId) return;
     setPicked(new Set());
+    setChildren(null);
     return controller.subscribeSpace(spaceId, setChildren);
   }, [props.visible, spaceId, controller]);
   return (
     <Dialog visible={props.visible} title={t("space.manageRooms")} onClose={props.onClose}>
-      {children.length === 0 && (
+      {children === null && (
+        <View>
+          {Array.from({ length: 3 }, (_, i) => (
+            <RoomRowSkeleton key={i} index={i} />
+          ))}
+        </View>
+      )}
+      {children?.length === 0 && (
         <Text style={{ padding: 12, textAlign: "center", fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("space.empty")}</Text>
       )}
       <ScrollView style={{ maxHeight: 320 }}>
-        {children.map((c) => (
+        {(children ?? []).map((c) => (
           <Row
             key={c.roomId}
             label={c.name}
