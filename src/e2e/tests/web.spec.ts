@@ -947,6 +947,16 @@ test("landscape: the contents of a space slide in over the list from the divider
   const over = await page.evaluate(() => (window as unknown as { __over: boolean[] }).__over);
   expect(over.length).toBeGreaterThan(5); // the slide-in was watched
   expect(over.filter(Boolean)).toEqual([]);
+  // The header of the space runs into the search field with no line between them.
+  const line = await page.getByRole("button", { name: "Back", exact: true }).evaluate((back) => {
+    let bar: HTMLElement | null = back;
+    while (bar && Math.round(bar.getBoundingClientRect().height) !== 52) bar = bar.parentElement;
+    return bar ? { width: getComputedStyle(bar).borderBottomWidth, bottom: bar.getBoundingClientRect().bottom } : { width: "no bar", bottom: 0 };
+  });
+  expect(line.width).toBe("0px");
+  // and little room above the search field (the space's own, the last one: the main list under it has one too)
+  const pill = (await page.getByPlaceholder("Search").last().locator("xpath=..").boundingBox())!; // the rounded field around the input
+  expect(pill.y - line.bottom).toBeLessThanOrEqual(4);
 });
 
 test("landscape: the chat info is docked beside the chat, and floats over it when the chat would be left narrower than 120% of the info", async ({ page }) => {
