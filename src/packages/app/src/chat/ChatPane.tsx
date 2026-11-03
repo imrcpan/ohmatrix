@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { Composer, useTheme } from "@ohmatrix/ui";
 import { ForwardDialog } from "../ForwardDialog.js";
@@ -49,6 +49,14 @@ function Chat(props: ChatPaneProps) {
   const { room, items, handle, typing, rows: allRows, isGroup } = useRoomTimeline(props.roomId);
   const list = useRef<MessageListHandle | null>(null);
   const [ready, setReady] = useState(false);
+  // Older history is being asked for. Shown only if the answer is not quick (at the start of a room it is, and nothing is coming).
+  const [asking, setAsking] = useState(false);
+  const [olderLoading, setOlderLoading] = useState(false);
+  useEffect(() => {
+    if (!asking) return setOlderLoading(false);
+    const timer = setTimeout(() => setOlderLoading(true), 250);
+    return () => clearTimeout(timer);
+  }, [asking]);
   // Only the newest screen and a half is drawn at first; see useRowWindow.
   const win = useRowWindow(allRows, ready);
   const rows = win.rows;
@@ -189,18 +197,24 @@ function Chat(props: ChatPaneProps) {
       )}
       {!chosen && pinnedIds.length > 0 && <PinnedBar roomId={props.roomId} ids={pinnedIds} onJump={actions.jump} onAll={() => setPins(true)} />}
       {searching && !chosen && <ChatSearch roomId={props.roomId} onClose={() => setSearching(false)} />}
-      {!ready && <LoadingOverlay label={t("chat.loading")} />}
+      {!ready && <LoadingOverlay label={t("chat.loading")} avatars={isGroup} />}
       <PinnedContext.Provider value={pinnedSet}>
         <SelectionContext.Provider value={selection}>
           <View style={{ flex: 1 }}>
             <MessageList
               rows={rows}
               loaded={items !== undefined}
+              olderLoading={olderLoading}
+              skeletonAvatars={isGroup}
               renderRow={renderRow}
               onReachedStart={() => {
                 // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
                 if (win.grow()) return;
-                void handle.current?.paginateBackwards().catch(() => {});
+                setAsking(true);
+                void handle.current
+                  ?.paginateBackwards()
+                  .catch(() => {})
+                  .finally(() => setAsking(false));
               }}
               onReady={() => setReady(true)}
               onPinnedChange={nw.onPinnedChange}

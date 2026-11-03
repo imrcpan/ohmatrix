@@ -3,6 +3,8 @@ import { FlatList } from "react-native";
 import type { Row } from "../timelineRows.js";
 import type { MessageListProps } from "./messageList.js";
 import { isAtBottom, isAway, needsFill } from "./scrollMath.js";
+import { ChatSkeleton } from "./ChatSkeleton.js";
+import { OLDER_SKELETON } from "./olderSkeleton.js";
 import { useLatest } from "./useLatest.js";
 
 /**
@@ -100,6 +102,8 @@ export function MessageList(props: MessageListProps) {
       renderItem={({ item }) => <>{props.renderRow(item)}</>}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingVertical: 8 }}
+      // The far end of an inverted list is the oldest row: that is where the skeleton of older history stands.
+      ListFooterComponent={props.olderLoading ? <ChatSkeleton count={OLDER_SKELETON} avatars={!!props.skeletonAvatars} /> : null}
       keyboardShouldPersistTaps="handled"
       initialNumToRender={24}
       scrollEventThrottle={16}

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList } from "react-native";
+import { FlatList, View } from "react-native";
 import type { Row } from "../timelineRows.js";
 import type { MessageListProps } from "./messageList.js";
 import { gapToBottom, isAtBottom, isAway, needsFill, offsetAfterPrepend } from "./scrollMath.js";
+import { useTheme } from "@ohmatrix/ui";
+import { ChatSkeleton } from "./ChatSkeleton.js";
+import { OLDER_SKELETON, OLDER_SKELETON_HEIGHT } from "./olderSkeleton.js";
 import { useLatest } from "./useLatest.js";
 
 /** The few parts of the DOM this file touches (the app's TypeScript has no DOM library). */
@@ -35,6 +38,7 @@ const GIVE_UP_MS = 10_000;
  */
 export function MessageList(props: MessageListProps) {
   const p = useLatest(props);
+  const { colors } = useTheme();
   const listRef = useRef<FlatList<Row>>(null);
   const s = useRef({ offset: 0, content: 0, view: 0, pinned: true, firstKey: "", filledFor: -1 });
   const [ready, setReady] = useState(false);
@@ -201,61 +205,73 @@ export function MessageList(props: MessageListProps) {
   }, [props.handleRef, p, node, moveTo, toBottom]);
 
   return (
-    <FlatList
-      ref={listRef}
-      data={props.rows}
-      keyExtractor={(r) => r.key}
-      renderItem={({ item }) => <>{props.renderRow(item)}</>}
-      style={{ flex: 1, opacity: ready ? 1 : 0 }}
-      contentContainerStyle={{ paddingVertical: 8 }}
-      keyboardShouldPersistTaps="handled"
-      initialNumToRender={24}
-      scrollEventThrottle={16}
-      onScrollToIndexFailed={({ index, averageItemLength }) => listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })}
-      // Older history is fetched as the top comes into view.
-      onStartReachedThreshold={0.6}
-      onStartReached={() => p.current.onReachedStart()}
-      onLayout={(e) => {
-        s.current.view = e.nativeEvent.layout.height;
-      }}
-      onScroll={(e) => {
-        const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-        const st = s.current;
-        st.offset = contentOffset.y;
-        st.content = contentSize.height;
-        st.view = layoutMeasurement.height;
-        const gap = gapToBottom({ content: st.content, view: st.view, offset: st.offset });
-        // Reaching the bottom pins; leaving it unpins only when the reader did it (see `userScrolling`).
-        const mine = userScrolling();
-        const was = st.pinned;
-        if (mine) jumping.current = false; // the reader took over
-        if (isAtBottom(gap) && !jumping.current) st.pinned = true;
-        else if (mine) st.pinned = false;
-        if (st.pinned !== was) p.current.onPinnedChange(st.pinned);
-        p.current.onAwayChange(isAway(gap, st.view, st.pinned));
-      }}
-      onContentSizeChange={(_w, h) => {
-        const st = s.current;
-        const first = p.current.rows[0]?.key ?? "";
-        const shift = offsetAfterPrepend({ firstKey: st.firstKey, content: st.content, offset: st.offset }, { firstKey: first, content: h });
-        st.content = h;
-        st.firstKey = first;
-        if (st.pinned) {
-          // At the bottom: stay there as messages arrive and rows settle to their real height.
-          toBottom();
-          if (!ready && p.current.rows.length > 0) settleSoon();
-          // A room whose loaded messages do not fill the window has nothing to scroll up to: fetch until it does.
-          const have = p.current.rows.length;
-          if (ready && needsFill(h, st.view, have, st.filledFor)) {
-            st.filledFor = have;
-            p.current.onReachedStart();
+    <View style={{ flex: 1 }}>
+      <FlatList
+        ref={listRef}
+        data={props.rows}
+        keyExtractor={(r) => r.key}
+        renderItem={({ item }) => <>{props.renderRow(item)}</>}
+        style={{ flex: 1, opacity: ready ? 1 : 0 }}
+        contentContainerStyle={{ paddingVertical: 8 }}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={24}
+        scrollEventThrottle={16}
+        onScrollToIndexFailed={({ index, averageItemLength }) => listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })}
+        // Older history is fetched as the top comes into view.
+        onStartReachedThreshold={0.6}
+        onStartReached={() => p.current.onReachedStart()}
+        onLayout={(e) => {
+          s.current.view = e.nativeEvent.layout.height;
+        }}
+        onScroll={(e) => {
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+          const st = s.current;
+          st.offset = contentOffset.y;
+          st.content = contentSize.height;
+          st.view = layoutMeasurement.height;
+          const gap = gapToBottom({ content: st.content, view: st.view, offset: st.offset });
+          // Reaching the bottom pins; leaving it unpins only when the reader did it (see `userScrolling`).
+          const mine = userScrolling();
+          const was = st.pinned;
+          if (mine) jumping.current = false; // the reader took over
+          if (isAtBottom(gap) && !jumping.current) st.pinned = true;
+          else if (mine) st.pinned = false;
+          if (st.pinned !== was) p.current.onPinnedChange(st.pinned);
+          p.current.onAwayChange(isAway(gap, st.view, st.pinned));
+        }}
+        onContentSizeChange={(_w, h) => {
+          const st = s.current;
+          const first = p.current.rows[0]?.key ?? "";
+          const shift = offsetAfterPrepend({ firstKey: st.firstKey, content: st.content, offset: st.offset }, { firstKey: first, content: h });
+          st.content = h;
+          st.firstKey = first;
+          if (st.pinned) {
+            // At the bottom: stay there as messages arrive and rows settle to their real height.
+            toBottom();
+            if (!ready && p.current.rows.length > 0) settleSoon();
+            // A room whose loaded messages do not fill the window has nothing to scroll up to: fetch until it does.
+            const have = p.current.rows.length;
+            if (ready && needsFill(h, st.view, have, st.filledFor)) {
+              st.filledFor = have;
+              p.current.onReachedStart();
+            }
+          } else if (shift !== null) {
+            // Older rows appeared above the view: move down by exactly what was added, so nothing jumps.
+            moveTo(shift);
+            st.offset = shift;
           }
-        } else if (shift !== null) {
-          // Older rows appeared above the view: move down by exactly what was added, so nothing jumps.
-          moveTo(shift);
-          st.offset = shift;
-        }
-      }}
-    />
+        }}
+      />
+      {/* Older history is on its way: skeleton bubbles over the top of the list. They are laid over it, not in it, so that the way the
+          list keeps its place when rows are added above is not touched. */}
+      {props.olderLoading && (
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, height: OLDER_SKELETON_HEIGHT, overflow: "hidden", backgroundColor: colors.chatBg }}
+        >
+          <ChatSkeleton count={OLDER_SKELETON} avatars={!!props.skeletonAvatars} />
+        </View>
+      )}
+    </View>
   );
 }

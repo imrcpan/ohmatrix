@@ -1,13 +1,24 @@
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { fontFamily, Icon, popoverShadow, Spinner, useNavBottom, useTheme } from "@ohmatrix/ui";
+import { fontFamily, Icon, popoverShadow, useNavBottom, useTheme } from "@ohmatrix/ui";
+import { ChatSkeleton } from "./ChatSkeleton.js";
 import { HEADER_HEIGHT } from "./ChatHeader.js";
 
 /** The composer bar's resting height: things that float above the list sit just over it. */
 export const COMPOSER_HEIGHT = 62;
 
-/** Shown in place of the list while a room's messages come in and the list settles on the newest one. */
-export function LoadingOverlay({ label }: { label: string }) {
+/**
+ * Shown in place of the list while a room's messages come in and the list settles on the newest one: skeleton bubbles
+ * over the whole of the list's place. A room that is drawn at once from what is kept never shows it (it waits a moment).
+ */
+export function LoadingOverlay({ label, avatars }: { label: string; avatars: boolean }) {
   const nav = useNavBottom();
+  const { colors } = useTheme();
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <View
       pointerEvents="none"
@@ -19,12 +30,13 @@ export function LoadingOverlay({ label }: { label: string }) {
         left: 0,
         right: 0,
         bottom: COMPOSER_HEIGHT + nav,
-        alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "flex-end",
+        overflow: "hidden",
+        backgroundColor: colors.chatBg,
         zIndex: 2,
       }}
     >
-      <Spinner />
+      {shown && <ChatSkeleton count={12} avatars={avatars} />}
     </View>
   );
 }
