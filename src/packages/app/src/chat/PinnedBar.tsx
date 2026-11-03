@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { fontFamily, Icon, useTheme } from "@ohmatrix/ui";
+import { fontFamily, Icon, Pulse, SkeletonBlock, useTheme } from "@ohmatrix/ui";
 import { useT } from "../context.js";
 import { pinnedPreview } from "./pinnedPreview.js";
 import { usePinned } from "./usePinned.js";
@@ -51,7 +51,13 @@ export function PinnedBar(props: { roomId: string; ids: readonly string[]; onJum
             {ids.length > 1 ? `${t("pinned.title")} · ${index + 1}/${ids.length}` : t("pinned.title")}
           </Text>
           <Text numberOfLines={1} style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
-            {item ? pinnedPreview(item, t) : "…"}
+            {item ? (
+              pinnedPreview(item, t)
+            ) : (
+              <Pulse>
+                <SkeletonBlock width={160} height={13} />
+              </Pulse>
+            )}
           </Text>
         </View>
       </Pressable>
