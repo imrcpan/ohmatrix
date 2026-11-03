@@ -956,6 +956,75 @@ test("spaces: pressing a room that is not joined opens its card at once, grey ba
   await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 20000 });
 });
 
+for (const scale of [1, 1.25]) {
+  test(`explore: the cards fill the width the list has, whatever the scrollbar and the zoom (${Math.round(scale * 100)}%), and leave no column empty`, async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    const stamp = Date.now().toString(36);
+    await page.addInitScript((scale) => localStorage.setItem("ohmatrix.prefs.v1", JSON.stringify({ uiScale: scale })), scale);
+    // Rooms in the directory, enough for the list to scroll (the dev server publishes none, and will not let a room be published).
+    await page.route("**/publicRooms**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          chunk: Array.from({ length: 12 }, (_, i) => ({
+            room_id: `!shelf${i}:localhost`,
+            name: `Shelf ${stamp} ${i}`,
+            topic: "A room on a shelf ".repeat(1 + (i % 4)),
+            num_joined_members: 3 + i,
+            world_readable: false,
+            guest_can_join: false,
+          })),
+          total_room_count_estimate: 12,
+        }),
+      }),
+    );
+    // Three cards by the width of the window alone (3 x 300, two gaps and the padding); the split layout from the start, as zoomed windows are narrower in layout px.
+    await page.setViewportSize({ width: Math.round(960 * scale), height: 700 });
+    await login(page);
+    await page.getByRole("button", { name: "New", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Explore" }).click();
+    await expect(page.getByRole("button", { name: new RegExp(`Shelf ${stamp}`) }).first()).toBeVisible({ timeout: 20000 });
+    await page.waitForTimeout(800);
+    const measure = () =>
+      page.evaluate((stamp) => {
+        const cards = [...document.querySelectorAll<HTMLElement>("[aria-label]")].filter(
+          (e) => (e.getAttribute("aria-label") ?? "").startsWith(`Shelf ${stamp}`) && e.getAttribute("role") === "button",
+        );
+        const box = cards[0]!.parentElement!;
+        const first = cards[0]!;
+        // In layout px (the offsets), which the zoom does not change.
+        const row = cards.filter((c) => c.offsetTop === first.offsetTop);
+        const last = row[row.length - 1]!;
+        return {
+          n: cards.length,
+          slack: box.offsetWidth - (last.offsetLeft - first.offsetLeft + last.offsetWidth),
+          least: Math.min(...cards.map((c) => c.offsetWidth)),
+          kinds: new Set(cards.map((c) => c.offsetWidth)).size,
+        };
+      }, stamp);
+    // Whatever room the list has beside a scrollbar (a headless browser has none: some of the width is taken the same way), the cards share it out.
+    for (const taken of [0, 15, 35]) {
+      await page.evaluate(
+        ([stamp, taken]) => {
+          const card = [...document.querySelectorAll<HTMLElement>("[aria-label]")].find(
+            (e) => (e.getAttribute("aria-label") ?? "").startsWith(`Shelf ${stamp}`) && e.getAttribute("role") === "button",
+          )!;
+          card.parentElement!.parentElement!.style.paddingRight = `${16 + (taken as number)}px`;
+        },
+        [stamp, taken] as const,
+      );
+      await page.waitForTimeout(300);
+      const m = await measure();
+      expect(m.n).toBeGreaterThan(3);
+      expect(m.slack).toBeLessThanOrEqual(2); // the cards of a row reach the right edge of the room they have: no empty column beside them
+      expect(m.least).toBeGreaterThanOrEqual(299);
+      expect(m.kinds).toBe(1); // all as wide as one another
+    }
+  });
+}
+
 test("landscape: the contents of a space slide in over the list from the divider, and are never drawn over the chat", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 800 });
