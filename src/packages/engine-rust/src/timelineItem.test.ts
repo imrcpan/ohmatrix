@@ -94,6 +94,11 @@ test("a reply carries what it answers, if the SDK has it", () => {
     ev({ content: { type: "text", body: "yes", replyTo: { eventId: "$o", original: { sender: "@bob:s", senderName: "Bob", body: "shall we?" } } } }),
   )!;
   expect(withOriginal.replyTo).toEqual({ id: "$o", sender: "@bob:s", senderName: "Bob", preview: "shall we?" });
+  const photo = { url: "mxc://s/a", width: 320, height: 200 };
+  const ofPhoto = to(
+    ev({ content: { type: "text", body: "yes", replyTo: { eventId: "$o", original: { sender: "@bob:s", body: "IMG_1.png", image: photo } } } }),
+  )!;
+  expect(ofPhoto.replyTo?.image).toEqual(photo);
   const without = to(ev({ content: { type: "text", body: "yes", replyTo: { eventId: "$o" } } }))!;
   expect(without.replyTo).toEqual({ id: "$o", sender: "", senderName: "", preview: "" });
 });
