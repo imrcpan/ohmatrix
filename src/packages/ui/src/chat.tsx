@@ -103,6 +103,15 @@ export function Bubble(props: {
   const imageOnly = !!media && !props.text;
   const sticker = !!props.image?.sticker && imageOnly;
   // A file on its own is a card, the same for both sides (as WeChat shows files): neutral surface, the kind of file on a tile.
+  // The picture rounds its own corners: all four when it is the whole bubble, else the top two, and only when it is the first thing in it.
+  const mediaClip = {
+    overflow: "hidden" as const,
+    ...(imageOnly
+      ? corners
+      : props.senderName || props.reply
+        ? {}
+        : { borderTopLeftRadius: corners.borderTopLeftRadius, borderTopRightRadius: corners.borderTopRightRadius }),
+  };
   const fileCard = !!props.file && !props.text && !props.reply;
   // My message in the accent colour (unless Settings turned that off); otherwise it is drawn like a message of somebody else.
   const tinted = props.own && props.accent !== false;
@@ -168,7 +177,8 @@ export function Bubble(props: {
       style={[
         {
           maxWidth: "100%",
-          overflow: "hidden",
+          // Never clipped: no text of a bubble may be cut. A picture or video clips itself to the corners (see `mediaClip`).
+          overflow: "visible",
           backgroundColor: sticker ? "transparent" : mine ? colors.bubbleOut : props.mentionsMe ? colors.mentionBg : colors.bubbleIn,
           ...(imageOnly
             ? {}
@@ -237,6 +247,7 @@ export function Bubble(props: {
               width: props.image.width,
               height: props.image.height,
               maxWidth: "100%",
+              ...mediaClip,
               backgroundColor: sticker ? "transparent" : colors.bgSecondary,
               ...(imageOnly ? {} : { marginHorizontal: -12, marginBottom: 6, marginTop: props.senderName ? 0 : -7, width: props.image.width + 24 }),
             },
@@ -259,6 +270,7 @@ export function Bubble(props: {
               width: props.video.width,
               height: props.video.height,
               maxWidth: "100%",
+              ...mediaClip,
               backgroundColor: "#10161D",
               ...(imageOnly ? {} : { marginHorizontal: -12, marginBottom: 6, marginTop: props.senderName ? 0 : -7, width: props.video.width + 24 }),
             },
@@ -337,9 +349,11 @@ export function Bubble(props: {
             fontFamily,
             color: props.muted ? meta : fg,
             fontStyle: props.muted ? "italic" : "normal",
-            // The last line shares its row with the time, which sits 0.7 dp higher than the text does on a phone (measured on screen): the text is
-            // lifted by that, so the bottoms of the two line up. The time and the size of the bubble are not touched.
-            ...(Platform.OS === "android" ? { top: -0.7 } : {}),
+            // The web is the model (measured on screen): there the baseline of the last line is 12.25 px above the bottom of the bubble. On a
+            // phone it was 9.7 dp, so the text is lifted by the 2.55 dp between them. The size of the bubble is not touched.
+            // The last line's descenders (g, y) are drawn under the box the line takes and the phone cuts them at the edge of the text's own view, so
+            // the view gets 5 more at the foot, taken back with the same margin: the bubble keeps its size.
+            ...(Platform.OS === "android" ? { top: -2.55, paddingBottom: 5, marginBottom: -5 } : {}),
           }}
         >
           {richRuns ? (
