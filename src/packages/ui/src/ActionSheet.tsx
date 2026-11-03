@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
@@ -166,9 +166,15 @@ export function MessageMenu(props: {
 
 /**
  * Reaction pills under a bubble. They wear the bubble's colours (outgoing or incoming, so they follow the theme
- * too); the ones I added are a step stronger, pulled towards the text colour.
+ * too); the ones I added are a step stronger, pulled towards the text colour. A key is an emoji, free text, or the
+ * `mxc://` address of a custom emoji: `image` draws the last (it needs the app's media loading).
  */
-export function ReactionChips(props: { items: { key: string; count: number; mine: boolean }[]; own: boolean; onToggle: (key: string) => void }) {
+export function ReactionChips(props: {
+  items: { key: string; count: number; mine: boolean }[];
+  own: boolean;
+  onToggle: (key: string) => void;
+  image?: ((mxc: string) => ReactNode) | undefined;
+}) {
   const { colors } = useTheme();
   const base = props.own ? colors.bubbleOut : colors.bubbleIn;
   const fg = props.own ? colors.bubbleOutText : colors.bubbleInText;
@@ -176,14 +182,12 @@ export function ReactionChips(props: { items: { key: string; count: number; mine
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
       {props.items.map((r) => {
-        // Custom emoji reactions have mxc:// URIs or long text as keys; standard emoji are short (1-4 chars).
-        // Skip custom ones for now — they need image rendering which we'll add later.
-        if (r.key.startsWith("mxc://") || r.key.length > 12) return null;
+        const custom = r.key.startsWith("mxc://");
         return (
           <Pressable
             key={r.key}
             accessibilityRole="button"
-            accessibilityLabel={`${r.key} ${r.count}`}
+            accessibilityLabel={custom ? `${r.count}` : `${r.key} ${r.count}`}
             accessibilityState={{ selected: r.mine }}
             onPress={() => props.onToggle(r.key)}
             style={({ pressed }) => ({
@@ -191,13 +195,20 @@ export function ReactionChips(props: { items: { key: string; count: number; mine
               alignItems: "center",
               gap: 4,
               height: 26,
+              maxWidth: 220,
               paddingHorizontal: 9,
               borderRadius: 13,
               backgroundColor: r.mine ? strong : base,
               opacity: pressed ? 0.8 : 1,
             })}
           >
-            <Text style={{ fontSize: 14 }}>{r.key}</Text>
+            {custom ? (
+              (props.image?.(r.key) ?? null)
+            ) : (
+              <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14, fontFamily, color: fg }}>
+                {r.key}
+              </Text>
+            )}
             {r.count > 1 || !r.mine ? <Text style={{ fontSize: 13, fontWeight: r.mine ? "700" : "600", fontFamily, color: fg }}>{r.count}</Text> : null}
           </Pressable>
         );
