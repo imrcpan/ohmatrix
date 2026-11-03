@@ -30,6 +30,13 @@ export const indonesian: Record<MessageKey, string> = {
   "keys.reset.warning":
     "Pesan yang dikirim sebelum atur ulang mungkin tidak dapat dibaca di perangkat yang tidak memiliki kuncinya. Ekspor kunci terlebih dahulu jika masih diperlukan.",
   "keys.reset.confirm": "Atur ulang",
+  "update.check": "Periksa pembaruan",
+  "update.checking": "Memeriksa pembaruan…",
+  "update.latest": "OhMatrix sudah yang terbaru",
+  "update.failed": "Tidak dapat memeriksa pembaruan: {reason}",
+  "update.title": "Pembaruan tersedia",
+  "update.body": "OhMatrix {version} tersedia. Anda memakai {current}. Pasang sekarang?",
+  "update.install": "Pasang",
   "welcome.title": "OhMatrix",
   "welcome.subtitle": "Masuk ke akun Matrix Anda",
   selectChat: "Pilih obrolan untuk mulai berkirim pesan",

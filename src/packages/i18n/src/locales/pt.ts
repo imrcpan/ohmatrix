@@ -31,6 +31,13 @@ export const pt: Record<MessageKey, string> = {
   "keys.reset.warning":
     "Mensagens enviadas antes da redefinição podem ficar ilegíveis em dispositivos que não têm essas chaves. Exporte suas chaves antes, se ainda precisar delas.",
   "keys.reset.confirm": "Redefinir",
+  "update.check": "Verificar atualizações",
+  "update.checking": "Verificando atualizações…",
+  "update.latest": "O OhMatrix está atualizado",
+  "update.failed": "Não foi possível verificar atualizações: {reason}",
+  "update.title": "Atualização disponível",
+  "update.body": "O OhMatrix {version} está disponível. Você tem {current}. Instalar?",
+  "update.install": "Instalar",
   "welcome.title": "OhMatrix",
   "welcome.subtitle": "Entre na sua conta Matrix",
   selectChat: "Escolha uma conversa para começar",

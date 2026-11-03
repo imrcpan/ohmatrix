@@ -31,6 +31,13 @@ export const ru: Record<MessageKey, string> = {
   "keys.reset.warning":
     "Сообщения, отправленные до сброса, могут быть недоступны на устройствах без этих ключей. Если они ещё нужны, сначала экспортируйте ключи.",
   "keys.reset.confirm": "Сбросить",
+  "update.check": "Проверить обновления",
+  "update.checking": "Проверка обновлений…",
+  "update.latest": "OhMatrix обновлён до последней версии",
+  "update.failed": "Не удалось проверить обновления: {reason}",
+  "update.title": "Доступно обновление",
+  "update.body": "Доступен OhMatrix {version}. У вас {current}. Установить?",
+  "update.install": "Установить",
   "welcome.title": "OhMatrix",
   "welcome.subtitle": "Войдите в свою учётную запись Matrix",
   selectChat: "Выберите чат, чтобы начать общение",

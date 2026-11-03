@@ -31,6 +31,13 @@ export const fr: Record<MessageKey, string> = {
   "keys.reset.warning":
     "Les messages envoyés avant la réinitialisation pourraient être illisibles sur les appareils qui n’ont pas leurs clés. Exportez d’abord vos clés si vous en avez encore besoin.",
   "keys.reset.confirm": "Réinitialiser",
+  "update.check": "Rechercher des mises à jour",
+  "update.checking": "Recherche de mises à jour…",
+  "update.latest": "OhMatrix est à jour",
+  "update.failed": "Impossible de rechercher les mises à jour : {reason}",
+  "update.title": "Mise à jour disponible",
+  "update.body": "OhMatrix {version} est disponible. Vous avez {current}. L’installer ?",
+  "update.install": "Installer",
   "welcome.title": "OhMatrix",
   "welcome.subtitle": "Connectez-vous à votre compte Matrix",
   selectChat: "Choisissez une discussion pour écrire",

@@ -31,6 +31,13 @@ export const de: Record<MessageKey, string> = {
   "keys.reset.warning":
     "Nachrichten, die vor dem Zurücksetzen gesendet wurden, sind auf Geräten ohne diese Schlüssel möglicherweise nicht lesbar. Exportiere deine Schlüssel vorher, falls du sie noch brauchst.",
   "keys.reset.confirm": "Zurücksetzen",
+  "update.check": "Nach Updates suchen",
+  "update.checking": "Suche nach Updates …",
+  "update.latest": "OhMatrix ist auf dem neuesten Stand",
+  "update.failed": "Die Suche nach Updates ist fehlgeschlagen: {reason}",
+  "update.title": "Update verfügbar",
+  "update.body": "OhMatrix {version} ist verfügbar. Du hast {current}. Installieren?",
+  "update.install": "Installieren",
   "welcome.title": "OhMatrix",
   "welcome.subtitle": "Melde dich bei deinem Matrix-Konto an",
   selectChat: "Wähle einen Chat, um zu schreiben",

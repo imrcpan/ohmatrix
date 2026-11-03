@@ -31,6 +31,13 @@ export const es: Record<MessageKey, string> = {
   "keys.reset.warning":
     "Los mensajes enviados antes del restablecimiento podrían no leerse en dispositivos que no tengan sus claves. Exporta tus claves antes si todavía las necesitas.",
   "keys.reset.confirm": "Restablecer",
+  "update.check": "Buscar actualizaciones",
+  "update.checking": "Buscando actualizaciones…",
+  "update.latest": "OhMatrix está actualizado",
+  "update.failed": "No se pudo buscar actualizaciones: {reason}",
+  "update.title": "Actualización disponible",
+  "update.body": "OhMatrix {version} está disponible. Tienes {current}. ¿Instalarla?",
+  "update.install": "Instalar",
   "welcome.title": "OhMatrix",
   "welcome.subtitle": "Inicia sesión en tu cuenta de Matrix",
   selectChat: "Elige un chat para empezar a escribir",
