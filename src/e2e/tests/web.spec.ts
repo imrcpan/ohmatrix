@@ -1738,19 +1738,10 @@ test("photo viewer: hand cursor and click to open; translucent mask over the who
   await viewer.dblclick();
   await expect.poll(zoomText).toBe("100%"); // it glides there
 
-  // A double click zooms wherever it lands, on the dim around the picture too, and does not close the viewer.
-  await page.mouse.dblclick(40, 400);
+  // In a landscape window (the desktop way) a click on the picture does nothing, and one on the dim closes at once.
+  await viewer.click();
   await page.waitForTimeout(500);
   await expect(viewer).toBeVisible();
-  await expect.poll(zoomText).toBe("200%"); // it glides there
-  await page.mouse.dblclick(40, 400);
-  await expect.poll(zoomText).toBe("100%"); // it glides there
-  // A single click closes it, on the picture or on the mask (the viewer waits a moment to see whether a second click follows); so do Esc and the close button.
-  await viewer.click();
-  await expect(viewer).toBeHidden();
-  await photo.click();
-  await expect(viewer).toBeVisible();
-  await page.waitForTimeout(400);
   await page.mouse.click(40, 400);
   await expect(viewer).toBeHidden();
   await photo.click();

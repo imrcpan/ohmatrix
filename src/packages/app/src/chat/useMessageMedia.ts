@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { TimelineItem } from "@ohmatrix/core";
+import type { ViewRect } from "@ohmatrix/ui";
 import { useController } from "../context.js";
 import { useAudioPlayer } from "../useAudio.js";
 import { useMediaUrl } from "../useMedia.js";
@@ -17,6 +18,8 @@ export function useMessageMedia(m: TimelineItem) {
   const avatar = useMediaUrl(m.senderAvatar, { width: 64, height: 64, fit: "crop" });
 
   const [viewingImage, setViewingImage] = useState(false);
+  // Where the picture was on the screen when it was pressed: the viewer grows it from there.
+  const [imageOrigin, setImageOrigin] = useState<ViewRect | undefined>(undefined);
   const [viewingVideo, setViewingVideo] = useState(false);
 
   const imageDims = c.kind === "image" ? (c.sticker ? fitSticker(c.width, c.height) : fit(c.width, c.height)) : undefined;
@@ -62,6 +65,11 @@ export function useMessageMedia(m: TimelineItem) {
     audio,
     viewingImage,
     setViewingImage,
+    imageOrigin,
+    openImage: (from?: ViewRect) => {
+      setImageOrigin(from);
+      setViewingImage(true);
+    },
     viewingVideo,
     setViewingVideo,
   };
