@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { contentText, type TimelineItem } from "@ohmatrix/core";
 import type { Locale } from "@ohmatrix/i18n";
 import type { Bubble } from "@ohmatrix/ui";
-import type { Run } from "@ohmatrix/ui";
+import type { Run, ViewRect } from "@ohmatrix/ui";
 import { formatBytes, formatClock } from "../format.js";
 import type { AudioState } from "../useAudio.js";
 import { formatDuration } from "../useAudio.js";
@@ -35,7 +35,7 @@ export interface BubbleInputs {
   previewImageUrl: string | undefined;
   /** The picture a reply quotes (when it quotes a photo), once fetched. */
   replyImage?: string | undefined;
-  openImage(): void;
+  openImage(from?: ViewRect): void;
   openVideo(): void;
 }
 

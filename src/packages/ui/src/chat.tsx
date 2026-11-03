@@ -9,6 +9,7 @@ import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
 import { mix } from "./themes.js";
+import type { ViewRect } from "./ImageViewer.js";
 import { canvasFontFamily, fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
 
 /** Message bubble: large continuous radii, joined corners inside a run of plain text, time + state inside. */
@@ -37,7 +38,8 @@ export function Bubble(props: {
         uri: string | undefined;
         width: number;
         height: number;
-        onPress?: (() => void) | undefined;
+        /** Given where the picture is on the screen, for the viewer to grow it from there. */
+        onPress?: ((from?: ViewRect) => void) | undefined;
         /** A sticker: no bubble, the picture whole on the chat. */ sticker?: boolean | undefined;
       }
     | undefined;
@@ -465,18 +467,27 @@ function PressableOrView(props: {
   plain: boolean;
   accessibilityLabel: string;
   disabled: boolean;
-  onPress?: (() => void) | undefined;
+  onPress?: ((from?: ViewRect) => void) | undefined;
   onLongPress?: ((e: { nativeEvent: object }) => void) | undefined;
   style: object;
   children: React.ReactNode;
 }) {
+  const ref = useRef<View>(null);
   if (props.plain) return <View style={props.style}>{props.children}</View>;
+  // Pressed, it says where it is on the screen, so that what opens can grow out of that place.
+  const press = () => {
+    const open = props.onPress;
+    if (!open) return;
+    if (ref.current?.measureInWindow) ref.current.measureInWindow((x, y, width, height) => open({ x, y, width, height }));
+    else open();
+  };
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel}
       disabled={props.disabled}
-      onPress={props.onPress}
+      onPress={press}
       onLongPress={props.onLongPress}
       delayLongPress={350}
       style={props.style}

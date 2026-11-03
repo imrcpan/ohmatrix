@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, Modal, PanResponder, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Modal, PanResponder, Platform, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useInsets, useScale, useViewport } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
@@ -12,6 +12,20 @@ const STEP = 1.25;
 const CLOSE_DELAY = 300;
 /** How long the zoom of a double tap takes (ms). */
 const GLIDE_MS = 200;
+
+/** Quick off the mark and slow to settle (a quintic ease-out): it moves at once, and the speed of a zoom is never constant. */
+const ease = (k: number) => 1 - Math.pow(1 - k, 5);
+
+/** Where something is in the window (px, as measured on the screen). */
+export interface ViewRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** How long the picture takes to grow from where it was in the chat to its place in the viewer, and back (ms). */
+const OPEN_MS = 260;
 
 /** Size an image is first shown at: it fits inside the window with a margin and is never blown up past its own size. */
 export function fitSize(natural: { width: number; height: number }, area: { width: number; height: number }) {
@@ -62,6 +76,13 @@ export function ImageViewer(props: {
   labels?: { close: string; zoomIn: string; zoomOut: string; fit: string };
   /** A save button first in the toolbar: shown when given, dimmed while `disabled` (the picture is not there yet). */
   save?: { label: string; onPress: () => void; disabled?: boolean } | undefined;
+  /** Where the picture was on the screen when it was pressed: it then grows from there to its place instead of fading in, and shrinks back to it on leaving. */
+  origin?: ViewRect | undefined;
+  /**
+   * The desktop way (the desktop client, or the web in any landscape window): a click on the dim closes at once and a click on the picture does nothing (a double
+   * click on it still zooms). The other way, a tap on either closes after a short wait, and two taps anywhere zoom.
+   */
+  desktop?: boolean | undefined;
   /** A short message above the toolbar, e.g. that the picture was saved. */
   notice?: string | undefined;
 }) {
@@ -75,6 +96,9 @@ export function ImageViewer(props: {
     props.width && props.height ? { width: props.width, height: props.height } : null,
   );
   const [ready, setReady] = useState(false);
+  // 0 = the picture is where it was in the chat, 1 = in its place; with no origin it is always 1 and the Modal fades instead.
+  const [open, setOpen] = useState(0);
+  const p = props.origin ? open : 1;
   const labels = props.labels ?? { close: "Close", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit to window" };
 
   useEffect(() => {
@@ -84,6 +108,40 @@ export function ImageViewer(props: {
       setReady(false);
     }
   }, [props.visible, props.uri]);
+  const moving = useRef(0);
+  const moveTo = (to: number, then?: () => void) => {
+    const id = ++moving.current;
+    const from = latest.current.open;
+    const t0 = Date.now();
+    const step = () => {
+      if (id !== moving.current) return;
+      const k = Math.min(1, (Date.now() - t0) / OPEN_MS);
+      const e = ease(k);
+      setOpen(from + (to - from) * e);
+      if (k < 1) requestAnimationFrame(step);
+      else then?.();
+    };
+    requestAnimationFrame(step);
+  };
+  useEffect(() => {
+    if (props.visible && props.origin) {
+      latest.current.open = 0;
+      setOpen(0);
+      moveTo(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.visible]);
+  // Leaving: back to where the picture was, then the parent hides the viewer.
+  const closed = useRef(false);
+  const close = () => {
+    if (!props.origin) return props.onClose();
+    if (closed.current) return;
+    closed.current = true;
+    moveTo(0, () => {
+      closed.current = false;
+      props.onClose();
+    });
+  };
   useEffect(() => {
     const doc = (
       globalThis as {
@@ -95,7 +153,7 @@ export function ImageViewer(props: {
     ).document;
     if (!props.visible || !doc) return;
     const onKey = (e: { key: string }) => {
-      if (e.key === "Escape") props.onClose();
+      if (e.key === "Escape") close();
       else if (e.key === "+" || e.key === "=") zoom(STEP);
       else if (e.key === "-") zoom(1 / STEP);
       else if (e.key === "0") {
@@ -117,8 +175,18 @@ export function ImageViewer(props: {
   };
   const base = natural ? fitSize(natural, win) : { width: Math.round(win.width * 0.6), height: Math.round(win.height * 0.6) };
 
-  const latest = useRef({ pan, scale });
-  latest.current = { pan, scale };
+  // The picture starts out at the place and size it had in the chat (the layout is `uiScale` times smaller than the window).
+  const o = props.origin;
+  const fromOrigin =
+    o && p < 1
+      ? [
+          { translateX: (1 - p) * ((o.x + o.width / 2) / uiScale - win.width / 2) },
+          { translateY: (1 - p) * ((o.y + o.height / 2) / uiScale - win.height / 2) },
+          { scale: Math.pow(o.width / uiScale / base.width, 1 - p) },
+        ]
+      : [];
+  const latest = useRef({ pan, scale, open });
+  latest.current = { pan, scale, open };
   const start = useRef({ x: 0, y: 0 });
   const pinch = useRef<{ distance: number; scale: number } | null>(null);
   const distanceOf = (touches: ReadonlyArray<{ pageX: number; pageY: number }>) =>
@@ -160,21 +228,27 @@ export function ImageViewer(props: {
     });
   }, []);
 
-  // The scale and the pan glide to their new values (a double tap, the Fit button); a touch or a button in the middle takes over.
+  // The scale and the pan glide to their new values (a double tap, the Fit button) at a steady speed, frame by frame; a touch or a button
+  // in the middle takes over. On the web the zoom is at once.
   const glide = useRef(0);
   const stopGlide = () => {
     glide.current++;
   };
   const glideTo = (toScale: number, toPan: { x: number; y: number }) => {
     const id = ++glide.current;
+    if (Platform.OS === "web") {
+      setScale(toScale);
+      setPan(toPan);
+      return;
+    }
     const from = { scale: latest.current.scale, pan: latest.current.pan };
     const t0 = Date.now();
     const step = () => {
       if (id !== glide.current) return;
       const k = Math.min(1, (Date.now() - t0) / GLIDE_MS);
-      const e = 1 - (1 - k) * (1 - k) * (1 - k);
-      setScale(from.scale + (toScale - from.scale) * e);
-      setPan({ x: from.pan.x + (toPan.x - from.pan.x) * e, y: from.pan.y + (toPan.y - from.pan.y) * e });
+      // The scale moves by the same factor in equal times (a power, not a sum), which is what the eye takes for a steady zoom.
+      setScale(from.scale * Math.pow(toScale / from.scale, k));
+      setPan({ x: from.pan.x + (toPan.x - from.pan.x) * k, y: from.pan.y + (toPan.y - from.pan.y) * k });
       if (k < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
@@ -189,8 +263,16 @@ export function ImageViewer(props: {
     closing.current = null;
   };
   useEffect(() => cancelClose, []);
-  const onTap = () => {
+  const onTap = (onDim: boolean) => {
     const now = Date.now();
+    if (props.desktop) {
+      if (onDim) return close();
+      if (now - lastTap.current < 320) {
+        glideTo(latest.current.scale === 1 ? 2 : 1, latest.current.scale === 1 ? latest.current.pan : { x: 0, y: 0 });
+        lastTap.current = 0;
+      } else lastTap.current = now;
+      return;
+    }
     if (now - lastTap.current < 320) {
       cancelClose();
       if (latest.current.scale === 1) glideTo(2, latest.current.pan);
@@ -199,11 +281,11 @@ export function ImageViewer(props: {
       return;
     }
     lastTap.current = now;
-    closing.current = setTimeout(() => props.onClose(), CLOSE_DELAY);
+    closing.current = setTimeout(close, CLOSE_DELAY);
   };
 
   return (
-    <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
+    <Modal transparent visible={props.visible} animationType={props.origin ? "none" : "fade"} onRequestClose={close}>
       <ScaleRoot scale={uiScale}>
         {/* The touch responder is the outermost view: a responder can only be taken over by an ancestor, so were it inside
             the mask's Pressable, a pinch that begins on the bare mask (which holds the touch) would never reach it. */}
@@ -211,24 +293,24 @@ export function ImageViewer(props: {
           {/* The mask: dims what is behind instead of covering it with a flat colour. */}
           <Pressable
             accessibilityLabel="Viewer backdrop"
-            onPress={onTap}
+            onPress={() => onTap(true)}
             {...({ onWheel: (e: { deltaY: number; preventDefault?: () => void }) => zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1) } as object)}
             style={[
-              { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+              { flex: 1, backgroundColor: `rgba(0,0,0,${0.72 * p})`, alignItems: "center", justifyContent: "center", overflow: "hidden" },
               { cursor: "default" } as object,
             ]}
           >
             <View style={{ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center" }}>
               <View
                 style={[
-                  { width: base.width, height: base.height, transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] },
+                  { width: base.width, height: base.height, transform: [...fromOrigin, { translateX: pan.x }, { translateY: pan.y }, { scale }] },
                   { cursor: scale > 1 ? "grab" : "zoom-in" } as object,
                 ]}
               >
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Photo: ${props.title ?? ""}`}
-                  onPress={onTap}
+                  onPress={() => onTap(false)}
                   style={{ width: "100%", height: "100%" }}
                 >
                   {props.previewUri && !ready && (
@@ -254,9 +336,9 @@ export function ImageViewer(props: {
                 </Pressable>
               </View>
 
-              <View style={{ position: "absolute", top: 16 + inset.top, right: 16 + inset.right }}>
+              <View style={{ position: "absolute", top: 16 + inset.top, right: 16 + inset.right, opacity: p }}>
                 <View style={{ borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
-                  <Control icon="close" label={labels.close} onPress={props.onClose} />
+                  <Control icon="close" label={labels.close} onPress={close} />
                 </View>
               </View>
               {!!props.notice && <TopNotice message={props.notice} top={56 + inset.top} />}
@@ -265,6 +347,7 @@ export function ImageViewer(props: {
                 style={{
                   position: "absolute",
                   bottom: 22 + inset.bottom,
+                  opacity: p,
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 2,

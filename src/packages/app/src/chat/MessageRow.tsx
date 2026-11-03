@@ -104,7 +104,7 @@ export function MessageRow(props: {
     previews: media.previews,
     previewImageUrl: media.previewImage,
     replyImage: media.replyImage,
-    openImage: () => media.setViewingImage(true),
+    openImage: media.openImage,
     openVideo: () => media.setViewingVideo(true),
   });
 
@@ -217,6 +217,7 @@ export function MessageRow(props: {
           previewUri={media.image}
           width={c.width}
           height={c.height}
+          origin={media.imageOrigin}
         />
       )}
       {c.kind === "video" && (
