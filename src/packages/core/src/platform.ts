@@ -1,4 +1,4 @@
-import type { AttachmentSource, Preferences, Session } from "./types.js";
+import type { AttachmentSource, Preferences, Profile, Session, UserId } from "./types.js";
 
 /** Persists the session in platform secure storage (Keychain/Keystore/safeStorage/encrypted IndexedDB). */
 export interface SessionStore {
@@ -64,6 +64,15 @@ export class RecordError extends Error {
   }
 }
 
+/**
+ * The name and picture of each account as they were last seen, so that the top of the chat list shows them at once when the app starts,
+ * while the server has not yet answered. Only what is shown (a name, the address of a picture), not a secret.
+ */
+export interface ProfileCache {
+  load(userId: UserId): Promise<Profile | null>;
+  save(userId: UserId, profile: Profile): Promise<void>;
+}
+
 /** Persists user preferences (localStorage / AsyncStorage / settings file). */
 export interface PreferencesStore {
   load(): Promise<Partial<Preferences>>;
@@ -119,6 +128,8 @@ export interface PlatformServices {
   callSounds?: CallSounds;
   /** Absent = preferences live only for this run. */
   preferences?: PreferencesStore;
+  /** Absent = the profile is shown once the server has given it. */
+  profileCache?: ProfileCache;
   /** Let the user choose files to send. Absent = the attach button is hidden. */
   pickFiles?(): Promise<AttachmentSource[]>;
   /** Let the user choose one picture, from the system's photo picker (a profile or room picture). Absent = `pickFiles` is used. Null = nothing chosen. */
