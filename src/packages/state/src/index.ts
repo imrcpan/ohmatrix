@@ -356,7 +356,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     }),
     engine.security.onState((security) => set({ security })),
     ...(engine.verification ? [engine.verification.onFlow((verification) => set({ verification }))] : []),
-    engine.profile.subscribe((profile) => set({ profile })),
+    engine.profile.subscribe((profile) => {
+      set({ profile });
+      // Kept for the next start. A profile that arrives with no name yet (the server has not given it) does not replace what is kept.
+      const userId = store.getState().userId;
+      if (profile?.displayName && userId) void services.profileCache?.save(userId, profile).catch(() => {});
+    }),
     engine.rooms.subscribe((updates) => {
       set((s) => ({ rooms: applyUpdates(s.rooms, updates) }));
       const { syncState, roomsSettled } = store.getState();
@@ -456,6 +461,14 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         set((s) => ({ prefs: { ...s.prefs, ...saved } }));
         const session = await services.sessionStore.load();
         if (!session) return signedOut();
+        // What was seen last time stands in until the server answers (which with no network is not at all): shown at once, and replaced by
+        // the real profile when it comes.
+        void services.profileCache
+          ?.load(session.userId)
+          .then((cached) => {
+            if (cached && !store.getState().profile) set({ profile: cached });
+          })
+          .catch(() => {});
         await engine.auth.restore(session);
         set({ auth: "signedIn", userId: session.userId, homeserver: session.homeserver });
         // The saved session is trusted until the server says otherwise: with no network the chats show from the cache,
