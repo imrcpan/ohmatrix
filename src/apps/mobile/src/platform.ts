@@ -7,6 +7,8 @@ import {
   type NotificationPermission,
   type AppServices,
   type PreferencesStore,
+  type Profile,
+  type ProfileCache,
   type RecordedMedia,
   type Recorder,
   type SystemNotifications,
@@ -37,6 +39,32 @@ export function filePreferences(): PreferencesStore {
       const f = file();
       if (!f.exists) f.create();
       f.write(JSON.stringify(prefs));
+    },
+  };
+}
+
+/** The name and picture of each account as last seen, in one small file next to the preferences (what is on the screen, not a secret). */
+export function fileProfileCache(): ProfileCache {
+  const file = () => new File(Paths.document, "profiles.json");
+  const read = async (): Promise<Record<string, Profile>> => {
+    try {
+      const f = file();
+      return f.exists ? (JSON.parse(await f.text()) as Record<string, Profile>) : {};
+    } catch {
+      return {};
+    }
+  };
+  return {
+    async load(userId) {
+      const p = (await read())[userId];
+      return p && typeof p.displayName === "string" ? p : null;
+    },
+    async save(userId, profile) {
+      const all = await read();
+      all[userId] = profile;
+      const f = file();
+      if (!f.exists) f.create();
+      f.write(JSON.stringify(all));
     },
   };
 }
@@ -389,6 +417,7 @@ export function phoneServices(): AppServices {
     ...(push && { push }),
     ...appIconsService(),
     preferences: filePreferences(),
+    profileCache: fileProfileCache(),
     pickFiles,
     pickPhoto,
     pickPhotos: () => pickPhotosFrom(true),
