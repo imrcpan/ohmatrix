@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
+import { fetchLatestRelease, isNewer, pickApk, RELEASES_PAGE, type Release } from "@ohmatrix/core";
 import {
   Dialog,
   fontFamily,
@@ -16,9 +17,11 @@ import {
   useNavBottom,
 } from "@ohmatrix/ui";
 import { useAppState, useController, useLocale, useServices, useT } from "./context.js";
+import { ConfirmDialog } from "./ConfirmDialog.js";
 import { FontDialog } from "./FontDialog.js";
 import { LANGUAGES } from "./languages.js";
 import { Group, Item, PageHeader } from "./settings/kit.js";
+import { useNotice } from "./useNotice.js";
 import { SCALES, useZoomChange } from "./useZoomChange.js";
 
 /** The project page, opened outside the app from the About group. */
@@ -26,6 +29,9 @@ const REPOSITORY = "https://github.com/imrcpan/ohmatrix";
 
 /** How long a dialog takes to fade away. */
 const FADE_MS = 300;
+
+/** The phone's ABIs in the order to try them: the APK of the first that the release has is the one offered. (The app cannot ask the phone; nearly every phone is 64-bit ARM.) */
+const ANDROID_ABIS = ["arm64-v8a", "armeabi-v7a", "x86_64"];
 
 export function SettingsPage() {
   const { colors } = useTheme();
@@ -38,6 +44,28 @@ export function SettingsPage() {
   const system = services.notifications?.kind === "system";
   const [permission, setPermission] = useState(() => services.notifications?.permission() ?? "unsupported");
   const [confirm, setConfirm] = useState(false);
+  const notice = useNotice();
+  const [checking, setChecking] = useState(false);
+  const [update, setUpdate] = useState<Release | null>(null);
+  const checkUpdate = async () => {
+    if (checking) return;
+    setChecking(true);
+    notice.show(t("update.checking"), "progress");
+    try {
+      const release = await fetchLatestRelease();
+      if (isNewer(release.version, services.appVersion)) {
+        notice.show("", "success", 1); // the notice of the check is done; the question takes its place
+        setUpdate(release);
+      } else notice.show(t("update.latest"));
+    } catch (e) {
+      notice.show(t("update.failed", { reason: e instanceof Error ? e.message : String(e) }), "error");
+    } finally {
+      setChecking(false);
+    }
+  };
+  // For now only on Android: the APK itself is opened (the browser downloads it and the system offers to install it), or the page of the release
+  // when it has none for this phone.
+  const install = (release: Release) => services.openLink?.(pickApk(release.assets, ANDROID_ABIS)?.url ?? release.page ?? RELEASES_PAGE);
   const langRef = useRef<ComponentRef<typeof View>>(null);
   const [langAnchor, setLangAnchor] = useState<Anchor | null>(null);
   const [langMenu, setLangMenu] = useState(false);
@@ -170,7 +198,8 @@ export function SettingsPage() {
         <Group title={t("about")}>
           <Item label="GitHub" value={REPOSITORY.replace("https://", "")} icon="external" onPress={() => services.openLink?.(REPOSITORY)} />
           <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("about.feedback")}</Text>
-          <Item label="OhMatrix" value={`${t("version")} ${services.appVersion ?? "dev"}`} icon="info" />
+          <Item label="OhMatrix" value={`${t("version")} ${services.appVersion ?? "dev"}`} icon="about" />
+          {Platform.OS === "android" && <Item label={t("update.check")} icon="update" onPress={() => void checkUpdate()} chevron={false} />}
         </Group>
         <Text style={{ textAlign: "center", marginTop: 24, fontSize: 12, fontFamily, color: colors.textSecondary }}>OhMatrix · GPL-3.0</Text>
       </ScrollView>
@@ -192,6 +221,17 @@ export function SettingsPage() {
           checked: v === prefs.uiScale,
           onPress: () => zoom.start(v),
         }))}
+      />
+      <ConfirmDialog
+        visible={!!update}
+        title={t("update.title")}
+        message={t("update.body", { version: update?.version ?? "", current: services.appVersion ?? "dev" })}
+        confirmLabel={t("update.install")}
+        onConfirm={() => {
+          if (update) install(update);
+          setUpdate(null);
+        }}
+        onClose={() => setUpdate(null)}
       />
       <FontDialog
         visible={fontDialog}
