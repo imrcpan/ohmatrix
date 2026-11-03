@@ -27,6 +27,7 @@ import { useSelection } from "./selection.js";
 import { gapAbove } from "./rowWindow.js";
 import { useMessageMedia } from "./useMessageMedia.js";
 import { GroupChoice } from "./StickerGroups.js";
+import { CustomEmoji } from "./CustomEmoji.js";
 
 const AVATAR = 32;
 /** A bubble is never wider than this (layout px): in a wide window (landscape, a desktop) 78% of the chat would be a line too long to read. */
@@ -208,7 +209,9 @@ export function MessageRow(props: {
               }}
             />
           </Pressable>
-          {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn && accent} onToggle={(k) => actions.react(m.id, k)} />}
+          {!!m.reactions?.length && (
+            <ReactionChips items={m.reactions} own={m.isOwn && accent} onToggle={(k) => actions.react(m.id, k)} image={(mxc) => <CustomEmoji mxc={mxc} />} />
+          )}
         </View>
       </View>
       {c.kind === "image" && (
