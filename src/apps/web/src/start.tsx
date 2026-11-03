@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { installLog, type AppServices, type AttachmentSource, type Preferences } from "@ohmatrix/core";
+import { installLog, type AppServices, type AttachmentSource, type Preferences, type Profile } from "@ohmatrix/core";
 import { JsSdkEngine } from "@ohmatrix/engine-js";
 import { createAccountManager } from "@ohmatrix/state";
 import { App } from "@ohmatrix/app";
@@ -35,6 +35,25 @@ export async function startWeb(overrides: Partial<AppServices> = {}): Promise<vo
     save: async (p: Preferences) => localStorage.setItem(PREFS_KEY, JSON.stringify(p)),
   };
 
+  // The name and picture of each account as last seen, kept in this browser (not secret: it is what is on the screen).
+  const profileCache = {
+    load: async (userId: string): Promise<Profile | null> => {
+      try {
+        const p = JSON.parse(localStorage.getItem(`ohmatrix.profile.v1.${userId}`) ?? "null") as Profile | null;
+        return p && typeof p.displayName === "string" ? p : null;
+      } catch {
+        return null;
+      }
+    },
+    save: async (userId: string, p: Profile) => {
+      try {
+        localStorage.setItem(`ohmatrix.profile.v1.${userId}`, JSON.stringify(p));
+      } catch {
+        /* private mode: the next start shows the skeleton until the server answers */
+      }
+    },
+  };
+
   // The log the app shows in Settings > Advanced options starts here.
   installLog();
 
@@ -44,6 +63,7 @@ export async function startWeb(overrides: Partial<AppServices> = {}): Promise<vo
     // Set by the build (scripts/build-web.sh --version a.b.c); a development server has none.
     ...(import.meta.env.VITE_APP_VERSION ? { appVersion: import.meta.env.VITE_APP_VERSION as string } : {}),
     preferences,
+    profileCache,
     notifications: createWebNotifications(),
     callSounds: createWebCallSounds(),
     recordMedia: openRecorder,
