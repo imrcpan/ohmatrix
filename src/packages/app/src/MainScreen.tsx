@@ -88,14 +88,21 @@ export function MainScreen() {
 
   if (split) {
     const sidebar = live ?? (stored ? clampSidebar(stored, width) : autoSidebar(width));
-    // The strip of pictures is only the chat list. The profile, the settings and a space do not fit in it, and there is no list for them to
-    // cover: they open as a panel floating over the window, which is closed by pressing anywhere else.
     const rail = isRail(sidebar);
-    const floating = rail && (page !== "chats" || spaceOpen);
+    // The left pane is only the chat list (a strip of pictures when it is narrow). The profile, and the settings and the rest that open from it,
+    // always float over the window as a panel from the left, whatever the width of the list, and do not cover it; so does a space, but only in
+    // the strip, which has no list for its contents to slide over.
+    const floating = page !== "chats" || (rail && spaceOpen);
     return (
       <View style={{ flex: 1, flexDirection: "row", backgroundColor: colors.bg }}>
         <View style={{ width: sidebar, borderRightWidth: 1, borderRightColor: colors.separator, zIndex: 5 }}>
-          <RailContext.Provider value={rail}>{rail ? <RoomListPane /> : <SidebarNav />}</RailContext.Provider>
+          {/* Clipped to the pane, as the stack of pages it used to be in was: what slides in over the list (the contents of a space) comes
+              out from the divider, not from beside the chat. */}
+          <View style={{ flex: 1, overflow: "hidden", backgroundColor: colors.bg }}>
+            <RailContext.Provider value={rail}>
+              <RoomListPane />
+            </RailContext.Provider>
+          </View>
           <SidebarResizer
             width={sidebar}
             clamp={(w) => clampSidebar(w, width)}
@@ -137,7 +144,8 @@ export function MainScreen() {
           }}
         >
           <RailContext.Provider value={false}>
-            <SidebarNav />
+            {/* The list is beside it, except in the strip, where a space opens here with its list. */}
+            <SidebarNav list={rail && spaceOpen} />
           </RailContext.Provider>
         </FloatingSidebar>
       </View>

@@ -1,4 +1,6 @@
 import { useRef } from "react";
+import { View } from "react-native";
+import { useTheme } from "@ohmatrix/ui";
 import { AccountsPage } from "./AccountsPage.js";
 import { ProfilePage } from "./ProfilePage.js";
 import { RoomListPane } from "./RoomListPane.js";
@@ -17,7 +19,8 @@ import { useAppState } from "./context.js";
 const DEPTH = { chats: 0, profile: 1, accounts: 2, settings: 2, encryption: 2, sessions: 3, theme: 3, appIcon: 3, advanced: 3, logs: 4 } as const;
 
 /** The left pane: chat list → profile (slides in from the left, like a drawer) → accounts or settings (push in from the right) → sessions. */
-export function SidebarNav() {
+export function SidebarNav(props: { list?: boolean } = {}) {
+  const { colors } = useTheme();
   const page = useAppState((s) => s.sidebarPage);
   const homeserver = useAppState((s) => s.homeserver ?? "");
   // The shared layer keeps showing the page that opened it while it slides away, instead of turning into the other one.
@@ -29,7 +32,8 @@ export function SidebarNav() {
     <StackNav
       depth={DEPTH[page]}
       pages={[
-        { node: <RoomListPane /> },
+        // Where the chat list is drawn beside this (the floating panel in landscape), it is not drawn a second time under the pages.
+        { node: props.list === false ? <View style={{ flex: 1, backgroundColor: colors.bg }} /> : <RoomListPane /> },
         { node: <ProfilePage homeserver={homeserver} />, from: "left" }, // opens like a drawer, from the avatar side
         {
           node: layer.current === "accounts" ? <AccountsPage /> : layer.current === "encryption" ? <EncryptionPage /> : <SettingsPage />,

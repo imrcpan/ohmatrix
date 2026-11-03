@@ -846,6 +846,74 @@ test("landscape: dragged narrow, the chat list jumps to a strip of pictures: my 
   await expect(page.getByPlaceholder("Search")).toBeVisible();
 });
 
+test("landscape: the profile always floats over the window, whatever the width of the list, and does not cover it", async ({ page }) => {
+  const profile = page.getByRole("button", { name: "Profile", exact: true });
+  const mine = page.getByText("@test:localhost").first();
+  await login(page);
+  // 1280 wide has a list of 384; 1000 a list of 300. Neither is covered, and the chat is not touched.
+  for (const [w, listEdge] of [
+    [1280, 384],
+    [1000, 300],
+  ] as const) {
+    await page.setViewportSize({ width: w, height: 800 });
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search")).toBeVisible({ timeout: 20000 });
+    await openRoom(page, "Notes to self");
+    const composer = page.getByPlaceholder("Message");
+    await expect(composer).toBeVisible({ timeout: 15000 });
+    const before = (await composer.boundingBox())!;
+    const search = (await page.getByPlaceholder("Search").first().boundingBox())!;
+    await profile.click();
+    await expect(mine).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(Math.round((await composer.boundingBox())!.width)).toBe(Math.round(before.width));
+    // The list is where it was, under the panel and the shade: its search field has not moved.
+    const searchNow = (await page.getByPlaceholder("Search").first().boundingBox())!; // the pane's own (the panel has another under the profile)
+    expect(Math.round(searchNow.x)).toBe(Math.round(search.x));
+    expect(Math.round(searchNow.width)).toBe(Math.round(search.width));
+    expect(Math.round(searchNow.x + searchNow.width)).toBeLessThan(listEdge);
+    // Pressing the rest of the window closes it.
+    await page.mouse.click(w - 100, 300);
+    await expect(page.getByText("@test:localhost")).toHaveCount(0, { timeout: 5000 });
+  }
+});
+
+test("landscape: the contents of a space slide in over the list from the divider, and are never drawn over the chat", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.waitForTimeout(2000);
+  const edge = Math.round((await page.getByLabel("Resize chat list").boundingBox())!.x + 4);
+  await page.evaluate((edge) => {
+    const w = window as unknown as { __over: boolean[] };
+    w.__over = [];
+    const tick = () => {
+      const back = document.querySelector<HTMLElement>('[aria-label="Back"]');
+      if (back) {
+        // The space's page is the layer (z-index 3) that the back button is in; the point is just beside the divider, over the chat.
+        let root: HTMLElement | null = back;
+        while (root && !(getComputedStyle(root).position === "absolute" && getComputedStyle(root).zIndex === "3")) root = root.parentElement;
+        const hit = document.elementFromPoint(edge + 30, 400);
+        if (root && hit) w.__over.push(root.contains(hit));
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }, edge);
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New space" }).click();
+  await page
+    .getByRole("dialog")
+    .locator("input")
+    .fill(`Space ${Date.now().toString(36)}`);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Back", exact: true })).toBeVisible({ timeout: 20000 });
+  await page.waitForTimeout(800);
+  const over = await page.evaluate(() => (window as unknown as { __over: boolean[] }).__over);
+  expect(over.length).toBeGreaterThan(5); // the slide-in was watched
+  expect(over.filter(Boolean)).toEqual([]);
+});
+
 test("landscape: the chat info is docked beside the chat, and floats over it when the chat would be left narrower than 120% of the info", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await login(page);
