@@ -260,6 +260,13 @@ function mentionBlock(mentions?: string[]): Record<string, unknown> {
   return mentions?.length ? { "m.mentions": { user_ids: mentions } } : {};
 }
 
+/** What the server's `/hierarchy` said of the rooms a space lists, and when. */
+interface SpaceHierarchy {
+  at: number;
+  rooms: Map<string, { name?: string; avatar?: string; isSpace: boolean }>;
+  loading?: Promise<void>;
+}
+
 export class JsSdkEngine implements MatrixEngine {
   private secretKeys = new SecretKeyCache();
   private cryptoPrefix: string | null = null;
@@ -1130,6 +1137,41 @@ export class JsSdkEngine implements MatrixEngine {
       }),
   };
 
+  /**
+   * What the server says of the rooms a space lists (its `/hierarchy`), kept for a minute: the name, the picture and the kind of a room I have
+   * not joined, which I have no state of. Asked for once at a time per space; `spaceRefresh` is told when the answer is in.
+   */
+  private hierarchy = new Map<string, SpaceHierarchy>();
+  private spaceRefresh = new Map<string, Set<() => void>>();
+  private readHierarchy(spaceId: string): Promise<void> | undefined {
+    const c = this.requireClient();
+    const have = this.hierarchy.get(spaceId);
+    if (have?.loading) return have.loading;
+    if (have && Date.now() - have.at < 60_000) return undefined;
+    const entry: SpaceHierarchy = have ?? { at: 0, rooms: new Map() };
+    this.hierarchy.set(spaceId, entry);
+    entry.loading = c
+      .getRoomHierarchy(spaceId, 100, 1)
+      .then((res) => {
+        const rooms = new Map<string, { name?: string; avatar?: string; isSpace: boolean }>();
+        for (const r of res.rooms ?? []) {
+          // A room with no name is known by its address, which reads better than its id.
+          const name = r.name || r.canonical_alias || undefined;
+          rooms.set(r.room_id, { ...(name && { name }), ...(r.avatar_url && { avatar: r.avatar_url }), isSpace: r.room_type === RoomType.Space });
+        }
+        entry.rooms = rooms;
+      })
+      .catch(() => {
+        /* the server would not say (or the space is not one it knows): the names stay as the room state has them */
+      })
+      .finally(() => {
+        entry.at = Date.now();
+        delete entry.loading;
+        this.spaceRefresh.get(spaceId)?.forEach((f) => f());
+      });
+    return entry.loading;
+  }
+
   /** Spaces (MSC1772): a space is a room with type m.space whose children are other rooms. */
   readonly spaces = {
     children: (spaceId: string) =>
@@ -1137,16 +1179,24 @@ export class JsSdkEngine implements MatrixEngine {
         const c = this.requireClient();
         const room = c.getRoom(spaceId);
         if (!room) throw new EngineError("not_found", `unknown space ${spaceId}`);
-        return childRooms(c, room).map(({ id, via }) => {
+        const kids = childRooms(c, room);
+        // A room I am not in is only an id here: the server is asked for its name, but not waited for long, so the list does not hang on it.
+        if (kids.some((k) => c.getRoom(k.id)?.getMyMembership() !== "join")) {
+          const loading = this.readHierarchy(spaceId);
+          if (loading && !this.hierarchy.get(spaceId)?.at) await Promise.race([loading, new Promise((r) => setTimeout(r, 1500))]);
+        }
+        const known = this.hierarchy.get(spaceId)?.rooms;
+        return kids.map(({ id, via }) => {
           const child = c.getRoom(id);
           const summary = child && child.getMyMembership() === "join" ? toRoomSummary(c, child) : null;
-          const name = summary?.name ?? (child?.name || id);
-          const avatar = summary?.avatar ?? child?.getMxcAvatarUrl() ?? undefined;
+          const listed = summary ? undefined : known?.get(id);
+          const name = summary?.name ?? listed?.name ?? (child?.name || id);
+          const avatar = summary?.avatar ?? listed?.avatar ?? child?.getMxcAvatarUrl() ?? undefined;
           return {
             roomId: id,
             name,
             ...(avatar && { avatar }),
-            isSpace: child?.getType() === RoomType.Space,
+            isSpace: child?.getType() === RoomType.Space || !!listed?.isSpace,
             ...(via.length && !summary ? { via } : {}),
             unreadCount: summary?.unreadCount ?? 0,
             highlightCount: summary?.highlightCount ?? 0,
@@ -1174,9 +1224,14 @@ export class JsSdkEngine implements MatrixEngine {
       c.on(RoomEvent.Timeline, emit as never);
       c.on(RoomEvent.UnreadNotifications as never, emit as never);
       c.on(RoomEvent.MyMembership, emit as never);
+      // The names the server gives for rooms I am not in arrive after the list was first drawn.
+      const refresh = this.spaceRefresh.get(spaceId) ?? new Set<() => void>();
+      refresh.add(emit);
+      this.spaceRefresh.set(spaceId, refresh);
       emit();
       return () => {
         live = false;
+        refresh.delete(emit);
         c.off(RoomStateEvent.Events, emit as never);
         c.off(RoomEvent.Name, emit as never);
         c.off(RoomEvent.Timeline, emit as never);
