@@ -14,10 +14,6 @@ on:
         required: true
         type: boolean
 
-env:
-  # With or without the v, the tag is v1.2.3 (startsWith ignores case, so V1.2.3 is the same too).
-  TAG: v${{ startsWith(trim(github.event.inputs.tag), 'v') && substring(trim(github.event.inputs.tag), 1) || trim(github.event.inputs.tag) }}
-
 defaults:
   run:
     shell: bash
@@ -32,16 +28,22 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
     steps:
       - name: The tag is a version, and is not taken
         id: v
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          INPUT: ${{ github.event.inputs.tag }}
         run: |
+          # With or without the v (or V), and with no space around it, the tag is v1.2.3.
+          TAG=$(echo "$INPUT" | tr -d '[:space:]')
+          TAG="v${TAG#[vV]}"
           [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "the tag must look like v1.2.3 or 1.2.3, not '$TAG'"; exit 1; }
           if gh api "repos/$GH_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then echo "the tag $TAG exists already"; exit 1; fi
           echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
   android:
     needs: check
@@ -146,6 +148,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
           gh release create "$TAG" "$RUNNER_TEMP"/out/* \
             --title "OhMatrix ${{ needs.check.outputs.version }}" \
