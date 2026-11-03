@@ -1,4 +1,4 @@
-import type { UndecryptableReason } from "@ohmatrix/core";
+import { stripReplyFallback, type UndecryptableReason } from "@ohmatrix/core";
 import type { EventItemLike, ItemContent, ReplyLike } from "./timelineItem.js";
 import type { MembershipChange, StateChange } from "./serviceText.js";
 
@@ -196,7 +196,10 @@ function replyOf(r: { eventId(): string; event(): Tagged } | undefined): ReplyLi
   const kind = (content?.inner?.["content"] as { kind?: Tagged } | undefined)?.kind;
   const msgType = (kind?.inner?.["content"] as { msgType?: Tagged } | undefined)?.msgType;
   const profile = profileOf(i["senderProfile"] as Tagged | undefined);
-  return { eventId, original: { sender: str(i["sender"]) ?? "", senderName: profile.name, body: (msgType && messageBody(msgType)?.body) || "" } };
+  return {
+    eventId,
+    original: { sender: str(i["sender"]) ?? "", senderName: profile.name, body: stripReplyFallback((msgType && messageBody(msgType)?.body) || "") },
+  };
 }
 
 function itemContent(raw: Tagged): ItemContent {
