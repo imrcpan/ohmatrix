@@ -1,11 +1,11 @@
 name: publish
 
-# Releases the Android APKs (all ABIs, signed with the release key) and the web app. The tag is passed in by hand: v1.2.3.
+# Releases the Android APKs (all ABIs, signed with the release key) and the web app. The tag is passed in by hand: v1.2.3 or 1.2.3, the same.
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag of this release, like v1.2.3 (made here, on the commit this runs on)"
+        description: "Tag of this release, like v1.2.3 or 1.2.3, the same (made here, on the commit this runs on)"
         required: true
         type: string
       prerelease:
@@ -15,7 +15,8 @@ on:
         type: boolean
 
 env:
-  TAG: ${{ github.event.inputs.tag }}
+  # With or without the v, the tag is v1.2.3 (startsWith ignores case, so V1.2.3 is the same too).
+  TAG: v${{ startsWith(trim(github.event.inputs.tag), 'v') && substring(trim(github.event.inputs.tag), 1) || trim(github.event.inputs.tag) }}
 
 defaults:
   run:
@@ -38,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "the tag must look like v1.2.3, not '$TAG'"; exit 1; }
+          [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "the tag must look like v1.2.3 or 1.2.3, not '$TAG'"; exit 1; }
           if gh api "repos/$GH_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then echo "the tag $TAG exists already"; exit 1; fi
           echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
 
