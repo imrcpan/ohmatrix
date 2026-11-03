@@ -20,7 +20,7 @@ export function autoSidebar(windowWidth: number): number {
   return clampSidebar(Math.round(windowWidth * 0.3), windowWidth);
 }
 
-/** Width of the panel that floats over the window when the list is only a strip: roomier than the list, which has the chats to share the window with. */
+/** Width of the panel that the profile, the settings and the pages after them float in over the window: roomier than the list, which has the chats to share the window with. */
 export function floatingSidebar(windowWidth: number): number {
   return Math.min(560, Math.max(380, Math.round(windowWidth * 0.4)));
 }
