@@ -3,7 +3,7 @@ import { contentText, type TimelineItem } from "@ohmatrix/core";
 import type { Locale } from "@ohmatrix/i18n";
 import type { Bubble } from "@ohmatrix/ui";
 import type { Run, ViewRect } from "@ohmatrix/ui";
-import { formatBubbleTime, formatBytes } from "../format.js";
+import { formatBytes, formatClock } from "../format.js";
 import type { AudioState } from "../useAudio.js";
 import { formatDuration } from "../useAudio.js";
 import type { RowActions } from "./rowActions.js";
@@ -71,7 +71,7 @@ export function bubbleProps(i: BubbleInputs): BubbleProps {
   return {
     own: m.isOwn,
     text: bubbleText(m, t),
-    time: formatBubbleTime(m.ts, i.locale),
+    time: formatClock(m.ts, i.locale),
     status: bubbleStatus(m),
     onRetry: m.status === "failed" && m.transactionId && !upload ? () => actions.resend(m.transactionId!) : undefined,
     retryLabel: t("resend.failed"),
