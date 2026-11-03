@@ -58,6 +58,10 @@ test("text shows its body; media shows none (they have their own parts); undecry
   expect(bubbleText(item(), t)).toBe("hi");
   expect(bubbleText(item({ content: { kind: "image", url: "mxc://a/b", body: "x.png" } }), t)).toBe("");
   expect(bubbleText(item({ content: { kind: "undecryptable" } }), t)).toBe("undecryptable");
+  // Only an unverified device is told to verify; the others are told what is the matter.
+  expect(bubbleText(item({ content: { kind: "undecryptable", reason: "unverified" } }), t)).toBe("undecryptable");
+  expect(bubbleText(item({ content: { kind: "undecryptable", reason: "waiting" } }), t)).toBe("undecryptable.waiting");
+  expect(bubbleText(item({ content: { kind: "undecryptable", reason: "noBackup" } }), t)).toBe("undecryptable.noBackup");
 });
 
 test("only my own messages have a status; read once someone has read a sent one", () => {

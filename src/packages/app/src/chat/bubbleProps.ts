@@ -41,7 +41,16 @@ export interface BubbleInputs {
 export function bubbleText(item: TimelineItem, t: Translate): string {
   const c = item.content;
   if (c.kind === "image" || c.kind === "file" || c.kind === "video" || c.kind === "audio") return "";
-  if (c.kind === "undecryptable") return t("undecryptable");
+  if (c.kind === "undecryptable") {
+    // Only the cause that asks for the verification says so: a device that is verified already is not asked to do it again.
+    const key = {
+      waiting: "undecryptable.waiting",
+      beforeJoin: "undecryptable.beforeJoin",
+      noBackup: "undecryptable.noBackup",
+      withheld: "undecryptable.withheld",
+    } as const;
+    return c.reason && c.reason !== "unverified" ? t(key[c.reason]) : t("undecryptable");
+  }
   return contentText(c);
 }
 
