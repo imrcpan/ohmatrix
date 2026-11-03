@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 import { t } from "@ohmatrix/i18n";
-import { typingLabel } from "./format.js";
+import { formatBubbleTime, typingLabel } from "./format.js";
 
 const en = (k: Parameters<typeof t>[1], p?: Record<string, string | number>) => t("en", k, p);
 const zh = (k: Parameters<typeof t>[1], p?: Record<string, string | number>) => t("zh-CN", k, p);
@@ -51,5 +51,14 @@ test("last-active times read the same without Intl.RelativeTimeFormat (Hermes ha
     expect(ago("ru", 2 * 86_400_000)).toBe("2 дня назад");
   } finally {
     intl.RelativeTimeFormat = real;
+  }
+});
+
+test("the time in a bubble is 24 hours in every language", () => {
+  const afternoon = new Date(2026, 10, 3, 21, 5).getTime();
+  const morning = new Date(2026, 10, 3, 9, 7).getTime();
+  for (const locale of ["en", "zh-CN", "de", "ja"] as const) {
+    expect(formatBubbleTime(afternoon, locale)).toBe("21:05");
+    expect(formatBubbleTime(morning, locale)).toBe("09:07");
   }
 });
