@@ -331,7 +331,16 @@ export function Bubble(props: {
         // Time floats at the end of the last text line, like Telegram.
         <Text
           selectable={Platform.OS === "web"}
-          style={{ fontSize: 16, lineHeight: 21, fontFamily, color: props.muted ? meta : fg, fontStyle: props.muted ? "italic" : "normal" }}
+          style={{
+            fontSize: 16,
+            lineHeight: 21,
+            fontFamily,
+            color: props.muted ? meta : fg,
+            fontStyle: props.muted ? "italic" : "normal",
+            // The last line shares its row with the time, which sits 0.7 dp higher than the text does on a phone (measured on screen): the text is
+            // lifted by that, so the bottoms of the two line up. The time and the size of the bubble are not touched.
+            ...(Platform.OS === "android" ? { top: -0.7 } : {}),
+          }}
         >
           {richRuns ? (
             <RichText
