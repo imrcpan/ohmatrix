@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { EngineError, type Preferences, type Session, type SessionStore } from "@ohmatrix/core";
+import { EngineError, type Preferences, type Profile, type Session, type SessionStore } from "@ohmatrix/core";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAppController, totalUnread, ZOOM_TRIAL_MS } from "./index.js";
 
@@ -367,4 +367,36 @@ test("a zoom being tried is not a preference: never saved, undone by itself, and
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("the profile kept from last time is shown at once, and what the engine gives is kept for the next", async () => {
+  const kept = new Map<string, Profile>([["@test:localhost:8008", { userId: "@test:localhost:8008", displayName: "Kept Name", avatar: "mxc://a/b" }]]);
+  const sessions = memoryStore();
+  sessions.saved = { userId: "@test:localhost:8008", homeserver: "http://localhost:8008", accessToken: "t", deviceId: "d" } as Session;
+  // An engine whose profile has not come yet (the server has not answered): it gives it when the test says so.
+  const engine = new MockEngine();
+  let give: (p: Profile | null) => void = () => {};
+  (engine as unknown as { profile: unknown }).profile = {
+    ...engine.profile,
+    subscribe: (cb: (p: Profile | null) => void) => {
+      give = cb;
+      return () => {};
+    },
+  };
+  const app = createAppController(engine, {
+    sessionStore: sessions,
+    profileCache: {
+      load: async (id) => kept.get(id) ?? null,
+      save: async (id, p) => void kept.set(id, p),
+    },
+  });
+  await app.bootstrap();
+  await vi.waitFor(() => expect(app.store.getState().profile?.displayName).toBe("Kept Name"));
+  // The engine's own replaces it and is kept; one with no name yet changes nothing that is kept.
+  give({ userId: "@test:localhost:8008", displayName: "Real Name" });
+  expect(app.store.getState().profile?.displayName).toBe("Real Name");
+  await vi.waitFor(() => expect(kept.get("@test:localhost:8008")?.displayName).toBe("Real Name"));
+  give({ userId: "@test:localhost:8008", displayName: "" });
+  expect(kept.get("@test:localhost:8008")?.displayName).toBe("Real Name");
+  app.dispose();
 });
