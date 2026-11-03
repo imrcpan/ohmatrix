@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import type React from "react";
-import { Animated, Image, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Animated, Image, Keyboard, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon, type IconName } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
 import { useQuickFade } from "./quickFade.js";
@@ -533,6 +533,8 @@ export function Composer(props: {
   const [active, setActive] = useState(-1);
   const [box, setBox] = useState({ width: 0, y: 0 });
   const barRef = useRef<ComponentRef<typeof View>>(null);
+  const popShell = useRef<ComponentRef<typeof View>>(null);
+  const [popBottom, setPopBottom] = useState(62);
   const win = useViewport();
   const un = useUnzoom();
   const [field, setField] = useState({ x: 0 });
@@ -715,33 +717,70 @@ export function Composer(props: {
           {props.notice}
         </Text>
       )}
-      {emojiPop.mounted && (
-        <Animated.View
-          style={[
-            {
-              position: "absolute",
-              bottom: 62,
-              left: 8,
-              zIndex: 7,
-              borderRadius: 14,
-              overflow: "hidden",
-              backgroundColor: colors.bg,
-            } as object,
-            { opacity: emojiPop.opacity },
-            // On a dark theme the edge is drawn, as the attach bubble's is: a shadow does not show on a dark page.
-            dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
-          ]}
-        >
-          <EmojiPicker
-            onPick={insertEmoji}
-            recent={props.recentEmoji ?? []}
-            searchLabel={props.emojiSearchLabel ?? "Search emoji"}
-            stickers={props.stickers}
-            available={box.width - 16}
-            close={() => setEmojiOpen(false)}
-          />
-        </Animated.View>
-      )}
+      {emojiPop.mounted &&
+        (Platform.OS === "android" ? (
+          // A view outside its parent's bounds gets no native touches on Android: a tap reaches it through React, a scroll never does. So the
+          // picker lives in a window of its own (as a Menu does), set where the bubble would be; a tap on the rest of the screen closes it.
+          <Modal transparent animationType="none" statusBarTranslucent onRequestClose={() => setEmojiOpen(false)}>
+            <View
+              ref={popShell}
+              style={{ flex: 1 }}
+              onLayout={() => {
+                popShell.current?.measureInWindow((_x, y, _w, h) => {
+                  barRef.current?.measureInWindow((_bx, by, _bw, bh) => setPopBottom(Math.max(0, y + h - (by + bh) + 62)));
+                });
+              }}
+            >
+              <Pressable
+                accessibilityLabel={props.emojiSearchLabel ?? "Close"}
+                onPress={() => setEmojiOpen(false)}
+                style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }}
+              />
+              <Animated.View
+                style={[
+                  { position: "absolute", bottom: popBottom, left: 8, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg } as object,
+                  { opacity: emojiPop.opacity },
+                  dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
+                ]}
+              >
+                <EmojiPicker
+                  onPick={insertEmoji}
+                  recent={props.recentEmoji ?? []}
+                  searchLabel={props.emojiSearchLabel ?? "Search emoji"}
+                  stickers={props.stickers}
+                  available={box.width - 16}
+                  close={() => setEmojiOpen(false)}
+                />
+              </Animated.View>
+            </View>
+          </Modal>
+        ) : (
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                bottom: 62,
+                left: 8,
+                zIndex: 7,
+                borderRadius: 14,
+                overflow: "hidden",
+                backgroundColor: colors.bg,
+              } as object,
+              { opacity: emojiPop.opacity },
+              // On a dark theme the edge is drawn, as the attach bubble's is: a shadow does not show on a dark page.
+              dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
+            ]}
+          >
+            <EmojiPicker
+              onPick={insertEmoji}
+              recent={props.recentEmoji ?? []}
+              searchLabel={props.emojiSearchLabel ?? "Search emoji"}
+              stickers={props.stickers}
+              available={box.width - 16}
+              close={() => setEmojiOpen(false)}
+            />
+          </Animated.View>
+        ))}
       {props.recording ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 8, paddingHorizontal: 10, minHeight: 54 }}>
           <Pressable
