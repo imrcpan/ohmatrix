@@ -92,10 +92,8 @@ function relativeFormat(locale: Locale): Relative {
   return f;
 }
 
-/** The time of a message in its bubble: 24 hours, whatever the language (09:05, 21:30). */
-export const formatBubbleTime = (ts: number, locale: Locale) => dateFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ts);
-
-export const formatClock = (ts: number, locale: Locale) => dateFormat(locale, { hour: "numeric", minute: "2-digit" }).format(ts);
+/** A time of day, everywhere: 24 hours, whatever the language (09:05, 21:30). */
+export const formatClock = (ts: number, locale: Locale) => dateFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ts);
 
 /** Chat-list time: clock today, weekday within the week, short date otherwise. Empty if no activity. */
 export function formatListTime(ts: number, now: number, locale: Locale): string {
