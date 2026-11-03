@@ -1,3 +1,4 @@
+import type { UndecryptableReason } from "@ohmatrix/core";
 import type { EventItemLike, ItemContent, ReplyLike } from "./timelineItem.js";
 import type { MembershipChange, StateChange } from "./serviceText.js";
 
@@ -26,6 +27,36 @@ export interface RawEvent {
 }
 
 /** The SDK's room membership change enum: numbers in the order of its declaration. */
+/** The SDK's `UtdCause`, in the order the SDK declares it (an enum arrives as its number, or as its name). */
+const UTD_CAUSES = [
+  "Unknown",
+  "SentBeforeWeJoined",
+  "VerificationViolation",
+  "UnsignedDevice",
+  "UnknownDevice",
+  "HistoricalMessageAndBackupIsDisabled",
+  "WithheldForUnverifiedOrInsecureDevice",
+  "WithheldBySender",
+  "HistoricalMessageAndDeviceIsUnverified",
+];
+const UTD_REASONS: Record<string, UndecryptableReason> = {
+  Unknown: "waiting",
+  SentBeforeWeJoined: "beforeJoin",
+  HistoricalMessageAndBackupIsDisabled: "noBackup",
+  HistoricalMessageAndDeviceIsUnverified: "unverified",
+  WithheldForUnverifiedOrInsecureDevice: "withheld",
+  WithheldBySender: "withheld",
+};
+
+/** Why a message cannot be decrypted, from what the SDK says of it; undefined when it says nothing (an Olm message, or a cause we do not know). */
+export function undecryptableReason(msg: { tag?: unknown; inner?: { cause?: unknown } } | undefined): UndecryptableReason | undefined {
+  if (msg?.tag !== "MegolmV1AesSha2") return undefined;
+  const cause = msg.inner?.cause;
+  const name = typeof cause === "number" ? UTD_CAUSES[cause] : typeof cause === "string" ? cause : undefined;
+  // The causes about trust (an unsigned or unknown sender device, a sender who was verified before) leave the message to arrive as any other would.
+  return name ? (UTD_REASONS[name] ?? "waiting") : undefined;
+}
+
 export const MEMBERSHIP_CHANGES: MembershipChange[] = [
   "None",
   "Error",
@@ -205,7 +236,10 @@ function itemContent(raw: Tagged): ItemContent {
           ...(msgLike?.inReplyTo && { replyTo: replyOf(msgLike.inReplyTo) }),
         } as ItemContent;
       }
-      if (kind?.tag === "UnableToDecrypt") return { type: "undecryptable" };
+      if (kind?.tag === "UnableToDecrypt") {
+        const reason = undecryptableReason(kind.inner?.["msg"] as { tag?: unknown; inner?: { cause?: unknown } } | undefined);
+        return reason ? { type: "undecryptable", reason } : { type: "undecryptable" };
+      }
       if (kind?.tag === "Redacted") return { type: "redacted" };
       return { type: "unsupported", description: kind?.tag ?? "Message" };
     }
