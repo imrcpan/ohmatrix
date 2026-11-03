@@ -13,7 +13,7 @@ import {
 } from "@ohmatrix/core";
 import { Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, useTheme, type Anchor } from "@ohmatrix/ui";
 import { failureReason } from "../avatarFailure.js";
-import { useController, useServices, useT } from "../context.js";
+import { useAppState, useController, useServices, useT } from "../context.js";
 import { useNotice } from "../useNotice.js";
 import { PromptDialog } from "../PromptDialog.js";
 import { STICKER_GAP, STICKER_PAD, STICKER_TILE } from "./stickerGrid.js";
@@ -48,7 +48,13 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [stored, setStored] = useState<StickerGroup[]>([]);
   // The group on show (null = all the stickers), and what the person is doing: choosing stickers, or reordering the ones of a group.
-  const [view, setView] = useState<string>(STICKER_DEFAULT_GROUP);
+  // It opens on the group left on show last time; if that group is gone, `current` below falls back to the default one.
+  const remembered = useAppState((s) => s.prefs.stickerGroup);
+  const [view, setView] = useState<string>(remembered ?? STICKER_DEFAULT_GROUP);
+  const show = (id: string) => {
+    setView(id);
+    controller.setPreferences({ stickerGroup: id });
+  };
   const [mode, setMode] = useState<"browse" | "choose" | "reorder">("browse");
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const [menu, setMenu] = useState<Anchor | null>(null);
@@ -264,7 +270,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
         max={STICKER_GROUPS_MAX}
         onView={(id) => {
           stop();
-          setView(id);
+          show(id);
         }}
         onNew={() => setDialog("newGroup")}
       />
@@ -282,7 +288,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
           // A new group has no cover of its own: it shows its first sticker, or a smiling face until it has one.
           const id = newGroupId(groups);
           await controller.setStickerGroups([...groups, { id, name: next, stickers: [] }]);
-          setView(id);
+          show(id);
         }}
         onClose={() => setDialog(null)}
       />
@@ -313,7 +319,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
           onPress={() => {
             const g = current;
             setDialog(null);
-            setView(STICKER_DEFAULT_GROUP);
+            show(STICKER_DEFAULT_GROUP);
             if (isDefault) return;
             // The stickers go first (that also takes them out of every group); then the group itself.
             void (g.stickers.length ? controller.removeStickers(g.stickers) : Promise.resolve())
