@@ -5,13 +5,14 @@
 # container, really has. One script for each ABI: the ABIs are built one after the other, never together (the biggest compile needs
 # 7.3 GB, so two at once would not fit).
 #
-#   scripts/build-android-x86_64.sh --version a.b.c [--release-dir DIR] [--debug|--release]
+#   scripts/build-android-x86_64.sh --version a.b.c [--release-dir DIR] [--debug|--release] [--test]
 #                            [--google-services FILE] [--check] [--skip-setup] [--jobs N] [--save-disk|--no-save-disk]
 #
 #   --version      the version of this build, like 1.2.3 (required, except with --check). It is the APK's version name, and what
 #                  Settings shows; the ABI gets its own version code from it.
 #   --release-dir  where the result goes: DIR/android/OhMatrix_android_<version>_x86_64.apk (default ~/release)
 #   --release      the default; --debug builds the debug variant (the file name then ends in _debug)
+#   --test         the test app: package org.ohmatrix.test, named "OhMatrix Test", no push; it installs next to the real app (--debug is a test app too)
 #   --google-services  the Firebase file to build with, instead of src/apps/mobile/google-services.json (push through FCM)
 #   --check        only report what is missing (and whether the machine is big enough); install and build nothing
 #   --skip-setup   do not install anything, use what is on the machine
