@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { autoSidebar, clampSidebar, floatingSidebar, isRail, SIDEBAR_RAIL, SIDEBAR_SNAP } from "./layout.js";
+import { autoSidebar, CHAT_MIN, clampSidebar, floatingSidebar, infoFloats, isRail, SIDEBAR_RAIL, SIDEBAR_SNAP } from "./layout.js";
 
 test("clampSidebar keeps min, max and half-window limits", () => {
   expect(clampSidebar(SIDEBAR_SNAP, 1280)).toBe(260);
@@ -30,4 +30,17 @@ test("the floating panel is roomier than the list, within limits", () => {
   expect(floatingSidebar(800)).toBe(380);
   expect(floatingSidebar(3000)).toBe(560);
   for (const w of [760, 1000, 1280, 1920]) expect(floatingSidebar(w)).toBeGreaterThan(autoSidebar(w));
+});
+
+test("the chat info floats over the chat when beside it the chat would be narrower than 120% of the info", () => {
+  expect(CHAT_MIN).toBe(408);
+  expect(infoFloats(1280, 384)).toBe(false); // 555 px left for the chat
+  expect(infoFloats(1280, 520)).toBe(false); // 419
+  expect(infoFloats(1100, 330)).toBe(false); // 429
+  expect(infoFloats(1100, 520)).toBe(true); // 239
+  expect(infoFloats(1000, 300)).toBe(true); // 359
+  expect(infoFloats(1000, 72)).toBe(false); // beside the strip of pictures there is room
+  expect(infoFloats(760, 260)).toBe(true); // 159
+  expect(infoFloats(1089, 340)).toBe(false); // 408 left: enough
+  expect(infoFloats(1088, 340)).toBe(true); // 407
 });

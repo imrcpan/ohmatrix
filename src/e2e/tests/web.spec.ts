@@ -846,6 +846,59 @@ test("landscape: dragged narrow, the chat list jumps to a strip of pictures: my 
   await expect(page.getByPlaceholder("Search")).toBeVisible();
 });
 
+test("landscape: the chat info is docked beside the chat, and floats over it when the chat would be left narrower than 120% of the info", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const composer = page.getByPlaceholder("Message");
+  await expect(composer).toBeVisible({ timeout: 15000 });
+  const before = (await composer.boundingBox())!;
+  const info = page.getByRole("button", { name: "Chat info", exact: true });
+
+  // At the usual list width there is room beside the chat: it is pushed aside, as before.
+  await info.click();
+  await expect(page.getByText("Notes to self", { exact: true }).last()).toBeVisible();
+  await expect.poll(async () => Math.round((await composer.boundingBox())!.width)).toBeLessThan(Math.round(before.width) - 250);
+  await info.click();
+  await expect.poll(async () => Math.round((await composer.boundingBox())!.width)).toBe(Math.round(before.width));
+
+  // With the list dragged wide (to half the window), the chat would be left narrower than the panel beside it: the panel floats and the chat is not pushed.
+  const handle = page.getByLabel("Resize chat list");
+  const edge = async () => {
+    const b = (await handle.boundingBox())!;
+    return Math.round(b.x + b.width / 2);
+  };
+  await page.mouse.move(await edge(), 400);
+  await page.mouse.down();
+  await page.mouse.move(550, 400, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(edge).toBeGreaterThan(510); // the widest the list goes is 520
+  const wide = (await composer.boundingBox())!;
+  await info.click();
+  await page.waitForTimeout(400); // slid in
+  const where = (await page
+    .getByText("Group info", { exact: true })
+    .or(page.getByText("Chat info", { exact: true }))
+    .first()
+    .boundingBox())!;
+  expect(where.x).toBeGreaterThan(1100 - 400 - 10); // against the right edge
+  const during = (await composer.boundingBox())!;
+  expect(Math.round(during.x)).toBe(Math.round(wide.x));
+  expect(Math.round(during.width)).toBe(Math.round(wide.width));
+  // Pressing the shaded chat closes it.
+  await page.mouse.click(620, 300); // between the list (to 520) and the panel (from 700)
+  await expect
+    .poll(
+      async () =>
+        await page
+          .getByText("Group info", { exact: true })
+          .or(page.getByText("Chat info", { exact: true }))
+          .count(),
+    )
+    .toBe(0);
+  expect(Math.round((await composer.boundingBox())!.width)).toBe(Math.round(wide.width));
+});
+
 test("portrait: profile and settings push full screen; browser back pops them", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
