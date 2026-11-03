@@ -196,9 +196,26 @@ function replyOf(r: { eventId(): string; event(): Tagged } | undefined): ReplyLi
   const kind = (content?.inner?.["content"] as { kind?: Tagged } | undefined)?.kind;
   const msgType = (kind?.inner?.["content"] as { msgType?: Tagged } | undefined)?.msgType;
   const profile = profileOf(i["senderProfile"] as Tagged | undefined);
+  // A photo is quoted by its picture: the address to fetch it from, and what is needed to decrypt it.
+  const media = msgType?.tag === "Image" ? mediaContent(msgType) : null;
+  const image =
+    media?.type === "image"
+      ? {
+          url: media.url,
+          ...(media.width !== undefined && { width: media.width }),
+          ...(media.height !== undefined && { height: media.height }),
+          ...(media.mimeType && { mimeType: media.mimeType }),
+          ...(media.encryption && { encryption: media.encryption }),
+        }
+      : undefined;
   return {
     eventId,
-    original: { sender: str(i["sender"]) ?? "", senderName: profile.name, body: stripReplyFallback((msgType && messageBody(msgType)?.body) || "") },
+    original: {
+      sender: str(i["sender"]) ?? "",
+      senderName: profile.name,
+      body: stripReplyFallback((msgType && messageBody(msgType)?.body) || ""),
+      ...(image && { image }),
+    },
   };
 }
 

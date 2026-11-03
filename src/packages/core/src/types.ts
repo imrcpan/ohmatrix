@@ -128,6 +128,15 @@ export interface Reader {
   name: string;
 }
 
+/** The picture a reply quotes, when the original is a photo: shown as a small thumbnail instead of its file name. */
+export interface ReplyImage {
+  url: MxcUri;
+  width?: number;
+  height?: number;
+  mimeType?: string;
+  encryption?: unknown;
+}
+
 export interface TimelineItem {
   id: EventId;
   /** Local echo id while sending; equals `id` once acknowledged. */
@@ -151,7 +160,7 @@ export interface TimelineItem {
   /** Pinned in the room (m.room.pinned_events). */
   pinned?: boolean;
   /** This message replies to another; `preview` is plain text of the original. */
-  replyTo?: { id: EventId; senderName: string; sender: UserId; preview: string };
+  replyTo?: { id: EventId; senderName: string; sender: UserId; preview: string; image?: ReplyImage };
   status: "sending" | "sent" | "failed";
 }
 

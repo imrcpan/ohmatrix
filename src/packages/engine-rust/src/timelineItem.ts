@@ -1,4 +1,4 @@
-import type { MessageContent, ReactionSummary, TimelineItem, UndecryptableReason } from "@ohmatrix/core";
+import type { MessageContent, ReactionSummary, ReplyImage, TimelineItem, UndecryptableReason } from "@ohmatrix/core";
 import { membershipText, personName, stateText, type MembershipChange, type StateChange } from "./serviceText.js";
 
 /**
@@ -70,7 +70,7 @@ export interface ReactionLike {
 export interface ReplyLike {
   eventId: string;
   /** Present when the SDK has the original. */
-  original?: { sender: string; senderName?: string | undefined; body: string } | undefined;
+  original?: { sender: string; senderName?: string | undefined; body: string; image?: ReplyImage | undefined } | undefined;
 }
 
 /** The send state as our `status`. An event with no local state came from the server. */
@@ -166,6 +166,7 @@ export function toTimelineItem(e: EventItemLike, roomId: string, me: string): Ti
         sender: reply.original?.sender ?? "",
         senderName: reply.original ? personName(reply.original.senderName, reply.original.sender) : "",
         preview: reply.original?.body ?? "",
+        ...(reply.original?.image && { image: reply.original.image }),
       },
     }),
   };

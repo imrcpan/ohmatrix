@@ -1,6 +1,6 @@
 import { EventType, MsgType, NotificationCountType, RelationType, type MatrixClient, type MatrixEvent, type Room } from "matrix-js-sdk";
 import { stripReplyFallback } from "@ohmatrix/core";
-import type { LinkPreview, MessageContent, Reader, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
+import type { LinkPreview, MessageContent, ReplyImage, Reader, ReactionSummary, RoomSummary, TimelineItem } from "@ohmatrix/core";
 
 const localpart = (id: string) => id.replace(/^@/, "").replace(/:.*$/, "");
 /** Member display name; matrix-js-sdk falls back to the full MXID when none is set, which we shorten. */
@@ -234,11 +234,25 @@ function replyOf(client: MatrixClient, room: Room | null, ev: MatrixEvent): Time
   const sender = orig?.getSender() ?? "";
   const senderName = nameOf(orig?.sender, sender);
   let preview = "…";
+  let image: ReplyImage | undefined;
   if (orig && !orig.isRedacted()) {
     const c = orig.getContent();
+    if (c.msgtype === MsgType.Image && !orig.isDecryptionFailure()) {
+      const info = c.info as { w?: number; h?: number; mimetype?: string } | undefined;
+      const url = typeof c.url === "string" ? c.url : (c.file?.url as string | undefined);
+      if (url) {
+        image = {
+          url,
+          ...(info?.w && { width: info.w }),
+          ...(info?.h && { height: info.h }),
+          ...(info?.mimetype && { mimeType: info.mimetype }),
+          ...(c.file && { encryption: c.file }),
+        };
+      }
+    }
     preview = orig.isDecryptionFailure() ? "🔒" : c.msgtype === MsgType.Image ? "📷 Photo" : stripReplyFallback(String(c.body ?? ""));
   }
-  return { id, sender, senderName, preview };
+  return { id, sender, senderName, preview, ...(image && { image }) };
 }
 
 /** Where each other member has read up to, as positions in the live timeline. */
