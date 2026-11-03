@@ -55,6 +55,13 @@ export type LinkPreview = {
   siteName?: string;
 };
 
+/**
+ * Why a message cannot be read, as far as the engine can tell: `waiting` its key has not reached this device (and may yet), `beforeJoin` it
+ * was sent before the account was in the room, `noBackup` it is older than this device and there is no key backup to read it from, `unverified`
+ * a backup exists but this device cannot use it until it is verified, `withheld` the sender chose not to give this device the key.
+ */
+export type UndecryptableReason = "waiting" | "beforeJoin" | "noBackup" | "unverified" | "withheld";
+
 export type MessageContent =
   | {
       kind: "text";
@@ -106,8 +113,8 @@ export type MessageContent =
     }
   /** Membership/name/topic changes etc., rendered centered like Telegram service messages. */
   | { kind: "service"; body: string }
-  /** Encrypted event we could not (yet) decrypt: missing keys until verification/backup restore. */
-  | { kind: "undecryptable" }
+  /** Encrypted event we could not (yet) decrypt: its key is missing; `reason` is the engine's best guess why (absent = it does not know). */
+  | { kind: "undecryptable"; reason?: UndecryptableReason }
   | { kind: "unsupported"; body: string };
 
 export interface ReactionSummary {
