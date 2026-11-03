@@ -115,6 +115,11 @@ export function RoomListPane() {
   const settled = useAppState((s) => s.roomsSettled);
   const joining = useJoining();
   const profile = useAppState((s) => s.profile);
+  // Until the first connection the name that was kept from last time is shown; once connected, a break in the connection is shown again as such.
+  const [connectedOnce, setConnectedOnce] = useState(syncing);
+  useEffect(() => {
+    if (syncing) setConnectedOnce(true);
+  }, [syncing]);
   const myAvatar = useMediaUrl(profile?.avatar, { width: 68, height: 68, fit: "crop" });
   const plusRef = useRef<ComponentRef<typeof View>>(null);
   const pullToRefresh = useAppState((s) => s.prefs.pullToRefresh);
@@ -173,7 +178,7 @@ export function RoomListPane() {
               </Pulse>
             ) : (
               <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", fontFamily, color: colors.text }}>
-                {syncing ? (profile?.displayName ?? "") : t("connecting")}
+                {syncing || (profile && !connectedOnce) ? (profile?.displayName ?? "") : t("connecting")}
               </Text>
             )}
           </Pressable>
