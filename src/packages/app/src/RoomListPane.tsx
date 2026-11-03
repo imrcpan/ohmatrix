@@ -27,6 +27,7 @@ import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 import { PullToRefresh } from "./PullToRefresh.js";
+import { useRail } from "./railContext.js";
 import { formatListTime, typingLabel } from "./format.js";
 
 const NONE: RoomSummary[] = [];
@@ -65,6 +66,8 @@ export const RoomListItem = memo(function RoomListItem(props: {
   onMenu: (room: RoomSummary, anchor: Anchor) => void;
   /** Tapping a space opens its contents instead of a timeline. */
   onOpenSpace?: ((id: string) => void) | undefined;
+  /** Only the picture, in the narrow strip. */
+  compact?: boolean | undefined;
 }) {
   const t = useT();
   const locale = useLocale();
@@ -73,6 +76,7 @@ export const RoomListItem = memo(function RoomListItem(props: {
   const avatar = useMediaUrl(room.avatar, { width: 104, height: 104, fit: "crop" });
   return (
     <RoomRow
+      compact={props.compact}
       id={room.id}
       title={room.name}
       preview={previewOf(room, t)}
@@ -104,6 +108,7 @@ export const RoomListItem = memo(function RoomListItem(props: {
 });
 
 export function RoomListPane() {
+  const rail = useRail();
   const { colors } = useTheme();
   const nav = useNavBottom();
   const t = useT();
@@ -140,65 +145,108 @@ export function RoomListPane() {
   const onOpenSpace = useCallback((id: string) => controller.openSpace(id), [controller]);
 
   const data = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = rail ? "" : query.trim().toLowerCase(); // the search field is not there in the strip
     return q ? rooms.filter((r) => r.name.toLowerCase().includes(q)) : rooms;
-  }, [rooms, query]);
+  }, [rooms, query, rail]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 44 }}>
+      {rail && (
+        // The strip: my picture, the plus button, then the chats' pictures. The pictures have the size and the room around them that they have in the list.
+        <View style={{ paddingTop: 10 }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("profile")}
             onPress={() => controller.openSidebarPage("profile")}
             style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              flexShrink: 1,
-              paddingVertical: 2,
-              paddingHorizontal: 4,
-              borderRadius: 10,
+              marginHorizontal: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 7,
+              borderRadius: 12,
               backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
             })}
           >
-            {/* Until the profile has come (the picture and the name are read from the server), grey shapes stand where they will be. */}
             {profile ? (
-              <Avatar id={profile.userId} name={profile.displayName ?? "?"} size={34} src={myAvatar} />
+              <Avatar id={profile.userId} name={profile.displayName ?? "?"} size={44} src={myAvatar} />
             ) : (
               <Pulse>
-                <SkeletonBlock width={34} height={34} circle />
+                <SkeletonBlock width={44} height={44} circle />
               </Pulse>
-            )}
-            {/* One line, fixed bar height: while connecting the status takes the name's place, styled like the name. */}
-            {syncing && !profile ? (
-              <Pulse>
-                <SkeletonBlock width={110} height={20} />
-              </Pulse>
-            ) : (
-              <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", fontFamily, color: colors.text }}>
-                {syncing || (profile && !connectedOnce) ? (profile?.displayName ?? "") : t("connecting")}
-              </Text>
             )}
           </Pressable>
-          <View ref={plusRef}>
-            <IconButton
-              icon="plus"
-              label={t("newChat.menu")}
-              size={24}
-              onPress={() =>
-                plusRef.current?.measureInWindow((x, y, width, height) => {
-                  setAnchor({ x, y, width, height });
-                  setAddMenu(true);
-                })
-              }
-            />
+          <View style={{ alignItems: "center", paddingTop: 2 }}>
+            <View ref={plusRef}>
+              <IconButton
+                icon="plus"
+                label={t("newChat.menu")}
+                size={28}
+                box={44}
+                onPress={() =>
+                  plusRef.current?.measureInWindow((x, y, width, height) => {
+                    setAnchor({ x, y, width, height });
+                    setAddMenu(true);
+                  })
+                }
+              />
+            </View>
           </View>
         </View>
-        <SearchField value={query} onChangeText={setQuery} placeholder={t("search")} />
-      </View>
-      {(security === "needs_setup" || security === "needs_recovery") && (
+      )}
+      {!rail && (
+        <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 44 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("profile")}
+              onPress={() => controller.openSidebarPage("profile")}
+              style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                flexShrink: 1,
+                paddingVertical: 2,
+                paddingHorizontal: 4,
+                borderRadius: 10,
+                backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+              })}
+            >
+              {/* Until the profile has come (the picture and the name are read from the server), grey shapes stand where they will be. */}
+              {profile ? (
+                <Avatar id={profile.userId} name={profile.displayName ?? "?"} size={34} src={myAvatar} />
+              ) : (
+                <Pulse>
+                  <SkeletonBlock width={34} height={34} circle />
+                </Pulse>
+              )}
+              {/* One line, fixed bar height: while connecting the status takes the name's place, styled like the name. */}
+              {syncing && !profile ? (
+                <Pulse>
+                  <SkeletonBlock width={110} height={20} />
+                </Pulse>
+              ) : (
+                <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", fontFamily, color: colors.text }}>
+                  {syncing || (profile && !connectedOnce) ? (profile?.displayName ?? "") : t("connecting")}
+                </Text>
+              )}
+            </Pressable>
+            <View ref={plusRef}>
+              <IconButton
+                icon="plus"
+                label={t("newChat.menu")}
+                size={24}
+                onPress={() =>
+                  plusRef.current?.measureInWindow((x, y, width, height) => {
+                    setAnchor({ x, y, width, height });
+                    setAddMenu(true);
+                  })
+                }
+              />
+            </View>
+          </View>
+          <SearchField value={query} onChangeText={setQuery} placeholder={t("search")} />
+        </View>
+      )}
+      {!rail && (security === "needs_setup" || security === "needs_recovery") && (
         <Banner
           text={t(security === "needs_setup" ? "sec.banner.setup" : "sec.banner.recovery")}
           actionLabel={t(security === "needs_setup" ? "sec.action.setup" : "sec.action.verify")}
@@ -209,7 +257,7 @@ export function RoomListPane() {
       <Menu
         visible={addMenu}
         anchor={anchor}
-        alignRight
+        alignRight={!rail}
         onClose={() => setAddMenu(false)}
         items={[
           { label: t("newChat"), icon: "user", onPress: () => setDialog("chat") },
@@ -263,10 +311,10 @@ export function RoomListPane() {
             ref={scroll.listRef}
             data={settled ? data : NONE}
             keyExtractor={(r) => r.id}
-            contentContainerStyle={{ paddingTop: 4, paddingBottom: 4 + nav }}
-            ListHeaderComponent={<>{joining.length && !query.trim() ? <JoiningRows rooms={joining} /> : null}</>}
+            contentContainerStyle={{ paddingTop: rail ? 0 : 4, paddingBottom: 4 + nav }}
+            ListHeaderComponent={<>{joining.length && !query.trim() && !rail ? <JoiningRows rooms={joining} /> : null}</>}
             ListFooterComponent={
-              query.trim().length >= 2 ? (
+              query.trim().length >= 2 && !rail ? (
                 <View style={{ marginTop: 8 }}>
                   <Text style={{ fontSize: 13, fontFamily, color: colors.textSecondary, marginLeft: 18, marginBottom: 4 }}>{t("search.messages")}</Text>
                   <MessageResults term={query} showRoom onPick={(r) => controller.openMessage(r.roomId, r.eventId)} />
@@ -277,22 +325,26 @@ export function RoomListPane() {
             }
             ListEmptyComponent={
               settled ? (
-                <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
-                  {query ? t("noResults") : t("noChats")}
-                </Text>
+                rail ? null : (
+                  <Text style={{ textAlign: "center", marginTop: 48, fontSize: 15, fontFamily, color: colors.textSecondary }}>
+                    {query ? t("noResults") : t("noChats")}
+                  </Text>
+                )
               ) : (
                 <View>
                   {Array.from({ length: 12 }, (_, i) => (
-                    <RoomRowSkeleton key={i} index={i} />
+                    <RoomRowSkeleton key={i} index={i} compact={rail} />
                   ))}
                 </View>
               )
             }
-            renderItem={({ item }) => <RoomListItem room={item} selected={selected === item.id} now={now} onOpenSpace={onOpenSpace} onMenu={onMenu} />}
+            renderItem={({ item }) => (
+              <RoomListItem room={item} selected={selected === item.id} now={now} onOpenSpace={onOpenSpace} onMenu={onMenu} compact={rail} />
+            )}
           />
         )}
       </PullToRefresh>
-      <SlideOverSpace open={space !== null} id={space} />
+      {!rail && <SlideOverSpace open={space !== null} id={space} />}
     </View>
   );
 }

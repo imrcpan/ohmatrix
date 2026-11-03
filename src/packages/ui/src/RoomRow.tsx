@@ -24,6 +24,8 @@ export function RoomRow(props: {
   muted?: boolean | undefined;
   /** A space: rounded-square logo instead of a circle. */
   isSpace?: boolean | undefined;
+  /** Only the picture (in the narrow strip of the chat list), in the same row box, so it stands where it does in the full list; the count sits on it. */
+  compact?: boolean | undefined;
   /** Nested under a space: slightly indented, like a thread in Telegram's folder view. */
   nested?: boolean | undefined;
   /** Long-press (touch) or right-click (desktop): receives where to anchor the menu. */
@@ -34,33 +36,79 @@ export function RoomRow(props: {
   const { colors } = useTheme();
   const sel = !!props.selected;
   const secondary = sel ? colors.onSelectedSecondary : colors.textSecondary;
+  const handlers = {
+    onPress: props.onPress,
+    accessibilityRole: "button" as const,
+    onLongPress: (e: { nativeEvent: unknown }) => {
+      const n = e.nativeEvent as { pageX?: number; pageY?: number };
+      props.onContextMenu?.({ x: n.pageX ?? 0, y: n.pageY ?? 0, width: 0, height: 0 });
+    },
+    ...({
+      onContextMenu: (e: { preventDefault(): void; clientX: number; clientY: number }) => {
+        if (!props.onContextMenu) return;
+        e.preventDefault();
+        props.onContextMenu({ x: e.clientX, y: e.clientY, width: 0, height: 0 });
+      },
+    } as object),
+  };
+  const rowStyle = ({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 11,
+    marginHorizontal: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    ...(props.invite ? {} : { height: ROW_HEIGHT }),
+    borderRadius: 12,
+    backgroundColor: sel ? colors.selected : pressed ? colors.separator : hovered ? colors.hover : "transparent",
+  });
+  if (props.compact) {
+    const count = props.unread > 99 ? "99+" : String(props.unread);
+    return (
+      <Pressable {...handlers} accessibilityLabel={props.title} style={rowStyle}>
+        <View>
+          <Avatar id={props.id} name={props.title} size={44} src={props.avatarUrl} shape={props.isSpace ? "square" : "circle"} />
+          {props.unread > 0 ? (
+            <View
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -6,
+                minWidth: 20,
+                height: 20,
+                borderRadius: 10,
+                paddingHorizontal: 5,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: props.muted ? colors.badgeMuted : colors.badge,
+                borderWidth: 2,
+                borderColor: sel ? colors.selected : colors.bg,
+              }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: "700", fontFamily, color: colors.onAccent }}>{count}</Text>
+            </View>
+          ) : props.markedUnread ? (
+            <View
+              accessibilityLabel="Marked unread"
+              style={{
+                position: "absolute",
+                top: -1,
+                right: -2,
+                width: 13,
+                height: 13,
+                borderRadius: 7,
+                backgroundColor: colors.badge,
+                borderWidth: 2,
+                borderColor: sel ? colors.selected : colors.bg,
+              }}
+            />
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  }
   return (
-    <Pressable
-      onPress={props.onPress}
-      accessibilityRole="button"
-      onLongPress={(e) => {
-        const n = e.nativeEvent as { pageX?: number; pageY?: number };
-        props.onContextMenu?.({ x: n.pageX ?? 0, y: n.pageY ?? 0, width: 0, height: 0 });
-      }}
-      {...({
-        onContextMenu: (e: { preventDefault(): void; clientX: number; clientY: number }) => {
-          if (!props.onContextMenu) return;
-          e.preventDefault();
-          props.onContextMenu({ x: e.clientX, y: e.clientY, width: 0, height: 0 });
-        },
-      } as object)}
-      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 11,
-        marginHorizontal: 6,
-        paddingHorizontal: 8,
-        paddingVertical: 7,
-        ...(props.invite ? {} : { height: ROW_HEIGHT }),
-        borderRadius: 12,
-        backgroundColor: sel ? colors.selected : pressed ? colors.separator : hovered ? colors.hover : "transparent",
-      })}
-    >
+    <Pressable {...handlers} style={rowStyle}>
       {props.nested && <View style={{ width: 10 }} />}
       <Avatar id={props.id} name={props.title} size={44} src={props.avatarUrl} shape={props.isSpace ? "square" : "circle"} />
       <View style={{ flex: 1, gap: 3 }}>
@@ -134,7 +182,7 @@ export function RoomRow(props: {
 }
 
 /** A row that stands where a chat will be, while the list is still arriving: same size as `RoomRow`, so nothing moves when the real ones replace it. */
-export function RoomRowSkeleton(props: { index: number }) {
+export function RoomRowSkeleton(props: { index: number; compact?: boolean }) {
   const { colors } = useTheme();
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -165,13 +213,15 @@ export function RoomRowSkeleton(props: { index: number }) {
       }}
     >
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.hover }} />
-      <View style={{ flex: 1, gap: 8 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ ...bar, width: title, height: 14 }} />
-          <View style={{ ...bar, width: 30, height: 11 }} />
+      {!props.compact && (
+        <View style={{ flex: 1, gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ ...bar, width: title, height: 14 }} />
+            <View style={{ ...bar, width: 30, height: 11 }} />
+          </View>
+          <View style={{ ...bar, width: preview, maxWidth: "100%", height: 12 }} />
         </View>
-        <View style={{ ...bar, width: preview, maxWidth: "100%", height: 12 }} />
-      </View>
+      )}
     </Animated.View>
   );
 }

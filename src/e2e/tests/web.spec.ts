@@ -720,13 +720,130 @@ test("landscape: drag the chat list border to resize; width persists; double-cli
   const x2 = await sidebarRight();
   await page.mouse.move(x2, 400);
   await page.mouse.down();
-  await page.mouse.move(50, 400, { steps: 8 });
+  await page.mouse.move(200, 400, { steps: 8 });
   await page.mouse.up();
   await expect.poll(async () => (await prefs()).sidebarWidth).toBe(260);
 
   await page.mouse.dblclick(await sidebarRight(), 400);
   await expect.poll(async () => (await prefs()).sidebarWidth).toBeNull();
   await expect.poll(sidebarRight).toBeGreaterThan(378);
+});
+
+test("landscape: dragged narrow, the chat list jumps to a strip of pictures: my picture, the plus button, the chats' pictures", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  const handle = page.getByLabel("Resize chat list");
+  const edge = async () => {
+    const b = (await handle.boundingBox())!;
+    return Math.round(b.x + b.width / 2);
+  };
+  // The handle is a few pixels wide and centred on the edge: a pixel or two off the width is rounding.
+  const at = (n: number) => expect.poll(async () => Math.abs((await edge()) - n)).toBeLessThan(3);
+  const prefs = () => page.evaluate(() => JSON.parse(localStorage.getItem("ohmatrix.prefs.v1") ?? "{}") as { sidebarWidth?: number | null });
+  const from = await edge();
+  await page.mouse.move(from, 400);
+  await page.mouse.down();
+  // Not a width in between: it is the strip below the middle of 72 and 260, and a list from there on.
+  await page.mouse.move(300, 400, { steps: 4 });
+  await at(300);
+  await page.mouse.move(180, 400, { steps: 4 });
+  await at(260);
+  await page.mouse.move(150, 400, { steps: 4 });
+  await at(72);
+  await page.mouse.move(100, 400, { steps: 4 });
+  await at(72);
+  await page.mouse.move(190, 400, { steps: 4 });
+  await at(260);
+  await page.mouse.move(100, 400, { steps: 4 });
+  await page.mouse.up();
+  await at(72);
+  await expect.poll(async () => (await prefs()).sidebarWidth).toBe(72);
+
+  // No search field and no name: only pictures.
+  await expect(page.getByPlaceholder("Search")).toHaveCount(0);
+  const profile = page.getByRole("button", { name: "Profile", exact: true });
+  const plus = page.getByRole("button", { name: "New", exact: true });
+  const row = page.getByRole("button", { name: "Notes to self" }).first();
+  await expect(row).toBeVisible({ timeout: 15000 });
+  const pictureOf = (b: ReturnType<Page["locator"]>) =>
+    b.evaluate((el) => {
+      const hit = [...el.querySelectorAll<HTMLElement>("*")].find(
+        (e) => Math.round(e.getBoundingClientRect().width) === 44 && Math.round(e.getBoundingClientRect().height) === 44,
+      );
+      const r = hit?.getBoundingClientRect();
+      return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } : null;
+    });
+  const mine = await pictureOf(profile);
+  const theirs = await pictureOf(row);
+  // My picture is as large as a chat's, and stands where theirs do.
+  expect(mine).not.toBeNull();
+  expect(theirs).not.toBeNull();
+  expect(mine!.w).toBe(44);
+  expect(theirs!.w).toBe(44);
+  expect(mine!.x).toBe(theirs!.x);
+  expect(mine!.x).toBe(14); // 6 outside the row and 8 inside it, as in the list
+  // The plus button is between my picture and the chats', in the middle of the strip.
+  const p = (await plus.boundingBox())!;
+  expect(p.y).toBeGreaterThanOrEqual(mine!.y + 44);
+  expect(p.y + p.height).toBeLessThanOrEqual(theirs!.y + 1);
+  expect(Math.abs(p.x + p.width / 2 - 36)).toBeLessThan(2);
+  expect(p.width).toBeGreaterThanOrEqual(44); // as large as a picture
+  // The same room above it, to my picture, as below it, to the first chat's.
+  const firstBelow = await page.evaluate((from) => {
+    const tops = [...document.querySelectorAll<HTMLElement>("*")]
+      .map((e) => e.getBoundingClientRect())
+      .filter((r) => Math.round(r.width) === 44 && Math.round(r.height) === 44 && r.top >= from && r.left < 72)
+      .map((r) => r.top);
+    return Math.min(...tops);
+  }, p.y + p.height);
+  const above = p.y - (mine!.y + mine!.h);
+  const below = firstBelow - (p.y + p.height);
+  expect(Math.abs(above - below)).toBeLessThanOrEqual(1);
+  // It works from there: the menu opens beside the strip, not off the left of the window.
+  await plus.click();
+  const item = page.getByRole("menuitem", { name: "New group" });
+  await expect(item).toBeVisible();
+  expect((await item.boundingBox())!.x).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  // A chat opens from its picture.
+  await row.click();
+  await expect(page.getByPlaceholder("Message")).toBeVisible({ timeout: 15000 });
+
+  // Back to a list by dragging out; and the width is kept when the page is loaded again.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Profile", exact: true })).toBeVisible({ timeout: 20000 });
+  expect(Math.abs((await edge()) - 72)).toBeLessThan(3);
+
+  // The profile does not fit in the strip, and there is no list for it to cover: it floats over the window, and the chat is not pushed aside.
+  const composer = page.getByPlaceholder("Message");
+  await expect(composer).toBeVisible();
+  const composerBefore = (await composer.boundingBox())!;
+  await profile.click();
+  await expect(page.getByText("@test:localhost").first()).toBeVisible();
+  await at(72); // the strip is as wide as it was
+  await page.waitForTimeout(400); // slid in
+  const panel = (await page.getByText("@test:localhost").first().boundingBox())!;
+  expect(panel.x).toBeGreaterThanOrEqual(0);
+  expect(panel.x + panel.width).toBeLessThan(500);
+  const composerWith = (await composer.boundingBox())!;
+  expect(Math.round(composerWith.x)).toBe(Math.round(composerBefore.x));
+  expect(Math.round(composerWith.width)).toBe(Math.round(composerBefore.width));
+  // The pages that open from it stay in the panel, and pressing anywhere else closes them all.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText("Appearance")).toBeVisible();
+  await at(72);
+  await page.mouse.click(900, 300);
+  await expect(page.getByText("Appearance")).toHaveCount(0, { timeout: 5000 });
+  await expect(page.getByText("@test:localhost")).toHaveCount(0, { timeout: 5000 });
+  await at(72);
+  await expect(page.getByRole("button", { name: "Notes to self" }).first()).toBeVisible();
+
+  await page.mouse.move(72, 400);
+  await page.mouse.down();
+  await page.mouse.move(330, 400, { steps: 6 });
+  await page.mouse.up();
+  await at(330);
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
 });
 
 test("portrait: profile and settings push full screen; browser back pops them", async ({ page }) => {
