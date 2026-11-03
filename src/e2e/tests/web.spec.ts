@@ -1714,7 +1714,7 @@ test("photo viewer: hand cursor and click to open; translucent mask over the who
 
   // Zoom with the buttons, the wheel and a double click; fit resets.
   const zoomText = () => page.getByLabel("Zoom level").innerText();
-  expect(await zoomText()).toBe("100%");
+  await expect.poll(zoomText).toBe("100%"); // it glides there
   await page.getByRole("button", { name: "Zoom in" }).click();
   expect(await zoomText()).toBe("125%");
   await page.getByRole("button", { name: "Zoom out" }).click();
@@ -1724,23 +1724,33 @@ test("photo viewer: hand cursor and click to open; translucent mask over the who
   await page.mouse.wheel(0, -300);
   await expect.poll(async () => parseInt(await zoomText())).toBeGreaterThan(80);
   await page.getByRole("button", { name: "Fit to window" }).click();
-  expect(await zoomText()).toBe("100%");
+  await expect.poll(zoomText).toBe("100%"); // it glides there
   // The wheel counts anywhere on the page, not only over the picture.
   await page.mouse.move(40, 400);
   await page.mouse.wheel(0, -300);
   await expect.poll(async () => parseInt(await zoomText())).toBeGreaterThan(100);
   await page.getByRole("button", { name: "Fit to window" }).click();
-  expect(await zoomText()).toBe("100%");
+  await expect.poll(zoomText).toBe("100%"); // it glides there
   await viewer.dblclick();
-  expect(await zoomText()).toBe("200%");
+  await expect.poll(zoomText).toBe("200%"); // it glides there
   const zoomed = (await viewer.boundingBox())!;
   expect(zoomed.width).toBeGreaterThan(v.width * 1.9);
   await viewer.dblclick();
-  expect(await zoomText()).toBe("100%");
+  await expect.poll(zoomText).toBe("100%"); // it glides there
 
-  // Clicking the picture does not close it; clicking the mask, Esc, or the close button does.
-  await viewer.click();
+  // A double click zooms wherever it lands, on the dim around the picture too, and does not close the viewer.
+  await page.mouse.dblclick(40, 400);
+  await page.waitForTimeout(500);
   await expect(viewer).toBeVisible();
+  await expect.poll(zoomText).toBe("200%"); // it glides there
+  await page.mouse.dblclick(40, 400);
+  await expect.poll(zoomText).toBe("100%"); // it glides there
+  // A single click closes it, on the picture or on the mask (the viewer waits a moment to see whether a second click follows); so do Esc and the close button.
+  await viewer.click();
+  await expect(viewer).toBeHidden();
+  await photo.click();
+  await expect(viewer).toBeVisible();
+  await page.waitForTimeout(400);
   await page.mouse.click(40, 400);
   await expect(viewer).toBeHidden();
   await photo.click();
