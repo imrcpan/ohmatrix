@@ -5,7 +5,10 @@ import { ChatPane } from "./chat/ChatPane.js";
 import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { useAppState, useController, useT } from "./context.js";
-import { autoSidebar, clampSidebar } from "./layout.js";
+import { autoSidebar, clampSidebar, floatingSidebar, isRail } from "./layout.js";
+import { RailContext } from "./railContext.js";
+import { FloatingSidebar } from "./FloatingSidebar.js";
+import { RoomListPane } from "./RoomListPane.js";
 import { SidebarNav } from "./SidebarNav.js";
 import { SidebarResizer } from "./SidebarResizer.js";
 import { SlideStack } from "./SlideStack.js";
@@ -78,15 +81,21 @@ export function MainScreen() {
   const roomId = useAppState((s) => s.selectedRoomId);
   const infoOpen = useAppState((s) => s.roomInfoOpen);
   const stored = useAppState((s) => s.prefs.sidebarWidth);
+  const page = useAppState((s) => s.sidebarPage);
+  const spaceOpen = useAppState((s) => s.spaceId !== null);
   const [live, setLive] = useState<number | null>(null);
   const split = width >= SPLIT_BREAKPOINT;
 
   if (split) {
     const sidebar = live ?? (stored ? clampSidebar(stored, width) : autoSidebar(width));
+    // The strip of pictures is only the chat list. The profile, the settings and a space do not fit in it, and there is no list for them to
+    // cover: they open as a panel floating over the window, which is closed by pressing anywhere else.
+    const rail = isRail(sidebar);
+    const floating = rail && (page !== "chats" || spaceOpen);
     return (
       <View style={{ flex: 1, flexDirection: "row", backgroundColor: colors.bg }}>
         <View style={{ width: sidebar, borderRightWidth: 1, borderRightColor: colors.separator, zIndex: 5 }}>
-          <SidebarNav />
+          <RailContext.Provider value={rail}>{rail ? <RoomListPane /> : <SidebarNav />}</RailContext.Provider>
           <SidebarResizer
             width={sidebar}
             clamp={(w) => clampSidebar(w, width)}
@@ -112,6 +121,18 @@ export function MainScreen() {
             )}
           </View>
         </View>
+        <FloatingSidebar
+          open={floating}
+          width={floatingSidebar(width)}
+          onClose={() => {
+            controller.openSpace(null);
+            controller.openSidebarPage("chats");
+          }}
+        >
+          <RailContext.Provider value={false}>
+            <SidebarNav />
+          </RailContext.Provider>
+        </FloatingSidebar>
       </View>
     );
   }

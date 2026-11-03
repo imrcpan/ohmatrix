@@ -127,7 +127,8 @@ export function TextField(props: TextInputProps & { label: string; revealLabels?
   );
 }
 
-export function IconButton(props: { icon: IconName; onPress: () => void; label: string; color?: string; size?: number }) {
+/** `size` is the icon; `box` the round button around it (36 unless asked). */
+export function IconButton(props: { icon: IconName; onPress: () => void; label: string; color?: string; size?: number; box?: number }) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -136,9 +137,9 @@ export function IconButton(props: { icon: IconName; onPress: () => void; label: 
       onPress={props.onPress}
       hitSlop={8}
       style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: props.box ?? 36,
+        height: props.box ?? 36,
+        borderRadius: (props.box ?? 36) / 2,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
