@@ -4,6 +4,7 @@ export { Icon, type IconName } from "./Icon.js";
 export { Avatar } from "./Avatar.js";
 export { PrimaryButton, TextField, IconButton, SearchField, Dialog, TextButton, Banner } from "./controls.js";
 export { RoomRow, RoomRowSkeleton, ROW_HEIGHT } from "./RoomRow.js";
+export { Pulse, SkeletonBlock } from "./Skeleton.js";
 export { Bubble, Chip, Composer, type BubbleStuck } from "./chat.js";
 export { MessageMenu, ReactionChips, type SheetAction, type MenuPoint } from "./ActionSheet.js";
 export { Section, Row, NavBar } from "./lists.js";
