@@ -29,6 +29,13 @@ export CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS="-L$clang_dir"
 # have no Rust engine and run on the mock. Ours is kept aside and put back after the generating steps below.
 index_keep=$(mktemp)
 cp src/index.ts "$index_keep"
+# The generator formats the C++ it writes with clang-format when the machine has it (a GitHub runner does, a bare machine does not), and
+# the formatted text no longer has the shape scripts/shrinkBinding.mjs reads. So it is given a clang-format that changes nothing.
+no_format=$(mktemp -d)
+printf '#!/bin/sh\nexit 0\n' > "$no_format/clang-format"
+chmod +x "$no_format/clang-format"
+trap 'rm -rf "$no_format"' EXIT
+export PATH="$no_format:$PATH"
 # Builds the libraries and, from the same build, the TypeScript and C++ bindings and the TurboModule that loads them.
 npx ubrn build android --config ubrn.yaml --and-generate "$@"
 
