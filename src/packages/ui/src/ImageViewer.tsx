@@ -8,6 +8,10 @@ import { TopNotice } from "./TopNotice.js";
 import { clamp, MAX, MIN, pinchedScale } from "./viewerMath.js";
 
 const STEP = 1.25;
+/** How long a tap on the dim waits for a second one before the viewer closes (ms). */
+const CLOSE_DELAY = 300;
+/** How long the zoom of a double tap takes (ms). */
+const GLIDE_MS = 200;
 
 /** Size an image is first shown at: it fits inside the window with a margin and is never blown up past its own size. */
 export function fitSize(natural: { width: number; height: number }, area: { width: number; height: number }) {
@@ -103,12 +107,14 @@ export function ImageViewer(props: {
     return () => doc.removeEventListener("keydown", onKey);
   });
 
-  const zoom = (k: number) =>
+  const zoom = (k: number) => {
+    stopGlide();
     setScale((s) => {
       const n = clamp(s * k, MIN, MAX);
       if (n <= 1) setPan({ x: 0, y: 0 });
       return n;
     });
+  };
   const base = natural ? fitSize(natural, win) : { width: Math.round(win.width * 0.6), height: Math.round(win.height * 0.6) };
 
   const latest = useRef({ pan, scale });
@@ -125,6 +131,7 @@ export function ImageViewer(props: {
       onStartShouldSetPanResponderCapture: (e) => e.nativeEvent.touches.length >= 2,
       onMoveShouldSetPanResponderCapture: (e) => wants(e.nativeEvent.touches),
       onPanResponderGrant: (e) => {
+        stopGlide();
         start.current = latest.current.pan;
         const t = e.nativeEvent.touches;
         pinch.current = t.length >= 2 ? { distance: distanceOf(t), scale: latest.current.scale } : null;
@@ -153,18 +160,46 @@ export function ImageViewer(props: {
     });
   }, []);
 
+  // The scale and the pan glide to their new values (a double tap, the Fit button); a touch or a button in the middle takes over.
+  const glide = useRef(0);
+  const stopGlide = () => {
+    glide.current++;
+  };
+  const glideTo = (toScale: number, toPan: { x: number; y: number }) => {
+    const id = ++glide.current;
+    const from = { scale: latest.current.scale, pan: latest.current.pan };
+    const t0 = Date.now();
+    const step = () => {
+      if (id !== glide.current) return;
+      const k = Math.min(1, (Date.now() - t0) / GLIDE_MS);
+      const e = 1 - (1 - k) * (1 - k) * (1 - k);
+      setScale(from.scale + (toScale - from.scale) * e);
+      setPan({ x: from.pan.x + (toPan.x - from.pan.x) * e, y: from.pan.y + (toPan.y - from.pan.y) * e });
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  // Two taps within 320 ms zoom (fit <-> 2x), wherever they land: on the picture or on the dim around it. A single tap, on either,
+  // closes the viewer, so it waits CLOSE_DELAY to see whether a second one follows.
   const lastTap = useRef(0);
-  const onImagePress = () => {
+  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelClose = () => {
+    if (closing.current) clearTimeout(closing.current);
+    closing.current = null;
+  };
+  useEffect(() => cancelClose, []);
+  const onTap = () => {
     const now = Date.now();
     if (now - lastTap.current < 320) {
-      // double click / tap: fit <-> 2x
-      if (latest.current.scale === 1) setScale(2);
-      else {
-        setScale(1);
-        setPan({ x: 0, y: 0 });
-      }
+      cancelClose();
+      if (latest.current.scale === 1) glideTo(2, latest.current.pan);
+      else glideTo(1, { x: 0, y: 0 });
       lastTap.current = 0;
-    } else lastTap.current = now;
+      return;
+    }
+    lastTap.current = now;
+    closing.current = setTimeout(() => props.onClose(), CLOSE_DELAY);
   };
 
   return (
@@ -176,7 +211,7 @@ export function ImageViewer(props: {
           {/* The mask: dims what is behind instead of covering it with a flat colour. */}
           <Pressable
             accessibilityLabel="Viewer backdrop"
-            onPress={props.onClose}
+            onPress={onTap}
             {...({ onWheel: (e: { deltaY: number; preventDefault?: () => void }) => zoom(e.deltaY < 0 ? 1.1 : 1 / 1.1) } as object)}
             style={[
               { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", overflow: "hidden" },
@@ -193,7 +228,7 @@ export function ImageViewer(props: {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Photo: ${props.title ?? ""}`}
-                  onPress={onImagePress}
+                  onPress={onTap}
                   style={{ width: "100%", height: "100%" }}
                 >
                   {props.previewUri && !ready && (
@@ -245,14 +280,7 @@ export function ImageViewer(props: {
                   {Math.round(scale * 100)}%
                 </Text>
                 <Control icon="zoomIn" label={labels.zoomIn} onPress={() => zoom(STEP)} />
-                <Control
-                  icon="fit"
-                  label={labels.fit}
-                  onPress={() => {
-                    setScale(1);
-                    setPan({ x: 0, y: 0 });
-                  }}
-                />
+                <Control icon="fit" label={labels.fit} onPress={() => glideTo(1, { x: 0, y: 0 })} />
               </Pressable>
             </View>
           </Pressable>
