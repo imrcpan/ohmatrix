@@ -14,3 +14,4 @@ export * from "./stickerGroups.js";
 export * from "./sdpSummary.js";
 export * from "./videoCodecs.js";
 export * from "./videoStats.js";
+export * from "./update.js";
