@@ -15,13 +15,18 @@ source "$here/setup/rust.sh"
 source "$here/setup/android-sdk.sh"
 
 variant=release
+test_app=0
 save_disk=auto
 ohm_parse_common "$@"
 set -- "${OHM_REST[@]+"${OHM_REST[@]}"}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --release) variant=release ;;
-    --debug) variant=debug ;;
+    --debug)
+      variant=debug
+      test_app=1 # a debug build is never the app people install
+      ;;
+    --test) test_app=1 ;;
     --google-services)
       [ $# -ge 2 ] || die "--google-services needs a file"
       export OHM_GOOGLE_SERVICES=$2
@@ -98,6 +103,14 @@ if [ "$variant" = release ]; then
 fi
 suffix=""
 [ "$variant" = debug ] && suffix="_debug"
+# The test app has an identity of its own (org.ohmatrix.test, "OhMatrix Test": app.config.js), so it installs next to the real one and is never
+# taken for an update of it. It is built without push: its package is not in the Firebase file.
+app_id=org.ohmatrix.app
+if [ "$test_app" = 1 ]; then
+  export OHM_TEST_APP=1
+  app_id=org.ohmatrix.test
+  [ "$variant" = debug ] || suffix="${suffix}_test"
+fi
 
 # What the aapt of the SDK says an APK is: name, version, and which ABIs have native code. Stops if it is not what was asked for.
 check_apk() {
@@ -106,6 +119,7 @@ check_apk() {
   [ -n "$aapt" ] || die "no aapt in the Android SDK's build-tools"
   badging=$("$aapt" dump badging "$apk")
   want_code=$(node -p "require('./src/apps/mobile/version.cjs').versionCodeOf('$OHM_VERSION', '$abi')")
+  grep -q "^package: name='$app_id'" <<<"$badging" || die "$(basename "$apk"): its package is not $app_id"
   grep -q "versionName='$OHM_VERSION'" <<<"$badging" || die "$(basename "$apk"): its version name is not $OHM_VERSION"
   grep -q "versionCode='$want_code'" <<<"$badging" || die "$(basename "$apk"): its version code is not $want_code"
   [ "$(grep '^native-code:' <<<"$badging")" = "native-code: '$abi'" ] || die "$(basename "$apk"): its native code is not only $abi ($(grep '^native-code:' <<<"$badging"))"

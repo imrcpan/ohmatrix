@@ -4,6 +4,9 @@
 // The app icon is made from logo/main-full.svg by scripts/makeIcons.mjs (the repository keeps the SVG only), into .generated/. When it has
 // been made it is the icon; without it (nobody has run `pnpm icons`) the app keeps Expo's default.
 //
+// OHM_TEST_APP=1 (what `build-android-<abi>.sh --test` and `--debug` set) makes the test app: package org.ohmatrix.test, named "OhMatrix Test", and no
+// Firebase file (the push project knows only the real package). The real app is unchanged.
+//
 // Firebase (push through FCM) is set up from google-services.json, the one in this folder or the file OHM_GOOGLE_SERVICES names (what
 // `build-android-<abi>.sh --google-services` sets). The file is the app's own and is not a secret: its API key is limited to this package and
 // its signing certificates in the Google Cloud console. Without a file the app is built with no push, and works as before.
@@ -18,8 +21,10 @@ module.exports = ({ config }) => {
   const version = process.env.OHM_VERSION;
   // A file that was asked for by name and is not there is an error: the build would otherwise come out without push, unnoticed.
   if (process.env.OHM_GOOGLE_SERVICES && !existsSync(GOOGLE_SERVICES)) throw new Error(`OHM_GOOGLE_SERVICES: no such file: ${GOOGLE_SERVICES}`);
-  const withIcon = existsSync(ICON) ? { ...config, icon: ICON } : config;
-  const withPush = existsSync(GOOGLE_SERVICES) ? { ...withIcon, android: { ...withIcon.android, googleServicesFile: GOOGLE_SERVICES } } : withIcon;
+  const test = process.env.OHM_TEST_APP === "1";
+  const named = test ? { ...config, name: "OhMatrix Test", android: { ...config.android, package: "org.ohmatrix.test" } } : config;
+  const withIcon = existsSync(ICON) ? { ...named, icon: ICON } : named;
+  const withPush = !test && existsSync(GOOGLE_SERVICES) ? { ...withIcon, android: { ...withIcon.android, googleServicesFile: GOOGLE_SERVICES } } : withIcon;
   if (!version) return withPush;
   return {
     ...withPush,
