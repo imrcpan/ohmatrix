@@ -260,10 +260,20 @@ function mentionBlock(mentions?: string[]): Record<string, unknown> {
   return mentions?.length ? { "m.mentions": { user_ids: mentions } } : {};
 }
 
+/** What the server says of one room a space lists. */
+interface SpaceRoomInfo {
+  name?: string;
+  avatar?: string;
+  isSpace: boolean;
+  topic?: string;
+  alias?: string;
+  members?: number;
+}
+
 /** What the server's `/hierarchy` said of the rooms a space lists, and when. */
 interface SpaceHierarchy {
   at: number;
-  rooms: Map<string, { name?: string; avatar?: string; isSpace: boolean }>;
+  rooms: Map<string, SpaceRoomInfo>;
   loading?: Promise<void>;
 }
 
@@ -1153,11 +1163,18 @@ export class JsSdkEngine implements MatrixEngine {
     entry.loading = c
       .getRoomHierarchy(spaceId, 100, 1)
       .then((res) => {
-        const rooms = new Map<string, { name?: string; avatar?: string; isSpace: boolean }>();
+        const rooms = new Map<string, SpaceRoomInfo>();
         for (const r of res.rooms ?? []) {
           // A room with no name is known by its address, which reads better than its id.
           const name = r.name || r.canonical_alias || undefined;
-          rooms.set(r.room_id, { ...(name && { name }), ...(r.avatar_url && { avatar: r.avatar_url }), isSpace: r.room_type === RoomType.Space });
+          rooms.set(r.room_id, {
+            ...(name && { name }),
+            ...(r.avatar_url && { avatar: r.avatar_url }),
+            isSpace: r.room_type === RoomType.Space,
+            ...(r.topic && { topic: r.topic }),
+            ...(r.canonical_alias && { alias: r.canonical_alias }),
+            members: r.num_joined_members ?? 0,
+          });
         }
         entry.rooms = rooms;
       })
@@ -1186,6 +1203,7 @@ export class JsSdkEngine implements MatrixEngine {
           if (loading && !this.hierarchy.get(spaceId)?.at) await Promise.race([loading, new Promise((r) => setTimeout(r, 1500))]);
         }
         const known = this.hierarchy.get(spaceId)?.rooms;
+        const settled = !!this.hierarchy.get(spaceId)?.at; // the server has answered, even if with nothing
         return kids.map(({ id, via }) => {
           const child = c.getRoom(id);
           const summary = child && child.getMyMembership() === "join" ? toRoomSummary(c, child) : null;
@@ -1198,6 +1216,10 @@ export class JsSdkEngine implements MatrixEngine {
             ...(avatar && { avatar }),
             isSpace: child?.getType() === RoomType.Space || !!listed?.isSpace,
             ...(via.length && !summary ? { via } : {}),
+            ...(listed?.topic && { topic: listed.topic }),
+            ...(listed?.alias && { alias: listed.alias }),
+            ...(listed?.members !== undefined && { members: listed.members }),
+            ...(!summary && settled ? { detailed: true } : {}),
             unreadCount: summary?.unreadCount ?? 0,
             highlightCount: summary?.highlightCount ?? 0,
           } satisfies SpaceChild;

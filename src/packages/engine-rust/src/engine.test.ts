@@ -1016,7 +1016,7 @@ test("a space lists its children with my own names and counts, and changes to it
   await tickMany();
   expect(await engine.spaces.children("!s")).toEqual([
     { roomId: "!a", name: "Mine A", isSpace: false, unreadCount: 3, highlightCount: 0 },
-    { roomId: "!far", name: "Far room", isSpace: false, via: ["o"], unreadCount: 0, highlightCount: 0 },
+    { roomId: "!far", name: "Far room", isSpace: false, via: ["o"], detailed: true, unreadCount: 0, highlightCount: 0 },
   ]);
   expect((await engine.spaces.candidates("!s")).map((c) => c.roomId)).toEqual(["!b"]);
   asked.length = 0;

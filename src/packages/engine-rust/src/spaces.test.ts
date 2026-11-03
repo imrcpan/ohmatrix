@@ -64,5 +64,17 @@ test("a joined child shows my own name and counts; one I have not joined shows w
     unreadCount: 2,
     highlightCount: 1,
   });
-  expect(toSpaceChild(k, undefined)).toEqual({ roomId: "!a", name: "Server name", isSpace: false, via: ["s"], unreadCount: 0, highlightCount: 0 });
+  expect(toSpaceChild(k, undefined)).toEqual({
+    roomId: "!a",
+    name: "Server name",
+    isSpace: false,
+    via: ["s"],
+    detailed: true, // the server has answered: there is no topic and no count to wait for
+    unreadCount: 0,
+    highlightCount: 0,
+  });
+  // What the server tells of a room I am not in is what its card shows; one I am in keeps to my own.
+  const told = { ...k, topic: "About it", alias: "#a:s", members: 12 };
+  expect(toSpaceChild(told, undefined)).toMatchObject({ topic: "About it", alias: "#a:s", members: 12, detailed: true });
+  expect(toSpaceChild(told, { name: "Mine", unreadCount: 0, highlightCount: 0 })).not.toHaveProperty("topic");
 });
