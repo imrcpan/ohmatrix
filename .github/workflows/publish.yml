@@ -1,0 +1,150 @@
+name: publish
+
+# Releases the Android APKs (all ABIs, signed with the release key) and the web app. The tag is passed in by hand: v1.2.3.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of this release, like v1.2.3 (made here, on the commit this runs on)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the release as a pre-release"
+        default: false
+        required: true
+        type: boolean
+
+env:
+  TAG: ${{ github.event.inputs.tag }}
+
+defaults:
+  run:
+    shell: bash
+
+# Nothing is cached between runs: every build starts from the sources and its own downloads, and what the jobs hand to each other
+# is an artifact that is gone after a day. The only thing kept is the GitHub release.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - name: The tag is a version, and is not taken
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "the tag must look like v1.2.3, not '$TAG'"; exit 1; }
+          if gh api "repos/$GH_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then echo "the tag $TAG exists already"; exit 1; fi
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: check
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+      - name: Build the unsigned APK
+        run: scripts/build-android-${{ matrix.abi }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+      - name: Hand the APK to the signing job
+        uses: actions/upload-artifact@v7
+        with:
+          name: apk-${{ matrix.abi }}
+          path: ${{ runner.temp }}/release/android/*.apk
+          retention-days: 1
+          compression-level: 0
+
+  web:
+    needs: check
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build the web app
+        run: scripts/build-web.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+      - name: Pack it
+        run: tar -C "$RUNNER_TEMP/release/web" -czf "$RUNNER_TEMP/OhMatrix_web_$VERSION.tar.gz" .
+      - name: Hand the archive to the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: ${{ runner.temp }}/OhMatrix_web_${{ needs.check.outputs.version }}.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+  sign-android:
+    needs: [check, android]
+    runs-on: ubuntu-latest
+    # The keystore is in the secrets of this environment, which is protected: the build jobs above never see it.
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Download the APKs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: apk-*
+          path: ${{ runner.temp }}/unsigned
+          merge-multiple: true
+      - name: Sign
+        env:
+          OHM_KEYSTORE_PASSWORD: ${{ secrets.OHM_KEYSTORE_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.OHM_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ vars.OHM_KEY_ALIAS }}
+          CERT_SHA256: ${{ vars.OHM_CERT_SHA256 }}
+        run: |
+          ks="$RUNNER_TEMP/release.jks"
+          trap 'rm -f "$ks"' EXIT
+          echo "$KEYSTORE_BASE64" | base64 -d > "$ks"
+          scripts/sign-android.sh --keystore "$ks" --key-alias "$KEY_ALIAS" --expect-sha256 "$CERT_SHA256" \
+            --out-dir "$RUNNER_TEMP/signed" "$RUNNER_TEMP"/unsigned/*.apk
+      - name: Hand the signed APKs to the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: apk-signed
+          path: ${{ runner.temp }}/signed/*.apk
+          retention-days: 1
+          compression-level: 0
+
+  release:
+    needs: [check, sign-android, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download everything to publish
+        uses: actions/download-artifact@v8
+        with:
+          pattern: "{apk-signed,web}"
+          path: ${{ runner.temp }}/out
+          merge-multiple: true
+      - name: Checksums
+        working-directory: ${{ runner.temp }}/out
+        run: sha256sum * > SHA256SUMS.txt
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$TAG" "$RUNNER_TEMP"/out/* \
+            --title "OhMatrix ${{ needs.check.outputs.version }}" \
+            --generate-notes \
+            $([ "${{ github.event.inputs.prerelease }}" = "true" ] && echo --prerelease) \
+            --target "$GITHUB_SHA"
+
+# One-time setup (Settings > Environments > release): secrets OHM_KEYSTORE_BASE64 and OHM_KEYSTORE_PASSWORD; variables OHM_KEY_ALIAS
+# and OHM_CERT_SHA256. See scripts/sign.md.
