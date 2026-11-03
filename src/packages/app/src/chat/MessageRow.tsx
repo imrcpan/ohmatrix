@@ -29,6 +29,8 @@ import { useMessageMedia } from "./useMessageMedia.js";
 import { GroupChoice } from "./StickerGroups.js";
 
 const AVATAR = 32;
+/** A bubble is never wider than this (layout px): in a wide window (landscape, a desktop) 78% of the chat would be a line too long to read. */
+const BUBBLE_MAX = 520;
 
 /** One message: avatar, bubble, reactions, the picture and video viewers, the context menu and the delete confirmation. */
 export function MessageRow(props: {
@@ -181,31 +183,33 @@ export function MessageRow(props: {
           <View style={{ width: AVATAR }} />
         ))}
       <View style={{ maxWidth: "78%", alignItems: m.isOwn ? "flex-end" : "flex-start" }}>
-        {/* The bubble opens the context menu but is read, not clicked: show the text cursor, not the hand (nested buttons such as quotes and files keep theirs). */}
-        <Pressable
-          style={{ cursor: "text" } as object}
-          onLongPress={(e) => {
-            const n = e.nativeEvent as { pageX?: number; pageY?: number };
-            open(n.pageX ?? 0, n.pageY ?? 0);
-          }}
-          delayLongPress={350}
-          {...({
-            onContextMenu: (e: { preventDefault(): void; clientX: number; clientY: number }) => {
-              e.preventDefault();
-              open(e.clientX, e.clientY);
-            },
-          } as object)}
-        >
-          <Bubble
-            {...bubble}
-            accent={accent}
+        <View style={{ maxWidth: BUBBLE_MAX, alignItems: m.isOwn ? "flex-end" : "flex-start" }}>
+          {/* The bubble opens the context menu but is read, not clicked: show the text cursor, not the hand (nested buttons such as quotes and files keep theirs). */}
+          <Pressable
+            style={{ cursor: "text" } as object}
             onLongPress={(e) => {
               const n = e.nativeEvent as { pageX?: number; pageY?: number };
               open(n.pageX ?? 0, n.pageY ?? 0);
             }}
-          />
-        </Pressable>
-        {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn && accent} onToggle={(k) => actions.react(m.id, k)} />}
+            delayLongPress={350}
+            {...({
+              onContextMenu: (e: { preventDefault(): void; clientX: number; clientY: number }) => {
+                e.preventDefault();
+                open(e.clientX, e.clientY);
+              },
+            } as object)}
+          >
+            <Bubble
+              {...bubble}
+              accent={accent}
+              onLongPress={(e) => {
+                const n = e.nativeEvent as { pageX?: number; pageY?: number };
+                open(n.pageX ?? 0, n.pageY ?? 0);
+              }}
+            />
+          </Pressable>
+          {!!m.reactions?.length && <ReactionChips items={m.reactions} own={m.isOwn && accent} onToggle={(k) => actions.react(m.id, k)} />}
+        </View>
       </View>
       {c.kind === "image" && (
         <PhotoViewer
