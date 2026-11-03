@@ -1,8 +1,8 @@
 import { fit } from "./mediaSize.js";
 import type { Row } from "../timelineRows.js";
 
-/** How many screens of messages are drawn at first; the rest of what is loaded follows once the chat is showing. */
-export const INITIAL_SCREENS = 1.5;
+/** How many screens of messages are drawn when a chat opens; older ones are added only when the reader scrolls up to them. */
+export const INITIAL_SCREENS = 2;
 /**
  * Heights are guessed, and a guess that is too high would leave the first screen short. So the guesses are scaled down
  * a little: the window then holds a bit more than it needs, never less.

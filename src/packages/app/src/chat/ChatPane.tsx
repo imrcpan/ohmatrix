@@ -51,14 +51,15 @@ function Chat(props: ChatPaneProps) {
   const [ready, setReady] = useState(false);
   // Older history is being asked for. Shown only if the answer is not quick (at the start of a room it is, and nothing is coming).
   const [asking, setAsking] = useState(false);
+  const paging = useRef(false);
   const [olderLoading, setOlderLoading] = useState(false);
   useEffect(() => {
     if (!asking) return setOlderLoading(false);
     const timer = setTimeout(() => setOlderLoading(true), 250);
     return () => clearTimeout(timer);
   }, [asking]);
-  // Only the newest screen and a half is drawn at first; see useRowWindow.
-  const win = useRowWindow(allRows, ready);
+  // Only the newest two screens are drawn at first, the rest when the reader scrolls up to it; see useRowWindow.
+  const win = useRowWindow(allRows);
   const rows = win.rows;
   const [searching, setSearching] = useState(false);
   const [pins, setPins] = useState(false);
@@ -210,11 +211,17 @@ function Chat(props: ChatPaneProps) {
               onReachedStart={() => {
                 // Older rows that are loaded but not drawn come first; the server is asked only when there are none.
                 if (win.grow()) return;
+                if (paging.current) return; // asked already: the reader pulling at the top asks again and again
+                paging.current = true;
                 setAsking(true);
                 void handle.current
                   ?.paginateBackwards()
                   .catch(() => {})
-                  .finally(() => setAsking(false));
+                  .then(() => void win.grow()) // what came is loaded but not drawn: the reader is still at the top and waiting for it
+                  .finally(() => {
+                    paging.current = false;
+                    setAsking(false);
+                  });
               }}
               onReady={() => setReady(true)}
               onPinnedChange={nw.onPinnedChange}

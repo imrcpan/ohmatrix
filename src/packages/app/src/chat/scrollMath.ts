@@ -34,6 +34,6 @@ export function offsetAfterPrepend(prev: { firstKey: string; content: number; of
  * more: ask when the content is shorter than two windows, but only once per amount of history (the first measurements
  * are rough and must not keep asking).
  */
-export function needsFill(content: number, view: number, have: number, askedFor: number): boolean {
-  return content < view * 2 && askedFor !== have;
+export function needsFill(content: number, view: number, have: number, askedFor: number, screens = 2): boolean {
+  return content < view * screens && askedFor !== have;
 }

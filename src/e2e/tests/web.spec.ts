@@ -2872,6 +2872,7 @@ test("chat scrolling is native: wheel events are not cancelled, it opens at the 
   // Scrolled away from the bottom, a new message does not drag the view down.
   await page.mouse.wheel(0, -600);
   await expect.poll(gapToLatest, { timeout: 5000 }).toBeGreaterThan(300);
+  await page.waitForTimeout(600); // the browser's smooth scrolling has to finish before the place is taken
   const away = await pos();
   await page.getByPlaceholder("Message").fill(`stay ${Date.now()}`);
   await page.getByPlaceholder("Message").press("Enter");
@@ -3127,6 +3128,115 @@ test("message list: a reply's quote jumps to an original that is not loaded; scr
   await expect(page.getByText(`reply to gone ${tag}`, { exact: true })).toBeVisible({ timeout: 15000 });
   await page.getByText("…", { exact: true }).last().click();
   await expect(page.getByText("That message could not be found")).toBeVisible({ timeout: 30000 });
+});
+
+test("opening a chat: at most two screens are drawn, and nothing in the list moves once it is shown", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => {
+    const w = window as unknown as { __jit: { moved: string[]; maxContent: number; minGap: number; maxGap: number; frames: number } };
+    w.__jit = { moved: [], maxContent: 0, minGap: 1e9, maxGap: -1e9, frames: 0 };
+    let prev = new Map<string, number>();
+    const tick = () => {
+      const sc = [...document.querySelectorAll<HTMLElement>("*")].find(
+        (e) => e.scrollHeight > e.clientHeight + 20 && ["auto", "scroll"].includes(getComputedStyle(e).overflowY) && e.getBoundingClientRect().x > 300,
+      );
+      // Only what the reader can see: the list is hidden (and covered by the skeleton) until it has settled.
+      if (sc && Number(getComputedStyle(sc).opacity) === 1) {
+        const bottom = sc.getBoundingClientRect().bottom;
+        const rows = [...sc.querySelectorAll<HTMLElement>("[data-row-key]")];
+        const now = new Map<string, number>();
+        for (const el of rows) now.set(el.getAttribute("data-row-key")!, Math.round(bottom - el.getBoundingClientRect().bottom));
+        // A row that was there on the last frame is exactly where it was, measured from the bottom (the newest message is pinned there).
+        for (const [k, v] of now) if (prev.has(k) && prev.get(k) !== v) w.__jit.moved.push(`${k.slice(0, 8)}: ${prev.get(k)} -> ${v}`);
+        prev = now;
+        const last = rows[rows.length - 1];
+        if (last) {
+          const g = Math.round(bottom - last.getBoundingClientRect().bottom);
+          w.__jit.minGap = Math.min(w.__jit.minGap, g);
+          w.__jit.maxGap = Math.max(w.__jit.maxGap, g);
+        }
+        w.__jit.maxContent = Math.max(w.__jit.maxContent, sc.scrollHeight / sc.clientHeight);
+        w.__jit.frames++;
+      } else prev = new Map();
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+  for (const name of ["Notes to self", "OhMatrix Dev"]) {
+    await openRoom(page, name);
+    await page.waitForTimeout(3500);
+  }
+  const jit = await page.evaluate(
+    () => (window as unknown as { __jit: { moved: string[]; maxContent: number; minGap: number; maxGap: number; frames: number } }).__jit,
+  );
+  expect(jit.frames).toBeGreaterThan(50);
+  expect(jit.moved).toEqual([]);
+  // The newest message sits a few pixels above the bottom of the list; not a frame has it pushed out of view.
+  expect(jit.minGap).toBeGreaterThanOrEqual(0);
+  expect(jit.maxGap).toBeLessThan(40);
+  // About two screens are drawn (the row heights are a guess, so a little over is allowed), not the whole history.
+  expect(jit.maxContent).toBeLessThan(3);
+});
+
+test("loading older messages at the top of a chat does not move the view", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await expect(page.getByText("Loading messages")).toHaveCount(0, { timeout: 15000 });
+  await page.waitForTimeout(1500);
+  for (let round = 0; round < 3; round++) {
+    // The reader's own wheel to the top (a script setting scrollTop is not taken for the reader).
+    await page.mouse.move(800, 400);
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.wheel(0, -4000);
+      await page.waitForTimeout(30);
+    }
+    await page.waitForTimeout(100);
+    // The message at the top of the view must stay exactly where it is on every frame while history is read and drawn above it.
+    const seen = await page.evaluate(async () => {
+      const sc = [...document.querySelectorAll<HTMLElement>("*")].find(
+        (e) => e.scrollHeight > e.clientHeight + 20 && ["auto", "scroll"].includes(getComputedStyle(e).overflowY) && e.getBoundingClientRect().x > 300,
+      )!;
+      const rowsOf = () => [...sc.querySelectorAll<HTMLElement>("[data-row-key]")];
+      const top = sc.getBoundingClientRect().top;
+      const first = rowsOf().find((el) => el.getBoundingClientRect().bottom > top + 1)!;
+      const key = first.getAttribute("data-row-key");
+      const at0 = first.getBoundingClientRect().top - top;
+      const tops: number[] = [];
+      const end = performance.now() + 3000;
+      while (performance.now() < end) {
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        const el = rowsOf().find((e) => e.getAttribute("data-row-key") === key);
+        if (el) tops.push(el.getBoundingClientRect().top - top - at0);
+      }
+      return { tops, rows: rowsOf().length };
+    });
+    expect(seen.tops.length).toBeGreaterThan(50);
+    expect(Math.max(...seen.tops.map(Math.abs))).toBeLessThan(2);
+  }
+});
+
+test("pulling at the top of a chat keeps loading older messages, round after round", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  await expect(page.getByText("Loading messages")).toHaveCount(0, { timeout: 15000 });
+  await page.waitForTimeout(1500);
+  const rows = () => page.evaluate(() => document.querySelectorAll("[data-row-key]").length);
+  const seen = [await rows()];
+  await page.mouse.move(800, 400);
+  // The reader only turns the wheel up, again and again; whether the list is at the very top (where it cannot scroll, so makes no
+  // scroll event) or a little below it, each push asks for more.
+  for (let i = 0; i < 14; i++) {
+    await page.mouse.wheel(0, -1500);
+    await page.waitForTimeout(500);
+    seen.push(await rows());
+  }
+  const grew = seen.filter((n, i) => i > 0 && n > seen[i - 1]!).length;
+  expect(grew).toBeGreaterThanOrEqual(2);
+  expect(seen[seen.length - 1]!).toBeGreaterThan(seen[0]! + 40);
 });
 
 test("opening a long chat draws about a screen and a half at once, then the older messages arrive without moving the view", async ({ page }) => {

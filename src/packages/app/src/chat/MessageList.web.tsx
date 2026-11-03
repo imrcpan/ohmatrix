@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, View } from "react-native";
 import type { Row } from "../timelineRows.js";
 import type { MessageListProps } from "./messageList.js";
-import { gapToBottom, isAtBottom, isAway, needsFill, offsetAfterPrepend } from "./scrollMath.js";
+import { gapToBottom, isAtBottom, isAway, needsFill } from "./scrollMath.js";
 import { ChatSkeleton } from "./ChatSkeleton.js";
 import { OLDER_SKELETON, OLDER_SKELETON_HEIGHT } from "./olderSkeleton.js";
 import { useLatest } from "./useLatest.js";
@@ -24,6 +24,12 @@ interface ScrollNode {
   clientHeight: number;
   getBoundingClientRect(): { top: number; bottom: number };
   scrollBy?(o: { top: number }): void;
+  querySelectorAll(sel: string): ArrayLike<{ getAttribute(n: string): string | null; getBoundingClientRect(): { top: number; bottom: number } }>;
+  style: { overflowAnchor?: string };
+}
+interface Observer {
+  observe(el: unknown, o: { childList?: boolean; subtree?: boolean; attributes?: boolean; characterData?: boolean }): void;
+  disconnect(): void;
 }
 
 /** How long the content must stay unchanged before the list is shown (the window is small, so it is measured at once), and how long to wait before showing it anyway. */
@@ -38,7 +44,9 @@ const GIVE_UP_MS = 10_000;
 export function MessageList(props: MessageListProps) {
   const p = useLatest(props);
   const listRef = useRef<FlatList<Row>>(null);
-  const s = useRef({ offset: 0, content: 0, view: 0, pinned: true, firstKey: "", filledFor: -1 });
+  const s = useRef({ offset: 0, content: 0, view: 0, pinned: true, filledFor: -1, askedAt: 0 });
+  // The message at the top of the view and how far below the top of the view it is: whatever is added or resized above it, it is put back there.
+  const anchor = useRef<{ key: string; top: number } | null>(null);
   const [ready, setReady] = useState(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -62,6 +70,63 @@ export function MessageList(props: MessageListProps) {
     else listRef.current?.scrollToEnd({ animated: false });
   }, [node, moveTo]);
 
+  /** Remember which message is at the top of the view, and where. */
+  const capture = useCallback(() => {
+    const n = node();
+    if (!n) return;
+    const view = n.getBoundingClientRect();
+    for (const el of Array.from(n.querySelectorAll("[data-row-key]"))) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > view.top + 1) {
+        anchor.current = { key: el.getAttribute("data-row-key") ?? "", top: r.top - view.top };
+        return;
+      }
+    }
+    anchor.current = null;
+  }, [node]);
+  /**
+   * Put the remembered message back where it was. Older rows arriving above it, the skeleton coming and going, rows above it being measured
+   * to their real height: none of it may move what the reader is looking at. This runs as the page changes, before it is painted, so
+   * nothing is seen to jump (and it is the same for every kind of change, which the arithmetic on content heights was not).
+   */
+  const restore = useCallback(() => {
+    const a = anchor.current;
+    const n = node();
+    if (!n || jumping.current) return;
+    if (s.current.pinned) {
+      // At the bottom: rows arriving or settling to their real height keep the newest message where it is, before the page is painted
+      // (waiting for the list to report its new size would show one frame with the newest message pushed out of view).
+      if (n.scrollHeight - n.clientHeight - n.scrollTop > 0.5) moveTo(n.scrollHeight);
+      return;
+    }
+    if (!a) return;
+    const el = Array.from(n.querySelectorAll("[data-row-key]")).find((e) => e.getAttribute("data-row-key") === a.key);
+    if (!el) return;
+    const diff = el.getBoundingClientRect().top - n.getBoundingClientRect().top - a.top;
+    if (Math.abs(diff) >= 1) moveTo(n.scrollTop + diff);
+  }, [node, moveTo]);
+  useEffect(() => {
+    let observer: Observer | undefined;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attach = () => {
+      const n = node();
+      const Mutation = (globalThis as { MutationObserver?: new (cb: () => void) => Observer }).MutationObserver;
+      if (!n || !Mutation) {
+        if (tries++ < 20) timer = setTimeout(attach, 50);
+        return;
+      }
+      n.style.overflowAnchor = "none"; // the browser's own anchoring would move the view a second time
+      observer = new Mutation(restore);
+      observer.observe(n, { childList: true, subtree: true, attributes: true });
+    };
+    timer = setTimeout(attach, 0);
+    return () => {
+      if (timer) clearTimeout(timer);
+      observer?.disconnect();
+    };
+  }, [node, restore]);
+
   // Whether the reader is the one scrolling. Scroll events also come from our own jumps and from the browser adjusting
   // for rows that change height, and neither means the reader left the bottom; only a scroll while they are using the
   // wheel, a finger, the keyboard or the scrollbar does. (Watching the input is what tells them apart; guessing from
@@ -71,6 +136,24 @@ export function MessageList(props: MessageListProps) {
   const jumping = useRef(false);
   const lastInput = useRef(0);
   const dragging = useRef(false);
+  // Whether the reader has scrolled at all. Until then the list is where it opened (at the newest message), and its being "at the top"
+  // of what is drawn (before it has moved to the bottom, say) is no reason to read or draw anything older.
+  const touched = useRef(false);
+  /**
+   * Ask for older history when the reader is at the top, or near it. Called for every scroll and for every push at the top (a wheel turned
+   * up, a finger pulling down, a key): a push at the very top moves nothing, so it makes no scroll event, and without it the reader
+   * would pull in vain. Not more often than every so often: the answer to the last one may still be on its way.
+   */
+  const askOlder = useCallback(() => {
+    const n = node();
+    const st = s.current;
+    if (!touched.current || !n) return;
+    if (n.scrollTop >= (st.view || n.clientHeight) * 0.6) return;
+    const now = Date.now();
+    if (now - st.askedAt < 250) return;
+    st.askedAt = now;
+    p.current.onReachedStart();
+  }, [node, p]);
   const userScrolling = () => dragging.current || Date.now() - lastInput.current < 800;
   useEffect(() => {
     let off: (() => void) | undefined;
@@ -82,10 +165,15 @@ export function MessageList(props: MessageListProps) {
         if (tries++ < 20) timer = setTimeout(attach, 50);
         return;
       }
-      const touch = () => void (lastInput.current = Date.now());
+      const touch = () => {
+        lastInput.current = Date.now();
+        touched.current = true;
+      };
       const key = (e: KeyLike) => {
         const typing = e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA" || e.target?.isContentEditable;
-        if (!typing && ["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "].includes(e.key)) touch();
+        if (typing || !["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "].includes(e.key)) return;
+        touch();
+        if (["PageUp", "Home", "ArrowUp"].includes(e.key)) askOlder();
       };
       const down = () => {
         dragging.current = true; // a press on the scroller (its scrollbar) until released
@@ -96,14 +184,22 @@ export function MessageList(props: MessageListProps) {
         // button, say) is not scrolling and must not count as input.
         dragging.current = false;
       };
-      el.addEventListener("wheel", touch, { passive: true });
-      el.addEventListener("touchmove", touch, { passive: true });
+      const wheel = (e: { deltaY: number }) => {
+        touch();
+        if (e.deltaY < 0) askOlder(); // up is toward older messages
+      };
+      const finger = () => {
+        touch();
+        askOlder(); // a finger moving on the list at the top is pulling it down
+      };
+      el.addEventListener("wheel", wheel, { passive: true });
+      el.addEventListener("touchmove", finger, { passive: true });
       el.addEventListener("pointerdown", down);
       doc.addEventListener("pointerup", up);
       doc.addEventListener("keydown", key);
       off = () => {
-        el.removeEventListener("wheel", touch);
-        el.removeEventListener("touchmove", touch);
+        el.removeEventListener("wheel", wheel);
+        el.removeEventListener("touchmove", finger);
         el.removeEventListener("pointerdown", down);
         doc.removeEventListener("pointerup", up);
         doc.removeEventListener("keydown", key);
@@ -114,7 +210,7 @@ export function MessageList(props: MessageListProps) {
       clearTimeout(timer);
       off?.();
     };
-  }, [node]);
+  }, [node, askOlder]);
 
   // Shown only once the content has stopped changing for a moment: it fills in row by row, jumping to the end each
   // time, and the reader should not see that.
@@ -202,25 +298,6 @@ export function MessageList(props: MessageListProps) {
     };
   }, [props.handleRef, p, node, moveTo, toBottom]);
 
-  // When the older-loading skeleton appears at the top of the list, compensate so the view does not jump up.
-  const prevOlderLoading = useRef(props.olderLoading);
-  useEffect(() => {
-    const was = prevOlderLoading.current;
-    const now = props.olderLoading;
-    prevOlderLoading.current = now;
-    if (!was && now) {
-      // Skeleton just appeared above the current content: scroll down by its height so the view stays put.
-      const n = node();
-      if (n) {
-        const st = s.current;
-        if (!st.pinned) {
-          moveTo(n.scrollTop + OLDER_SKELETON_HEIGHT);
-          st.offset = n.scrollTop + OLDER_SKELETON_HEIGHT;
-        }
-      }
-    }
-  }, [props.olderLoading, node, moveTo]);
-
   return (
     <View style={{ flex: 1 }}>
       <FlatList
@@ -229,16 +306,23 @@ export function MessageList(props: MessageListProps) {
         keyExtractor={(r) => r.key}
         renderItem={({ item }) => <>{props.renderRow(item)}</>}
         // Older history is on its way: skeleton bubbles at the top of the list, inline with real messages.
-        ListHeaderComponent={props.olderLoading ? <ChatSkeleton count={OLDER_SKELETON} avatars={!!props.skeletonAvatars} /> : null}
+        ListHeaderComponent={
+          props.olderLoading ? (
+            <View style={{ height: OLDER_SKELETON_HEIGHT, overflow: "hidden" }}>
+              <ChatSkeleton count={OLDER_SKELETON} avatars={!!props.skeletonAvatars} />
+            </View>
+          ) : null
+        }
         style={{ flex: 1, opacity: ready ? 1 : 0 }}
         contentContainerStyle={{ paddingVertical: 8 }}
         keyboardShouldPersistTaps="handled"
-        initialNumToRender={24}
+        // The rows handed over are already the newest two screens or so (see useRowWindow): draw all of them at once. The list's own batching
+        // (ten rows every 50 ms, oldest first) would show the newest messages last, popping in one batch after another under a view
+        // that has already gone to the bottom.
+        initialNumToRender={80}
+        maxToRenderPerBatch={80}
         scrollEventThrottle={16}
         onScrollToIndexFailed={({ index, averageItemLength }) => listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })}
-        // Older history is fetched as the top comes into view.
-        onStartReachedThreshold={0.6}
-        onStartReached={() => p.current.onReachedStart()}
         onLayout={(e) => {
           s.current.view = e.nativeEvent.layout.height;
         }}
@@ -248,6 +332,8 @@ export function MessageList(props: MessageListProps) {
           st.offset = contentOffset.y;
           st.content = contentSize.height;
           st.view = layoutMeasurement.height;
+          capture();
+          askOlder(); // near the top
           const gap = gapToBottom({ content: st.content, view: st.view, offset: st.offset });
           // Reaching the bottom pins; leaving it unpins only when the reader did it (see `userScrolling`).
           const mine = userScrolling();
@@ -260,25 +346,18 @@ export function MessageList(props: MessageListProps) {
         }}
         onContentSizeChange={(_w, h) => {
           const st = s.current;
-          const first = p.current.rows[0]?.key ?? "";
-          const shift = offsetAfterPrepend({ firstKey: st.firstKey, content: st.content, offset: st.offset }, { firstKey: first, content: h });
           st.content = h;
-          st.firstKey = first;
           if (st.pinned) {
             // At the bottom: stay there as messages arrive and rows settle to their real height.
             toBottom();
             if (!ready && p.current.rows.length > 0) settleSoon();
             // A room whose loaded messages do not fill the window has nothing to scroll up to: fetch until it does.
             const have = p.current.rows.length;
-            if (ready && needsFill(h, st.view, have, st.filledFor)) {
+            if (ready && needsFill(h, st.view, have, st.filledFor, 1)) {
               st.filledFor = have;
               p.current.onReachedStart();
             }
-          } else if (shift !== null) {
-            // Older rows appeared above the view: move down by exactly what was added, so nothing jumps.
-            moveTo(shift);
-            st.offset = shift;
-          }
+          } else restore(); // a size that changed without the page changing (a picture arriving)
         }}
       />
     </View>
