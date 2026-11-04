@@ -150,8 +150,8 @@ export function ForwardDialog(props: { visible: boolean; onClose: () => void; fr
             keyboardShouldPersistTaps="handled"
           />
           {failed > 0 && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("forward.failed", { n: failed })}</Text>}
-          <TextButton title={t("back")} onPress={() => setConfirming(false)} />
           <PrimaryButton title={t("forward")} loading={sending} disabled={keep.size === 0} onPress={() => void send()} />
+          <TextButton title={t("back")} onPress={() => setConfirming(false)} />
         </>
       ) : (
         <>
@@ -168,13 +168,13 @@ export function ForwardDialog(props: { visible: boolean; onClose: () => void; fr
               <Text style={{ padding: 12, textAlign: "center", fontSize: 14, fontFamily, color: colors.textSecondary }}>{t("forward.empty")}</Text>
             }
           />
-          <TextButton title={t("cancel")} onPress={close} />
           <PrimaryButton
             title={picked.size ? `${t("forward")} (${picked.size})` : t("forward")}
             loading={preparing}
             disabled={picked.size === 0}
             onPress={confirm}
           />
+          <TextButton title={t("cancel")} onPress={close} />
         </>
       )}
     </Dialog>
