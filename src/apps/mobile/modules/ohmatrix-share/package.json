@@ -1,0 +1,6 @@
+{
+  "name": "ohmatrix-share",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Makes the app a target of the system's share sheet: what other apps share (pictures, files, text) is handed to the app, the files copied into its cache."
+}

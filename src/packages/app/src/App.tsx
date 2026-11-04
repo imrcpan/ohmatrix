@@ -9,6 +9,9 @@ import { ErrorBoundary } from "./ErrorBoundary.js";
 import { LoginScreen } from "./LoginScreen.js";
 import { VerificationSheet } from "./VerificationSheet.js";
 import { MainScreen } from "./MainScreen.js";
+import { SharePage } from "./ShareReceiver.js";
+import { useShareInbox } from "./shareInbox.js";
+import { useIncomingShare } from "./useIncomingShare.js";
 import { NotificationsBridge } from "./NotificationsBridge.js";
 import { useBackHandler } from "./useBackHandler.js";
 import { NoticeProvider } from "./useNotice.js";
@@ -73,19 +76,29 @@ function Root(props: { defaultHomeserver: string }) {
       : undefined;
   // The platform's back takes the same way out as the button on the screen, rather than leaving the app.
   useBackHandler(auth !== "signedIn" && back ? () => (back.onPress(), true) : null);
-  if (auth === "signedIn")
-    return (
-      <>
-        <BackBridge />
-        <MainScreen />
-        <VerificationSheet />
-      </>
-    );
-  if (auth === "booting") {
-    return (
+  // Something shared by another app: the page that asks which chats it is for is the first screen then, and the rest of the app is drawn only when it
+  // is done (it is not drawn behind it, to be jumped away from); once the app has been drawn the page is a layer over it.
+  const looked = useIncomingShare();
+  const sharing = !!useShareInbox().current();
+  const drawn = useRef(false);
+  if (auth === "booting" || (auth === "signedIn" && !looked)) {
+    return sharing ? (
+      <SharePage />
+    ) : (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
         <Spinner />
       </View>
+    );
+  }
+  if (auth === "signedIn") {
+    if (!sharing) drawn.current = true;
+    return (
+      <>
+        <BackBridge />
+        {(!sharing || drawn.current) && <MainScreen />}
+        {sharing && <SharePage />}
+        <VerificationSheet />
+      </>
     );
   }
   const login = <LoginScreen defaultHomeserver={props.defaultHomeserver} back={back} />;

@@ -119,8 +119,11 @@ async function pickFiles(): Promise<AttachmentSource[]> {
   const Documents = await import("expo-document-picker");
   const r = await Documents.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
   if (r.canceled) return [];
-  // A picture is sent with its size in pixels, which the picker does not tell: the image component can.
-  const files = await Promise.all(fromDocuments(r.assets).map(withRealName));
+  return withPictureDetails(await Promise.all(fromDocuments(r.assets).map(withRealName)));
+}
+
+/** A picture is sent with its size in pixels, which a picker (or another app sharing it) does not tell: the image component can. */
+async function withPictureDetails(files: AttachmentSource[]): Promise<AttachmentSource[]> {
   return Promise.all(
     files.map(async (f) => {
       if (!f.mimeType.startsWith("image/") || typeof f.data !== "string") return f;
@@ -408,13 +411,75 @@ export function phonePush(): NonNullable<AppServices["push"]> | undefined {
   };
 }
 
+/**
+ * What other apps share to this one (the module modules/ohmatrix-share, which a build without it lacks: the app is then not a target of
+ * sharing). The files are copied into the cache in the background (the page that asks for the chats does not wait for it); a picture gets its size and blurhash (`prepare`) when it is about to be sent, as one chosen in the app does.
+ */
+export function phoneIncomingShare(): NonNullable<AppServices["incomingShare"]> | undefined {
+  type Shared = { ready: boolean; text?: string | null; files?: { uri: string; name: string; mimeType: string; size: number }[] };
+  const native = requireOptionalNativeModule<{
+    take(): Promise<Shared | null>;
+    copy(uris: string[], names: string[]): Promise<(string | null)[]>;
+    addListener(event: "onShare", cb: () => void): { remove(): void };
+  }>("OhMatrixShare");
+  if (!native) return undefined;
+  // The copies of the files, by the address the sharing app gave: they start when the share is taken, while the person is still choosing chats.
+  const copies = new Map<string, Promise<string | null>>();
+  return {
+    async take() {
+      // While the app starts there is no activity to ask (a share that started it cannot be seen yet): ask again for a moment.
+      for (let i = 0; i < 25; i++) {
+        const raw = await native.take();
+        if (raw?.ready !== false) {
+          if (!raw?.files) return null;
+          const list = raw.files;
+          if (list.length > 0) {
+            const all = native.copy(
+              list.map((f) => f.uri),
+              list.map((f) => f.name),
+            );
+            list.forEach((f, n) =>
+              copies.set(
+                f.uri,
+                all.then((r) => r[n] ?? null),
+              ),
+            );
+            all.catch(() => {}); // the failure is reported where the copy is waited for
+          }
+          return { ...(raw.text ? { text: raw.text } : {}), files: fromDocuments(list) };
+        }
+        await new Promise<void>((resolve) => setTimeout(() => resolve(), 80));
+      }
+      return null;
+    },
+    async prepare(files) {
+      const copied = await Promise.all(
+        files.map(async (f) => {
+          const copy = typeof f.data === "string" ? copies.get(f.data) : undefined;
+          if (!copy) return f;
+          const uri = await copy;
+          if (!uri) throw new Error(`could not read ${f.name}`);
+          return { ...f, data: uri };
+        }),
+      );
+      return withPictureDetails(copied);
+    },
+    onShare(cb) {
+      const sub = native.addListener("onShare", cb);
+      return () => sub.remove();
+    },
+  };
+}
+
 export function phoneServices(): AppServices {
   const push = phonePush();
+  const share = phoneIncomingShare();
   return {
     // Set by the build (scripts/build-android-<abi>.sh --version a.b.c), the same number the APK carries as its versionName.
     ...(process.env["EXPO_PUBLIC_APP_VERSION"] ? { appVersion: process.env["EXPO_PUBLIC_APP_VERSION"] } : {}),
     notifications: phoneNotifications(),
     ...(push && { push }),
+    ...(share && { incomingShare: share }),
     ...appIconsService(),
     preferences: filePreferences(),
     profileCache: fileProfileCache(),

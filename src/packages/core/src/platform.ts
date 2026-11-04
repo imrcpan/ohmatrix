@@ -73,6 +73,20 @@ export interface ProfileCache {
   save(userId: UserId, profile: Profile): Promise<void>;
 }
 
+/** What another app shared: some text, some files, or both (a link shared from a browser comes as text). */
+export interface SharedContent {
+  text?: string;
+  files: AttachmentSource[];
+}
+
+/** The way into what is shared to the app (see `PlatformServices.incomingShare`). */
+export interface IncomingShare {
+  take(): Promise<SharedContent | null>;
+  /** Called on the files just before they are sent: what takes time (the size of a picture) is not done before the person has even chosen a chat. */
+  prepare?(files: AttachmentSource[]): Promise<AttachmentSource[]>;
+  onShare(cb: () => void): () => void;
+}
+
 /** Persists user preferences (localStorage / AsyncStorage / settings file). */
 export interface PreferencesStore {
   load(): Promise<Partial<Preferences>>;
@@ -130,6 +144,12 @@ export interface PlatformServices {
   preferences?: PreferencesStore;
   /** Absent = the profile is shown once the server has given it. */
   profileCache?: ProfileCache;
+  /**
+   * What other apps share to this one (the system's share sheet: pictures, files, text). `take` gives what has come and has not been taken
+   * (null if nothing), `onShare` says that something has come while the app is running; it returns the unsubscribe. Absent = the app is not a
+   * target of sharing here.
+   */
+  incomingShare?: IncomingShare;
   /** Let the user choose files to send. Absent = the attach button is hidden. */
   pickFiles?(): Promise<AttachmentSource[]>;
   /** Let the user choose one picture, from the system's photo picker (a profile or room picture). Absent = `pickFiles` is used. Null = nothing chosen. */

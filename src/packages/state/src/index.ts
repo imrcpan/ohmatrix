@@ -278,6 +278,8 @@ export interface AppController {
   sharedMedia(roomId: RoomId, opts: { kind: MediaKind; from?: string; want?: number; scan?: number }): Promise<SharedMediaPage>;
   /** Forward a message into another room, copying text, mentions and attachments. */
   forwardMessage(fromRoomId: RoomId, eventId: EventId, toRoomId: RoomId): Promise<void>;
+  /** Send what another app shared (its text, then its files) into a room, as a forward does: the room need not be the open one. */
+  sendShared(roomId: RoomId, content: { text?: string | undefined; files: readonly AttachmentSource[] }): Promise<void>;
   /** Resolve an mxc:// URI to a loadable image URL (cached by the engine). */
   resolveMedia(mxc: MxcUri, opts?: MediaOptions): Promise<string>;
   dispose(): void;
@@ -668,6 +670,15 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       return exportKeys.call(engine.security, passphrase);
     },
     forwardMessage: (fromRoomId, eventId, toRoomId) => engine.messages.forward({ fromRoomId, eventId, toRoomId }),
+    async sendShared(roomId, content) {
+      const tl = engine.openTimeline(roomId);
+      try {
+        if (content.text) await tl.sendText(content.text);
+        for (const file of content.files) await tl.sendAttachment(file);
+      } finally {
+        tl.close();
+      }
+    },
     resolveMedia: (mxc, opts) => engine.media.resolve(mxc, opts),
     sharedMedia: (roomId, opts) => engine.media.sharedPage(roomId, opts),
     openRoom(roomId) {
