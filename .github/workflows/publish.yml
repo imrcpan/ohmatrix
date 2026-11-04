@@ -1,6 +1,7 @@
 name: publish
 
 # Releases the Android APKs (all ABIs, signed with the release key) and the web app. The tag is passed in by hand: v1.2.3 or 1.2.3, the same.
+# The text of the release is the section `## [1.2.3]` of CHANGELOG.md, which has to be in the commit this runs on (see scripts/release-notes.sh).
 on:
   workflow_dispatch:
     inputs:
@@ -135,6 +136,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Only what the notes come from (CHANGELOG.md and the script that cuts a version out of it), at the commit this runs on.
+      - name: Checkout the changelog
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            CHANGELOG.md
+            scripts/release-notes.sh
+          sparse-checkout-cone-mode: false
       - name: Download everything to publish
         uses: actions/download-artifact@v8
         with:
@@ -149,11 +158,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.check.outputs.tag }}
+          VERSION: ${{ needs.check.outputs.version }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
         run: |
+          # The notes are what CHANGELOG.md says under this version; a version with no section there gets the notes GitHub generates from the commits.
+          if scripts/release-notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"; then
+            notes=(--notes-file "$RUNNER_TEMP/notes.md")
+          else
+            echo "::warning::CHANGELOG.md has no section '## [$VERSION]': the notes are generated from the commits"
+            notes=(--generate-notes)
+          fi
+          [ "$PRERELEASE" = "true" ] && pre=(--prerelease) || pre=()
           gh release create "$TAG" "$RUNNER_TEMP"/out/* \
-            --title "OhMatrix ${{ needs.check.outputs.version }}" \
-            --generate-notes \
-            $([ "${{ github.event.inputs.prerelease }}" = "true" ] && echo --prerelease) \
+            --title "OhMatrix $VERSION" \
+            "${notes[@]}" \
+            "${pre[@]}" \
             --target "$GITHUB_SHA"
 
 # One-time setup (Settings > Environments > release): secrets OHM_KEYSTORE_BASE64 and OHM_KEYSTORE_PASSWORD; variables OHM_KEY_ALIAS
