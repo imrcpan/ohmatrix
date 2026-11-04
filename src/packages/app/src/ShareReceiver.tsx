@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { RoomSummary, SharedContent } from "@ohmatrix/core";
-import { Avatar, fontFamily, Icon, IconButton, RoomRowSkeleton, SearchField, useNavBottom, useTheme } from "@ohmatrix/ui";
+import { Avatar, Dialog, fontFamily, Icon, IconButton, PrimaryButton, RoomRowSkeleton, SearchField, TextButton, useNavBottom, useTheme } from "@ohmatrix/ui";
 import { useAppState, useController, useServices, useT } from "./context.js";
 import { shareInbox, useShareInbox } from "./shareInbox.js";
 import { useBackHandler } from "./useBackHandler.js";
@@ -10,7 +10,7 @@ import { useMediaUrl } from "./useMedia.js";
 const PAD = 16;
 
 /** One chat to choose: its picture and name. */
-const TargetRow = memo(function TargetRow(props: { room: RoomSummary; checked: boolean; onToggle: (id: string) => void }) {
+const TargetRow = memo(function TargetRow(props: { room: RoomSummary; checked: boolean; disabled?: boolean; onToggle: (id: string) => void }) {
   const { colors } = useTheme();
   const r = props.room;
   const avatar = useMediaUrl(r.avatar, { width: 72, height: 72, fit: "crop" });
@@ -18,7 +18,8 @@ const TargetRow = memo(function TargetRow(props: { room: RoomSummary; checked: b
     <Pressable
       accessibilityRole="checkbox"
       accessibilityLabel={r.name}
-      accessibilityState={{ checked: props.checked }}
+      accessibilityState={{ checked: props.checked, disabled: !!props.disabled }}
+      disabled={props.disabled}
       onPress={() => props.onToggle(r.id)}
       style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
         flexDirection: "row",
@@ -74,28 +75,40 @@ export function SharePage() {
   const inbox = useShareInbox();
   const [filter, setFilter] = useState("");
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  // The second step, as when a message is forwarded: the chats chosen are listed once more, all ticked, so a wrong one can be taken off; Send there sends.
+  const [confirming, setConfirming] = useState(false);
+  const [keep, setKeep] = useState<ReadonlySet<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(0);
   const waiting = inbox.current();
 
   const postable = useMemo(() => rooms.filter((r) => !r.invite && !r.isSpace), [rooms]);
   const shown = useMemo(() => postable.filter((r) => !filter || r.name.toLowerCase().includes(filter.toLowerCase())), [postable, filter]);
-  const toggle = useCallback((id: string) => {
-    setPicked((p) => {
-      const next = new Set(p);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  }, []);
+  // The chats chosen in the first step, in the order of the list (not of the clicks).
+  const chosen = useMemo(() => postable.filter((r) => picked.has(r.id)), [postable, picked]);
+  const flip = (set: ReadonlySet<string>, id: string) => {
+    const next = new Set(set);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  };
+  const toggle = useCallback((id: string) => setPicked((p) => flip(p, id)), []);
+  const toggleKeep = useCallback((id: string) => setKeep((k) => flip(k, id)), []);
+  const confirm = () => {
+    setKeep(new Set(picked)); // all of them ticked to begin with
+    setFailed(0);
+    setConfirming(true);
+  };
   const close = () => {
     shareInbox.clear();
     setFilter("");
     setPicked(new Set());
+    setKeep(new Set());
+    setConfirming(false);
     setFailed(0);
   };
   // Sent to each chosen chat in turn; the chats that could not be sent to stay chosen for another try.
   const send = async () => {
-    if (!waiting || sending || picked.size === 0) return;
+    if (!waiting || sending || keep.size === 0) return;
     setSending(true);
     const left = new Set<string>();
     // The copies of the files are waited for and the size of the pictures found out now, once for all the chats.
@@ -104,10 +117,10 @@ export function SharePage() {
       files = (await services.incomingShare?.prepare?.(waiting.files)) ?? files;
     } catch {
       setSending(false);
-      setFailed(picked.size);
+      setFailed(keep.size);
       return;
     }
-    for (const id of picked) {
+    for (const id of chosen.map((r) => r.id).filter((id) => keep.has(id))) {
       try {
         await controller.sendShared(id, { ...(waiting.text ? { text: waiting.text } : {}), files });
       } catch {
@@ -117,7 +130,9 @@ export function SharePage() {
     setSending(false);
     if (left.size === 0) close();
     else {
+      // What was sent is done with: only the chats that failed stay, ticked, for another try.
       setPicked(left);
+      setKeep(left);
       setFailed(left.size);
     }
   };
@@ -134,38 +149,31 @@ export function SharePage() {
           <Text numberOfLines={1} style={{ flex: 1, fontSize: 20, fontWeight: "700", fontFamily, color: colors.text }}>
             {t("share.title")}
           </Text>
-          {sending ? (
-            <View style={{ height: 40, justifyContent: "center", paddingHorizontal: 12, marginRight: 4 }}>
-              <ActivityIndicator size={Platform.OS === "ios" ? "small" : 28} color={colors.accent} />
-            </View>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: picked.size === 0 }}
-              disabled={picked.size === 0}
-              onPress={() => void send()}
-              style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                height: 40,
-                justifyContent: "center",
-                paddingHorizontal: 12,
-                marginRight: 4,
-                borderRadius: 10,
-                opacity: picked.size === 0 ? 0.4 : 1,
-                backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.accent }}>
-                {picked.size > 0 ? `${t("send.files.send")} (${picked.size})` : t("send.files.send")}
-              </Text>
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: picked.size === 0 }}
+            disabled={picked.size === 0}
+            onPress={confirm}
+            style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+              height: 40,
+              justifyContent: "center",
+              paddingHorizontal: 12,
+              marginRight: 4,
+              borderRadius: 10,
+              opacity: picked.size === 0 ? 0.4 : 1,
+              backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+            })}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "600", fontFamily, color: colors.accent }}>
+              {picked.size > 0 ? `${t("send.files.send")} (${picked.size})` : t("send.files.send")}
+            </Text>
+          </Pressable>
         </View>
         <View style={{ paddingHorizontal: PAD, paddingBottom: 10, gap: 10 }}>
           <Text numberOfLines={2} style={{ fontSize: 14, fontFamily, color: colors.textSecondary }}>
             {describeShare(waiting, t)}
           </Text>
           <SearchField value={filter} onChangeText={setFilter} placeholder={t("search")} />
-          {failed > 0 && <Text style={{ fontSize: 14, fontFamily, color: colors.danger }}>{t("forward.failed", { n: failed })}</Text>}
         </View>
         <FlatList
           style={{ flex: 1 }}
@@ -187,6 +195,20 @@ export function SharePage() {
           }
         />
       </View>
+      <Dialog visible={confirming} title={t("forward.confirm")} onClose={() => setConfirming(false)} modal>
+        <FlatList
+          style={{ maxHeight: 300 }}
+          data={chosen}
+          extraData={keep}
+          keyExtractor={(r) => r.id}
+          renderItem={({ item }) => <TargetRow room={item} checked={keep.has(item.id)} disabled={sending} onToggle={toggleKeep} />}
+          initialNumToRender={10}
+          keyboardShouldPersistTaps="handled"
+        />
+        {failed > 0 && <Text style={{ color: colors.danger, fontSize: 14, fontFamily, textAlign: "center" }}>{t("forward.failed", { n: failed })}</Text>}
+        <PrimaryButton title={t("send.files.send")} loading={sending} disabled={keep.size === 0} onPress={() => void send()} />
+        <TextButton title={t("back")} onPress={() => setConfirming(false)} />
+      </Dialog>
     </View>
   );
 }
