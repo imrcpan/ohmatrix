@@ -8,6 +8,7 @@ Build, sign and check scripts. Each script's options are described in the commen
 | `build-android-<abi>.sh`      | Builds the Android app for one ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`), one script each, into `~/release/android`. Signed with the debug key. |
 | `build-tauri-linux-<arch>.sh` | Builds the Tauri window for Linux (`x86_64`, `aarch64`, one script each) as .deb, .rpm and AppImage, into `~/release/tauri-linux`.               |
 | `sign-android.sh`             | Signs built APKs with the release key, after the build.                                                                                          |
+| `release-notes.sh`            | Prints one version's notes from `CHANGELOG.md` (what the publish workflow puts in the release).                                                  |
 | `verify/docker.sh`            | Runs the build scripts in a bare Debian container, to see that they need nothing from the machine.                                               |
 
 `lib/` and `setup/` are what the scripts share and what they install (system packages, Node, pnpm, a JDK, Rust, the Android SDK and NDK, the web view's development packages). They are not run by hand.
