@@ -113,4 +113,41 @@ public class MatrixRoomsEngineTests {
         await auth.Logout();
     }
 }
+
+public class MatrixChatEngineTests {
+    [Fact]
+    public async Task Sends_a_message_and_reads_it_back()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-chat-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var rooms = new MatrixRoomsEngine(auth);
+        await rooms.StartSync();
+        var roomId = await auth.Client!.CreateRoom(
+            new uniffi.matrix_sdk_ffi.CreateRoomParameters(
+                "Chat " + Guid.NewGuid().ToString("N")[..8],
+                false,
+                new uniffi.matrix_sdk_ffi.RoomVisibility.Private(),
+                uniffi.matrix_sdk_ffi.RoomPreset.PrivateChat
+            )
+        );
+        var chat = await new MatrixChatEngine(auth).Open(roomId);
+        var text = "hello " + Guid.NewGuid().ToString("N")[..6];
+        var seen = new TaskCompletionSource<TimelineItem>();
+        chat.Changed += items => {
+            if (items.FirstOrDefault(i => i.Body == text && !i.Sending) is { } m)
+                seen.TrySetResult(m);
+        };
+        await chat.Send(text);
+        Assert.Same(seen.Task, await Task.WhenAny(seen.Task, Task.Delay(30000)));
+        Assert.True(seen.Task.Result.IsOwn);
+        Assert.Contains(chat.Items, i => i.Kind == TimelineKind.Date);
+        chat.Dispose();
+        await rooms.StopSync();
+        await auth.Logout();
+    }
+}
 #endif

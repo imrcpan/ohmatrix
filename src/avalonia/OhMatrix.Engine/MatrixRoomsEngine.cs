@@ -195,8 +195,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         if (latest is LatestEventValue.Remote remote) {
             ts = (long)remote.Timestamp;
             if (remote.Content is TimelineItemContent.MsgLike {
-                Content.Kind: MsgLikeKind.Message m
-            })
+                    Content.Kind: MsgLikeKind.Message m
+                })
                 text = m.Content.Body;
             if (!remote.IsOwn) {
                 sender = remote.Profile is ProfileDetails.Ready { DisplayName: { } name }

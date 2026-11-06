@@ -38,6 +38,9 @@ public sealed record AppState {
     /// <summary>The chat that is open, or null.</summary>
     public string? SelectedRoomId { get; init; }
 
+    /// <summary>The lines of the open chat, oldest first.</summary>
+    public IReadOnlyList<TimelineItem> Timeline { get; init; } = [];
+
     /// <summary>The language the screens speak: the one chosen, else the one of the system.</summary>
     public string Locale => Strings.IsLocale(Prefs.Locale)
         ? Prefs.Locale!
