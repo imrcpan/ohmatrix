@@ -44,6 +44,10 @@ All `.csproj` files must explicitly include the following properties in the firs
 
 Additional properties may follow after `EnableTrimAnalyzer`.
 
+`PublishAot` is set only for the `Release` configuration (`<PropertyGroup Condition="'$(Configuration)' == 'Release'">`). Debug builds and runs
+use the JIT, so that development stays fast. Code still has to be AOT-compatible: `IsAotCompatible` and `EnableTrimAnalyzer` report any
+violation in every configuration.
+
 ## Formatting
 
 Formatting is enforced by tools, not by review. `./format.sh` rewrites the files and `./format.sh --check` fails (exit 1) when
