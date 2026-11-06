@@ -2,5 +2,6 @@ packages:
   - src/apps/*
   - src/apps/desktop/*
   - src/packages/*
+  - src/i18n
   - src/e2e
   - web/*
