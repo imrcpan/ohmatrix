@@ -28,3 +28,10 @@ See [code-style.md](code-style.md) for AOT, C#-only UI, and .csproj requirements
 - Avalonia 12.1.5
 - .NET 11.0
 - Rust SDK (via uniffi, to be integrated)
+
+### System libraries
+
+Media is not bundled: the app uses the libraries of the system, found at run time, and each feature is off where its library is missing.
+
+- Playing audio and video messages in the app: VLC (`libvlc`). Without it the files open with the program of the system.
+- Calls: GStreamer 1.20 or newer with the `webrtcbin` element, plus the plugins for libnice, Opus and VP8 (on Fedora: `gstreamer1-plugins-bad-free`, `libnice-gstreamer1`, `gstreamer1-plugins-good`, `opus`). Without them the call entries are not offered.
