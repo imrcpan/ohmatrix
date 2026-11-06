@@ -6,7 +6,7 @@ A version lists what changed since the version before it.
 
 ## [1.2.0] - 2026-11-06
 
-OhMatrix is now available on Windows.
+OhMatrix is now available on Windows and Linux.
 
 ## [1.1.1] - 2026-11-04
 
