@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using OhMatrix.Core.Calls;
 using OhMatrix.Core.I18n;
@@ -54,6 +56,19 @@ public sealed class CallScreen : Grid {
         Interval = TimeSpan.FromMilliseconds(500)
     };
 
+    private readonly Image remote = new() {
+        Stretch = Stretch.Uniform,
+        IsVisible = false,
+        IsHitTestVisible = false,
+    };
+
+    private readonly DispatcherTimer frames = new() {
+        Interval = TimeSpan.FromMilliseconds(33)
+    };
+
+    private WriteableBitmap? picture;
+    private bool pictureShown;
+    private readonly StackPanel middle;
     private string? shownRoom;
 
     public CallScreen(AppController controller, TimeProvider? time = null)
@@ -62,7 +77,7 @@ public sealed class CallScreen : Grid {
         this.time = time ?? TimeProvider.System;
         Background = new SolidColorBrush(Backdrop);
         IsVisible = false;
-        var middle = new StackPanel {
+        middle = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center,
             Spacing = 12,
             Margin = new Thickness(24, 0, 24, 80),
@@ -70,10 +85,12 @@ public sealed class CallScreen : Grid {
         middle.Children.Add(avatarHolder);
         middle.Children.Add(name);
         middle.Children.Add(status);
+        Children.Add(remote);
         Children.Add(middle);
         Children.Add(buttons);
         controller.Store.Changed += _ => Apply();
         clock.Tick += (_, _) => Apply();
+        frames.Tick += (_, _) => TakeFrame();
         Apply();
     }
 
@@ -84,6 +101,35 @@ public sealed class CallScreen : Grid {
     public string Status => status.Text ?? "";
 
     public string PeerName => name.Text ?? "";
+
+    /// <summary>True once a picture of the other side is on screen.</summary>
+    public bool ShowsVideo => remote.IsVisible;
+
+    /// <summary>Copies the newest picture of the other side into the bitmap shown behind the buttons.</summary>
+    public void TakeFrame()
+    {
+        if (!controller.TakeCallFrame((data, width, height) => {
+                if (picture is null || picture.PixelSize.Width != width
+                                    || picture.PixelSize.Height != height) {
+                    picture = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
+                        PixelFormat.Bgra8888, AlphaFormat.Opaque);
+                    remote.Source = picture;
+                }
+
+                using var frame = picture.Lock();
+                unsafe {
+                    for (var y = 0; y < height; y++)
+                        Buffer.MemoryCopy((byte*)data + y * width * 4,
+                            (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
+                }
+
+                pictureShown = true;
+            }))
+            return;
+        remote.InvalidateVisual();
+        remote.IsVisible = pictureShown;
+        middle.IsVisible = !pictureShown;
+    }
 
     private string T(string key, params (string, object)[] values)
     {
@@ -176,6 +222,8 @@ public sealed class CallScreen : Grid {
         IsVisible = call is not null;
         if (call is null) {
             clock.Stop();
+            frames.Stop();
+            remote.IsVisible = false;
             shownRoom = null;
             Buttons = new Dictionary<string, Border>();
             return;
@@ -185,6 +233,16 @@ public sealed class CallScreen : Grid {
             clock.Start();
         else
             clock.Stop();
+        // A video call shows the other side's picture behind the name and buttons once it arrives.
+        if (call is { Video: true, Phase: CallPhase.Connected })
+            frames.Start();
+        else {
+            frames.Stop();
+            pictureShown = false;
+            remote.IsVisible = false;
+            middle.IsVisible = true;
+        }
+
         var room = s.Rooms.FirstOrDefault(r => r.Id == call.RoomId);
         var who = room?.Name ?? call.Peer;
         name.Text = who;

@@ -25,4 +25,7 @@ public interface ICallPlatform {
     IPeer NewPeer(IReadOnlyList<IceServer> servers);
 
     ICallMedia Media { get; }
+
+    /// <summary>Hands the newest picture of the other side to <paramref name="copy"/> (pixels in the order blue, green, red, alpha; width; height), if one has come since the last.</summary>
+    bool TakeRemoteFrame(Action<IntPtr, int, int> copy);
 }
