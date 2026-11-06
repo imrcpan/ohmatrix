@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using OhMatrix.Core.Ui;
 using Xunit;
 
@@ -36,6 +37,6 @@ public class IconSheetTests {
         Assert.NotNull(frame);
         var path = Environment.GetEnvironmentVariable("OHMATRIX_ICON_SHEET");
         if (!string.IsNullOrEmpty(path))
-            frame.Save(path);
+            frame.Save(path, new PngBitmapEncoderOptions());
     }
 }

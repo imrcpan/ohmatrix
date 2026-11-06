@@ -1,0 +1,182 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using OhMatrix.Core.Theming;
+
+namespace OhMatrix.Core.Ui;
+
+/// <summary>
+/// The base of the buttons: a pressable area that knows whether the pointer is over it or down on it, and redraws its colours from the theme.
+/// A subclass says how it looks in <see cref="Refresh"/>.
+/// </summary>
+public abstract class PressableButton : Border {
+    private bool hovered;
+    private bool pressed;
+
+    protected PressableButton()
+    {
+        Cursor = new Cursor(StandardCursorType.Hand);
+        Focusable = true;
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<PressableButton>((b, _) => b.Refresh());
+    }
+
+    public event EventHandler? Click;
+
+    public bool Disabled {
+        get;
+        set {
+            field = value;
+            IsHitTestVisible = !value;
+            Refresh();
+        }
+    }
+
+    protected bool Hovered => hovered;
+    protected bool Pressed => pressed;
+
+    protected ColorTokens Colors => ThemeScope.GetColors(this);
+
+    protected abstract void Refresh();
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Refresh();
+    }
+
+    protected override void OnPointerEntered(PointerEventArgs e)
+    {
+        hovered = true;
+        Refresh();
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        hovered = false;
+        Refresh();
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+        pressed = true;
+        e.Pointer.Capture(this);
+        Refresh();
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        if (!pressed)
+            return;
+        pressed = false;
+        e.Pointer.Capture(null);
+        Refresh();
+        if (new Rect(Bounds.Size).Contains(e.GetPosition(this)))
+            Click?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.Key is Key.Enter or Key.Space) {
+            Click?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
+        }
+    }
+}
+
+/// <summary>The filled button of the screens (<c>PrimaryButton</c>): 50 high, grey when it cannot be pressed, dimmed with a ring while it works.</summary>
+public sealed class PrimaryButton : PressableButton {
+    private readonly TextBlock label = new() {
+        FontSize = 17,
+        FontWeight = FontWeight.SemiBold,
+        FontFamily = Fonts.System,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly Spinner spinner = new() {
+        Size = 22,
+        IsVisible = false
+    };
+
+    public PrimaryButton()
+    {
+        Height = 50;
+        CornerRadius = new CornerRadius(Radius.Control + 2);
+        var content = new Grid();
+        content.Children.Add(label);
+        content.Children.Add(spinner);
+        Child = content;
+    }
+
+    public string Title {
+        get => label.Text ?? "";
+        set => label.Text = value;
+    }
+
+    public bool Loading {
+        get;
+        set {
+            field = value;
+            IsHitTestVisible = !value && !Disabled;
+            Refresh();
+        }
+    }
+
+    protected override void Refresh()
+    {
+        var c = Colors;
+        var grey = Disabled && !Loading;
+        Background = new SolidColorBrush(grey ? c.Separator : c.Accent);
+        label.Foreground = new SolidColorBrush(grey ? c.TextSecondary : c.OnAccent);
+        label.IsVisible = !Loading;
+        spinner.IsVisible = Loading;
+        spinner.Color = new SolidColorBrush(c.OnAccent);
+        Opacity = Loading ? 0.5 : grey ? 1 : Pressed ? 0.8 : 1;
+    }
+}
+
+/// <summary>The flat button with an accent label (<c>TextButton</c>): 40 high, a tint under the pointer.</summary>
+public sealed class TextButton : PressableButton {
+    private readonly TextBlock label = new() {
+        FontSize = 16,
+        FontWeight = FontWeight.Medium,
+        FontFamily = Fonts.System,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    public TextButton()
+    {
+        Height = 40;
+        CornerRadius = new CornerRadius(Radius.Control);
+        Child = label;
+    }
+
+    public string Title {
+        get => label.Text ?? "";
+        set => label.Text = value;
+    }
+
+    /// <summary>Drawn in the colour of danger instead of the accent.</summary>
+    public bool Danger {
+        get;
+        set {
+            field = value;
+            Refresh();
+        }
+    }
+
+    protected override void Refresh()
+    {
+        var c = Colors;
+        label.Foreground = new SolidColorBrush(Danger ? c.Danger : c.Accent);
+        Background = Pressed ? new SolidColorBrush(c.Separator)
+            : Hovered ? new SolidColorBrush(c.Hover)
+            : Brushes.Transparent;
+    }
+}
