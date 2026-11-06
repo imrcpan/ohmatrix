@@ -108,7 +108,7 @@ public sealed class ProfilePage : Grid {
     }
 
     internal static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
-        double top, string? value = null, bool chevron = true)
+        double top, string? value = null, bool chevron = true, bool danger = false)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -116,7 +116,7 @@ public sealed class ProfilePage : Grid {
         grid.Children.Add(new Icon {
             Glyph = glyph,
             Size = 22,
-            Color = new SolidColorBrush(c.Accent),
+            Color = new SolidColorBrush(danger ? c.Danger : c.Accent),
             Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -124,7 +124,7 @@ public sealed class ProfilePage : Grid {
             Text = label,
             FontSize = 16,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Text),
+            Foreground = new SolidColorBrush(danger ? c.Danger : c.Text),
             VerticalAlignment = VerticalAlignment.Center,
         };
         Grid.SetColumn(text, 1);
