@@ -13,7 +13,8 @@ public sealed class AppController(
     IChatEngine? chats = null,
     IMediaEngine? media = null,
     IProfileEngine? profiles = null,
-    IDevicesEngine? devices = null
+    IDevicesEngine? devices = null,
+    ILinkPreviewEngine? links = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -207,6 +208,21 @@ public sealed class AppController(
     {
         await rooms!.BanMember(roomId, userId, string.IsNullOrWhiteSpace(reason) ? null : reason);
         await LoadDetails(roomId);
+    }
+
+    private readonly Dictionary<string, Task<LinkPreview?>> previews = [];
+
+    /// <summary>The preview of a link, asked once and kept; null when there is none.</summary>
+    public Task<LinkPreview?> LinkPreview(string url)
+    {
+        if (links is null)
+            return Task.FromResult<LinkPreview?>(null);
+        if (!previews.TryGetValue(url, out var task)) {
+            task = Quietly(() => links.Preview(url));
+            previews[url] = task;
+        }
+
+        return task;
     }
 
     /// <summary>My sessions, this one first. Failures are <see cref="EngineException"/>.</summary>
