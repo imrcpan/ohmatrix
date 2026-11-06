@@ -358,6 +358,7 @@ public class RoomListTests {
         Assert.Equal("1 minute ago", Format.Relative(Ago(60_000), now, "en"));
         Assert.Equal("5 minutes ago", Format.Relative(Ago(5 * 60_000), now, "en"));
         Assert.Equal("2 hours ago", Format.Relative(Ago(2 * 3_600_000L), now, "en"));
+        Assert.Equal("yesterday", Format.Relative(Ago(30 * 3_600_000L), now, "en"));
         Assert.Equal("3天前", Format.Relative(Ago(3 * 86_400_000L), now, "zh-CN"));
         Assert.Equal("vor 1 Stunde", Format.Relative(Ago(3_600_000), now, "de"));
         Assert.Equal("5 минут назад", Format.Relative(Ago(5 * 60_000), now, "ru"));
