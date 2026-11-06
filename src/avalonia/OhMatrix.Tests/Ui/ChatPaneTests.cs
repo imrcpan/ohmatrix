@@ -201,6 +201,9 @@ public class ChatPaneTests {
         public Task SetMuted(string roomId, bool muted) => Log($"mute {roomId} {muted}");
         public Task SetMarkedUnread(string roomId, bool unread) => Log($"unread {roomId} {unread}");
         public Task MarkRoomRead(string roomId) => Log("read " + roomId);
+        public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
+        public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
+        public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
         private Task Log(string action)
         {
@@ -735,6 +738,45 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(false);
         Dispatcher.UIThread.RunJobs();
         Save(window, "info-closed");
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_renames_changes_the_topic_and_leaves()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        Assert.NotNull(panel.EditNameButton);
+        var room = controller.Store.Value.Rooms.First(r => r.Id == "!g");
+        panel.AskName(room);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Demo team", panel.EditPrompt.Fields[0].Text);
+        panel.EditPrompt.Fields[0].Text = " Demo crew ";
+        panel.EditPrompt.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        panel.AskTopic(room, "We plan the demo here.");
+        panel.EditPrompt.Fields[0].Text = "New topic";
+        panel.EditPrompt.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Save(window, "info-manage");
+        panel.AskLeave(room);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(panel.LeaveDialog.IsOpen);
+        var yes = panel.LeaveDialog.Card.GetVisualDescendants().OfType<PrimaryButton>().Single();
+        yes.RaiseClick();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(
+            ["name !g Demo crew", "topic !g New topic", "leave !g"],
+            engine.Actions.Where(a => a.StartsWith("name") || a.StartsWith("topic")
+                                                           || a.StartsWith("leave")));
+        Assert.Null(controller.Store.Value.SelectedRoomId);
     }
 
     [AvaloniaFact]

@@ -95,6 +95,21 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
+    public Task SetRoomName(string roomId, string name)
+    {
+        return Act(roomId, room => room.SetName(name));
+    }
+
+    public Task SetRoomTopic(string roomId, string topic)
+    {
+        return Act(roomId, room => room.SetTopic(topic));
+    }
+
+    public Task LeaveRoom(string roomId)
+    {
+        return Act(roomId, room => room.Leave());
+    }
+
     public Task AcceptInvite(string roomId)
     {
         return Act(roomId, room => room.Join());

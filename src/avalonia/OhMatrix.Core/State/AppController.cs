@@ -160,6 +160,27 @@ public sealed class AppController(
         return rooms!.MarkRoomRead(roomId);
     }
 
+    /// <summary>Renames a group. Failures (not allowed to) are <see cref="EngineException"/>.</summary>
+    public Task SetRoomName(string roomId, string name)
+    {
+        return rooms!.SetRoomName(roomId, name.Trim());
+    }
+
+    /// <summary>Changes the description of a group, and shows the new one in the info panel.</summary>
+    public async Task SetRoomTopic(string roomId, string topic)
+    {
+        await rooms!.SetRoomTopic(roomId, topic.Trim());
+        await LoadDetails(roomId);
+    }
+
+    /// <summary>Leaves a chat and closes it.</summary>
+    public async Task LeaveRoom(string roomId)
+    {
+        await rooms!.LeaveRoom(roomId);
+        if (Store.Value.SelectedRoomId == roomId)
+            SelectRoom(null);
+    }
+
     /// <summary>Shows a page in the left pane.</summary>
     public void OpenSidebarPage(SidebarPage page)
     {

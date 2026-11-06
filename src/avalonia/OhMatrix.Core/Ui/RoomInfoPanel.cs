@@ -38,6 +38,57 @@ public sealed class RoomInfoPanel : Grid {
     }
 
     public StackPanel Content => content;
+    public PromptDialog EditPrompt { get; } = new();
+    public Dialog LeaveDialog { get; } = new();
+    public TextButton? EditNameButton { get; private set; }
+    public TextButton? EditTopicButton { get; private set; }
+    public TextButton? LeaveButton { get; private set; }
+
+    /// <summary>Asks for a new group name.</summary>
+    public void AskName(RoomSummary room)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        EditPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("room.editName"), "", [new PromptField(T("room.editName"), "users")], T("save"),
+            v => controller.SetRoomName(room.Id, v[0]));
+        EditPrompt.Fields[0].Text = room.Name;
+    }
+
+    /// <summary>Asks for a new description.</summary>
+    public void AskTopic(RoomSummary room, string? topic)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        EditPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("room.editTopic"), "", [new PromptField(T("room.editTopic"), "info", true)],
+            T("save"), v => controller.SetRoomTopic(room.Id, v[0]));
+        EditPrompt.Fields[0].Text = topic ?? "";
+    }
+
+    /// <summary>Asks whether to leave the chat.</summary>
+    public void AskLeave(RoomSummary room)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var c = ThemeScope.GetColors(this);
+        var yes = new PrimaryButton {
+            Title = T(room.IsDirect ? "deleteChat" : "leaveGroup")
+        };
+        var no = new TextButton {
+            Title = T("cancel")
+        };
+        yes.Click += (_, _) => {
+            LeaveDialog.Close();
+            _ = controller.LeaveRoom(room.Id);
+        };
+        no.Click += (_, _) => LeaveDialog.Close();
+        ThemeScope.SetColors(yes, c);
+        ThemeScope.SetColors(no, c);
+        LeaveDialog.Show(window, c,
+            T(room.IsDirect ? "deleteChat.title" : "leaveGroup.title"),
+            T(room.IsDirect ? "deleteChat.body" : "leaveGroup.body"), yes, no);
+    }
 
     private string T(string key, params (string, object)[] values)
     {
@@ -117,21 +168,50 @@ public sealed class RoomInfoPanel : Grid {
             return;
         }
 
-        if (details.Topic is { } topic) {
+        EditNameButton = null;
+        EditTopicButton = null;
+        LeaveButton = null;
+        if (!room.IsDirect) {
+            EditNameButton = new TextButton {
+                Title = T("room.editName") + " · " + T("modify")
+            };
+            EditNameButton.Click += (_, _) => AskName(room);
+            ThemeScope.SetColors(EditNameButton, c);
+            content.Children.Add(EditNameButton);
+        }
+
+        if (details.Topic is not null || !room.IsDirect) {
             content.Children.Add(Section(c, T("topic")));
             content.Children.Add(new TextBlock {
-                Text = topic,
+                Text = details.Topic ?? T("room.noTopic"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(20, 0, 20, 8),
             });
+            if (!room.IsDirect) {
+                EditTopicButton = new TextButton {
+                    Title = T("room.editTopic") + " · " + T("modify")
+                };
+                EditTopicButton.Click += (_, _) => AskTopic(room, details.Topic);
+                ThemeScope.SetColors(EditTopicButton, c);
+                content.Children.Add(EditTopicButton);
+            }
         }
 
         content.Children.Add(Section(c, T("membersTitle")));
         foreach (var member in details.Members)
             content.Children.Add(MemberRow(c, member));
+        LeaveButton = new TextButton {
+            Title = T(room.IsDirect ? "deleteChat" : "leaveGroup"),
+            Margin = new Thickness(0, 16, 0, 0),
+        };
+        LeaveButton.Click += (_, _) => AskLeave(room);
+        ThemeScope.SetColors(LeaveButton, c with {
+            Accent = c.Danger
+        });
+        content.Children.Add(LeaveButton);
         content.Children.Add(new Border {
             Height = 16
         });
