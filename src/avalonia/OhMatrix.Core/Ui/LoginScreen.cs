@@ -19,11 +19,7 @@ public sealed class LoginScreen : Grid {
     private readonly (string Label, Action OnPress)? back;
     private readonly TimeProvider time;
 
-    private readonly Border logoCircle = new() {
-        Width = 84,
-        Height = 84,
-        CornerRadius = new CornerRadius(42),
-    };
+    private readonly Logo logo = new(84);
 
     private readonly TextBlock title = new() {
         FontSize = 28,
@@ -151,13 +147,6 @@ public sealed class LoginScreen : Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
             Margin = new Thickness(0, 0, 0, 28),
         };
-        logoCircle.Child = new Icon {
-            Glyph = "chat",
-            Size = 42,
-            StrokeWidth = 1.8,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
         var words = new StackPanel {
             Spacing = 4,
             Margin = new Thickness(16, 0, 0, 0),
@@ -166,7 +155,7 @@ public sealed class LoginScreen : Grid {
         words.Children.Add(title);
         words.Children.Add(subtitle);
         Grid.SetColumn(words, 1);
-        head.Children.Add(logoCircle);
+        head.Children.Add(logo);
         head.Children.Add(words);
 
         submitButton.Margin = new Thickness(0, 4, 0, 0);
@@ -293,8 +282,6 @@ public sealed class LoginScreen : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
-        logoCircle.Background = new SolidColorBrush(c.Accent);
-        ((Icon)logoCircle.Child!).Color = new SolidColorBrush(c.OnAccent);
         title.Foreground = new SolidColorBrush(c.Text);
         subtitle.Foreground = new SolidColorBrush(c.Text);
         mismatchText.Foreground = new SolidColorBrush(c.Danger);
