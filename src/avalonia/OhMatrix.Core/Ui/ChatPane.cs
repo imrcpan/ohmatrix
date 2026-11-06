@@ -373,7 +373,16 @@ public sealed class ChatPane : Grid {
         for (var i = 0; i < items.Count; i++) {
             var item = items[i];
             if (item.Kind == TimelineKind.Date) {
+                // A day with nothing to show under it (only room events that are not drawn) gets no divider.
+                if (i + 1 >= items.Count || items[i + 1].Kind == TimelineKind.Date)
+                    continue;
                 list.Children.Add(DateChip(c, Format.DayLabel(item.Ts, now, s.Locale, k => T(k))));
+                continue;
+            }
+
+            if (item.Kind == TimelineKind.Service) {
+                list.Children.Add(DateChip(c,
+                    item.Body == TimelineItem.Undecryptable ? T("undecryptable") : item.Body));
                 continue;
             }
 

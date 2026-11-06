@@ -334,6 +334,19 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 };
             }
 
+            // A message this device cannot read (its keys have not come): shown as a line, not left out.
+            if (e.Content is TimelineItemContent.MsgLike { Content.Kind: MsgLikeKind.UnableToDecrypt }) {
+                return new TimelineItem {
+                    Id = id,
+                    Kind = TimelineKind.Service,
+                    Body = TimelineItem.Undecryptable,
+                    Ts = (long)e.Timestamp,
+                    EventId = e.EventOrTransactionId is EventOrTransactionId.EventId ev2
+                        ? ev2.EventIdValue
+                        : null,
+                };
+            }
+
             return null;
         }
 

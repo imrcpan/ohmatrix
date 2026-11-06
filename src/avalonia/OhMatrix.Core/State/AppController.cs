@@ -386,7 +386,8 @@ public sealed class AppController(
             session.Changed += items => Post(() => {
                 if (ReferenceEquals(chat, session))
                     Store.Update(s => s with {
-                        Timeline = items
+                        Timeline = items,
+                        Rooms = WithPreview(s.Rooms, roomId, items),
                     });
             });
             session.TypingChanged += names => Post(() => {
@@ -397,12 +398,44 @@ public sealed class AppController(
             });
             var now = session.Items;
             Store.Update(s => s with {
-                Timeline = now
+                Timeline = now,
+                Rooms = WithPreview(s.Rooms, roomId, now),
             });
             _ = Quietly(session.MarkRead);
         } catch (Exception) {
             // The chat stays empty; choosing it again tries again.
         }
+    }
+
+    /// <summary>
+    /// The engine does not always know the newest message of a room it has not opened; once the chat is open its own messages give the row's
+    /// text and time, when the row has none.
+    /// </summary>
+    public static IReadOnlyList<RoomSummary> WithPreview(
+        IReadOnlyList<RoomSummary> rooms,
+        string roomId,
+        IReadOnlyList<TimelineItem> items
+    )
+    {
+        var last = items.LastOrDefault(i => i.Kind == TimelineKind.Message && !i.Sending);
+        var index = -1;
+        for (var i = 0; i < rooms.Count; i++) {
+            if (rooms[i].Id == roomId)
+                index = i;
+        }
+
+        if (last is null || index < 0 || rooms[index].LastActivityTs != 0)
+            return rooms;
+        var text = last.Body.Length > 0 ? last.Body
+            : last.Image is not null ? last.Image.FileName
+            : last.File?.Name;
+        var copy = rooms.ToList();
+        copy[index] = copy[index] with {
+            LastMessage = text,
+            LastSender = last.IsOwn ? null : last.SenderName,
+            LastActivityTs = last.Ts,
+        };
+        return Order(copy);
     }
 
     private void CloseChat()
