@@ -63,6 +63,9 @@ public class RoomListTests {
         public Task SetMuted(string roomId, bool muted) => Log($"mute {roomId} {muted}");
         public Task SetMarkedUnread(string roomId, bool unread) => Log($"unread {roomId} {unread}");
         public Task MarkRoomRead(string roomId) => Log("read " + roomId);
+        public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
+        public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
+        public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
         private Task Log(string action)
         {

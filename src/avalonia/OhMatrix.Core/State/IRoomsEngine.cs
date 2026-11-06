@@ -36,6 +36,12 @@ public interface IRoomsEngine {
     /// <summary>The topic and the people of a room.</summary>
     Task<RoomDetails> Details(string roomId);
 
+    Task SetRoomName(string roomId, string name);
+    Task SetRoomTopic(string roomId, string topic);
+
+    /// <summary>Leaves the room; it goes from the chat list.</summary>
+    Task LeaveRoom(string roomId);
+
     Task StartSync();
     Task StopSync();
 }
