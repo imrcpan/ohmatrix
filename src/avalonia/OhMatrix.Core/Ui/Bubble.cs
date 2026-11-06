@@ -35,7 +35,8 @@ public sealed class Bubble : Border {
         Action<string>? openLink = null,
         bool read = false,
         string? readLabel = null,
-        Action<Model.FileAttachment>? openFile = null
+        Action<Model.FileAttachment>? openFile = null,
+        Func<string, Task<Model.LinkPreview?>>? preview = null
     )
     {
         const double r = Radius.Bubble;
@@ -293,6 +294,14 @@ public sealed class Bubble : Border {
 
         if (hasText)
             stack.Children.Add(body);
+        if (preview is not null && hasText
+                                && runs.FirstOrDefault(r => r.Href is { } h && r.UserId is null
+                                        && (h.StartsWith("http://") || h.StartsWith("https://")))
+                                    ?.Href is { } link) {
+            var slot = new Border();
+            stack.Children.Add(slot);
+            _ = FillPreview(slot, link, preview, colors, mine, pictures, openLink);
+        }
 
         var metaRow = new StackPanel {
             Orientation = Orientation.Horizontal,
@@ -342,5 +351,104 @@ public sealed class Bubble : Border {
             return;
         if (TopLevel.GetTopLevel(from)?.Launcher is { } launcher)
             _ = launcher.LaunchUriAsync(uri);
+    }
+
+    /// <summary>Puts the card of a link in <paramref name="slot"/> when the server has a preview for it.</summary>
+    private async Task FillPreview(
+        Border slot,
+        string link,
+        Func<string, Task<Model.LinkPreview?>> preview,
+        ColorTokens colors,
+        bool mine,
+        Pictures? pictures,
+        Action<string>? openLink
+    )
+    {
+        var found = await preview(link);
+        if (found is null)
+            return;
+        var text = mine ? colors.BubbleOutText : colors.BubbleInText;
+        var meta = mine ? colors.BubbleOutMeta : colors.TextSecondary;
+        var host = Uri.TryCreate(link, UriKind.Absolute, out var uri)
+            ? uri.Host.Replace("www.", "")
+            : link;
+        var wide = found.ImageWidth is { } w && found.ImageHeight is { } h && w >= h * 1.6;
+        var words = new StackPanel {
+            Margin = new Thickness(wide ? 10 : 10, 8, 10, 8),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        words.Children.Add(new TextBlock {
+            Text = found.SiteName ?? host,
+            FontSize = 13,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(meta),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        if (found.Title is { } title) {
+            words.Children.Add(new TextBlock {
+                Text = title,
+                FontSize = 15,
+                FontWeight = FontWeight.SemiBold,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(text),
+                TextWrapping = TextWrapping.Wrap,
+                MaxLines = 2,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+        }
+
+        if (found.Description is { } description) {
+            words.Children.Add(new TextBlock {
+                Text = description,
+                FontSize = 13,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(meta),
+                TextWrapping = TextWrapping.Wrap,
+                MaxLines = 2,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+        }
+
+        var card = new StackPanel();
+        Image? picture = null;
+        if (found.Image is not null && pictures is not null) {
+            picture = new Image {
+                Stretch = Stretch.UniformToFill
+            };
+            if (wide) {
+                picture.Height = 140;
+                picture.Width = double.NaN;
+                card.Children.Add(picture);
+                card.Children.Add(words);
+            } else {
+                picture.Width = 56;
+                picture.Height = 56;
+                var row = new Grid {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*")
+                };
+                row.Children.Add(picture);
+                Grid.SetColumn(words, 1);
+                row.Children.Add(words);
+                card.Children.Add(row);
+            }
+
+            pictures.Attach(picture, found.Image, wide ? 560 : 112, wide ? 280 : 112);
+        } else
+            card.Children.Add(words);
+
+        slot.Margin = new Thickness(0, 6, 0, 14);
+        slot.CornerRadius = new CornerRadius(10);
+        slot.ClipToBounds = true;
+        slot.Background =
+            new SolidColorBrush(mine ? Color.FromArgb(36, 255, 255, 255) : colors.BgSecondary);
+        slot.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+        slot.MinWidth = 220;
+        slot.Child = card;
+        slot.PointerPressed += (_, e) => {
+            e.Handled = true;
+            (openLink ?? (h => OpenInBrowser(slot, h)))(link);
+        };
+        Avalonia.Automation.AutomationProperties.SetName(slot,
+            found.Title ?? found.Description ?? host);
     }
 }

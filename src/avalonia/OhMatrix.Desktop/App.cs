@@ -22,7 +22,7 @@ public class App : Application {
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "OhMatrix"
             );
-            var (auth, rooms, chats, media, profiles, devices) = Engines.Create(data);
+            var (auth, rooms, chats, media, profiles, devices, links) = Engines.Create(data);
             var controller = new AppController(
                 auth,
                 new FileSessionStore(data),
@@ -32,7 +32,8 @@ public class App : Application {
                 chats,
                 media,
                 profiles,
-                devices
+                devices,
+                links
             );
             var root = new AppRoot(
                 controller,
