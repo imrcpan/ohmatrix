@@ -63,6 +63,8 @@ public sealed class MainScreen : Grid {
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    private readonly VerifyDialog verifyDialog;
+
     public MainScreen(AppController controller)
     {
         this.controller = controller;
@@ -79,6 +81,7 @@ public sealed class MainScreen : Grid {
         sessionsPage = new SessionsPage(controller);
         encryptionPage = new EncryptionPage(controller);
         spacePage = new SpacePage(controller);
+        verifyDialog = new VerifyDialog(controller, this);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
         infoDockHost.Child = infoDock;
@@ -119,6 +122,7 @@ public sealed class MainScreen : Grid {
     public SessionsPage SessionsScreen => sessionsPage;
     public EncryptionPage EncryptionScreen => encryptionPage;
     public SpacePage SpaceScreen => spacePage;
+    public VerifyDialog Verify => verifyDialog;
 
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
@@ -134,6 +138,7 @@ public sealed class MainScreen : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         var split = Bounds.Width >= SplitBreakpoint;
+        verifyDialog.Update(s.Verification);
         Background = new SolidColorBrush(c.Bg);
         divider.Background = new SolidColorBrush(c.Separator);
         divider.IsVisible = split;

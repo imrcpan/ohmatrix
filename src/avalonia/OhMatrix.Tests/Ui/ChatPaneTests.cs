@@ -184,6 +184,40 @@ public class ChatPaneTests {
     }
 
     private static readonly Security Keys = new();
+    private static readonly Verifier Verify = new();
+
+    private sealed class Verifier : IVerificationEngine {
+        public event Action<VerifyFlow>? Changed;
+        public readonly List<string> Calls = [];
+
+        public Task Listen() => Task.CompletedTask;
+
+        public Task Request()
+        {
+            Calls.Add("request");
+            return Task.CompletedTask;
+        }
+
+        public Task Accept()
+        {
+            Calls.Add("accept");
+            return Task.CompletedTask;
+        }
+
+        public Task Confirm(bool match)
+        {
+            Calls.Add(match ? "match" : "mismatch");
+            return Task.CompletedTask;
+        }
+
+        public Task Cancel()
+        {
+            Calls.Add("cancel");
+            return Task.CompletedTask;
+        }
+
+        public void Tell(VerifyFlow flow) => Changed?.Invoke(flow);
+    }
 
     private sealed class Profiles : IProfileEngine {
         public Task<Profile> Load()
@@ -476,7 +510,7 @@ public class ChatPaneTests {
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            new Media(), new Profiles(), Sessions, null, Keys);
+            new Media(), new Profiles(), Sessions, null, Keys, null, Verify);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -1423,6 +1457,84 @@ public class ChatPaneTests {
         Assert.Equal(SecurityState.Ready, controller.Store.Value.Security);
         Save(window, "recovery-key");
         Keys.Current = SecurityState.NeedsRecovery;
+    }
+
+    [AvaloniaFact]
+    public async Task A_device_is_verified_by_comparing_pictures_with_another_session()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        Keys.Current = SecurityState.NeedsRecovery;
+        await controller.RefreshSecurity();
+        controller.OpenSidebarPage(SidebarPage.Encryption);
+        Dispatcher.UIThread.RunJobs();
+        Verify.Calls.Clear();
+        Assert.NotNull(screen.EncryptionScreen.VerifyRow);
+        await controller.RequestVerification();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["request"], Verify.Calls);
+        Assert.True(screen.Verify.Dialog.IsOpen);
+        Assert.Contains("verify.close", screen.Verify.Buttons.Keys);
+
+        Verify.Tell(new VerifyFlow(VerifyPhase.Waiting, false));
+        Verify.Tell(new VerifyFlow(VerifyPhase.Emojis, false, null,
+        [
+            new("🐶", "Dog"), new("🔥", "Fire"), new("🎩", "Hat"), new("🌹", "Rose"),
+            new("🍎", "Apple"), new("🚀", "Rocket"), new("🔑", "Key")
+        ]));
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(7, screen.Verify.Symbols.Count);
+        Save(window, "verify-pictures");
+        screen.Verify.Buttons["verify.match"].RaiseClick();
+        await Task.Delay(50);
+        Assert.Contains("match", Verify.Calls);
+
+        Verify.Tell(new VerifyFlow(VerifyPhase.Done, false));
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(VerifyPhase.Done, controller.Store.Value.Verification!.Phase);
+        Keys.Current = SecurityState.Ready;
+        await controller.DismissVerification();
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(screen.Verify.Dialog.IsOpen);
+        Assert.Null(controller.Store.Value.Verification);
+        Assert.Equal(SecurityState.Ready, controller.Store.Value.Security);
+        Keys.Current = SecurityState.NeedsRecovery;
+    }
+
+    [AvaloniaFact]
+    public async Task A_request_from_another_session_is_accepted_or_declined()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        Verify.Calls.Clear();
+        Verify.Tell(new VerifyFlow(VerifyPhase.Requested, true, "Pixel 9"));
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(screen.Verify.Dialog.IsOpen);
+        Assert.Contains("verify.accept", screen.Verify.Buttons.Keys);
+        Save(window, "verify-request");
+        await controller.AcceptVerification();
+        Assert.Equal(["accept"], Verify.Calls);
+        await controller.DismissVerification();
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(screen.Verify.Dialog.IsOpen);
+        Assert.Equal(["accept", "cancel"], Verify.Calls);
+    }
+
+    [Fact]
+    public void An_ended_verification_stays_until_dismissed()
+    {
+        var done = new VerifyFlow(VerifyPhase.Done, false);
+        Assert.Same(done, VerifyFlow.After(done, new VerifyFlow(VerifyPhase.Cancelled, false)));
+        var cancelled = new VerifyFlow(VerifyPhase.Cancelled, true, "X");
+        Assert.Same(cancelled,
+            VerifyFlow.After(cancelled, new VerifyFlow(VerifyPhase.Waiting, true)));
+        Assert.Null(VerifyFlow.After(null, new VerifyFlow(VerifyPhase.Waiting, false)));
+        var next = VerifyFlow.After(
+            new VerifyFlow(VerifyPhase.Requested, true, "X"),
+            new VerifyFlow(VerifyPhase.Waiting, false)
+        );
+        Assert.Equal(new VerifyFlow(VerifyPhase.Waiting, true, "X"), next);
     }
 
     [Fact]

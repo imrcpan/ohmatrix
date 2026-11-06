@@ -12,7 +12,7 @@ namespace OhMatrix.Core.Ui;
 
 /// <summary>
 /// The encryption of the account (<c>EncryptionPage</c>), as far as it is ported: its state, and for a device that cannot read the history yet the
-/// way to unlock it with the recovery key. Setting the keys up, exporting them and the verification with another session are not ported.
+/// ways to unlock it: the recovery key, or the verification with another session. Exporting the keys is not ported.
 /// </summary>
 public sealed class EncryptionPage : Grid {
     private readonly AppController controller;
@@ -56,6 +56,9 @@ public sealed class EncryptionPage : Grid {
 
     /// <summary>The row that asks for the recovery key; null when the state has no such step.</summary>
     public Border? RecoveryRow { get; private set; }
+
+    /// <summary>The row that asks my other sessions to verify this one; null when the state has no such step.</summary>
+    public Border? VerifyRow { get; private set; }
 
     private string T(string key, params (string, object)[] values)
     {
@@ -176,6 +179,7 @@ public sealed class EncryptionPage : Grid {
             }, 6,
             Words(s.Security, k => T(k)), false));
         RecoveryRow = null;
+        VerifyRow = null;
         SetupRow = null;
         if (s.Security == SecurityState.NeedsSetup) {
             SetupRow = ProfilePage.NavRow(c, "key", T("sec.setup.title"), AskSetup, 12);
@@ -185,6 +189,22 @@ public sealed class EncryptionPage : Grid {
         if (s.Security == SecurityState.NeedsRecovery) {
             RecoveryRow = ProfilePage.NavRow(c, "key", T("sec.recovery.title"), AskRecoveryKey, 12);
             content.Children.Add(RecoveryRow);
+            VerifyRow = ProfilePage.NavRow(
+                c,
+                "device",
+                T("verify.session"),
+                () => _ = controller.RequestVerification(),
+                12
+            );
+            content.Children.Add(VerifyRow);
+            content.Children.Add(new TextBlock {
+                Text = T("verify.session.footer"),
+                FontSize = 13,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(26, 8, 26, 0),
+            });
         }
     }
 }
