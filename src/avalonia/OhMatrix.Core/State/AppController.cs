@@ -17,7 +17,9 @@ public sealed class AppController(
     ILinkPreviewEngine? links = null,
     ISecurityEngine? security = null,
     INotifier? notifier = null,
-    IVerificationEngine? verification = null
+    IVerificationEngine? verification = null,
+    ICallsEngine? callsEngine = null,
+    ICallPlatform? callPlatform = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -29,6 +31,9 @@ public sealed class AppController(
     private readonly SynchronizationContext? context = SynchronizationContext.Current;
     private bool roomsHooked;
     private bool verifyHooked;
+    private bool callsHooked;
+    private Calls.CallSignalling? signalling;
+    private ITimer? callEndedTimer;
     private IChatSession? chat;
     private int chatOpening;
 
@@ -287,6 +292,90 @@ public sealed class AppController(
     {
         await security!.RestoreWithRecoveryKey(key);
         await RefreshSecurity();
+    }
+
+    /// <summary>This machine and this build can make calls.</summary>
+    public bool CallsSupported => callsEngine is not null && callPlatform is { Available: true };
+
+    /// <summary>How long a call that has ended stays on screen, saying how it ended.</summary>
+    public static readonly TimeSpan CallEndedStays = TimeSpan.FromMilliseconds(1800);
+
+    private Calls.CallSignalling Signalling()
+    {
+        return signalling ??= new Calls.CallSignalling(
+            new Calls.CallTransport(callsEngine!, callPlatform!, time, Post),
+            () => Store.Value.UserId ?? "",
+            info => {
+                Store.Update(s => s with {
+                    Call = info
+                });
+                // An ended call goes by itself after a moment.
+                callEndedTimer?.Dispose();
+                if (info is { Phase: Calls.CallPhase.Ended })
+                    callEndedTimer = time.CreateTimer(_ => Post(() => signalling?.Dismiss()), null,
+                        CallEndedStays, Timeout.InfiniteTimeSpan);
+            }
+        );
+    }
+
+    private async Task ListenForCalls()
+    {
+        if (callsEngine is null || callPlatform is null)
+            return;
+        if (!callsHooked) {
+            callsHooked = true;
+            callsEngine.CallEvent += e => Post(() => {
+                // An event of the room I am in as I am signed in; a failure inside the conversation must not reach the engine's thread.
+                _ = Receive(e);
+            });
+        }
+
+        await Quietly(callsEngine.Listen);
+    }
+
+    private async Task Receive(Calls.CallEvent e)
+    {
+        try {
+            await Signalling().Receive(e);
+        } catch (Exception ex) {
+            AppLog.Error("call event: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Calls the other person of a one-to-one chat. Throws <see cref="InvalidOperationException"/> with "busy" (a call is on), "no_media" (the
+    /// devices are refused), "direct" (the chat is not one-to-one) or "unsupported".
+    /// </summary>
+    public async Task PlaceCall(string roomId, bool video)
+    {
+        if (!CallsSupported)
+            throw new InvalidOperationException("unsupported");
+        var room = Store.Value.Rooms.FirstOrDefault(r => r.Id == roomId);
+        var details = rooms is null ? null : await rooms.Details(roomId);
+        var other = details?.Members.FirstOrDefault(m => m.UserId != Store.Value.UserId);
+        if (room is not { IsDirect: true } || other is null)
+            throw new InvalidOperationException("direct");
+        await Signalling().Place(roomId, other.UserId, video);
+    }
+
+    public Task AnswerCall()
+    {
+        return Signalling().Answer(Store.Value.Call?.Video == true);
+    }
+
+    public Task HangupCall()
+    {
+        return Signalling().Hangup();
+    }
+
+    public void SetCallMuted(bool muted)
+    {
+        Signalling().SetMuted(muted);
+    }
+
+    public void SetCallCameraOff(bool off)
+    {
+        Signalling().SetCameraOff(off);
     }
 
     /// <summary>Asks my other sessions to verify this one; the progress is in <see cref="AppState.Verification"/>.</summary>
@@ -769,6 +858,7 @@ public sealed class AppController(
         _ = LoadProfile();
         _ = WatchSecurity();
         _ = ListenForVerification();
+        _ = ListenForCalls();
         if (rooms is null)
             return;
         if (!roomsHooked) {
@@ -843,6 +933,7 @@ public sealed class AppController(
             SyncState = SyncState.Stopped,
             Security = SecurityState.Unavailable,
             Verification = null,
+            Call = null,
             Joining = [],
             JoinError = null,
             SelectedRoomId = null,

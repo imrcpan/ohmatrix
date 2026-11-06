@@ -240,7 +240,8 @@ public class CallSignallingTests {
         clock.Advance(TimeSpan.FromSeconds(61));
         Assert.Equal(EndReason.Unanswered, caller.Signalling.Current!.EndReason);
         Assert.Equal("invite_timeout", (string?)caller.Sent.Last().Content["reason"]);
-        Assert.Equal(EndReason.Unanswered, callee.Signalling.Current!.EndReason);
+        // The one called stops ringing too: by its own timer or by the hangup, whichever comes first.
+        Assert.Equal(CallPhase.Ended, callee.Signalling.Current!.Phase);
     }
 
     [Fact]

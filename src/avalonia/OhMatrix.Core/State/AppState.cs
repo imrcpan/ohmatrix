@@ -61,6 +61,9 @@ public sealed record AppState {
     /// <summary>Where the account stands with its encryption keys.</summary>
     public SecurityState Security { get; init; } = SecurityState.Unavailable;
 
+    /// <summary>The call that is going, ringing or just over; null when there is none.</summary>
+    public Calls.CallInfo? Call { get; init; }
+
     /// <summary>The verification with another session on screen, or null.</summary>
     public VerifyFlow? Verification { get; init; }
 

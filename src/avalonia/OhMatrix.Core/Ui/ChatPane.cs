@@ -717,14 +717,45 @@ public sealed class ChatPane : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        attachMenu.Show(
-            attach,
-            window,
-            [
-                new MenuItem(T("attach.image"), () => _ = PickAndSend(window, true), Icon: "image"),
-                new MenuItem(T("attach.file"), () => _ = PickAndSend(window, false), Icon: "file"),
-            ]
-        );
+        var items = new List<MenuItem> {
+            new(T("attach.image"), () => _ = PickAndSend(window, true), Icon: "image"),
+            new(T("attach.file"), () => _ = PickAndSend(window, false), Icon: "file"),
+        };
+        // Calls are for one-to-one chats, where this machine can make them.
+        var s = controller.Store.Value;
+        if (controller.CallsSupported && s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId)
+                is { IsDirect: true }) {
+            items.Add(new MenuItem(T("call.voice"), () => AskCall(window, false),
+                Icon: "fluentCall"));
+            items.Add(new MenuItem(T("call.video"), () => AskCall(window, true),
+                Icon: "fluentVideo"));
+        }
+
+        attachMenu.Show(attach, window, items);
+    }
+
+    public PromptDialog CallPrompt { get; } = new();
+
+    /// <summary>Asks whether to start the call, then places it; why it could not be placed is shown in the prompt.</summary>
+    public void AskCall(TopLevel window, bool video)
+    {
+        if (controller.Store.Value.SelectedRoomId is not { } roomId)
+            return;
+        CallPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T(video ? "call.video.ask" : "call.voice.ask"), T("call.ask.body"), [],
+            T(video ? "call.video.start" : "call.voice.start"), async _ => {
+                try {
+                    await controller.PlaceCall(roomId, video);
+                } catch (InvalidOperationException e) {
+                    throw new EngineException(EngineErrorCode.Unsupported, e.Message switch {
+                        "direct" => T("call.only.direct"),
+                        "unsupported" => T("call.unsupported"),
+                        "no_media" => T("call.end.nomedia"),
+                        "busy" => T("call.end.busy"),
+                        _ => T("call.failed", ("reason", e.Message)),
+                    });
+                }
+            });
     }
 
     private async Task PickAndSend(TopLevel window, bool images)
