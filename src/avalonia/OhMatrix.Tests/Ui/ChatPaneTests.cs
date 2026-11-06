@@ -806,6 +806,10 @@ public class ChatPaneTests {
         Assert.Contains("Admin", texts);
         Assert.Contains("Moderator", texts);
         Save(window, "info-wide");
+        var panelShared = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        Assert.Single(panelShared.MediaThumbnails);
+        Assert.Contains("budget-2026.pdf", texts);
+        Assert.Contains("Shared media", texts);
         controller.OpenRoomInfo(false);
         Dispatcher.UIThread.RunJobs();
         Save(window, "info-closed");
