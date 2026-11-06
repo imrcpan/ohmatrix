@@ -20,6 +20,9 @@ public interface IChatSession : IDisposable {
     /// </summary>
     Task SendAttachment(string path, string mimeType, int? width, int? height);
 
+    /// <summary>Pins or unpins a message of the chat.</summary>
+    Task SetPinned(string itemId, bool pinned);
+
     /// <summary>Replaces the text of one of my messages.</summary>
     Task Edit(string itemId, string text);
 

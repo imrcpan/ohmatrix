@@ -357,6 +357,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             LastMessage = text,
             LastSender = sender,
             LastActivityTs = ts,
+            PinnedEventIds = info.PinnedEventIds,
         };
     }
 

@@ -39,6 +39,14 @@ public class ChatPaneTests {
             return Task.CompletedTask;
         }
 
+        public readonly List<string> Pins = [];
+
+        public Task SetPinned(string itemId, bool pinned)
+        {
+            Pins.Add($"{itemId} {pinned}");
+            return Task.CompletedTask;
+        }
+
         public readonly List<string> Edits = [];
         public readonly List<string> Deleted = [];
 
@@ -334,7 +342,8 @@ public class ChatPaneTests {
                 Id = "!g",
                 Name = "Demo team",
                 MemberCount = 4,
-                LastActivityTs = Now
+                LastActivityTs = Now,
+                PinnedEventIds = ["$2", "$3"],
             },
             new RoomSummary {
                 Id = "!d",
@@ -549,7 +558,7 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var target = controller.Store.Value.Timeline.First(i => i.Id == "2");
         pane.OpenActions(pane.Messages, target);
-        Assert.Equal(1 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Assert.Equal(2 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
         Save(window, "actions");
         pane.Actions.Close();
         controller.SetReplyTo(target);
@@ -590,9 +599,9 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var tl = controller.Store.Value.Timeline;
         pane.OpenActions(pane.Messages, tl.First(i => i.Id == "2"));
-        Assert.Equal(1 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Assert.Equal(2 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
         pane.OpenActions(pane.Messages, tl.First(i => i.Id == "3"));
-        Assert.Equal(3 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Assert.Equal(4 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
         Save(window, "own-actions");
     }
 
@@ -625,8 +634,8 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
         pane.OpenActions(pane.Messages, controller.Store.Value.Timeline.First(i => i.Id == "3"));
-        // The Delete row is the third of the menu: Reply, Edit, Delete.
-        var row = (Border)pane.Actions.Rows[2];
+        // The Delete row is the fourth of the menu: Reply, Pin, Edit, Delete.
+        var row = (Border)pane.Actions.Rows[3];
         row.RaiseEvent(Release(row));
         Assert.True(pane.DeleteDialog.IsOpen);
         Save(window, "delete-dialog");
@@ -832,6 +841,36 @@ public class ChatPaneTests {
         pane.ToggleSearch();
         Assert.False(pane.Searching);
         Assert.Empty(pane.Matches);
+    }
+
+    [AvaloniaFact]
+    public async Task The_pinned_bar_shows_the_newest_pin_and_goes_round()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        Assert.True(pane.PinnedBar.IsVisible);
+
+        string Text()
+        {
+            return string.Join("|",
+                pane.PinnedBar.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+        }
+
+        Assert.Contains("Pinned messages 1/2", Text());
+        Assert.Contains("Yes!", Text());
+        Save(window, "pinned");
+        pane.JumpToPinned();
+        Assert.Contains("Pinned messages 2/2", Text());
+        Assert.Contains("Are we still on for the demo", Text());
+        pane.JumpToPinned();
+        Assert.Contains("Pinned messages 1/2", Text());
+        var target = controller.Store.Value.Timeline.First(i => i.Id == "4");
+        Assert.Null(target.EventId);
+        await controller.SetMessagePinned("3", false);
+        Assert.Equal(["3 False"], engine.Opened[0].Pins);
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)

@@ -93,6 +93,20 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        public async Task SetPinned(string itemId, bool pinned)
+        {
+            if (Event(itemId)?.EventOrTransactionId is not EventOrTransactionId.EventId id)
+                return;
+            try {
+                if (pinned)
+                    await timeline.PinEvent(id.EventIdValue);
+                else
+                    await timeline.UnpinEvent(id.EventIdValue);
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
+            }
+        }
+
         public async Task Edit(string itemId, string text)
         {
             var e = Event(itemId);

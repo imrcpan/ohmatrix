@@ -252,6 +252,12 @@ public sealed class AppController(
         });
     }
 
+    /// <summary>Pins a message of the open chat, or takes the pin away.</summary>
+    public Task SetMessagePinned(string itemId, bool pinned)
+    {
+        return chat is null ? Task.CompletedTask : chat.SetPinned(itemId, pinned);
+    }
+
     /// <summary>Removes one of my messages for everyone.</summary>
     public Task DeleteMessage(string itemId)
     {
