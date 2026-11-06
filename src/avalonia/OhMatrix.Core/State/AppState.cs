@@ -53,6 +53,9 @@ public sealed record AppState {
     /// <summary>Where the account stands with its encryption keys.</summary>
     public SecurityState Security { get; init; } = SecurityState.Unavailable;
 
+    /// <summary>The verification with another session on screen, or null.</summary>
+    public VerifyFlow? Verification { get; init; }
+
     /// <summary>The chat that is open, or null.</summary>
     public string? SelectedRoomId { get; init; }
 

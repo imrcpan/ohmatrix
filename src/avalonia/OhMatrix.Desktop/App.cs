@@ -22,7 +22,7 @@ public class App : Application {
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "OhMatrix"
             );
-            var (auth, rooms, chats, media, profiles, devices, links, security) =
+            var (auth, rooms, chats, media, profiles, devices, links, security, verification) =
                 Engines.Create(data);
             var controller = new AppController(
                 auth,
@@ -36,7 +36,8 @@ public class App : Application {
                 devices,
                 links,
                 security,
-                new DesktopNotifier(() => desktop.MainWindow?.IsActive == true)
+                new DesktopNotifier(() => desktop.MainWindow?.IsActive == true),
+                verification
             );
             var root = new AppRoot(
                 controller,

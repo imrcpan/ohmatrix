@@ -16,7 +16,8 @@ public sealed class AppController(
     IDevicesEngine? devices = null,
     ILinkPreviewEngine? links = null,
     ISecurityEngine? security = null,
-    INotifier? notifier = null
+    INotifier? notifier = null,
+    IVerificationEngine? verification = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -27,6 +28,7 @@ public sealed class AppController(
     // The engine tells of changes from its own threads; the store is changed on the thread the controller was made on (the UI thread).
     private readonly SynchronizationContext? context = SynchronizationContext.Current;
     private bool roomsHooked;
+    private bool verifyHooked;
     private IChatSession? chat;
     private int chatOpening;
 
@@ -252,6 +254,49 @@ public sealed class AppController(
     {
         await security!.RestoreWithRecoveryKey(key);
         await RefreshSecurity();
+    }
+
+    /// <summary>Asks my other sessions to verify this one; the progress is in <see cref="AppState.Verification"/>.</summary>
+    public async Task RequestVerification()
+    {
+        if (verification is null)
+            return;
+        Store.Update(s => s with {
+            Verification = new VerifyFlow(VerifyPhase.Requested, false)
+        });
+        try {
+            await verification.Request();
+        } catch (Exception) {
+            Store.Update(s => s with {
+                Verification = new VerifyFlow(VerifyPhase.Failed, false)
+            });
+        }
+    }
+
+    public Task AcceptVerification()
+    {
+        return Quietly(() => verification!.Accept());
+    }
+
+    /// <summary>Says whether the seven pictures matched.</summary>
+    public Task ConfirmVerification(bool match)
+    {
+        return Quietly(() => verification!.Confirm(match));
+    }
+
+    /// <summary>Stops the verification (when it is still going) and takes it off the screen; a finished one also refreshes the keys' state.</summary>
+    public async Task DismissVerification()
+    {
+        var flow = Store.Value.Verification;
+        if (flow is null)
+            return;
+        Store.Update(s => s with {
+            Verification = null
+        });
+        if (verification is not null && !flow.Ended)
+            await Quietly(() => verification.Cancel());
+        if (flow.Phase == VerifyPhase.Done)
+            await RefreshSecurity();
     }
 
     /// <summary>My sessions, this one first. Failures are <see cref="EngineException"/>.</summary>
@@ -672,10 +717,25 @@ public sealed class AppController(
         }
     }
 
+    private async Task ListenForVerification()
+    {
+        if (verification is null)
+            return;
+        if (!verifyHooked) {
+            verifyHooked = true;
+            verification.Changed += next => Post(() => Store.Update(s => s with {
+                Verification = VerifyFlow.After(s.Verification, next)
+            }));
+        }
+
+        await Quietly(verification.Listen);
+    }
+
     private void StartRooms()
     {
         _ = LoadProfile();
         _ = WatchSecurity();
+        _ = ListenForVerification();
         if (rooms is null)
             return;
         if (!roomsHooked) {
@@ -749,6 +809,7 @@ public sealed class AppController(
             SidebarPage = SidebarPage.Chats,
             SyncState = SyncState.Stopped,
             Security = SecurityState.Unavailable,
+            Verification = null,
             SelectedRoomId = null,
             Auth = AuthStatus.SignedOut,
             AuthError = error,
