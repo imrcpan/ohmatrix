@@ -189,6 +189,33 @@ public class MatrixDevicesEngineTests {
 }
 
 [Collection("homeserver")]
+public class MatrixSecurityEngineTests {
+    [Fact]
+    public async Task Tells_where_the_keys_of_the_account_stand()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-sec-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var security = new MatrixSecurityEngine(auth);
+        var state = SecurityState.Unavailable;
+        for (var i = 0; i < 10 && state == SecurityState.Unavailable; i++) {
+            state = await security.State();
+            await Task.Delay(500);
+        }
+
+        Assert.NotEqual(SecurityState.Unavailable, state);
+        var wrong = await Assert.ThrowsAnyAsync<Exception>(
+            () => security.RestoreWithRecoveryKey("not a recovery key")
+        );
+        Assert.NotNull(wrong);
+        await auth.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixProfileEngineTests {
     [Fact]
     public async Task Changes_the_display_name()

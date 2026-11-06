@@ -159,6 +159,24 @@ public class ChatPaneTests {
         }
     }
 
+    private sealed class Security : ISecurityEngine {
+        public SecurityState Current = SecurityState.NeedsRecovery;
+        public readonly List<string> Keys = [];
+
+        public Task<SecurityState> State() => Task.FromResult(Current);
+
+        public Task RestoreWithRecoveryKey(string key)
+        {
+            if (key != "EsTc good key")
+                throw new EngineException(EngineErrorCode.Forbidden, "Wrong recovery key");
+            Keys.Add(key);
+            Current = SecurityState.Ready;
+            return Task.CompletedTask;
+        }
+    }
+
+    private static readonly Security Keys = new();
+
     private sealed class Profiles : IProfileEngine {
         public Task<Profile> Load()
         {
@@ -440,7 +458,7 @@ public class ChatPaneTests {
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            new Media(), new Profiles(), Sessions);
+            new Media(), new Profiles(), Sessions, null, Keys);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -1254,6 +1272,48 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.False(controller.Store.Value.Prefs.OwnBubbleAccent);
         Assert.False(screen.SettingsScreen.AccentToggle.IsOn);
+    }
+
+    [AvaloniaFact]
+    public async Task The_encryption_page_unlocks_the_history_with_the_recovery_key()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        Keys.Current = SecurityState.NeedsRecovery;
+        await controller.RefreshSecurity();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SecurityState.NeedsRecovery, controller.Store.Value.Security);
+        controller.OpenSidebarPage(SidebarPage.Profile);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("Verify device",
+            screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+        controller.OpenSidebarPage(SidebarPage.Encryption);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.EncryptionScreen;
+        Assert.NotNull(page.RecoveryRow);
+        Save(window, "encryption");
+        page.AskRecoveryKey();
+        page.RecoveryPrompt.Fields[0].Text = "wrong";
+        page.RecoveryPrompt.Confirm();
+        await Task.Delay(50);
+        Assert.Equal("Wrong recovery key", page.RecoveryPrompt.ErrorText);
+        page.RecoveryPrompt.Fields[0].Text = "EsTc good key";
+        page.RecoveryPrompt.Confirm();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SecurityState.Ready, controller.Store.Value.Security);
+        Assert.Null(page.RecoveryRow);
+        Keys.Current = SecurityState.NeedsRecovery;
+    }
+
+    [Fact]
+    public void The_security_state_follows_what_the_sdk_says()
+    {
+        Assert.Equal(SecurityState.Unavailable, new RawSecurity("Unknown", null, false).State());
+        Assert.Equal(SecurityState.Ready, new RawSecurity("Enabled", true, true).State());
+        Assert.Equal(SecurityState.NeedsSetup, new RawSecurity("Disabled", true, false).State());
+        Assert.Equal(SecurityState.NeedsRecovery, new RawSecurity("Enabled", false, false).State());
+        Assert.Equal(SecurityState.NeedsRecovery, new RawSecurity("Disabled", false, true).State());
+        Assert.Equal(SecurityState.NeedsSetup, new RawSecurity("Disabled", false, false).State());
     }
 
     [AvaloniaFact]
