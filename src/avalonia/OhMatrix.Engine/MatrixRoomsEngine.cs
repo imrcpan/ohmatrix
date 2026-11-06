@@ -2,6 +2,7 @@
 using System.Threading.Channels;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using uniffi.matrix_sdk;
 using uniffi.matrix_sdk_ffi;
 
 namespace OhMatrix.Engine;
@@ -54,6 +55,40 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                     direct,
                     invite.Count == 0 ? null : [.. invite]
                 )
+            );
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    public async Task<RoomDetails> Details(string roomId)
+    {
+        try {
+            var room = Signed().GetRoom(roomId) ?? throw new EngineException(
+                EngineErrorCode.NotFound,
+                "No such chat."
+            );
+            var info = await room.RoomInfo();
+            var people = new List<RoomMemberInfo>();
+            using var members = await room.Members();
+            while (members.NextChunk(100) is { Length: > 0 } chunk) {
+                foreach (var m in chunk.Where(m => m.Membership is MembershipState.Join)) {
+                    people.Add(new RoomMemberInfo(
+                        m.UserId,
+                        m.DisplayName ?? m.UserId.TrimStart('@').Split(':')[0],
+                        m.AvatarUrl,
+                        m.SuggestedRoleForPowerLevel switch {
+                            RoomMemberRole.Administrator or RoomMemberRole.Creator => MemberRole.Admin,
+                            RoomMemberRole.Moderator => MemberRole.Moderator,
+                            _ => MemberRole.Member,
+                        }
+                    ));
+                }
+            }
+
+            return new RoomDetails(
+                string.IsNullOrWhiteSpace(info.Topic) ? null : info.Topic,
+                [.. people.OrderByDescending(p => p.Role).ThenBy(p => p.Name)]
             );
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);

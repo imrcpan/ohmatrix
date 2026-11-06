@@ -162,6 +162,15 @@ public class ChatPaneTests {
 
         public List<string> Actions = [];
 
+        public Task<RoomDetails> Details(string roomId)
+        {
+            return Task.FromResult(new RoomDetails("We plan the demo here.", [
+                new RoomMemberInfo("@me:s", "Mia Example", null, MemberRole.Admin),
+                new RoomMemberInfo("@alice:s", "Alice", null, MemberRole.Moderator),
+                new RoomMemberInfo("@bob:s", "Bob", null, MemberRole.Member),
+            ]));
+        }
+
         public Task AcceptInvite(string roomId) => Log("accept " + roomId);
         public Task DeclineInvite(string roomId) => Log("decline " + roomId);
         public Task SetPinned(string roomId, bool pinned) => Log($"pin {roomId} {pinned}");
@@ -673,6 +682,38 @@ public class ChatPaneTests {
         Assert.False(page.Zoom.Dialog.IsOpen);
         Assert.Equal(1.5, controller.Store.Value.Prefs.UiScale);
         Save(window, "zoom-kept");
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_lists_topic_and_members()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(3, controller.Store.Value.Details!.Members.Count);
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains("We plan the demo here.", texts);
+        Assert.Contains("Admin", texts);
+        Assert.Contains("Moderator", texts);
+        Save(window, "info-wide");
+        controller.OpenRoomInfo(false);
+        Dispatcher.UIThread.RunJobs();
+        Save(window, "info-closed");
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_covers_the_chat_in_a_narrow_window()
+    {
+        var (window, controller, _, _) = await Open("dark", 420);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Save(window, "info-narrow");
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)

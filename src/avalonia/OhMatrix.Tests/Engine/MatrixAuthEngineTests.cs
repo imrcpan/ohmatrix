@@ -111,6 +111,9 @@ public class MatrixRoomsEngineTests {
         Assert.True(found.Task.Result.LastActivityTs > 0);
 
         var id = found.Task.Result.Id;
+        var details = await rooms.Details(id);
+        Assert.Contains(details.Members, m => m.UserId.StartsWith("@test:"));
+        Assert.Equal(MemberRole.Admin, details.Members.First(m => m.UserId.StartsWith("@test:")).Role);
         var changed = new TaskCompletionSource();
         rooms.RoomsChanged += list => {
             if (list.FirstOrDefault(r => r.Id == id) is { Pinned: true, Muted: true })
