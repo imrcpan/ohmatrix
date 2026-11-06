@@ -28,6 +28,7 @@ public sealed class GstPeer : IPeer, IDisposable {
     private IntPtr remoteVideo;
     private IntPtr microphone;
     private IntPtr camera;
+    private IntPtr localVideo;
     private volatile bool closed;
     private readonly object frameGate = new();
 
@@ -68,9 +69,13 @@ public sealed class GstPeer : IPeer, IDisposable {
             + "rtpopuspay pt=111 ! application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! wb. "
             + (video
                 ? $"{sources.VideoSource} ! queue ! videoconvert ! videoscale ! "
-                  + "video/x-raw,width=640,height=480 ! valve name=cam ! "
+                  + "video/x-raw,width=640,height=480 ! valve name=cam ! tee name=lt ! queue ! "
                   + "vp8enc deadline=1 cpu-used=8 target-bitrate=800000 keyframe-max-dist=30 ! "
-                  + "rtpvp8pay pt=96 ! application/x-rtp,media=video,encoding-name=VP8,payload=96 ! wb."
+                  + "rtpvp8pay pt=96 ! application/x-rtp,media=video,encoding-name=VP8,payload=96 ! wb. "
+                  // My own picture, small, for the screen: the newest frame only, never held back.
+                  + "lt. ! queue leaky=downstream max-size-buffers=1 ! videoconvert ! videoscale ! "
+                  + "video/x-raw,format=BGRA,width=240,height=180 ! "
+                  + "appsink name=lv max-buffers=1 drop=true sync=false"
                 : "");
         pipeline = LibGst.gst_parse_launch(LibGst.Utf8(description), out var error);
         if (pipeline == IntPtr.Zero) {
@@ -82,8 +87,11 @@ public sealed class GstPeer : IPeer, IDisposable {
 
         webrtc = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("wb"));
         microphone = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("mic"));
-        if (video)
+        if (video) {
             camera = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("cam"));
+            localVideo = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("lv"));
+        }
+
         self = GCHandle.Alloc(this);
         var data = GCHandle.ToIntPtr(self);
         LibGst.Connect(webrtc, "on-ice-candidate",
@@ -332,33 +340,44 @@ public sealed class GstPeer : IPeer, IDisposable {
     }
 
     /// <summary>Hands the newest picture of the other side to <paramref name="copy"/> (the pixels, width, height), if there is one not taken yet.</summary>
-    public unsafe bool TryTakeFrame(Action<IntPtr, int, int> copy)
+    public bool TryTakeFrame(Action<IntPtr, int, int> copy)
     {
-        lock (frameGate) {
-            if (remoteVideo == IntPtr.Zero || closed)
-                return false;
-            var sample = LibGst.gst_app_sink_try_pull_sample(remoteVideo, 0);
-            if (sample == IntPtr.Zero)
+        lock (frameGate)
+            return Pull(remoteVideo, copy);
+    }
+
+    /// <summary>The same for my own camera.</summary>
+    public bool TryTakeLocalFrame(Action<IntPtr, int, int> copy)
+    {
+        lock (frameGate)
+            return Pull(localVideo, copy);
+    }
+
+    private unsafe bool Pull(IntPtr sink, Action<IntPtr, int, int> copy)
+    {
+        if (sink == IntPtr.Zero || closed)
+            return false;
+        var sample = LibGst.gst_app_sink_try_pull_sample(sink, 0);
+        if (sample == IntPtr.Zero)
+            return false;
+        try {
+            var caps = LibGst.gst_sample_get_caps(sample);
+            var structure = LibGst.gst_caps_get_structure(caps, 0);
+            LibGst.gst_structure_get_int(structure, LibGst.Utf8("width"), out var width);
+            LibGst.gst_structure_get_int(structure, LibGst.Utf8("height"), out var height);
+            var buffer = LibGst.gst_sample_get_buffer(sample);
+            var info = default(GstMapInfo);
+            if (LibGst.gst_buffer_map(buffer, &info, 1) == 0)
                 return false;
             try {
-                var caps = LibGst.gst_sample_get_caps(sample);
-                var structure = LibGst.gst_caps_get_structure(caps, 0);
-                LibGst.gst_structure_get_int(structure, LibGst.Utf8("width"), out var width);
-                LibGst.gst_structure_get_int(structure, LibGst.Utf8("height"), out var height);
-                var buffer = LibGst.gst_sample_get_buffer(sample);
-                var info = default(GstMapInfo);
-                if (LibGst.gst_buffer_map(buffer, &info, 1) == 0)
-                    return false;
-                try {
-                    copy((IntPtr)info.Data, width, height);
-                } finally {
-                    LibGst.gst_buffer_unmap(buffer, &info);
-                }
-
-                return true;
+                copy((IntPtr)info.Data, width, height);
             } finally {
-                LibGst.gst_mini_object_unref(sample);
+                LibGst.gst_buffer_unmap(buffer, &info);
             }
+
+            return true;
+        } finally {
+            LibGst.gst_mini_object_unref(sample);
         }
     }
 
@@ -379,6 +398,9 @@ public sealed class GstPeer : IPeer, IDisposable {
             if (remoteVideo != IntPtr.Zero)
                 LibGst.g_object_unref(remoteVideo);
             remoteVideo = IntPtr.Zero;
+            if (localVideo != IntPtr.Zero)
+                LibGst.g_object_unref(localVideo);
+            localVideo = IntPtr.Zero;
         }
 
         foreach (var element in new[] {

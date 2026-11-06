@@ -17,6 +17,11 @@ public sealed class GstCallPlatform(GstSources? sources = null) : ICallPlatform 
         return peer;
     }
 
+    public bool TakeLocalFrame(Action<IntPtr, int, int> copy)
+    {
+        return media.Current?.TryTakeLocalFrame(copy) == true;
+    }
+
     public bool TakeRemoteFrame(Action<IntPtr, int, int> copy)
     {
         return media.Current?.TryTakeFrame(copy) == true;

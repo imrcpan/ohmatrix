@@ -391,6 +391,12 @@ public sealed class AppController(
         return callPlatform?.TakeRemoteFrame(copy) == true;
     }
 
+    /// <summary>My own camera in a video call, small; see <see cref="ICallPlatform.TakeLocalFrame"/>.</summary>
+    public bool TakeLocalCallFrame(Action<IntPtr, int, int> copy)
+    {
+        return callPlatform?.TakeLocalFrame(copy) == true;
+    }
+
     public Task AnswerCall()
     {
         return Signalling().Answer(Store.Value.Call?.Video == true);
