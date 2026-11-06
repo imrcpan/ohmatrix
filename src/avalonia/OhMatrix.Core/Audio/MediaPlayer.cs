@@ -12,8 +12,8 @@ public enum PlayState {
 /// Plays one audio file (<c>useAudioPlayer</c> of the React Native app): play, pause, seek, and where it is. Only one plays at a time: starting
 /// a clip pauses the one that was playing.
 /// </summary>
-public sealed class AudioPlayer : IDisposable {
-    private static AudioPlayer? active;
+public sealed class MediaPlayer : IDisposable {
+    private static MediaPlayer? active;
     private IntPtr player;
     private bool opened;
 
@@ -22,9 +22,16 @@ public sealed class AudioPlayer : IDisposable {
 
     public string Path { get; }
 
-    public AudioPlayer(string path)
+    /// <summary>The frames of a clip with a picture, when it was made to show one.</summary>
+    public VideoOutput? Video { get; }
+
+    /// <param name="path">The file to play.</param>
+    /// <param name="video">Whether the picture is wanted: its frames are then in <see cref="Video"/>.</param>
+    public MediaPlayer(string path, bool video = false)
     {
         Path = path;
+        if (video)
+            Video = new VideoOutput();
     }
 
     public PlayState State {
@@ -65,13 +72,17 @@ public sealed class AudioPlayer : IDisposable {
         }
 
         if (player == IntPtr.Zero) {
-            var media = LibVlc.libvlc_media_new_path(LibVlc.Instance(), LibVlc.Utf8(Path));
+            var instance = Video is null ? LibVlc.Instance() : LibVlc.VideoInstance();
+            if (instance == IntPtr.Zero)
+                return false;
+            var media = LibVlc.libvlc_media_new_path(instance, LibVlc.Utf8(Path));
             if (media == IntPtr.Zero)
                 return false;
             player = LibVlc.libvlc_media_player_new_from_media(media);
             LibVlc.libvlc_media_release(media);
             if (player == IntPtr.Zero)
                 return false;
+            Video?.Attach(player);
         }
 
         if (!opened) {
@@ -104,5 +115,6 @@ public sealed class AudioPlayer : IDisposable {
         LibVlc.libvlc_media_player_stop(player);
         LibVlc.libvlc_media_player_release(player);
         player = IntPtr.Zero;
+        Video?.Dispose();
     }
 }

@@ -46,7 +46,7 @@ public class AudioCardTests {
             _ => Task.FromResult<string?>(path), () => opened++);
         Assert.Equal("play", card.Glyph);
         await card.Toggle();
-        if (!AudioPlayer.Available) {
+        if (!MediaPlayer.Available) {
             Assert.Equal(1, opened);
             return;
         }

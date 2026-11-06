@@ -18,6 +18,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <None Include="Assets/clip.mp4" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="../OhMatrix.Core/OhMatrix.Core.csproj" />
         <ProjectReference Include="../OhMatrix.Engine/OhMatrix.Engine.csproj" />
         <ProjectReference Include="../OhMatrix.Infra/OhMatrix.Infra.csproj" />

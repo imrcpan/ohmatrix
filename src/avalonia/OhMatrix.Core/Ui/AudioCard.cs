@@ -15,7 +15,7 @@ namespace OhMatrix.Core.Ui;
 /// chat is drawn again whenever it changes, so the players are kept by the message and the card finds its player again.
 /// </summary>
 public sealed class AudioCard : Grid {
-    private static readonly Dictionary<string, AudioPlayer> Players = new();
+    private static readonly Dictionary<string, MediaPlayer> Players = new();
 
     private readonly FileAttachment file;
     private readonly Func<FileAttachment, Task<string?>> fetch;
@@ -149,7 +149,7 @@ public sealed class AudioCard : Grid {
             return;
         }
 
-        if (!AudioPlayer.Available) {
+        if (!MediaPlayer.Available) {
             fallback();
             return;
         }
@@ -159,7 +159,7 @@ public sealed class AudioCard : Grid {
             var path = await fetch(file);
             if (path is null)
                 return;
-            var player = new AudioPlayer(path);
+            var player = new MediaPlayer(path);
             // Few clips are kept: the oldest one that is not playing goes.
             if (Players.Count >= 8 &&
                 Players.FirstOrDefault(p => p.Value.State != PlayState.Playing)

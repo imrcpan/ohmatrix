@@ -3,7 +3,7 @@ using Xunit;
 
 namespace OhMatrix.Tests.Audio;
 
-public class AudioPlayerTests {
+public class MediaPlayerTests {
     // Ten seconds of silence as a WAV file.
     private static string Silence()
     {
@@ -31,9 +31,9 @@ public class AudioPlayerTests {
     [Fact]
     public async Task Plays_pauses_seeks_and_ends()
     {
-        Assert.SkipUnless(AudioPlayer.Available, "libvlc is not installed");
+        Assert.SkipUnless(MediaPlayer.Available, "libvlc is not installed");
         var path = Silence();
-        using var player = new AudioPlayer(path);
+        using var player = new MediaPlayer(path);
         Assert.Equal(PlayState.Idle, player.State);
         Assert.True(player.Play());
         for (var i = 0; i < 40 && player.State != PlayState.Playing; i++)
@@ -54,12 +54,36 @@ public class AudioPlayerTests {
     }
 
     [Fact]
+    public async Task A_video_delivers_its_frames_to_the_output()
+    {
+        Assert.SkipUnless(MediaPlayer.Available, "libvlc is not installed");
+        using var player = new MediaPlayer(
+            Path.Combine(AppContext.BaseDirectory, "Assets", "clip.mp4"),
+            true
+        );
+        Assert.True(player.Play());
+        var seen = (Width: 0, Height: 0, Lit: false);
+        for (var i = 0; i < 100 && !seen.Lit; i++) {
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+            player.Video!.TryTakeFrame((data, w, h) => {
+                var bytes = new byte[w * h * 4];
+                System.Runtime.InteropServices.Marshal.Copy(data, bytes, 0, bytes.Length);
+                seen = (w, h, bytes.Any(b => b != 0));
+            });
+        }
+
+        Assert.Equal(160, seen.Width);
+        Assert.InRange(seen.Height, 100, 140);
+        Assert.True(seen.Lit, "the frame is all black");
+    }
+
+    [Fact]
     public async Task Starting_one_clip_pauses_the_other()
     {
-        Assert.SkipUnless(AudioPlayer.Available, "libvlc is not installed");
+        Assert.SkipUnless(MediaPlayer.Available, "libvlc is not installed");
         var path = Silence();
-        using var one = new AudioPlayer(path);
-        using var two = new AudioPlayer(path);
+        using var one = new MediaPlayer(path);
+        using var two = new MediaPlayer(path);
         one.Play();
         await Task.Delay(300, TestContext.Current.CancellationToken);
         two.Play();

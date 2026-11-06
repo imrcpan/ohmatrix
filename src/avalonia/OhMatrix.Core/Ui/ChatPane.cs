@@ -92,6 +92,7 @@ public sealed class ChatPane : Grid {
     private bool searching;
     private readonly Dialog deleteDialog = new();
     private readonly ImageViewer viewer = new();
+    private readonly VideoViewer video = new();
     private string? editingId;
     private readonly StackPanel composerStack = new();
     private readonly Border replyHost = new();
@@ -677,12 +678,19 @@ public sealed class ChatPane : Grid {
     }
 
     public ImageViewer Viewer => viewer;
+    public VideoViewer VideoScreen => video;
 
     /// <summary>Fetches the file of a message and opens it with the program of the system for it.</summary>
     private async void OpenFile(FileAttachment file)
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
+        // A video plays in the app where the system has a player library; otherwise (and for any other file) the system's program opens it.
+        if (file.Kind == FileKind.Video && Audio.MediaPlayer.Available) {
+            await video.Show(window, file, controller.DownloadFile);
+            return;
+        }
+
         try {
             var path = await controller.DownloadFile(file);
             if (path is null)

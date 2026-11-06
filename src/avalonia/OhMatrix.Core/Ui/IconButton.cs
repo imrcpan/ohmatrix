@@ -21,6 +21,12 @@ public sealed class IconButton : PressableButton {
         Avalonia.Automation.AutomationProperties.SetName(this, label);
     }
 
+    /// <summary>The icon shown; a play button that becomes a pause button changes it.</summary>
+    public string Glyph {
+        get => icon.Glyph;
+        set => icon.Glyph = value;
+    }
+
     /// <summary>The colour of the icon; null is the accent.</summary>
     public Color? Tint {
         get;
