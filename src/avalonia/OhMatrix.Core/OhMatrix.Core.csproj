@@ -11,6 +11,11 @@
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
 
+    <!-- The texts are the TOML files of src/i18n, shared with the React Native app. -->
+    <ItemGroup>
+        <EmbeddedResource Include="../../i18n/locales/*.toml" LogicalName="i18n/%(Filename)%(Extension)" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="12.1.5" />
     </ItemGroup>
