@@ -1,0 +1,4 @@
+# The settings of uniffi-bindgen-cs for the bindings of build-native.sh.
+[bindings.csharp]
+# The bindings are compiled into OhMatrix.MatrixSdk, and the app uses their types.
+access_modifier = "public"

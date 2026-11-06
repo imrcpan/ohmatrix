@@ -15,7 +15,10 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=sdk.sh
 source "$here/sdk.sh"
 
-# The generator for the uniffi the SDK uses (0.31): its own version, then the uniffi it is made for.
+# The generator for the uniffi the SDK uses (0.31): its own version, then the uniffi it is made for. Its templates are patched
+# (patches/uniffi-bindgen-cs-aot.patch) so that the bindings use no reflection and no delegate marshalling: a record, enum or error releases
+# what it holds by statements made from its types, and what Rust calls is an [UnmanagedCallersOnly] method taken by function pointer.
+BINDGEN_REPO=https://github.com/NordSecurity/uniffi-bindgen-cs
 BINDGEN_TAG='v0.11.1+v0.31.0'
 
 profile=reldev
@@ -61,17 +64,25 @@ target_dir=$profile
 [ "$profile" = dev ] && target_dir=debug
 cp "$sdk/target/$target_dir/$lib" "$out/$lib"
 
-# The generator, and the bindings. It reads the library, and has to run where the SDK's cargo workspace is (it asks cargo for the crates).
-bindgen="$work/bindgen/bin/uniffi-bindgen-cs"
-if [ ! -x "$bindgen" ]; then
-  cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag "$BINDGEN_TAG" --root "$work/bindgen"
+# The generator, patched, and the bindings. It reads the library, and has to run where the SDK's cargo workspace is (it asks cargo for the crates).
+gen="$work/uniffi-bindgen-cs"
+if [ ! -d "$gen/.git" ]; then
+  git init -q "$gen"
+  git -C "$gen" remote add origin "$BINDGEN_REPO"
 fi
+if [ "$(git -C "$gen" describe --tags --exact-match 2>/dev/null || true)" != "$BINDGEN_TAG" ]; then
+  git -C "$gen" fetch -q --depth 1 origin "refs/tags/$BINDGEN_TAG:refs/tags/$BINDGEN_TAG"
+  git -C "$gen" checkout -q --force "$BINDGEN_TAG"
+fi
+# The patch is on once; a checkout that has it is left alone.
+if ! grep -q "dispose_stmt" "$gen/bindgen/src/gen_cs/filters.rs"; then
+  git -C "$gen" apply "$here/patches/uniffi-bindgen-cs-aot.patch"
+fi
+(cd "$gen" && cargo build --release -p uniffi-bindgen-cs)
+bindgen="$gen/target/release/uniffi-bindgen-cs"
 rm -rf "$out/bindings"
 mkdir -p "$out/bindings"
-(cd "$sdk" && "$bindgen" --library "$sdk/target/$target_dir/$lib" --out-dir "$out/bindings" --no-format)
-
-# The generator names a type `Action` and then uses System.Action on the same line: the compiler takes the first for the second.
-sed -i 's/InvokeCallbackOnce(Action invoke)/InvokeCallbackOnce(System.Action invoke)/' "$out/bindings/matrix_sdk_ffi.cs"
+(cd "$sdk" && "$bindgen" --library "$sdk/target/$target_dir/$lib" --out-dir "$out/bindings" --no-format --config "$here/uniffi-cs.toml")
 
 echo "library:  $out/$lib"
 echo "bindings: $out/bindings ($(find "$out/bindings" -name '*.cs' | wc -l) files)"

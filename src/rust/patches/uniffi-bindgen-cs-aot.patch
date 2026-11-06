@@ -1,0 +1,423 @@
+diff --git a/bindgen/src/gen_cs/filters.rs b/bindgen/src/gen_cs/filters.rs
+index d8a56ef..072af40 100644
+--- a/bindgen/src/gen_cs/filters.rs
++++ b/bindgen/src/gen_cs/filters.rs
+@@ -257,3 +257,76 @@ pub(super) fn variant_discr_type_name(typ: &Type) -> Result<String, askama::Erro
+         _ => Err(askama::Error::Fmt),
+     }
+ }
++
++/// The C# statements that release what `expr` (of the given type) holds, decided here from the type and not at run time: nothing for a type
++/// that holds no object, `expr.Dispose()` for an object (or a record or enum that holds one), and a loop for a list, a map or an optional that
++/// holds one. `depth` makes the names of nested loop variables differ.
++pub(super) fn dispose_stmt(
++    type_: &Type,
++    expr: &str,
++    ci: &ComponentInterface,
++) -> Result<String, askama::Error> {
++    Ok(dispose_code(type_, expr, ci, 0))
++}
++
++/// `variant_value.Field`, with `Value` added when the field has the name of its variant (as `enum_field_name` of macros.cs does).
++pub(super) fn enum_field_access(
++    field_name: &str,
++    variant_class: &str,
++) -> Result<String, askama::Error> {
++    let suffix = if field_name == variant_class { "Value" } else { "" };
++    Ok(format!("variant_value.{field_name}{suffix}"))
++}
++
++fn dispose_code(type_: &Type, expr: &str, ci: &ComponentInterface, depth: usize) -> String {
++    if !ci.item_contains_object_references(type_) {
++        return String::new();
++    }
++    match type_ {
++        // An object, and a record, enum or error that holds one, is IDisposable.
++        Type::Object { .. }
++        | Type::Record { .. }
++        | Type::Enum { .. } => format!("{expr}?.Dispose();"),
++        Type::Optional { inner_type } => {
++            let inner = dispose_code(inner_type, expr, ci, depth);
++            // A nullable value type has to be unwrapped; a reference type is tested where it is used.
++            if inner.is_empty() {
++                inner
++            } else {
++                format!("if ({expr} is not null) {{ {inner} }}")
++            }
++        }
++        Type::Sequence { inner_type } => {
++            let v = format!("item{depth}");
++            let inner = dispose_code(inner_type, &v, ci, depth + 1);
++            format!("if ({expr} is not null) {{ foreach (var {v} in {expr}) {{ {inner} }} }}")
++        }
++        Type::Map { value_type, .. } => {
++            let v = format!("value{depth}");
++            let inner = dispose_code(value_type, &v, ci, depth + 1);
++            format!("if ({expr} is not null) {{ foreach (var {v} in {expr}.Values) {{ {inner} }} }}")
++        }
++        Type::Custom { builtin, .. } => dispose_code(builtin, expr, ci, depth),
++        _ => String::new(),
++    }
++}
++
++/// The types of a native callback as a C# function pointer lists them: its arguments (a call status as a pointer, which is what `ref` is on the
++/// native side), then the return type. For `delegate* unmanaged[Cdecl]<...>`.
++pub(super) fn unmanaged_fn_types(
++    callback: &FfiCallbackFunction,
++) -> Result<String, askama::Error> {
++    let mut types: Vec<String> = callback
++        .arguments()
++        .iter()
++        .map(|a| oracle().ffi_type_label(&a.type_(), true))
++        .collect();
++    if callback.has_rust_call_status_arg() {
++        types.push("UniffiRustCallStatus*".to_string());
++    }
++    types.push(match callback.return_type() {
++        Some(t) => oracle().ffi_type_label(t, true),
++        None => "void".to_string(),
++    });
++    Ok(types.join(", "))
++}
+diff --git a/bindgen/templates/Async.cs b/bindgen/templates/Async.cs
+index 106bc66..6132200 100644
+--- a/bindgen/templates/Async.cs
++++ b/bindgen/templates/Async.cs
+@@ -3,8 +3,6 @@
+ 
+ {% if self.include_once_check("ConcurrentHandleMap.cs") %}{% include "ConcurrentHandleMap.cs" %}{% endif %}
+ 
+-[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+-delegate void UniFfiFutureCallback(ulong continuationHandle, byte pollResult);
+ 
+ internal sealed class UniffiForeignFutureHandle : System.IDisposable {
+     internal CancellationTokenSource Cts { get; } = new CancellationTokenSource();
+@@ -22,7 +20,7 @@ internal sealed class UniffiForeignFutureHandle : System.IDisposable {
+ 
+     private bool _callbackInvoked = false;
+ 
+-    internal void InvokeCallbackOnce(Action invoke) {
++    internal void InvokeCallbackOnce(System.Action invoke) {
+         bool shouldInvoke;
+         lock (_lock) {
+             shouldInvoke = !_callbackInvoked;
+@@ -46,8 +44,7 @@ internal static class _UniFFIAsync {
+     // FFI type for Rust future continuations
+     internal class UniffiRustFutureContinuationCallback
+     {
+-        public static UniFfiFutureCallback callback = Callback;
+-
++        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+         public static void Callback(ulong continuationHandle, byte pollResult)
+         {
+             if (_async_handle_map.Remove(continuationHandle, out TaskCompletionSource<byte>? task))
+@@ -60,8 +57,7 @@ internal static class _UniFFIAsync {
+ 
+     public class UniffiForeignFutureDroppedCallbackImpl
+     {
+-        public static _UniFFILib.UniffiForeignFutureDroppedCallback callback = Callback;
+-
++        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+         public static void Callback(ulong handle)
+         {
+             if (_foreign_futures_map.Remove(handle, out UniffiForeignFutureHandle? futureHandle) && futureHandle is not null) {
+@@ -74,13 +70,19 @@ internal static class _UniFFIAsync {
+ 
+     public delegate void CompleteActionDelegate(ulong handle, ref UniffiRustCallStatus status);
+ 
++    // The address of the method Rust calls when a future can go on. An `unsafe` method cannot also be `async`, so it is taken here.
++    private static unsafe IntPtr ContinuationCallback()
++    {
++        return (IntPtr)(delegate* unmanaged[Cdecl]<ulong, byte, void>)&UniffiRustFutureContinuationCallback.Callback;
++    }
++
+     private static async Task PollFuture(ulong rustFuture, Action<ulong, IntPtr, ulong> pollFunc)
+     {
+         byte pollResult;
+         do
+         {
+             var tcs = new TaskCompletionSource<byte>(TaskCreationOptions.RunContinuationsAsynchronously);
+-            IntPtr callback = Marshal.GetFunctionPointerForDelegate(UniffiRustFutureContinuationCallback.callback);
++            IntPtr callback = ContinuationCallback();
+             ulong mapEntry = _async_handle_map.Insert(tcs);
+             pollFunc(rustFuture, callback, mapEntry);
+             pollResult = await tcs.Task;
+diff --git a/bindgen/templates/CallbackInterfaceImpl.cs b/bindgen/templates/CallbackInterfaceImpl.cs
+index e503e36..29afb40 100644
+--- a/bindgen/templates/CallbackInterfaceImpl.cs
++++ b/bindgen/templates/CallbackInterfaceImpl.cs
+@@ -1,6 +1,7 @@
+ class {{ callback_impl_name }} {
+     {%- for (ffi_callback, meth) in vtable_methods.iter() %}
+-    static {% call cs::ffi_return_type(ffi_callback) %} {{ meth.name()|fn_name }}({% call cs::arg_list_ffi_decl(ffi_callback) %}) {
++    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
++    static unsafe {% call cs::ffi_return_type(ffi_callback) %} {{ meth.name()|fn_name }}({% call cs::arg_list_ffi_decl_unmanaged(ffi_callback) %}) {
+         var handle = @uniffiHandle;
+         {%- if !meth.is_async() %}
+         try {
+@@ -27,24 +28,24 @@ class {{ callback_impl_name }} {
+             {%- when None %}
+             {%- endmatch %}
+ 
+-            _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
++            _uniffi_out_err->code = UniffiCallbackResponseStatus.SUCCESS;
+         }
+         {%- match meth.throws_type() %}
+         {%- when Some with (error_type) %}
+         catch ({{ error_type|type_name(ci) }} e) {
+             try {
+-                _uniffi_out_err.code = UniffiCallbackResponseStatus.ERROR;
+-                _uniffi_out_err.error_buf = {{ error_type|ffi_converter_name }}.INSTANCE.Lower(e);
++                _uniffi_out_err->code = UniffiCallbackResponseStatus.ERROR;
++                _uniffi_out_err->error_buf = {{ error_type|ffi_converter_name }}.INSTANCE.Lower(e);
+             } catch {
+-                _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
++                _uniffi_out_err->code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
+             }
+         }
+         {%- when None %}
+         {%- endmatch %}
+         catch (System.Exception e){
+-            _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
++            _uniffi_out_err->code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
+             try {
+-                _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
++                _uniffi_out_err->error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
+             }
+             catch {
+             }
+@@ -55,7 +56,7 @@ class {{ callback_impl_name }} {
+         var foreignHandle = _UniFFIAsync._foreign_futures_map.Insert(futureHandle);
+         unsafe {
+             (*(_UniFFILib.UniffiForeignFutureDroppedCallbackStruct*)@uniffiOutDroppedCallback).handle = foreignHandle;
+-            (*(_UniFFILib.UniffiForeignFutureDroppedCallbackStruct*)@uniffiOutDroppedCallback).free = Marshal.GetFunctionPointerForDelegate(_UniFFIAsync.UniffiForeignFutureDroppedCallbackImpl.callback);
++            (*(_UniFFILib.UniffiForeignFutureDroppedCallbackStruct*)@uniffiOutDroppedCallback).free = (IntPtr)(delegate* unmanaged[Cdecl]<ulong, void>)&_UniFFIAsync.UniffiForeignFutureDroppedCallbackImpl.Callback;
+         }
+         if (!{{ ffi_converter_var }}.handleMap.TryGet(handle, out var uniffiObject)) {
+             var ret = new _UniFFILib.{{ meth.foreign_future_ffi_result_struct().name()|ffi_struct_name }}();
+@@ -67,9 +68,9 @@ class {{ callback_impl_name }} {
+             {%- match meth.return_type() %}
+             {%- when Some with (return_type) %}
+             {%- let complete_fn_type = return_type|ffi_foreign_future_complete %}
+-            var earlyCb = Marshal.GetDelegateForFunctionPointer<_UniFFILib.{{ complete_fn_type }}>(@uniffiFutureCallback);
++            var earlyCb = (delegate* unmanaged[Cdecl]<ulong, _UniFFILib.{{ meth.foreign_future_ffi_result_struct().name()|ffi_struct_name }}, void>)@uniffiFutureCallback;
+             {%- when None %}
+-            var earlyCb = Marshal.GetDelegateForFunctionPointer<_UniFFILib.UniffiForeignFutureCompleteVoid>(@uniffiFutureCallback);
++            var earlyCb = (delegate* unmanaged[Cdecl]<ulong, _UniFFILib.{{ meth.foreign_future_ffi_result_struct().name()|ffi_struct_name }}, void>)@uniffiFutureCallback;
+             {%- endmatch %}
+             futureHandle.InvokeCallbackOnce(() => { earlyCb(@uniffiCallbackData, ret); });
+             futureHandle.Dispose();
+@@ -150,9 +151,9 @@ class {{ callback_impl_name }} {
+             {% match meth.return_type() %}
+             {%- when Some with (return_type) %}
+             {%- let complete_fn_type = return_type|ffi_foreign_future_complete %}
+-            var cb = Marshal.GetDelegateForFunctionPointer<_UniFFILib.{{ complete_fn_type }}>(@uniffiFutureCallback);
++            var cb = (delegate* unmanaged[Cdecl]<ulong, _UniFFILib.{{ meth.foreign_future_ffi_result_struct().name()|ffi_struct_name }}, void>)@uniffiFutureCallback;
+             {%- when None %}
+-            var cb = Marshal.GetDelegateForFunctionPointer<_UniFFILib.UniffiForeignFutureCompleteVoid>(@uniffiFutureCallback);
++            var cb = (delegate* unmanaged[Cdecl]<ulong, _UniFFILib.{{ meth.foreign_future_ffi_result_struct().name()|ffi_struct_name }}, void>)@uniffiFutureCallback;
+             {%- endmatch %}
+             futureHandle.InvokeCallbackOnce(() => {
+                 cb(@uniffiCallbackData, ret);
+@@ -165,10 +166,12 @@ class {{ callback_impl_name }} {
+     }
+     {%- endfor %}
+ 
++    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+     static void UniffiFree(ulong @handle) {
+         {{ ffi_converter_var }}.handleMap.Remove(@handle);
+     }
+ 
++    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+     static ulong UniffiClone(ulong @handle) {
+         try {
+             if (!{{ ffi_converter_var }}.handleMap.TryGet(@handle, out var obj)) {
+@@ -180,24 +183,18 @@ class {{ callback_impl_name }} {
+         }
+     }
+ 
+-    {%- for (ffi_callback, meth) in vtable_methods.iter() %}
+-    {%- let fn_type = format!("_UniFFILib.{}Method", callback_impl_name) %}
+-    static {{ fn_type }}{{ loop.index0 }} _m{{ loop.index0 }} = new {{ fn_type }}{{ loop.index0 }}({{ meth.name()|fn_name }});
+-    {%- endfor %}
+-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+ 
+     private static GCHandle? _vtablePin;
+ 
+-    public static void Register() {
++    public static unsafe void Register() {
+         if (_vtablePin.HasValue) return;
+         _UniFFILib.{{ vtable|ffi_type_name }} _vtable = new _UniFFILib.{{ vtable|ffi_type_name }} {
+             {%- for (ffi_callback, meth) in vtable_methods.iter() %}
+             {%- let fn_type = format!("_UniFFILib.{}Method", callback_impl_name) %}
+-            {{ meth.name()|var_name() }} = Marshal.GetFunctionPointerForDelegate(_m{{ loop.index0 }}),
++            {{ meth.name()|var_name() }} = (IntPtr)(delegate* unmanaged[Cdecl]<{{ ffi_callback|unmanaged_fn_types }}>)&{{ meth.name()|fn_name }},
+             {%- endfor %}
+-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
++            @uniffiFree = (IntPtr)(delegate* unmanaged[Cdecl]<ulong, void>)&UniffiFree,
++            @uniffiClone = (IntPtr)(delegate* unmanaged[Cdecl]<ulong, ulong>)&UniffiClone,
+         };
+ 
+         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
+diff --git a/bindgen/templates/EnumTemplate.cs b/bindgen/templates/EnumTemplate.cs
+index 3218791..88f6218 100644
+--- a/bindgen/templates/EnumTemplate.cs
++++ b/bindgen/templates/EnumTemplate.cs
+@@ -90,11 +90,12 @@ class {{ e|ffi_converter_name }}: FfiConverterRustBuffer<{{ type_name }}> {
+             {%- for variant in e.variants() %}
+             case {{ type_name }}.{{ variant.name()|class_name(ci) }} variant_value:
+                 {%- if variant.has_fields() %}
+-                FFIObjectUtil.DisposeAll(
+-                    {%- for field in variant.fields() %}
+-                    {%- let field_name = field.name()|or_pos_var(loop.index)|property_name %}
+-                    variant_value.{% call cs::enum_field_name(field_name, variant.name()|class_name(ci)) %}{% if !loop.last %},{% endif %}
+-                    {%- endfor %});
++                {%- for field in variant.fields() %}
++                {%- let field_name = field.name()|or_pos_var(loop.index)|property_name %}
++                {%- let variant_class = variant.name()|class_name(ci) %}
++                {%- let access = field_name|enum_field_access(variant_class) %}
++                {{ field.as_type().borrow()|dispose_stmt(access, ci) }}
++                {%- endfor %}
+                 {%- endif %}
+                 break;
+             {%- endfor %}
+diff --git a/bindgen/templates/ErrorTemplate.cs b/bindgen/templates/ErrorTemplate.cs
+index e4d9664..f4c4e41 100644
+--- a/bindgen/templates/ErrorTemplate.cs
++++ b/bindgen/templates/ErrorTemplate.cs
+@@ -122,11 +122,11 @@ class {{ ffi_converter_name }} : FfiConverterRustBuffer<{{ type_name }}>, CallSt
+             {%- for variant in e.variants() %}
+             case {{ type_name }}.{{ variant|error_variant_name }} variant_value:
+                 {%- if variant.has_fields() %}
+-                FFIObjectUtil.DisposeAll(
+-                    {%- for field in variant.fields() %}
+-                    {%- let field_name = field.name()|or_pos_var(loop.index)|var_name %}
+-                    variant_value.{{ field_name }}{% if !loop.last %},{% endif %}
+-                    {%- endfor %});
++                {%- for field in variant.fields() %}
++                {%- let field_name = field.name()|or_pos_var(loop.index)|var_name %}
++                {%- let access = "variant_value.{}"|format(field_name) %}
++                {{ field.as_type().borrow()|dispose_stmt(access, ci) }}
++                {%- endfor %}
+                 {%- endif %}
+                 break;
+             {%- endfor %}
+diff --git a/bindgen/templates/Helpers.cs b/bindgen/templates/Helpers.cs
+index 004ce17..d118261 100644
+--- a/bindgen/templates/Helpers.cs
++++ b/bindgen/templates/Helpers.cs
+@@ -130,58 +130,3 @@ class _UniffiHelpers {
+     }
+ }
+ 
+-static class FFIObjectUtil {
+-    public static void DisposeAll(params Object?[] list) {
+-        Dispose(list);
+-    }
+-
+-    // Dispose is implemented by recursive type inspection at runtime. This is because
+-    // generating correct Dispose calls for recursive complex types, e.g. List<List<int>>
+-    // is quite cumbersome.
+-   private static void Dispose(Object? obj) {
+-         if (obj == null) {
+-             return;
+-         }
+-
+-         if (obj is IDisposable disposable) {
+-             disposable.Dispose();
+-             return;
+-         }
+-
+-         var objType = obj.GetType();
+-         var typeCode = Type.GetTypeCode(objType);
+-         if (typeCode != TypeCode.Object) {
+-             return;
+-         }
+-
+-         var genericArguments = objType.GetGenericArguments();
+-         if (genericArguments.Length == 0 && !objType.IsArray) {
+-             return;
+-         }
+-
+-         if (obj is System.Collections.IDictionary objDictionary) {
+-             //This extra code tests to not call "Dispose" for a Dictionary<something, double>()
+-             //for all values as "double" and alike doesn't support interface "IDisposable"
+-             var valuesType = objType.GetGenericArguments()[1];
+-             var elementValuesTypeCode = Type.GetTypeCode(valuesType);
+-             if (elementValuesTypeCode != TypeCode.Object) {
+-                 return;
+-             }
+-             foreach (var value in objDictionary.Values) {
+-                 Dispose(value);
+-             }
+-         }
+-         else if (obj is System.Collections.IEnumerable listValues) {
+-             //This extra code tests to not call "Dispose" for a List<int>()
+-             //for all keys as "int" and alike doesn't support interface "IDisposable"
+-             var elementType = objType.IsArray ? objType.GetElementType() : genericArguments[0];
+-             var elementValuesTypeCode = Type.GetTypeCode(elementType);
+-             if (elementValuesTypeCode != TypeCode.Object) {
+-                 return;
+-             }
+-             foreach (var value in listValues) {
+-                 Dispose(value);
+-             }
+-         }
+-     }
+-}
+diff --git a/bindgen/templates/NamespaceLibraryTemplate.cs b/bindgen/templates/NamespaceLibraryTemplate.cs
+index a6548ad..e136010 100644
+--- a/bindgen/templates/NamespaceLibraryTemplate.cs
++++ b/bindgen/templates/NamespaceLibraryTemplate.cs
+@@ -10,11 +10,8 @@ static class _UniFFILib {
+ #endif
+     {%- for def in ci.ffi_definitions() %}
+     {%- match def %}
+-    {%- when FfiDefinition::CallbackFunction(callback) %}
+-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+-    public delegate {% call cs::ffi_return_type(callback) %} {{ callback.name()|ffi_callback_name }}(
+-        {% call cs::arg_list_ffi_decl(callback) %}
+-    );
++    {%- when FfiDefinition::CallbackFunction(_) %}
++    {# native callbacks are [UnmanagedCallersOnly] methods and function pointers: there is no delegate #}
+     {%- when FfiDefinition::Struct(ffi_struct) %}
+     [StructLayout(LayoutKind.Sequential)]
+     public struct {{ ffi_struct.name()|ffi_struct_name }}
+diff --git a/bindgen/templates/macros.cs b/bindgen/templates/macros.cs
+index 9a3f88e..c3cb8ca 100644
+--- a/bindgen/templates/macros.cs
++++ b/bindgen/templates/macros.cs
+@@ -155,6 +155,16 @@
+     {%- if func.has_rust_call_status_arg() %}ref UniffiRustCallStatus _uniffi_out_err{% endif %}
+ {%- endmacro -%}
+ 
++{#
++# The arguments of a method that native code calls ([UnmanagedCallersOnly]): the call status is a pointer, not `ref`.
++#}
++{%- macro arg_list_ffi_decl_unmanaged(func) %}
++    {%- for arg in func.arguments() %}
++        {{- arg.type_().borrow()|arg_type_name }} {{ arg.name()|var_name -}}{%- if !loop.last || func.has_rust_call_status_arg() -%},{%- endif -%}
++    {%- endfor %}
++    {%- if func.has_rust_call_status_arg() %}UniffiRustCallStatus* _uniffi_out_err{% endif %}
++{%- endmacro -%}
++
+ {%- macro ffi_return_type(func) %}
+     {%- match func.return_type() %}
+     {%- when Some(return_type) %}{{ return_type|ffi_type_name }}
+@@ -164,10 +174,10 @@
+ 
+ // Macro for destroying fields
+ {%- macro destroy_fields(member, prefix) %}
+-    FFIObjectUtil.DisposeAll(
+-        {%- for field in member.fields() %}
+-            {{ prefix }}.{{ field.name()|property_name }}{% if !loop.last %},{% endif %}
+-        {%- endfor %});
++    {%- for field in member.fields() %}
++    {%- let access = "{}.{}"|format(prefix, field.name()|property_name) %}
++    {{ field.as_type().borrow()|dispose_stmt(access, ci) }}
++    {%- endfor %}
+ {%- endmacro -%}
+ 
+ {%- macro method_throws_annotation(throwable_type) %}
