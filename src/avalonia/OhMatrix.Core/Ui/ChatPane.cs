@@ -49,6 +49,37 @@ public sealed class ChatPane : Grid {
         Width = 200,
     };
 
+    private readonly Grid body = new();
+    private Icon glass = new();
+
+    private readonly Border searchBar = new() {
+        Height = 52,
+        BorderThickness = new Thickness(0, 0, 0, 1),
+        Padding = new Thickness(12, 8),
+    };
+
+    private readonly TextBox searchInput = new() {
+        FontSize = 16,
+        FontFamily = Fonts.System,
+        BorderThickness = new Thickness(0),
+        Padding = new Thickness(0),
+        Background = Brushes.Transparent,
+        VerticalAlignment = VerticalAlignment.Center,
+        VerticalContentAlignment = VerticalAlignment.Center,
+        MinHeight = 0,
+    };
+
+    private readonly TextBlock searchCount = new() {
+        FontSize = 14,
+        FontFamily = Fonts.System,
+        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(8, 0),
+    };
+
+    private readonly Dictionary<string, Border> rowsById = [];
+    private List<string> matches = [];
+    private int current;
+    private bool searching;
     private readonly Dialog deleteDialog = new();
     private readonly ImageViewer viewer = new();
     private string? editingId;
@@ -101,10 +132,14 @@ public sealed class ChatPane : Grid {
         this.time = time ?? TimeProvider.System;
         RowDefinitions = new RowDefinitions("Auto,*,Auto");
         scroller.Content = list;
-        Grid.SetRow(scroller, 1);
+        Grid.SetRow(body, 1);
         Grid.SetRow(composer, 2);
         Children.Add(header);
-        Children.Add(scroller);
+        body.Children.Add(scroller);
+        searchBar.VerticalAlignment = VerticalAlignment.Top;
+        searchBar.IsVisible = false;
+        body.Children.Add(searchBar);
+        Children.Add(body);
         Children.Add(composer);
 
         var bar = new Grid {
@@ -126,6 +161,7 @@ public sealed class ChatPane : Grid {
         composerStack.Children.Add(bar);
         composer.Child = composerStack;
 
+        BuildSearchBar();
         send.PointerPressed += (_, e) => {
             e.Handled = true;
             Submit();
@@ -284,15 +320,21 @@ public sealed class ChatPane : Grid {
         }
 
         var bar = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto")
+            ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto")
         };
         bar.Children.Add(row);
+        var find = new IconButton("search", T("search.inChat"), 22) {
+            Tint = searching ? c.Accent : c.TextSecondary
+        };
+        find.Click += (_, _) => ToggleSearch();
+        Grid.SetColumn(find, 1);
+        bar.Children.Add(find);
         var info = new IconButton("info", T("chatInfo"), 24) {
             Margin = new Thickness(0, 0, 12, 0),
             Tint = s.RoomInfoOpen ? c.Accent : null,
         };
         info.Click += (_, _) => controller.OpenRoomInfo(!controller.Store.Value.RoomInfoOpen);
-        Grid.SetColumn(info, 1);
+        Grid.SetColumn(info, 2);
         bar.Children.Add(info);
         header.Child = bar;
     }
@@ -309,6 +351,7 @@ public sealed class ChatPane : Grid {
         var maxBubble = Math.Min(560, (width - 24) * 0.8);
         var now = time.GetUtcNow();
         list.Children.Clear();
+        rowsById.Clear();
         var items = s.Timeline;
         for (var i = 0; i < items.Count; i++) {
             var item = items[i];
@@ -353,10 +396,21 @@ public sealed class ChatPane : Grid {
             column.Children.Add(bubble);
             if (item.Reactions.Count > 0)
                 column.Children.Add(Chips(c, item, s.Prefs.OwnBubbleAccent));
-            list.Children.Add(column);
+            var frame = new Border {
+                Child = column,
+                CornerRadius = new CornerRadius(Radius.Bubble + 2),
+                BorderThickness = new Thickness(2),
+                BorderBrush = Brushes.Transparent,
+                HorizontalAlignment =
+                    item.IsOwn ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+            };
+            list.Children.Add(frame);
+            rowsById[item.Id] = frame;
         }
 
-        if (stickToBottom)
+        if (searching)
+            Search();
+        else if (stickToBottom)
             Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
     }
 
@@ -384,6 +438,127 @@ public sealed class ChatPane : Grid {
     }
 
     public Menu Actions => actions;
+
+    public bool Searching => searching;
+    public TextBox SearchInput => searchInput;
+
+    /// <summary>The ids of the lines that match the search, oldest first.</summary>
+    public IReadOnlyList<string> Matches => matches;
+
+    public int CurrentMatch => current;
+
+    private void BuildSearchBar()
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto,Auto")
+        };
+        glass = new Icon {
+            Glyph = "search",
+            Size = 18,
+            Margin = new Thickness(4, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        grid.Children.Add(glass);
+        Grid.SetColumn(searchInput, 1);
+        grid.Children.Add(searchInput);
+        Grid.SetColumn(searchCount, 2);
+        grid.Children.Add(searchCount);
+        var up = new IconButton("chevronDown", "Previous", 20, 32);
+        up.RenderTransform = new RotateTransform(180);
+        up.Click += (_, _) => Step(-1);
+        var down = new IconButton("chevronDown", "Next", 20, 32);
+        down.Click += (_, _) => Step(1);
+        var close = new IconButton("close", T("search.close"), 20, 32);
+        close.Click += (_, _) => ToggleSearch();
+        Grid.SetColumn(up, 3);
+        Grid.SetColumn(down, 4);
+        Grid.SetColumn(close, 5);
+        grid.Children.Add(up);
+        grid.Children.Add(down);
+        grid.Children.Add(close);
+        searchBar.Child = grid;
+        searchInput.PropertyChanged += (_, e) => {
+            if (e.Property == TextBox.TextProperty)
+                Search();
+        };
+        searchInput.KeyDown += (_, e) => {
+            if (e.Key == Key.Enter) {
+                Step(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
+                e.Handled = true;
+            } else if (e.Key == Key.Escape) {
+                ToggleSearch();
+                e.Handled = true;
+            }
+        };
+    }
+
+    /// <summary>Opens or closes the search bar. The search is among the messages loaded here, as it is for encrypted chats in the React Native app.</summary>
+    public void ToggleSearch()
+    {
+        searching = !searching;
+        searchBar.IsVisible = searching;
+        if (searching)
+            searchInput.Focus();
+        else
+            searchInput.Text = "";
+        Search();
+        BuildHeader(ThemeScope.GetColors(this), controller.Store.Value);
+    }
+
+    /// <summary>Finds the lines with the typed text (two characters at least) and shows the newest match.</summary>
+    public void Search()
+    {
+        var c = ThemeScope.GetColors(this);
+        searchBar.Background = new SolidColorBrush(c.Bg);
+        searchBar.BorderBrush = new SolidColorBrush(c.Separator);
+        searchInput.Foreground = new SolidColorBrush(c.Text);
+        searchInput.CaretBrush = new SolidColorBrush(c.Text);
+        searchInput.PlaceholderText = T("search.inChat");
+        searchInput.Resources["TextControlPlaceholderForeground"] =
+            new SolidColorBrush(c.TextSecondary);
+        searchInput.Resources["TextControlBackgroundFocused"] = Brushes.Transparent;
+        searchInput.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
+        searchCount.Foreground = new SolidColorBrush(c.TextSecondary);
+        glass.Color = new SolidColorBrush(c.TextSecondary);
+        var query = (searchInput.Text ?? "").Trim();
+        var all = controller.Store.Value.Timeline;
+        matches = !searching || query.Length < 2
+            ? []
+            : all.Where(i => i.Kind == TimelineKind.Message &&
+                             i.Body.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                .Select(i => i.Id)
+                .ToList();
+        current = matches.Count - 1;
+        searchCount.Text = query.Length < 2 ? "" :
+            matches.Count == 0 ? T("search.empty") : $"{current + 1}/{matches.Count}";
+        Mark();
+    }
+
+    private void Step(int direction)
+    {
+        if (matches.Count == 0)
+            return;
+        current = (current + direction + matches.Count) % matches.Count;
+        searchCount.Text = $"{current + 1}/{matches.Count}";
+        Mark();
+    }
+
+    // The matches get a ring; the one in view a stronger one, and it is brought into view.
+    private void Mark()
+    {
+        var c = ThemeScope.GetColors(this);
+        foreach (var (id, frame) in rowsById) {
+            var index = matches.IndexOf(id);
+            frame.BorderBrush = index < 0 ? Brushes.Transparent
+                : index == current ? new SolidColorBrush(c.Accent)
+                : new SolidColorBrush(c.MentionHighlight);
+        }
+
+        if (current >= 0 && current < matches.Count &&
+            rowsById.TryGetValue(matches[current], out var shown))
+            Dispatcher.UIThread.Post(() => shown.BringIntoView(), DispatcherPriority.Background);
+    }
+
     public ImageViewer Viewer => viewer;
 
     private void OpenViewer(TimelineItem item, Image shown)
