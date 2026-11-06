@@ -205,6 +205,18 @@ public class ChatPaneTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
+        {
+            IReadOnlyList<PersonInfo> all = [
+                new PersonInfo("@ann:s", "Ann Lee", null), new PersonInfo("@anna:s", "Anna K", null)
+            ];
+            return Task.FromResult<IReadOnlyList<PersonInfo>>(
+                [.. all.Where(p => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))]);
+        }
+
+        public Task InviteToRoom(string roomId, IReadOnlyList<string> userIds) =>
+            Log($"invite {roomId} {string.Join(",", userIds)}");
+
         private Task Log(string action)
         {
             Actions.Add(action);
@@ -500,6 +512,46 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
         Assert.False(prompt.Dialog.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task People_are_searched_and_chosen_for_a_new_chat_and_for_an_invitation()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        screen.List.OpenAddMenu();
+        var row = (Border)screen.List.AddMenu.Rows[0];
+        row.RaiseEvent(Release(row));
+        var picker = screen.List.People;
+        Assert.True(picker.Dialog.IsOpen);
+        Assert.True(picker.ConfirmButton.Disabled);
+        picker.Field.Text = "ann";
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["@ann:s", "@anna:s"], picker.Found);
+        picker.Toggle(new PersonInfo("@ann:s", "Ann Lee", null));
+        picker.Toggle(new PersonInfo("@anna:s", "Anna K", null));
+        Assert.Equal(["@anna:s"], picker.Chosen);
+        Save(window, "people-picker");
+        picker.ConfirmButton.RaiseClick();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("!made", controller.Store.Value.SelectedRoomId);
+        Assert.False(picker.Dialog.IsOpen);
+
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        panel.AskInvite(controller.Store.Value.Rooms.First(r => r.Id == "!g"));
+        panel.Invite.Field.Text = "@zed:s";
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["@zed:s"], panel.Invite.Found);
+        panel.Invite.Toggle(new PersonInfo("@zed:s", "zed", null));
+        panel.Invite.Toggle(new PersonInfo("@ann:s", "Ann Lee", null));
+        panel.Invite.ConfirmButton.RaiseClick();
+        await Task.Delay(50);
+        Assert.Contains("invite !g @zed:s,@ann:s", engine.Actions);
     }
 
     [AvaloniaFact]

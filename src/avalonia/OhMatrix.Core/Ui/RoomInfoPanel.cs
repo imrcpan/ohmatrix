@@ -23,6 +23,7 @@ public sealed class RoomInfoPanel : Grid {
     public RoomInfoPanel(AppController controller)
     {
         this.controller = controller;
+        Invite = new PeoplePicker(controller);
         RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(bar);
         var scroller = new ScrollViewer {
@@ -40,6 +41,8 @@ public sealed class RoomInfoPanel : Grid {
     public StackPanel Content => content;
     public PromptDialog EditPrompt { get; } = new();
     public Dialog LeaveDialog { get; } = new();
+    public PeoplePicker Invite { get; }
+    public TextButton? InviteButton { get; private set; }
     public TextButton? EditNameButton { get; private set; }
     public TextButton? EditTopicButton { get; private set; }
     public TextButton? LeaveButton { get; private set; }
@@ -64,6 +67,17 @@ public sealed class RoomInfoPanel : Grid {
             T("room.editTopic"), "", [new PromptField(T("room.editTopic"), "info", true)],
             T("save"), v => controller.SetRoomTopic(room.Id, v[0]));
         EditPrompt.Fields[0].Text = topic ?? "";
+    }
+
+    /// <summary>Opens the search for people to invite to the room.</summary>
+    public void AskInvite(RoomSummary room)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        Invite.Show(window, ThemeScope.GetColors(this), T("room.invite"), T("room.inviteBody"),
+            true,
+            n => n == 0 ? T("room.inviteNone") : T("room.inviteAction", ("n", n)),
+            ids => controller.InviteToRoom(room.Id, ids));
     }
 
     /// <summary>Asks whether to leave the chat.</summary>
@@ -198,6 +212,16 @@ public sealed class RoomInfoPanel : Grid {
                 ThemeScope.SetColors(EditTopicButton, c);
                 content.Children.Add(EditTopicButton);
             }
+        }
+
+        InviteButton = null;
+        if (!room.IsDirect) {
+            InviteButton = new TextButton {
+                Title = T("room.invite")
+            };
+            InviteButton.Click += (_, _) => AskInvite(room);
+            ThemeScope.SetColors(InviteButton, c);
+            content.Children.Add(InviteButton);
         }
 
         content.Children.Add(Section(c, T("membersTitle")));

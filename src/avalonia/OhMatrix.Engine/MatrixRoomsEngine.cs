@@ -110,6 +110,33 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.Leave());
     }
 
+    public async Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
+    {
+        try {
+            var found = await Signed().SearchUsers(term, 20);
+            return
+            [
+                .. found.Results.Select(u => new PersonInfo(
+                    u.UserId,
+                    string.IsNullOrWhiteSpace(u.DisplayName)
+                        ? u.UserId.TrimStart('@').Split(':')[0]
+                        : u.DisplayName,
+                    u.AvatarUrl
+                ))
+            ];
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    public Task InviteToRoom(string roomId, IReadOnlyList<string> userIds)
+    {
+        return Act(roomId, async room => {
+            foreach (var id in userIds)
+                await room.InviteUserById(id);
+        });
+    }
+
     public Task AcceptInvite(string roomId)
     {
         return Act(roomId, room => room.Join());
