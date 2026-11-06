@@ -35,6 +35,9 @@ public sealed record RoomSummary {
     /// <summary>Who sent the newest message (a display name); null for mine.</summary>
     public string? LastSender { get; init; }
 
+    /// <summary>The newest event is a line of the room ("Ann joined"), not a message: shown without a name before it.</summary>
+    public bool LastIsLine { get; init; }
+
     /// <summary>Milliseconds since the epoch of the latest activity; the list is ordered by it.</summary>
     public long LastActivityTs { get; init; }
 

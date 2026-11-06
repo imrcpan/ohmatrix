@@ -182,6 +182,8 @@ public sealed class RoomListPane : Grid {
             return t("noMessages", []);
         var body = string.Join(" ",
             room.LastMessage.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (room.LastIsLine)
+            return body;
         if (room.LastSender is null)
             return $"{t("you", [])}: {body}";
         return room.IsDirect ? body : $"{room.LastSender}: {body}";

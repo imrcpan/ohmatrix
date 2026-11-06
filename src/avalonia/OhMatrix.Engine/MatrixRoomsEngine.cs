@@ -494,7 +494,14 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                     Content.Kind: MsgLikeKind.Message m
                 })
                 text = m.Content.Body;
-            if (!remote.IsOwn) {
+            else
+                text = ServiceLines.For(
+                    remote.Content,
+                    remote.Profile is ProfileDetails.Ready { DisplayName: { } who }
+                        ? who
+                        : ServiceText.PersonName(null, remote.Sender)
+                );
+            if (!remote.IsOwn && remote.Content is TimelineItemContent.MsgLike) {
                 sender = remote.Profile is ProfileDetails.Ready { DisplayName: { } name }
                     ? name
                     : remote.Sender;
@@ -518,6 +525,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             HighlightCount = (int)info.NumUnreadMentions,
             LastMessage = text,
             LastSender = sender,
+            LastIsLine =
+ latest is LatestEventValue.Remote { Content: not TimelineItemContent.MsgLike },
             LastActivityTs = ts,
             PinnedEventIds = info.PinnedEventIds,
         };
