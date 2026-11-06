@@ -246,6 +246,74 @@ public class MatrixSecuritySetupTests {
 }
 
 [Collection("homeserver")]
+public class MatrixVerificationTests {
+    [Fact]
+    public async Task A_second_session_is_verified_by_the_first_with_the_pictures()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        string Dir() => Path.Combine(Path.GetTempPath(), "ohm-ver-" + Guid.NewGuid().ToString("N"));
+        var name = "ver" + Guid.NewGuid().ToString("N")[..10];
+        var first = new MatrixAuthEngine(Dir());
+        await first.Register(server!, name, "pw123456x", null);
+        var firstRooms = new MatrixRoomsEngine(first);
+        await firstRooms.StartSync();
+        // The first session has the keys of the account: it is the one the other is verified by.
+        await new MatrixSecurityEngine(first).SetUp("pw123456x");
+        var second = new MatrixAuthEngine(Dir());
+        await second.LoginWithPassword(server!, name, "pw123456x");
+        var secondRooms = new MatrixRoomsEngine(second);
+        await secondRooms.StartSync();
+
+        var a = new MatrixVerificationEngine(first);
+        var b = new MatrixVerificationEngine(second);
+        var aFlows = new System.Collections.Concurrent.ConcurrentQueue<VerifyFlow>();
+        var bFlows = new System.Collections.Concurrent.ConcurrentQueue<VerifyFlow>();
+        a.Changed += aFlows.Enqueue;
+        b.Changed += bFlows.Enqueue;
+        await a.Listen();
+        await b.Listen();
+
+        async Task<VerifyFlow> Wait(
+            System.Collections.Concurrent.ConcurrentQueue<VerifyFlow> flows,
+            VerifyPhase phase
+        )
+        {
+            for (var i = 0; i < 120; i++) {
+                if (flows.FirstOrDefault(f => f.Phase == phase) is { } found)
+                    return found;
+                await Task.Delay(500);
+            }
+
+            throw new Exception(
+                $"no {phase}; first saw " + string.Join(",", aFlows.Select(f => f.Phase))
+                + "; second saw " + string.Join(",", bFlows.Select(f => f.Phase))
+            );
+        }
+
+        await b.Request();
+        var request = await Wait(aFlows, VerifyPhase.Requested);
+        Assert.True(request.Incoming);
+        await a.Accept();
+        var shownA = await Wait(aFlows, VerifyPhase.Emojis);
+        var shownB = await Wait(bFlows, VerifyPhase.Emojis);
+        Assert.Equal(7, shownA.Emojis!.Count);
+        Assert.Equal(
+            shownA.Emojis.Select(e => e.Symbol),
+            shownB.Emojis!.Select(e => e.Symbol)
+        );
+        await a.Confirm(true);
+        await b.Confirm(true);
+        await Wait(aFlows, VerifyPhase.Done);
+        await Wait(bFlows, VerifyPhase.Done);
+        await firstRooms.StopSync();
+        await secondRooms.StopSync();
+        await first.Logout();
+        await second.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixSpaceEngineTests {
     [Fact]
     public async Task Lists_the_rooms_of_a_space()
