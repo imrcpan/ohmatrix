@@ -8,17 +8,38 @@ namespace OhMatrix.Desktop;
 /// notification area on Windows. The text is passed as arguments or environment variables, never as part of a script. A message of the chat that is
 /// open in the window the person is looking at is not announced.
 /// </summary>
-internal sealed class DesktopNotifier(Func<bool> windowActive) : INotifier {
+internal sealed class DesktopNotifier(Func<bool> windowActive, Action<string>? open = null)
+    : INotifier {
     public void Notify(Notification notification)
     {
         if (notification.RoomIsOpen && windowActive())
             return;
         try {
             var start = Make(notification.Title, notification.Body);
-            if (start is not null)
+            if (start is null)
+                return;
+            // On Linux the program waits for the notification to be closed and says which action was pressed: a press on it opens the chat.
+            if (open is not null && OperatingSystem.IsLinux())
+                _ = Await(start, notification.RoomId);
+            else
                 Process.Start(start)?.Dispose();
         } catch (Exception) {
             // No notification program: the message is in the chat list all the same.
+        }
+    }
+
+    private async Task Await(ProcessStartInfo start, string roomId)
+    {
+        try {
+            start.RedirectStandardOutput = true;
+            using var process = Process.Start(start);
+            if (process is null)
+                return;
+            var answer = await process.StandardOutput.ReadLineAsync();
+            if (answer?.Trim() == "default")
+                open!(roomId);
+        } catch (Exception) {
+            // No notification program, or it ended without an answer.
         }
     }
 
@@ -28,6 +49,8 @@ internal sealed class DesktopNotifier(Func<bool> windowActive) : INotifier {
         if (OperatingSystem.IsLinux()) {
             info = new ProcessStartInfo("notify-send");
             info.ArgumentList.Add("--app-name=OhMatrix");
+            info.ArgumentList.Add("--action=default=Open");
+            info.ArgumentList.Add("--wait");
             info.ArgumentList.Add("--");
             info.ArgumentList.Add(title);
             info.ArgumentList.Add(body);

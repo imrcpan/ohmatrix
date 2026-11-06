@@ -25,6 +25,7 @@ public class App : Application {
             var (auth, rooms, chats, media, profiles, devices, links, security, verification, calls
                     ) =
                 Engines.Create(data);
+            AppController? opened = null;
             var controller = new AppController(
                 auth,
                 new FileSessionStore(data),
@@ -37,12 +38,18 @@ public class App : Application {
                 devices,
                 links,
                 security,
-                new DesktopNotifier(() => desktop.MainWindow?.IsActive == true),
+                new DesktopNotifier(() => desktop.MainWindow?.IsActive == true, id => {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                        desktop.MainWindow?.Activate();
+                        opened?.SelectRoom(id);
+                    });
+                }),
                 verification,
                 calls,
                 new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
                 new OhMatrix.Core.Calls.VlcCallSounds()
             );
+            opened = controller;
             var root = new AppRoot(
                 controller,
                 "matrix.org",
