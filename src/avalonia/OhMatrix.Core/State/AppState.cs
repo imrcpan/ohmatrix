@@ -8,6 +8,7 @@ public enum SidebarPage {
     Chats,
     Profile,
     Theme,
+    Language,
 }
 
 public enum AuthStatus {

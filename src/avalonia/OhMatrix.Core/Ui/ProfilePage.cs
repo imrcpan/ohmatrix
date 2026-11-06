@@ -163,6 +163,8 @@ public sealed class ProfilePage : Grid {
 
         content.Children.Add(NavRow(c, "palette", T("theme"),
             () => controller.OpenSidebarPage(SidebarPage.Theme), 20));
+        content.Children.Add(NavRow(c, "globe", T("language"),
+            () => controller.OpenSidebarPage(SidebarPage.Language), 12));
         var row = new Border {
             Margin = new Thickness(12, 12, 12, 0),
             Padding = new Thickness(14, 0),

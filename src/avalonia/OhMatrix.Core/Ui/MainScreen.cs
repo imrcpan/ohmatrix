@@ -26,6 +26,7 @@ public sealed class MainScreen : Grid {
     private readonly Border detail = new();
     private readonly ProfilePage profilePage;
     private readonly ThemePage themePage;
+    private readonly LanguagePage languagePage;
     private readonly ChatPane narrowChat;
     private readonly ChatPane wideChat;
 
@@ -57,6 +58,7 @@ public sealed class MainScreen : Grid {
         wideChat = new ChatPane(controller);
         profilePage = new ProfilePage(controller);
         themePage = new ThemePage(controller);
+        languagePage = new LanguagePage(controller);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*");
         var row = new StackPanel {
@@ -86,6 +88,8 @@ public sealed class MainScreen : Grid {
 
     public ThemePage ThemeScreen => themePage;
 
+    public LanguagePage LanguageScreen => languagePage;
+
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
 
@@ -112,6 +116,7 @@ public sealed class MainScreen : Grid {
         listHost.Child = s.SidebarPage switch {
             SidebarPage.Profile => profilePage,
             SidebarPage.Theme => themePage,
+            SidebarPage.Language => languagePage,
             _ => list,
         };
         detail.Child = split && open ? wideChat : chip;

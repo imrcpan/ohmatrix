@@ -631,6 +631,30 @@ public class ChatPaneTests {
         Save(window, "image-loaded");
     }
 
+    [AvaloniaFact]
+    public async Task The_language_page_switches_the_interface_language()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Language);
+        Dispatcher.UIThread.RunJobs();
+        var rows = screen.LanguageScreen.Rows.Children;
+        Assert.Equal(OhMatrix.Core.I18n.Strings.Languages.Count, rows.Count);
+        Save(window, "languages");
+        var zh = OhMatrix.Core.I18n.Strings.Languages.ToList().FindIndex(l => l.Id == "zh-CN");
+        var press = (Control)rows[zh];
+        press.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
+            press, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), press,
+            new Avalonia.Point(10, 10), 0,
+            new Avalonia.Input.PointerPointProperties(
+                Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+            Avalonia.Input.KeyModifiers.None) {
+            RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent,
+        });
+        Assert.Equal("zh-CN", controller.Store.Value.Locale);
+        Save(window, "languages-zh");
+    }
+
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
     {
         return new Avalonia.Input.PointerReleasedEventArgs(
