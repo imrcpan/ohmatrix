@@ -15,7 +15,8 @@ public sealed class AppController(
     IProfileEngine? profiles = null,
     IDevicesEngine? devices = null,
     ILinkPreviewEngine? links = null,
-    ISecurityEngine? security = null
+    ISecurityEngine? security = null,
+    INotifier? notifier = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -654,15 +655,48 @@ public sealed class AppController(
             return;
         if (!roomsHooked) {
             roomsHooked = true;
-            rooms.RoomsChanged += list => Post(() => Store.Update(s => s with {
-                Rooms = Order(list)
-            }));
+            rooms.RoomsChanged += list => Post(() => {
+                var before = Store.Value.Rooms;
+                Store.Update(s => s with {
+                    Rooms = Order(list)
+                });
+                Announce(before, Store.Value.Rooms);
+            });
             rooms.SyncChanged += state => Post(() => Store.Update(s => s with {
                 SyncState = state
             }));
         }
 
         _ = Quietly(rooms.StartSync);
+    }
+
+    /// <summary>
+    /// Tells of the messages that came in since the list was last seen: a chat whose unread count went up, that is not muted. The first list (the
+    /// start-up) and a chat not known before are not announced.
+    /// </summary>
+    private void Announce(IReadOnlyList<RoomSummary> before, IReadOnlyList<RoomSummary> now)
+    {
+        var prefs = Store.Value.Prefs;
+        if (notifier is null || !prefs.Notifications || before.Count == 0)
+            return;
+        var known = before.ToDictionary(r => r.Id);
+        var locale = Store.Value.Locale;
+        foreach (var room in now) {
+            if (room.Muted || room.Invite || room.UnreadCount == 0
+                || !known.TryGetValue(room.Id, out var was) || room.UnreadCount <= was.UnreadCount)
+                continue;
+            var text = room.LastMessage is null
+                ? ""
+                : string.Join(" ",
+                    room.LastMessage.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            var body = !prefs.NotificationPreview || text.Length == 0
+                ? I18n.Strings.T(locale, "notif.new")
+                : room.LastSender is { Length: > 0 } who && !room.IsDirect
+                    ? $"{who}: {text}"
+                    : text;
+            notifier.Notify(new Notification(room.Id, room.Name, body,
+                Store.Value.SelectedRoomId == room.Id));
+        }
     }
 
     private void Post(Action change)

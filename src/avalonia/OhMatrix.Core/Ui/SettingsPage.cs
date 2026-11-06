@@ -50,6 +50,12 @@ public sealed class SettingsPage : Grid {
     /// <summary>The switch that puts my messages in the accent colour.</summary>
     public Toggle AccentToggle { get; } = new();
 
+    /// <summary>The switch for notifications of new messages.</summary>
+    public Toggle NotificationsToggle { get; } = new();
+
+    /// <summary>The switch for showing the text of a message in its notification.</summary>
+    public Toggle PreviewToggle { get; } = new();
+
     public Dialog Confirm => confirm;
     public ZoomPicker Zoom => zoom;
     public Control ZoomRow => zoomAnchor;
@@ -109,6 +115,27 @@ public sealed class SettingsPage : Grid {
             () => controller.OpenSidebarPage(SidebarPage.Profile));
         content.Children.Clear();
 
+        Group(c, T("notifications"));
+        content.Children.Add(ToggleRow(c, T("notif.messages"), NotificationsToggle,
+            s.Prefs.Notifications, on => controller.SetPreferences(p => p with {
+                Notifications = on
+            }), 6));
+        if (s.Prefs.Notifications) {
+            content.Children.Add(ToggleRow(c, T("notif.preview"), PreviewToggle,
+                s.Prefs.NotificationPreview, on => controller.SetPreferences(p => p with {
+                    NotificationPreview = on
+                }), 12));
+        }
+
+        content.Children.Add(new TextBlock {
+            Text = T("notif.footer.default"),
+            FontSize = 13,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(26, 6, 20, 0),
+        });
+
         Group(c, T("appearance"));
         var language = Strings.Languages.FirstOrDefault(l => l.Id == s.Locale)
                        ?? Strings.Languages[0];
@@ -123,7 +150,10 @@ public sealed class SettingsPage : Grid {
             : Themes.Get(s.Prefs.Theme)?.LabelFor(s.Locale) ?? s.Prefs.Theme;
         content.Children.Add(ProfilePage.NavRow(c, "palette", T("theme"),
             () => controller.OpenSidebarPage(SidebarPage.Theme), 12, themeName));
-        content.Children.Add(ToggleRow(c, T("ownAccent"), AccentToggle, s.Prefs.OwnBubbleAccent));
+        content.Children.Add(ToggleRow(c, T("ownAccent"), AccentToggle, s.Prefs.OwnBubbleAccent,
+            on => controller.SetPreferences(p => p with {
+                OwnBubbleAccent = on
+            }), 12));
 
         Group(c, T("account"));
         content.Children.Add(ProfilePage.NavRow(c, "device", T("sessions"),
@@ -166,13 +196,17 @@ public sealed class SettingsPage : Grid {
     public static string Version =>
         typeof(SettingsPage).Assembly.GetName().Version?.ToString(3) ?? "dev";
 
-    private Control ToggleRow(ColorTokens c, string label, Toggle toggle, bool on)
+    private readonly Dictionary<Toggle, Action<bool>> toggled = [];
+
+    private Control ToggleRow(ColorTokens c, string label, Toggle toggle, bool on,
+        Action<bool> change, double top)
     {
         toggle.IsOn = on;
         toggle.VerticalAlignment = VerticalAlignment.Center;
         Avalonia.Automation.AutomationProperties.SetName(toggle, label);
-        toggle.Changed -= OnAccentChanged;
-        toggle.Changed += OnAccentChanged;
+        if (!toggled.ContainsKey(toggle))
+            toggle.Changed += v => toggled[toggle](v);
+        toggled[toggle] = change;
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
@@ -188,19 +222,12 @@ public sealed class SettingsPage : Grid {
             old.Children.Remove(toggle);
         grid.Children.Add(toggle);
         return new Border {
-            Margin = new Thickness(12, 12, 12, 0),
+            Margin = new Thickness(12, top, 12, 0),
             Padding = new Thickness(14, 0),
             Height = 48,
             CornerRadius = new CornerRadius(Radius.Control),
             Background = new SolidColorBrush(c.BgSecondary),
             Child = grid,
         };
-    }
-
-    private void OnAccentChanged(bool on)
-    {
-        controller.SetPreferences(p => p with {
-            OwnBubbleAccent = on
-        });
     }
 }

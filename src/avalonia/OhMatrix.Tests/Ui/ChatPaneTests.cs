@@ -1274,6 +1274,59 @@ public class ChatPaneTests {
         Assert.False(screen.SettingsScreen.AccentToggle.IsOn);
     }
 
+    private sealed class Notes : INotifier {
+        public readonly List<Notification> Sent = [];
+
+        public void Notify(Notification notification) => Sent.Add(notification);
+    }
+
+    [AvaloniaFact]
+    public async Task New_unread_messages_are_announced_except_at_start_up_when_muted_or_off()
+    {
+        var engine = new Engine();
+        var notes = new Notes();
+        var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
+            new Media(), new Profiles(), Sessions, null, Keys, notes);
+        controller.SetPreferences(p => p with {
+            Locale = "en",
+            Notifications = true
+        });
+        await controller.Login("matrix.org", "me", "pw");
+
+        RoomSummary Room(string id, int unread, string text, bool muted = false) => new() {
+            Id = id,
+            Name = "Room " + id,
+            UnreadCount = unread,
+            LastMessage = text,
+            LastSender = "Ann",
+            LastActivityTs = Now,
+            Muted = muted,
+        };
+
+        engine.Push(Room("!a", 1, "first"), Room("!b", 0, "x"), Room("!m", 0, "x", true));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(notes.Sent);
+        engine.Push(Room("!a", 2, "hello   there"), Room("!b", 0, "x"), Room("!m", 3, "loud", true),
+            Room("!new", 4, "unknown before"));
+        Dispatcher.UIThread.RunJobs();
+        var one = Assert.Single(notes.Sent);
+        Assert.Equal(("!a", "Room !a", "Ann: hello there"), (one.RoomId, one.Title, one.Body));
+        controller.SetPreferences(p => p with {
+            NotificationPreview = false
+        });
+        engine.Push(Room("!a", 3, "secret"), Room("!b", 0, "x"), Room("!m", 3, "loud", true),
+            Room("!new", 4, "unknown before"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("New message", notes.Sent[1].Body);
+        controller.SetPreferences(p => p with {
+            Notifications = false
+        });
+        engine.Push(Room("!a", 4, "more"), Room("!b", 0, "x"), Room("!m", 3, "loud", true),
+            Room("!new", 4, "unknown before"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(2, notes.Sent.Count);
+    }
+
     [AvaloniaFact]
     public async Task The_encryption_page_unlocks_the_history_with_the_recovery_key()
     {
