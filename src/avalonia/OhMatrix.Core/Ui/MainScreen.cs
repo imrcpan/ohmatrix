@@ -7,41 +7,91 @@ using OhMatrix.Core.State;
 
 namespace OhMatrix.Core.Ui;
 
-/// <summary>The page of a signed-in account. It holds only who is signed in and the way out until the chat screens are ported.</summary>
+/// <summary>
+/// The page of a signed-in account (<c>MainScreen</c>): from <see cref="SplitBreakpoint"/> wide, the chat list beside the open chat with a divider
+/// between them; narrower, the list alone (the chat will slide over it). Until the chat pane is ported the right side says to select a chat.
+/// </summary>
 public sealed class MainScreen : Grid {
-    private readonly AppController controller;
+    /// <summary>The width at which the single column becomes two panes.</summary>
+    public const double SplitBreakpoint = 760;
 
-    private readonly TextBlock who = new() {
-        FontSize = 18,
-        FontWeight = FontWeight.SemiBold,
-        FontFamily = Fonts.System,
-        TextAlignment = TextAlignment.Center,
+    private readonly AppController controller;
+    private readonly RoomListPane list;
+    private readonly Border listHost = new();
+
+    private readonly Border divider = new() {
+        Width = 1
     };
 
-    private readonly TextButton signOut = new();
+    private readonly Border detail = new();
+
+    private readonly Border chip = new() {
+        CornerRadius = new CornerRadius(999),
+        Padding = new Thickness(14, 6),
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly TextBlock chipText = new() {
+        FontSize = 14,
+        FontWeight = FontWeight.Medium,
+        FontFamily = Fonts.System,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly Icon chipIcon = new() {
+        Glyph = "chat",
+        Size = 16,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
 
     public MainScreen(AppController controller)
     {
         this.controller = controller;
-        var column = new StackPanel {
-            Spacing = 16,
-            MaxWidth = 380,
-            VerticalAlignment = VerticalAlignment.Center,
+        list = new RoomListPane(controller);
+        listHost.Child = list;
+        ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*");
+        var row = new StackPanel {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8
         };
-        column.Children.Add(who);
-        column.Children.Add(signOut);
-        Children.Add(column);
-        signOut.Click += (_, _) => _ = controller.Logout();
+        row.Children.Add(chipIcon);
+        row.Children.Add(chipText);
+        chip.Child = row;
+        detail.Child = chip;
+        Grid.SetColumn(divider, 1);
+        Grid.SetColumn(detail, 2);
+        Children.Add(listHost);
+        Children.Add(divider);
+        Children.Add(detail);
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) => s.Apply());
+        SizeChanged += (_, _) => Apply();
         Apply();
+    }
+
+    public RoomListPane List => list;
+
+    /// <summary>The width of the chat list in the two-pane layout: a third of the window, between 280 and 420.</summary>
+    public static double AutoSidebar(double width)
+    {
+        return Math.Clamp(Math.Round(width * 0.3), 280, 420);
     }
 
     private void Apply()
     {
+        var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
-        who.Text = s.UserId ?? "";
-        who.Foreground = new SolidColorBrush(ThemeScope.GetColors(this).Text);
-        signOut.Title = Strings.T(s.Locale, "signOut");
+        var split = Bounds.Width >= SplitBreakpoint;
+        Background = new SolidColorBrush(c.Bg);
+        divider.Background = new SolidColorBrush(c.Separator);
+        divider.IsVisible = split;
+        detail.IsVisible = split;
+        listHost.Width = split ? AutoSidebar(Bounds.Width) : Bounds.Width;
+        detail.Background = new SolidColorBrush(c.ChatBg);
+        chip.Background = new SolidColorBrush(c.ServiceChip);
+        chipText.Foreground = new SolidColorBrush(c.ServiceChipText);
+        chipIcon.Color = new SolidColorBrush(c.ServiceChipText);
+        chipText.Text = Strings.T(s.Locale, "selectChat");
     }
 }

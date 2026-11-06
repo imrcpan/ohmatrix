@@ -1,5 +1,6 @@
 #if OHMATRIX_NATIVE_SDK
 using OhMatrix.Core.Model;
+using OhMatrix.Core.State;
 using OhMatrix.Engine;
 using Xunit;
 
@@ -68,6 +69,48 @@ public class MatrixAuthEngineTests {
             new MatrixAuthEngine(Data()).Register(server, name, "pw-12345678", null)
         );
         Assert.Equal(EngineErrorCode.Conflict, e.Code);
+    }
+}
+
+public class MatrixRoomsEngineTests {
+    [Fact]
+    public async Task Syncs_and_lists_the_rooms()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-rooms-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var rooms = new MatrixRoomsEngine(auth);
+        var syncing = new TaskCompletionSource();
+        var listed = new TaskCompletionSource<IReadOnlyList<RoomSummary>>();
+        rooms.SyncChanged += s => {
+            if (s == SyncState.Syncing)
+                syncing.TrySetResult();
+        };
+        rooms.RoomsChanged += list => listed.TrySetResult(list);
+        var name = "Room " + Guid.NewGuid().ToString("N")[..8];
+        var found = new TaskCompletionSource<RoomSummary>();
+        rooms.RoomsChanged += list => {
+            if (list.FirstOrDefault(r => r.Name == name && r.LastActivityTs > 0) is { } room)
+                found.TrySetResult(room);
+        };
+        await rooms.StartSync();
+        Assert.Same(syncing.Task, await Task.WhenAny(syncing.Task, Task.Delay(30000)));
+        await auth.Client!.CreateRoom(
+            new uniffi.matrix_sdk_ffi.CreateRoomParameters(
+                name,
+                false,
+                new uniffi.matrix_sdk_ffi.RoomVisibility.Private(),
+                uniffi.matrix_sdk_ffi.RoomPreset.PrivateChat
+            )
+        );
+        Assert.Same(found.Task, await Task.WhenAny(found.Task, Task.Delay(30000)));
+        Assert.False(found.Task.Result.Invite);
+        Assert.True(found.Task.Result.LastActivityTs > 0);
+        await rooms.StopSync();
+        await auth.Logout();
     }
 }
 #endif
