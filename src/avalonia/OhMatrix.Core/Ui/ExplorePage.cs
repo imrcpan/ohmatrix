@@ -19,6 +19,8 @@ public sealed class ExplorePage : Grid {
     private readonly Border bar = new();
     private readonly SearchField search = new();
     private readonly StackPanel rows = new();
+    private readonly WrapPanel servers = new();
+    private string? chosen;
     private readonly PromptDialog confirm = new();
     private IReadOnlyList<PublicRoom> found = [];
     private bool loading;
@@ -28,7 +30,7 @@ public sealed class ExplorePage : Grid {
     public ExplorePage(AppController controller)
     {
         this.controller = controller;
-        RowDefinitions = new RowDefinitions("Auto,Auto,*");
+        RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*");
         Children.Add(bar);
         search.Margin = new Thickness(12, 8);
         Grid.SetRow(search, 1);
@@ -38,7 +40,10 @@ public sealed class ExplorePage : Grid {
             HorizontalScrollBarVisibility =
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
-        Grid.SetRow(scroller, 2);
+        Grid.SetRow(scroller, 3);
+        servers.Margin = new Thickness(12, 0, 12, 6);
+        Grid.SetRow(servers, 2);
+        Children.Add(servers);
         Children.Add(scroller);
         search.TextChanged += (_, _) => _ = Load();
         controller.Store.Changed += _ => Apply();
@@ -49,6 +54,55 @@ public sealed class ExplorePage : Grid {
     public SearchField Field => search;
     public PromptDialog Confirm => confirm;
     public StackPanel Rows => rows;
+    public PromptDialog AddPrompt { get; } = new();
+
+    /// <summary>The servers whose directory can be asked: matrix.org first, then the homeserver itself (null stands for it), then those added.</summary>
+    public IReadOnlyList<(string? Server, string Name)> Servers()
+    {
+        var s = controller.Store.Value;
+        var own = s.UserId?.Split(':', 2) is { Length: 2 } parts ? parts[1] : s.Homeserver ?? "";
+        var list = new List<(string?, string)>();
+        if (own != "matrix.org")
+            list.Add(("matrix.org", "matrix.org"));
+        list.Add((null, own));
+        foreach (var extra in s.Prefs.ExploreServers) {
+            if (list.All(x => x.Item2 != extra))
+                list.Add((extra, extra));
+        }
+
+        return list;
+    }
+
+    /// <summary>The server whose directory is shown (null: the homeserver's own).</summary>
+    public string? Server =>
+        chosen is null ? Servers()[0].Server : chosen.Length == 0 ? null : chosen;
+
+    /// <summary>Shows the directory of another server.</summary>
+    public void ChooseServer(string? server)
+    {
+        chosen = server ?? "";
+        _ = Load();
+    }
+
+    /// <summary>Asks for the name of a server to add to the list.</summary>
+    public void AskAddServer()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        AddPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("explore.add.title"), T("explore.add.body"),
+            [new PromptField(T("explore.add.server"), "globe")], T("explore.add"), v => {
+                var name = ServerName.Parse(v[0]);
+                if (name is null)
+                    throw new InvalidOperationException(T("explore.add.invalid"));
+                if (Servers().All(x => x.Name != name))
+                    controller.SetPreferences(p => p with {
+                        ExploreServers = [.. p.ExploreServers, name]
+                    });
+                ChooseServer(name);
+                return Task.CompletedTask;
+            });
+    }
 
     /// <summary>The names of the rooms shown.</summary>
     public IReadOnlyList<string> Names => found.Select(r => r.Name).ToList();
@@ -66,7 +120,7 @@ public sealed class ExplorePage : Grid {
         Apply();
         IReadOnlyList<PublicRoom> result = [];
         try {
-            result = await controller.SearchPublicRooms(search.Text.Trim());
+            result = await controller.SearchPublicRooms(search.Text.Trim(), Server);
         } catch (Exception) {
             // The list stays empty; searching again tries again.
         }
@@ -109,6 +163,7 @@ public sealed class ExplorePage : Grid {
         ThemeScope.SetColors(search, c);
         PageBar.Fill(bar, c, T("explore"), T("chats"),
             () => controller.OpenSidebarPage(SidebarPage.Chats));
+        BuildServers(c);
         rows.Children.Clear();
         if (loading) {
             rows.Children.Add(new Spinner {
@@ -133,6 +188,40 @@ public sealed class ExplorePage : Grid {
 
         foreach (var room in found)
             rows.Children.Add(Row(c, room, s.Rooms.Any(r => r.Id == room.RoomId)));
+    }
+
+    private void BuildServers(ColorTokens c)
+    {
+        servers.Children.Clear();
+        var current = Server;
+        foreach (var (server, name) in Servers()) {
+            servers.Children.Add(Chip(c, name, server == current, () => ChooseServer(server)));
+        }
+
+        servers.Children.Add(Chip(c, "+ " + T("explore.add"), false, AskAddServer));
+    }
+
+    private static Border Chip(ColorTokens c, string text, bool on, Action press)
+    {
+        var chip = new Border {
+            Margin = new Thickness(0, 0, 6, 6),
+            Padding = new Thickness(12, 5),
+            CornerRadius = new CornerRadius(100),
+            Background = new SolidColorBrush(on ? c.Accent : c.BgSecondary),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = new TextBlock {
+                Text = text,
+                FontSize = 14,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(on ? c.OnAccent : c.Text),
+            },
+        };
+        chip.PointerPressed += (_, e) => {
+            e.Handled = true;
+            press();
+        };
+        Avalonia.Automation.AutomationProperties.SetName(chip, text);
+        return chip;
     }
 
     private Control Row(ColorTokens c, PublicRoom room, bool joined)
