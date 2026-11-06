@@ -30,6 +30,14 @@ public sealed record AppState {
     /// </summary>
     public ZoomTrial? ZoomTrial { get; init; }
 
+    /// <summary>The chat list, in the order it is shown: pinned first, then the latest activity first.</summary>
+    public IReadOnlyList<RoomSummary> Rooms { get; init; } = [];
+
+    public SyncState SyncState { get; init; } = SyncState.Stopped;
+
+    /// <summary>The chat that is open, or null.</summary>
+    public string? SelectedRoomId { get; init; }
+
     /// <summary>The language the screens speak: the one chosen, else the one of the system.</summary>
     public string Locale => Strings.IsLocale(Prefs.Locale)
         ? Prefs.Locale!
