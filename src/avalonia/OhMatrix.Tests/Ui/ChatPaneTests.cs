@@ -56,6 +56,13 @@ public class ChatPaneTests {
         }
     }
 
+    private sealed class Profiles : IProfileEngine {
+        public Task<Profile> Load()
+        {
+            return Task.FromResult(new Profile("@me", "Mia Example", null));
+        }
+    }
+
     private sealed class Engine : IAuthEngine, IRoomsEngine, IChatEngine {
         public event Action<IReadOnlyList<RoomSummary>>? RoomsChanged;
         public event Action<SyncState>? SyncChanged;
@@ -199,7 +206,8 @@ public class ChatPaneTests {
         Open(string theme, double width)
     {
         var engine = new Engine();
-        var controller = new AppController(engine, new NoSessions(), null, null, engine, engine);
+        var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
+            null, new Profiles());
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -386,6 +394,41 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(["Friends|False|@a:s,@b:s"], engine.Created);
         Assert.Equal("!made", controller.Store.Value.SelectedRoomId);
+    }
+
+    [AvaloniaFact]
+    public async Task The_profile_name_replaces_the_user_id()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Mia Example", controller.Store.Value.Profile!.DisplayName);
+        Save(window, "named");
+        controller.OpenSidebarPage(SidebarPage.Profile);
+        Save(window, "profile-named");
+    }
+
+    [AvaloniaFact]
+    public async Task The_theme_page_lists_every_theme_and_chooses_one()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Theme);
+        Dispatcher.UIThread.RunJobs();
+        var cards = screen.Theme.Cards.Children;
+        Assert.Equal(Themes.All().Count + 1, cards.Count);
+        Save(window, "themes");
+        var press = (Control)cards[3];
+        var target = Themes.All()[2].Id;
+        press.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
+            press, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), press,
+            new Avalonia.Point(10, 10), 0,
+            new Avalonia.Input.PointerPointProperties(
+                Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+            Avalonia.Input.KeyModifiers.None) {
+            RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent,
+        });
+        Assert.Equal(target, controller.Store.Value.Prefs.Theme);
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)

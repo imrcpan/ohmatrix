@@ -7,6 +7,7 @@ namespace OhMatrix.Core.State;
 public enum SidebarPage {
     Chats,
     Profile,
+    Theme,
 }
 
 public enum AuthStatus {
@@ -37,6 +38,9 @@ public sealed record AppState {
 
     /// <summary>The chat list, in the order it is shown: pinned first, then the latest activity first.</summary>
     public IReadOnlyList<RoomSummary> Rooms { get; init; } = [];
+
+    /// <summary>Who I am on the server; null until it has been read.</summary>
+    public Profile? Profile { get; init; }
 
     public SyncState SyncState { get; init; } = SyncState.Stopped;
 
