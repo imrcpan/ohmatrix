@@ -15,6 +15,12 @@ public interface IChatSession : IDisposable {
     /// <summary>Sends a text message; with <paramref name="replyToEventId"/>, as the answer to that message.</summary>
     Task Send(string text, string? replyToEventId = null);
 
+    /// <summary>Replaces the text of one of my messages.</summary>
+    Task Edit(string itemId, string text);
+
+    /// <summary>Removes one of my messages for everyone in the chat.</summary>
+    Task Delete(string itemId);
+
     /// <summary>Adds my reaction to a line, or takes it away if it is there.</summary>
     Task ToggleReaction(string itemId, string key);
 

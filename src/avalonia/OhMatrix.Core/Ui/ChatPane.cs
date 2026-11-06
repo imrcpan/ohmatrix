@@ -41,6 +41,8 @@ public sealed class ChatPane : Grid {
         Width = 180
     };
 
+    private readonly Dialog deleteDialog = new();
+    private string? editingId;
     private readonly StackPanel composerStack = new();
     private readonly Border replyHost = new();
 
@@ -193,6 +195,13 @@ public sealed class ChatPane : Grid {
 
         var s = controller.Store.Value;
         replyHost.Child = ReplyBanner(c, s);
+        // Starting to edit puts the text of the message in the field, once.
+        if (s.Editing?.Id != editingId) {
+            editingId = s.Editing?.Id;
+            if (s.Editing is { } e)
+                input.Text = e.Body;
+        }
+
         if (!ReferenceEquals(shownItems, s.Timeline) || shownRoom != s.SelectedRoomId) {
             shownRoom = s.SelectedRoomId;
             Rebuild();
@@ -329,6 +338,12 @@ public sealed class ChatPane : Grid {
         var items = new List<MenuItem> {
             new(T("reply"), () => controller.SetReplyTo(item), Icon: "reply"),
         };
+        if (item.IsOwn && item.EventId is not null && !item.Failed) {
+            items.Add(new MenuItem(T("edit"), () => controller.StartEdit(item), Icon: "edit"));
+            items.Add(new MenuItem(T("delete"), () => AskDelete(window, item), Icon: "trash",
+                Danger: true));
+        }
+
         foreach (var emoji in QuickReactions) {
             var mine = item.Reactions.Any(r => r.Key == emoji && r.Mine);
             items.Add(new MenuItem(emoji, () => _ = controller.ToggleReaction(item.Id, emoji),
@@ -339,6 +354,26 @@ public sealed class ChatPane : Grid {
     }
 
     public Menu Actions => actions;
+    public Dialog DeleteDialog => deleteDialog;
+
+    private void AskDelete(TopLevel window, TimelineItem item)
+    {
+        var c = ThemeScope.GetColors(this);
+        var yes = new PrimaryButton {
+            Title = T("delete")
+        };
+        var no = new TextButton {
+            Title = T("cancel")
+        };
+        ThemeScope.SetColors(yes, c);
+        ThemeScope.SetColors(no, c);
+        yes.Click += (_, _) => {
+            deleteDialog.Close();
+            _ = controller.DeleteMessage(item.Id);
+        };
+        no.Click += (_, _) => deleteDialog.Close();
+        deleteDialog.Show(window, c, T("delete.title"), T("delete.body"), yes, no);
+    }
 
     public static readonly string[] QuickReactions = ["👍", "❤️", "😂", "🎉", "😮", "😢"];
 
@@ -398,14 +433,16 @@ public sealed class ChatPane : Grid {
 
     private Control? ReplyBanner(ColorTokens c, AppState s)
     {
-        if (s.ReplyTo is not { } to)
+        var editing = s.Editing;
+        if (s.ReplyTo is not { } to && editing is null)
             return null;
+        to = editing ?? s.ReplyTo!;
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
             Margin = new Thickness(12, 8, 12, 0),
         };
         var icon = new Icon {
-            Glyph = "reply",
+            Glyph = editing is null ? "reply" : "edit",
             Size = 20,
             Color = new SolidColorBrush(c.Accent),
             Margin = new Thickness(0, 0, 10, 0),
@@ -420,7 +457,7 @@ public sealed class ChatPane : Grid {
         Grid.SetColumn(bar, 1);
         var words = new StackPanel();
         words.Children.Add(new TextBlock {
-            Text = to.IsOwn ? T("you") : to.SenderName,
+            Text = editing is not null ? T("edit.title") : to.IsOwn ? T("you") : to.SenderName,
             FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
@@ -438,7 +475,13 @@ public sealed class ChatPane : Grid {
         var cancel = new IconButton("close", T("cancel"), 18, 28) {
             Tint = c.TextSecondary
         };
-        cancel.Click += (_, _) => controller.SetReplyTo(null);
+        cancel.Click += (_, _) => {
+            if (editing is not null) {
+                controller.StartEdit(null);
+                input.Text = "";
+            } else
+                controller.SetReplyTo(null);
+        };
         Grid.SetColumn(cancel, 3);
         grid.Children.Add(icon);
         grid.Children.Add(bar);

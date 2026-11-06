@@ -31,6 +31,21 @@ public class ChatPaneTests {
             TypingChanged?.Invoke(names);
         }
 
+        public readonly List<string> Edits = [];
+        public readonly List<string> Deleted = [];
+
+        public Task Edit(string itemId, string text)
+        {
+            Edits.Add(itemId + ":" + text);
+            return Task.CompletedTask;
+        }
+
+        public Task Delete(string itemId)
+        {
+            Deleted.Add(itemId);
+            return Task.CompletedTask;
+        }
+
         public Task ToggleReaction(string itemId, string key)
         {
             Reacted.Add(itemId + key);
@@ -507,6 +522,63 @@ public class ChatPaneTests {
         engine.Opened[0].Type();
         Dispatcher.UIThread.RunJobs();
         Assert.Empty(controller.Store.Value.Typing);
+    }
+
+    [AvaloniaFact]
+    public async Task Only_my_messages_can_be_edited_or_deleted()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        var tl = controller.Store.Value.Timeline;
+        pane.OpenActions(pane.Messages, tl.First(i => i.Id == "2"));
+        Assert.Equal(1 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        pane.OpenActions(pane.Messages, tl.First(i => i.Id == "3"));
+        Assert.Equal(3 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Save(window, "own-actions");
+    }
+
+    [AvaloniaFact]
+    public async Task Editing_fills_the_field_and_sending_replaces_the_text()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        controller.StartEdit(controller.Store.Value.Timeline.First(i => i.Id == "3"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Yes!", pane.Input.Text);
+        Save(window, "editing");
+        pane.Input.Text = "Yes, definitely";
+        pane.Submit();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["3:Yes, definitely"], engine.Opened[0].Edits);
+        Assert.Empty(engine.Opened[0].Sent);
+        Assert.Null(controller.Store.Value.Editing);
+    }
+
+    [AvaloniaFact]
+    public async Task Deleting_asks_first()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        pane.OpenActions(pane.Messages, controller.Store.Value.Timeline.First(i => i.Id == "3"));
+        // The Delete row is the third of the menu: Reply, Edit, Delete.
+        var row = (Border)pane.Actions.Rows[2];
+        row.RaiseEvent(Release(row));
+        Assert.True(pane.DeleteDialog.IsOpen);
+        Save(window, "delete-dialog");
+        var yes = pane.DeleteDialog.Card.GetVisualDescendants().OfType<PrimaryButton>().First();
+        yes.RaiseClick();
+        await Task.Delay(50);
+        Assert.Equal(["3"], engine.Opened[0].Deleted);
+        Assert.False(pane.DeleteDialog.IsOpen);
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
