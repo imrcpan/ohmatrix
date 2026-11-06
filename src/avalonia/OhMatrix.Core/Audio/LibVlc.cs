@@ -18,7 +18,9 @@ internal static partial class LibVlc {
 
     private static IntPtr library;
     private static IntPtr instance;
+    private static IntPtr videoInstance;
     private static bool tried;
+    private static bool triedVideo;
 
     /// <summary>The state numbers of <c>libvlc_state_t</c> that matter here.</summary>
     public const int Playing = 3;
@@ -59,6 +61,21 @@ internal static partial class LibVlc {
         }
 
         return instance;
+    }
+
+    /// <summary>The instance for clips with a picture: without <c>--no-video</c>, so the frames go to the callbacks set on the player.</summary>
+    public static IntPtr VideoInstance()
+    {
+        if (triedVideo)
+            return videoInstance;
+        triedVideo = true;
+        try {
+            videoInstance = libvlc_new(2, ["--quiet", "--no-xlib"]);
+        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) {
+            videoInstance = IntPtr.Zero;
+        }
+
+        return videoInstance;
     }
 
     public static bool Available => Instance() != IntPtr.Zero;
@@ -107,4 +124,20 @@ internal static partial class LibVlc {
 
     [LibraryImport(Name)]
     public static partial void libvlc_media_player_release(IntPtr player);
+
+    [LibraryImport(Name)]
+    public static unsafe partial void libvlc_video_set_callbacks(
+        IntPtr player,
+        delegate* unmanaged[Cdecl]<IntPtr, IntPtr*, IntPtr> @lock,
+        delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr*, void> unlock,
+        delegate* unmanaged[Cdecl]<IntPtr, IntPtr, void> display,
+        IntPtr opaque
+    );
+
+    [LibraryImport(Name)]
+    public static unsafe partial void libvlc_video_set_format_callbacks(
+        IntPtr player,
+        delegate* unmanaged[Cdecl]<IntPtr*, byte*, uint*, uint*, uint*, uint*, uint> setup,
+        delegate* unmanaged[Cdecl]<IntPtr, void> cleanup
+    );
 }
