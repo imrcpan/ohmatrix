@@ -1,7 +1,6 @@
-﻿namespace OhMatrix.Infra.Logging;
+namespace OhMatrix.Infra.Logging;
 
-public interface ILogger
-{
+public interface ILogger {
     public void Debug(Func<string> message);
     public void Debug(string message);
     public void Info(string message);

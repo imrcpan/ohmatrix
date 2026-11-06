@@ -1,0 +1,54 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.cs]
+max_line_length = 100
+resharper_wrap_long_lines = true
+resharper_wrap_lines = true
+
+# Braces: only a method's (or constructor's, accessor's, local function's) opening brace is on its own
+# line; types, control flow and lambdas keep it at the end of the line.
+resharper_csharp_type_declaration_braces = end_of_line
+resharper_csharp_namespace_declaration_braces = end_of_line
+resharper_csharp_method_declaration_braces = next_line
+resharper_csharp_invocable_declaration_braces = next_line
+resharper_csharp_accessor_declaration_braces = end_of_line
+resharper_csharp_accessor_owner_declaration_braces = end_of_line
+resharper_csharp_anonymous_method_declaration_braces = end_of_line
+resharper_csharp_other_braces = end_of_line
+resharper_csharp_initializer_braces = end_of_line
+
+resharper_csharp_place_simple_embedded_block_on_same_line = false
+resharper_csharp_place_simple_blocks_on_single_line = false
+resharper_csharp_place_simple_anonymous_method_on_single_line = false
+resharper_csharp_place_simple_initializer_on_single_line = false
+resharper_csharp_keep_existing_embedded_block_arrangement = false
+resharper_csharp_keep_existing_invocable_declaration_arrangement = false
+resharper_csharp_keep_existing_anonymous_method_arrangement = false
+resharper_csharp_keep_existing_initializer_arrangement = false
+
+csharp_new_line_before_else = false
+csharp_new_line_before_catch = false
+csharp_new_line_before_finally = false
+
+csharp_style_namespace_declarations = file_scoped:error
+resharper_place_simple_embedded_statement_on_same_line = never
+resharper_keep_existing_embedded_statement_arrangement = false
+resharper_place_simple_embedded_block_on_same_line = false
+resharper_keep_existing_embedded_block_arrangement = false
+resharper_place_simple_anonymousmethod_on_single_line = false
+resharper_keep_existing_anonymous_method_arrangement = false
+resharper_place_simple_case_statement_on_same_line = never
+csharp_new_line_before_open_brace = methods, local_functions
+dotnet_diagnostic.IDE0161.severity = error
+csharp_preserve_single_line_statements = false
+csharp_preserve_single_line_blocks = false
+resharper_wrap_object_and_collection_initializer_style = chop_always
+resharper_max_initializer_elements_on_line = 1

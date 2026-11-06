@@ -15,3 +15,7 @@ src/packages/engine-rust/android
 src/packages/engine-rust/ios
 src/apps/mobile/.generated
 src/apps/desktop/linux/react-native-skia-linux
+
+# Build output of the C# projects
+src/avalonia/**/bin/
+src/avalonia/**/obj/

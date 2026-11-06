@@ -1,12 +1,18 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text;
 
 namespace OhMatrix.Infra.Logging;
 
-public class PanicMessage
-{
-    public required string FullMessage { get; init; }
-    public required string Exception { get; init; }
+public class PanicMessage {
+    public required string FullMessage {
+        get;
+        init;
+    }
+
+    public required string Exception {
+        get;
+        init;
+    }
 
     public string PrintStr => GenPrintStr();
 
@@ -22,15 +28,15 @@ public class PanicMessage
         return sb.ToString();
     }
 
-    public static PanicMessage Empty { get; } = new()
-    {
+    public static PanicMessage Empty {
+        get;
+    } = new() {
         FullMessage = "Empty PanicMessage.",
         Exception = "Empty PanicMessage.",
     };
 }
 
-public class Logger : ILogger
-{
+public class Logger : ILogger {
     private readonly string pathBase;
     private readonly string pathLog;
     private readonly string pathLogLast;
@@ -71,8 +77,7 @@ public class Logger : ILogger
 
     public void Init()
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             if (!Directory.Exists(pathBase))
                 Directory.CreateDirectory(pathBase);
             if (File.Exists(pathLogLast))
@@ -95,8 +100,7 @@ public class Logger : ILogger
 
     public void Debug(Func<string> message)
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             if (!enableDebug)
                 return;
             var fmt = $"DBG {UtcTimeStr()} {message.Invoke()}";
@@ -107,8 +111,7 @@ public class Logger : ILogger
 
     public void Debug(string message)
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             if (!enableDebug)
                 return;
             var fmt = $"DBG {UtcTimeStr()} {message}";
@@ -119,8 +122,7 @@ public class Logger : ILogger
 
     public void Info(string message)
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             if (!enableInfo)
                 return;
             var fmt = $"INF {UtcTimeStr()} {message}";
@@ -132,8 +134,7 @@ public class Logger : ILogger
 
     public void Warn(string message)
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             var fmt = $"WRN {UtcTimeStr()} {message}";
             LogWriter.FileWriteLine(pathLog, fmt);
             const ConsoleColor color = ConsoleColor.Yellow;
@@ -160,8 +161,7 @@ public class Logger : ILogger
 
     public void Error(string message)
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             var time = DateTime.UtcNow;
             errors.Add((time, message));
             var fmt = $"ERR {UtcTimeStr(time)} {message}";
@@ -173,8 +173,7 @@ public class Logger : ILogger
 
     public void Fatal(string message)
     {
-        PanicIfFailed(() =>
-        {
+        PanicIfFailed(() => {
             var time = DateTime.UtcNow;
             errors.Add((time, message));
             var fmt = $"FTL {UtcTimeStr(time)} {message}";
@@ -186,12 +185,9 @@ public class Logger : ILogger
 
     private void PanicIfFailed(Action action)
     {
-        try
-        {
+        try {
             action();
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             Panic("Logger error when writing.",
                 ex.ToString());
         }
@@ -208,8 +204,7 @@ public class Logger : ILogger
         if (panic)
             return;
         panic = true;
-        PanicMessage = new PanicMessage()
-        {
+        PanicMessage = new PanicMessage() {
             FullMessage = msgFull,
             Exception = exception,
         };

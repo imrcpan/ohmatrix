@@ -43,3 +43,30 @@ All `.csproj` files must explicitly include the following properties in the firs
 ```
 
 Additional properties may follow after `EnableTrimAnalyzer`.
+
+## Formatting
+
+Formatting is enforced by tools, not by review. `./format.sh` rewrites the files and `./format.sh --check` fails (exit 1) when
+any `.cs` file is not formatted. The rules are in `.editorconfig`.
+
+- Indent is 4 spaces. A line is at most 100 characters.
+- A method's opening brace (constructors and local functions too) is on its own line. The opening brace of everything else is at the end of the
+  line: `class`, `struct`, `record`, `interface`, `enum`, `if`, `else`, `for`, `while`, `try`, `catch`, `lambda`, initializers.
+- `else`, `catch` and `finally` follow the closing brace on the same line (`} else {`).
+- The body of `if`, `for`, `while` and the like is always on its own line. `if (x) return;` is not allowed:
+
+```csharp
+if (x)
+    return;
+```
+
+- A lambda with braces is always broken over lines, however short. A lambda that is an expression may stay on one line:
+
+```csharp
+Action a = () => {
+    Run();
+};
+Func<int> f = () => 3;
+```
+
+- A namespace is file-scoped (`namespace OhMatrix.Core;`). A namespace with braces is an error.
