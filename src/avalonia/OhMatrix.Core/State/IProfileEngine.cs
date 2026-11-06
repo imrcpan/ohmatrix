@@ -9,6 +9,9 @@ public interface IProfileEngine {
     /// <summary>Sets my picture from the bytes of an image file.</summary>
     Task SetAvatar(string mimeType, byte[] data);
 
+    /// <summary>Sets my status line (empty clears it). A server without custom profile fields refuses as <see cref="EngineErrorCode.Unsupported"/>.</summary>
+    Task SetStatus(string status);
+
     /// <summary>Changes the name others see. Failures are <see cref="EngineException"/>.</summary>
     Task SetDisplayName(string name);
 }

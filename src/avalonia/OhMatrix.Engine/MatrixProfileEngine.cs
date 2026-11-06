@@ -1,11 +1,16 @@
 #if OHMATRIX_NATIVE_SDK
+using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 
 namespace OhMatrix.Engine;
 
 /// <summary>Who I am on the server, over the Matrix SDK (<c>profile</c> of <c>RustEngineCore</c>).</summary>
-public sealed class MatrixProfileEngine(MatrixAuthEngine auth) : IProfileEngine {
+public sealed class MatrixProfileEngine(MatrixAuthEngine auth, ProfileStatusApi? statuses = null)
+    : IProfileEngine {
+    private readonly ProfileStatusApi status =
+ statuses ?? new ProfileStatusApi(() => auth.CurrentSession);
+
     public async Task<Profile> Load()
     {
         var client = auth.Client ?? throw new EngineException(
@@ -22,7 +27,9 @@ public sealed class MatrixProfileEngine(MatrixAuthEngine auth) : IProfileEngine 
             }
 
             var avatar = await client.AvatarUrl();
-            return new Profile(id, string.IsNullOrWhiteSpace(name) ? null : name, avatar);
+            return new Profile(id, string.IsNullOrWhiteSpace(name) ? null : name, avatar) {
+                Status = await status.Read()
+            };
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
@@ -39,6 +46,11 @@ public sealed class MatrixProfileEngine(MatrixAuthEngine auth) : IProfileEngine 
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
+    }
+
+    public Task SetStatus(string text)
+    {
+        return status.Write(text);
     }
 
     public async Task SetDisplayName(string name)
