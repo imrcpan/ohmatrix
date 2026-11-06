@@ -6,8 +6,15 @@ namespace OhMatrix.Core.State;
 public sealed class AppController(
     IAuthEngine engine,
     ISessionStore sessions,
-    IPreferencesStore? preferences = null
+    IPreferencesStore? preferences = null,
+    TimeProvider? clock = null
 ) {
+    /// <summary>How long a zoom is tried before it goes back by itself.</summary>
+    public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
+
+    private readonly TimeProvider time = clock ?? TimeProvider.System;
+    private ITimer? zoomTimer;
+
     public Store<AppState> Store { get; } = new(new AppState());
 
     /// <summary>Restores the saved session, if there is one. Called once at the start.</summary>
@@ -71,6 +78,65 @@ public sealed class AppController(
             Prefs = change(s.Prefs)
         });
         SavePreferences();
+    }
+
+    /// <summary>
+    /// Draws the interface at <paramref name="scale"/> without keeping it: it goes back by itself after <see cref="ZoomTrialTime"/> unless
+    /// <see cref="KeepZoom"/> is called. The size already kept ends any trial.
+    /// </summary>
+    public void TryZoom(double scale)
+    {
+        var from = Store.Value.Prefs.UiScale;
+        StopZoomTimer();
+        if (scale == from) {
+            Store.Update(s => s with {
+                ZoomTrial = null
+            });
+            return;
+        }
+
+        var until = time.GetUtcNow() + ZoomTrialTime;
+        Store.Update(s => s with {
+            ZoomTrial = new ZoomTrial(from, scale, until)
+        });
+        zoomTimer = time.CreateTimer(
+            _ => Store.Update(s => s with {
+                ZoomTrial = null
+            }),
+            null,
+            ZoomTrialTime,
+            Timeout.InfiniteTimeSpan
+        );
+    }
+
+    /// <summary>Keeps the size being tried: it is saved as the preference.</summary>
+    public void KeepZoom()
+    {
+        var trial = Store.Value.ZoomTrial;
+        if (trial is null)
+            return;
+        StopZoomTimer();
+        Store.Update(s => s with {
+            ZoomTrial = null
+        });
+        SetPreferences(p => p with {
+            UiScale = trial.To
+        });
+    }
+
+    /// <summary>Goes back to the size that was kept.</summary>
+    public void RevertZoom()
+    {
+        StopZoomTimer();
+        Store.Update(s => s with {
+            ZoomTrial = null
+        });
+    }
+
+    private void StopZoomTimer()
+    {
+        zoomTimer?.Dispose();
+        zoomTimer = null;
     }
 
     // Signing in and registering end the same way: keep the session, remember the server.

@@ -20,4 +20,14 @@ public sealed record AppState {
     public string? UserId { get; init; }
     public string? Homeserver { get; init; }
     public Preferences Prefs { get; init; } = new();
+
+    /// <summary>
+    /// A zoom being tried: the interface is drawn at <see cref="ZoomTrial.To"/> while Settings asks to keep it, and goes back to
+    /// <see cref="ZoomTrial.From"/> when <see cref="ZoomTrial.Until"/> comes. It is not a preference: it is never saved, and <c>Prefs.UiScale</c>
+    /// stays what is kept.
+    /// </summary>
+    public ZoomTrial? ZoomTrial { get; init; }
 }
+
+/// <summary>A zoom that is being tried; <c>Until</c> is a time of the clock of the controller.</summary>
+public sealed record ZoomTrial(double From, double To, DateTimeOffset Until);

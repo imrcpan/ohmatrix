@@ -241,4 +241,65 @@ public class AppControllerTests {
             throw new InvalidOperationException("network");
         }
     }
+
+    // The zoom trial of state.test.ts: not a preference, undone by itself, kept only when kept.
+    [Fact]
+    public async Task
+        A_zoom_being_tried_is_never_saved_is_undone_by_itself_and_kept_only_when_kept()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var prefs = new MemoryPreferences();
+        var app = new AppController(new FakeEngine(), new MemorySessions(), prefs, clock);
+        await app.Bootstrap();
+
+        app.TryZoom(2);
+        Assert.Equal(1, app.Store.Value.ZoomTrial!.From);
+        Assert.Equal(2, app.Store.Value.ZoomTrial!.To);
+        // What is kept is untouched.
+        Assert.Equal(1, app.Store.Value.Prefs.UiScale);
+
+        // Anything else saved meanwhile does not carry the trial with it.
+        app.SetPreferences(p => p with {
+            Locale = "zh-CN"
+        });
+        Assert.Equal(1, prefs.Saved!.UiScale);
+
+        // Not kept: it goes back by itself when the time is up, and nothing more was written.
+        var saves = prefs.Saves;
+        clock.Advance(AppController.ZoomTrialTime + TimeSpan.FromMilliseconds(10));
+        Assert.Null(app.Store.Value.ZoomTrial);
+        Assert.Equal(saves, prefs.Saves);
+
+        // Kept: saved, and the timer no longer ends anything.
+        app.TryZoom(1.5);
+        app.KeepZoom();
+        Assert.Null(app.Store.Value.ZoomTrial);
+        Assert.Equal(1.5, app.Store.Value.Prefs.UiScale);
+        Assert.Equal(1.5, prefs.Saved!.UiScale);
+
+        // Choosing the size that is kept ends a trial; going back does too.
+        app.TryZoom(2);
+        app.TryZoom(1.5);
+        Assert.Null(app.Store.Value.ZoomTrial);
+        app.TryZoom(2);
+        app.RevertZoom();
+        Assert.Null(app.Store.Value.ZoomTrial);
+        Assert.Equal(1.5, app.Store.Value.Prefs.UiScale);
+    }
+
+    [Fact]
+    public async Task A_new_trial_replaces_the_one_before_and_its_timer()
+    {
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var app = new AppController(new FakeEngine(), new MemorySessions(), null, clock);
+        await app.Bootstrap();
+        app.TryZoom(2);
+        clock.Advance(TimeSpan.FromSeconds(10));
+        app.TryZoom(1.25);
+        // The first timer would end the second trial at 15 s from the first start; the second has its own 15 s.
+        clock.Advance(TimeSpan.FromSeconds(7));
+        Assert.Equal(1.25, app.Store.Value.ZoomTrial!.To);
+        clock.Advance(TimeSpan.FromSeconds(9));
+        Assert.Null(app.Store.Value.ZoomTrial);
+    }
 }
