@@ -15,10 +15,6 @@ namespace OhMatrix.Core.Ui;
 /// the language menu at the bottom right and the zoom menu at the bottom left.
 /// </summary>
 public sealed class LoginScreen : Grid {
-    private static readonly double[] Scales = [
-        0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3
-    ];
-
     private readonly AppController controller;
     private readonly (string Label, Action OnPress)? back;
     private readonly TimeProvider time;
@@ -77,20 +73,7 @@ public sealed class LoginScreen : Grid {
         AlignRight = true
     };
 
-    private readonly Menu zoomMenu = new() {
-        Up = true
-    };
-
-    private readonly Dialog zoomDialog = new() {
-        Modal = true
-    };
-
-    private readonly PrimaryButton keepButton = new();
-    private readonly TextButton revertButton = new();
-
-    private readonly DispatcherTimer countdown = new() {
-        Interval = TimeSpan.FromMilliseconds(250)
-    };
+    private readonly ZoomPicker zoom;
 
     private bool creating;
     private string? revealLocale;
@@ -125,11 +108,8 @@ public sealed class LoginScreen : Grid {
         toggleButton.Click += (_, _) => Toggle();
         backButton.Click += (_, _) => this.back?.OnPress();
         languageButton.Click += (_, _) => OpenLanguages();
-        zoomButton.Click += (_, _) => OpenZooms();
-        keepButton.Click += (_, _) => controller.KeepZoom();
-        revertButton.Click += (_, _) => controller.RevertZoom();
-        zoomDialog.OnClose = controller.RevertZoom;
-        countdown.Tick += (_, _) => ShowZoomTrial();
+        zoom = new ZoomPicker(controller, this, true, time);
+        zoomButton.Click += (_, _) => zoom.Open(zoomButton);
         controller.Store.Changed += OnStateChanged;
         ThemeScope.ColorsProperty.Changed.AddClassHandler<LoginScreen>((s, _) => s.Apply());
         Apply();
@@ -145,8 +125,8 @@ public sealed class LoginScreen : Grid {
     public CornerButton LanguageButton => languageButton;
     public CornerButton ZoomButton => zoomButton;
     public Menu LanguageMenu => languageMenu;
-    public Menu ZoomMenu => zoomMenu;
-    public Dialog ZoomDialog => zoomDialog;
+    public Menu ZoomMenu => zoom.Menu;
+    public Dialog ZoomDialog => zoom.Dialog;
     public bool Creating => creating;
 
     /// <summary>The error as the screen words it, or null.</summary>
@@ -288,7 +268,6 @@ public sealed class LoginScreen : Grid {
     private void OnStateChanged(AppState state)
     {
         Apply();
-        ShowZoomTrial();
     }
 
     private void OpenLanguages()
@@ -306,57 +285,6 @@ public sealed class LoginScreen : Grid {
             ))
             .ToList();
         languageMenu.Show(languageButton, window, items);
-    }
-
-    private void OpenZooms()
-    {
-        if (TopLevel.GetTopLevel(this) is not { } window)
-            return;
-        var scale = controller.Store.Value.Prefs.UiScale;
-        var items = Scales
-            .Select(v => new MenuItem(
-                $"{Math.Round(v * 100)}%",
-                () => controller.TryZoom(v),
-                Checked: v == scale
-            ))
-            .ToList();
-        zoomMenu.Show(zoomButton, window, items);
-    }
-
-    /// <summary>Opens the confirmation while a zoom is being tried, counts it down, and closes it when the trial is over.</summary>
-    private void ShowZoomTrial()
-    {
-        var trial = controller.Store.Value.ZoomTrial;
-        if (trial is null) {
-            countdown.Stop();
-            zoomDialog.Close();
-            return;
-        }
-
-        var left = Math.Max(0, (int)Math.Ceiling((trial.Until - time.GetUtcNow()).TotalSeconds));
-        var message = T(
-            "zoom.confirm.body",
-            ("n", left.ToString()),
-            ("from", $"{Math.Round(trial.From * 100)}%")
-        );
-        if (zoomDialog.IsOpen) {
-            zoomDialog.SetMessage(message);
-            return;
-        }
-
-        if (TopLevel.GetTopLevel(this) is not { } window)
-            return;
-        keepButton.Title = T("zoom.confirm.keep");
-        revertButton.Title = T("zoom.confirm.revert");
-        zoomDialog.Show(
-            window,
-            ThemeScope.GetColors(this),
-            T("zoom.confirm.title"),
-            message,
-            keepButton,
-            revertButton
-        );
-        countdown.Start();
     }
 
     /// <summary>Sets texts, colours and what is visible from the state and the fields.</summary>

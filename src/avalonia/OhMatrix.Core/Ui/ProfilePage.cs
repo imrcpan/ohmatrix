@@ -16,6 +16,8 @@ namespace OhMatrix.Core.Ui;
 public sealed class ProfilePage : Grid {
     private readonly AppController controller;
     private readonly Dialog confirm = new();
+    private readonly ZoomPicker zoom;
+    private Control zoomAnchor = new Border();
     private readonly StackPanel content = new();
 
     private readonly Border bar = new() {
@@ -26,6 +28,7 @@ public sealed class ProfilePage : Grid {
     public ProfilePage(AppController controller)
     {
         this.controller = controller;
+        zoom = new ZoomPicker(controller, this, false);
         RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(bar);
         var scroller = new ScrollViewer {
@@ -44,6 +47,8 @@ public sealed class ProfilePage : Grid {
     public Border SignOutRow { get; private set; } = new();
 
     public Dialog Confirm => confirm;
+    public ZoomPicker Zoom => zoom;
+    public Control ZoomRow => zoomAnchor;
 
     private string T(string key, params (string, object)[] values)
     {
@@ -73,7 +78,7 @@ public sealed class ProfilePage : Grid {
     }
 
     private static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
-        double top)
+        double top, string? value = null)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -94,13 +99,27 @@ public sealed class ProfilePage : Grid {
         };
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
+        if (value is not null) {
+            var shown = new TextBlock {
+                Text = value,
+                FontSize = 15,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                Margin = new Thickness(0, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(shown, 2);
+            grid.Children.Add(shown);
+            grid.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto");
+        }
+
         var chevron = new Icon {
             Glyph = "chevronRight",
             Size = 18,
             Color = new SolidColorBrush(c.TextTertiary),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        Grid.SetColumn(chevron, 2);
+        Grid.SetColumn(chevron, value is null ? 2 : 3);
         grid.Children.Add(chevron);
         var row = new Border {
             Margin = new Thickness(12, top, 12, 0),
@@ -163,6 +182,10 @@ public sealed class ProfilePage : Grid {
 
         content.Children.Add(NavRow(c, "palette", T("theme"),
             () => controller.OpenSidebarPage(SidebarPage.Theme), 20));
+        var zoomRow = NavRow(c, "zoomIn", T("zoom"), () => zoom.Open(zoomAnchor), 12,
+            ZoomPicker.Percent(s.Prefs.UiScale));
+        zoomAnchor = zoomRow;
+        content.Children.Add(zoomRow);
         content.Children.Add(NavRow(c, "globe", T("language"),
             () => controller.OpenSidebarPage(SidebarPage.Language), 12));
         var row = new Border {
