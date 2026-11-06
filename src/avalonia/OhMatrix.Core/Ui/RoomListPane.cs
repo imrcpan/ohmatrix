@@ -154,6 +154,8 @@ public sealed class RoomListPane : Grid {
                 new MenuItem(T("joinRoom"), () => Ask(window, "joinRoom",
                     [new PromptField(T("roomIdOrAlias"), "hash")], T("join"),
                     v => controller.JoinRoom(v[0])), Icon: "hash"),
+                new MenuItem(T("explore"), () => controller.OpenSidebarPage(SidebarPage.Explore),
+                    Icon: "globe"),
             ]
         );
     }

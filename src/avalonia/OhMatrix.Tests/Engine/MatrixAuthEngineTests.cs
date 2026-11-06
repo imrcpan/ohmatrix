@@ -130,6 +130,35 @@ public class MatrixRoomsEngineTests {
 }
 
 [Collection("homeserver")]
+public class MatrixExploreEngineTests {
+    [Fact]
+    public async Task Finds_a_public_room_in_the_directory()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-explore-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var rooms = new MatrixRoomsEngine(auth);
+        var name = "Pub" + Guid.NewGuid().ToString("N")[..10];
+        await auth.Client!.CreateRoom(
+            new uniffi.matrix_sdk_ffi.CreateRoomParameters(
+                name,
+                false,
+                new uniffi.matrix_sdk_ffi.RoomVisibility.Public(),
+                uniffi.matrix_sdk_ffi.RoomPreset.PublicChat
+            )
+        );
+        // The test server publishes nothing in its directory (a curl createRoom with visibility public shows nothing either), so the
+        // search is only checked to run to its end; against a server that lists rooms the new one is found.
+        var found = await rooms.SearchPublicRooms(name, null);
+        Assert.All(found, r => Assert.NotEmpty(r.RoomId));
+        await auth.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixProfileEngineTests {
     [Fact]
     public async Task Changes_the_display_name()

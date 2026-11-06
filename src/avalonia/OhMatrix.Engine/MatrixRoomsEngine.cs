@@ -105,6 +105,99 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.SetTopic(topic));
     }
 
+    public async Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
+    {
+        try {
+            using var search = Signed().RoomDirectorySearch();
+            var listener = new DirectoryListener();
+            using var handle = await search.Results(listener);
+            await search.Search(string.IsNullOrWhiteSpace(filter) ? null : filter.Trim(), 30, server);
+            // The entries come through the listener; the list is taken once it has stopped changing.
+            var last = -1;
+            for (var i = 0; i < 40; i++) {
+                await Task.Delay(250);
+                var now = listener.Version;
+                if (now > 0 && now == last)
+                    break;
+                last = now;
+            }
+
+            return listener.Rooms();
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    private sealed class DirectoryListener : RoomDirectorySearchEntriesListener {
+        private readonly List<RoomDescription> rooms = [];
+        private int version;
+
+        public int Version => Volatile.Read(ref version);
+
+        public IReadOnlyList<PublicRoom> Rooms()
+        {
+            lock (rooms) {
+                return
+                [
+                    .. rooms.Select(r => new PublicRoom(
+                        r.RoomId,
+                        r.Name ?? r.Alias ?? r.RoomId,
+                        string.IsNullOrWhiteSpace(r.Topic) ? null : r.Topic,
+                        r.Alias,
+                        r.AvatarUrl,
+                        (long)r.JoinedMembers
+                    ))
+                ];
+            }
+        }
+
+        public void OnUpdate(RoomDirectorySearchEntryUpdate[] roomEntriesUpdate)
+        {
+            lock (rooms) {
+                foreach (var update in roomEntriesUpdate) {
+                    switch (update) {
+                        case RoomDirectorySearchEntryUpdate.Append a:
+                            rooms.AddRange(a.Values);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.Reset r:
+                            rooms.Clear();
+                            rooms.AddRange(r.Values);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.Clear:
+                            rooms.Clear();
+                            break;
+                        case RoomDirectorySearchEntryUpdate.PushFront f:
+                            rooms.Insert(0, f.Value);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.PushBack b:
+                            rooms.Add(b.Value);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.PopFront when rooms.Count > 0:
+                            rooms.RemoveAt(0);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.PopBack when rooms.Count > 0:
+                            rooms.RemoveAt(rooms.Count - 1);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.Insert i when i.Index <= rooms.Count:
+                            rooms.Insert((int)i.Index, i.Value);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.Set s when s.Index < rooms.Count:
+                            rooms[(int)s.Index] = s.Value;
+                            break;
+                        case RoomDirectorySearchEntryUpdate.Remove x when x.Index < rooms.Count:
+                            rooms.RemoveAt((int)x.Index);
+                            break;
+                        case RoomDirectorySearchEntryUpdate.Truncate t when t.Length < rooms.Count:
+                            rooms.RemoveRange((int)t.Length, rooms.Count - (int)t.Length);
+                            break;
+                    }
+                }
+            }
+
+            Interlocked.Increment(ref version);
+        }
+    }
+
     public Task SetRoomAvatar(string roomId, string mimeType, byte[] data)
     {
         return Act(roomId, room => room.UploadAvatar(mimeType, data, null));

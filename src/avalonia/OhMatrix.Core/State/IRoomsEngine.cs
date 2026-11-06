@@ -42,6 +42,9 @@ public interface IRoomsEngine {
     /// <summary>Sets the picture of the room from the bytes of an image file.</summary>
     Task SetRoomAvatar(string roomId, string mimeType, byte[] data);
 
+    /// <summary>The public rooms of a server's directory (the homeserver's own when <paramref name="server"/> is null) that match the text.</summary>
+    Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server);
+
     /// <summary>Leaves the room; it goes from the chat list.</summary>
     Task LeaveRoom(string roomId);
 

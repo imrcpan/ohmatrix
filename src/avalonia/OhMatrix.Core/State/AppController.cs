@@ -208,6 +208,14 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
+    /// <summary>Searches the public rooms of the homeserver (or of <paramref name="server"/>).</summary>
+    public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server = null)
+    {
+        return rooms is null
+            ? Task.FromResult<IReadOnlyList<PublicRoom>>([])
+            : rooms.SearchPublicRooms(filter, server);
+    }
+
     /// <summary>Leaves a chat and closes it.</summary>
     public async Task LeaveRoom(string roomId)
     {

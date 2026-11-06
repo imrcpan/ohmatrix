@@ -218,6 +218,18 @@ public class ChatPaneTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
+        {
+            Actions.Add($"explore {filter} {server}");
+            IReadOnlyList<PublicRoom> all = [
+                new PublicRoom("!pub1:s", "Public Chat", "Talk about anything", "#pub:s", null,
+                    1200),
+                new PublicRoom("!pub2:s", "Rust Fans", null, null, null, 1),
+            ];
+            return Task.FromResult<IReadOnlyList<PublicRoom>>(
+                [.. all.Where(r => r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))]);
+        }
+
         public Task SetRoomAvatar(string roomId, string mimeType, byte[] data) =>
             Log($"avatar {roomId} {mimeType} {data.Length}");
 
@@ -537,7 +549,7 @@ public class ChatPaneTests {
         var (window, controller, _, screen) = await Open("light", 1000);
         screen.List.OpenAddMenu();
         Assert.True(screen.List.AddMenu.IsOpen);
-        Assert.Equal(3, screen.List.AddMenu.Rows.Count);
+        Assert.Equal(4, screen.List.AddMenu.Rows.Count);
         Save(window, "plus-menu");
         screen.List.AddMenu.Close();
         var prompt = screen.List.Prompt;
@@ -595,6 +607,35 @@ public class ChatPaneTests {
         panel.Invite.ConfirmButton.RaiseClick();
         await Task.Delay(50);
         Assert.Contains("invite !g @zed:s,@ann:s", engine.Actions);
+    }
+
+    [AvaloniaFact]
+    public async Task Explore_lists_public_rooms_and_joins_one()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        screen.List.OpenAddMenu();
+        var row = (Border)screen.List.AddMenu.Rows[3];
+        row.RaiseEvent(Release(row));
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SidebarPage.Explore, controller.Store.Value.SidebarPage);
+        var page = screen.ExploreScreen;
+        Assert.Equal(["Public Chat", "Rust Fans"], page.Names);
+        Save(window, "explore");
+        page.Field.Text = "rust";
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["Rust Fans"], page.Names);
+        page.Field.Text = "public";
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s", null, 1200));
+        Assert.True(page.Confirm.Dialog.IsOpen);
+        page.Confirm.Confirm();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
+        Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
     }
 
     [AvaloniaFact]
