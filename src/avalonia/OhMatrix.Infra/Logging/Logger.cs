@@ -4,10 +4,7 @@ using System.Text;
 namespace OhMatrix.Infra.Logging;
 
 public class PanicMessage {
-    public required string FullMessage {
-        get;
-        init;
-    }
+    public required string FullMessage { get; init; } = string.Empty;
 
     public required string Exception {
         get;
