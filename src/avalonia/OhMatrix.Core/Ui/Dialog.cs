@@ -31,6 +31,14 @@ public sealed class Dialog {
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    private readonly TextBlock messageText = new() {
+        FontSize = 15,
+        LineHeight = 20,
+        FontFamily = Fonts.System,
+        TextAlignment = TextAlignment.Center,
+        TextWrapping = TextWrapping.Wrap,
+    };
+
     private readonly StackPanel stack = new() {
         Spacing = 14
     };
@@ -96,22 +104,21 @@ public sealed class Dialog {
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
         });
-        if (!string.IsNullOrEmpty(message)) {
-            stack.Children.Add(new TextBlock {
-                Text = message,
-                FontSize = 15,
-                LineHeight = 20,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(colors.TextSecondary),
-                TextAlignment = TextAlignment.Center,
-                TextWrapping = TextWrapping.Wrap,
-            });
-        }
+        messageText.Foreground = new SolidColorBrush(colors.TextSecondary);
+        messageText.Text = message;
+        if (!string.IsNullOrEmpty(message))
+            stack.Children.Add(messageText);
 
         foreach (var c in content)
             stack.Children.Add(c);
         layer.Children.Add(shade);
         shade.Focus();
+    }
+
+    /// <summary>Changes the message of the open dialog (a countdown) without building it again.</summary>
+    public void SetMessage(string message)
+    {
+        messageText.Text = message;
     }
 
     public void Close()

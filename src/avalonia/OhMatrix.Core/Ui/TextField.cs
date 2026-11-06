@@ -73,7 +73,11 @@ public sealed class TextField : Border {
         Child = row;
         box.GotFocus += (_, _) => Apply();
         box.LostFocus += (_, _) => Apply();
-        box.TextChanged += (_, _) => TextChanged?.Invoke(this, EventArgs.Empty);
+        // The property, not the TextChanged event of the box: that one is raised later, and not at all for a text set by the code in a test.
+        box.PropertyChanged += (_, e) => {
+            if (e.Property == TextBox.TextProperty)
+                TextChanged?.Invoke(this, EventArgs.Empty);
+        };
         box.KeyDown += (_, e) => {
             if (e.Key == Key.Enter)
                 Submit?.Invoke(this, EventArgs.Empty);
@@ -113,6 +117,12 @@ public sealed class TextField : Border {
             shown = false;
             Apply();
         }
+    }
+
+    /// <summary>Does what Enter does in the box.</summary>
+    public void RaiseSubmit()
+    {
+        Submit?.Invoke(this, EventArgs.Empty);
     }
 
     public bool FocusBox()
