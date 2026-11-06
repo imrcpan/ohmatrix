@@ -24,7 +24,8 @@ public sealed class Bubble : Border {
         bool sending = false,
         bool failed = false,
         string? editedLabel = null,
-        bool accent = true
+        bool accent = true,
+        Model.ReplyQuote? reply = null
     )
     {
         const double r = Radius.Bubble;
@@ -65,6 +66,45 @@ public sealed class Bubble : Border {
                 Margin = new Thickness(0, 0, 0, 2),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
+        }
+
+        if (reply is not null) {
+            // The message this one answers: an accent bar, the name of its writer and the start of what was written.
+            var quote = new Grid {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                Margin = new Thickness(0, 0, 0, 4),
+            };
+            var bar = new Border {
+                Width = 2,
+                CornerRadius = new CornerRadius(1),
+                Background = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
+                Margin = new Thickness(0, 0, 8, 0),
+            };
+            var lines = new StackPanel();
+            if (reply.SenderName.Length > 0) {
+                lines.Children.Add(new TextBlock {
+                    Text = reply.SenderName,
+                    FontSize = 14,
+                    FontWeight = FontWeight.SemiBold,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                });
+            }
+
+            lines.Children.Add(new TextBlock {
+                Text = reply.Preview,
+                FontSize = 14,
+                FontFamily = Fonts.System,
+                Foreground =
+                    new SolidColorBrush(mine ? colors.BubbleOutMeta : colors.TextSecondary),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 2,
+            });
+            Grid.SetColumn(lines, 1);
+            quote.Children.Add(bar);
+            quote.Children.Add(lines);
+            stack.Children.Add(quote);
         }
 
         stack.Children.Add(body);

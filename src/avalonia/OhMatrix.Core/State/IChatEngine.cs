@@ -9,8 +9,14 @@ public interface IChatSession : IDisposable {
     /// <summary>The lines now; what <see cref="Changed"/> last told.</summary>
     IReadOnlyList<TimelineItem> Items { get; }
 
-    /// <summary>Sends a text message.</summary>
-    Task Send(string text);
+    /// <summary>Names of the people typing in the chat (never me), as they change.</summary>
+    event Action<IReadOnlyList<string>>? TypingChanged;
+
+    /// <summary>Sends a text message; with <paramref name="replyToEventId"/>, as the answer to that message.</summary>
+    Task Send(string text, string? replyToEventId = null);
+
+    /// <summary>Adds my reaction to a line, or takes it away if it is there.</summary>
+    Task ToggleReaction(string itemId, string key);
 
     /// <summary>Loads older messages; false when there are no more.</summary>
     Task<bool> LoadOlder();

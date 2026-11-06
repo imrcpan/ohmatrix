@@ -50,6 +50,12 @@ public sealed record AppState {
     /// <summary>What the left pane shows: the chats, or the profile page (and what opens from it).</summary>
     public SidebarPage SidebarPage { get; init; } = SidebarPage.Chats;
 
+    /// <summary>The message the person is answering in the open chat, if any.</summary>
+    public TimelineItem? ReplyTo { get; init; }
+
+    /// <summary>The names of the people typing in the open chat.</summary>
+    public IReadOnlyList<string> Typing { get; init; } = [];
+
     /// <summary>The lines of the open chat, oldest first.</summary>
     public IReadOnlyList<TimelineItem> Timeline { get; init; } = [];
 

@@ -84,7 +84,7 @@ public sealed class MainScreen : Grid {
 
     public ProfilePage Profile => profilePage;
 
-    public ThemePage Theme => themePage;
+    public ThemePage ThemeScreen => themePage;
 
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;

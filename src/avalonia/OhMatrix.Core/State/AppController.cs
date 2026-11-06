@@ -95,7 +95,9 @@ public sealed class AppController(
         CloseChat();
         Store.Update(s => s with {
             SelectedRoomId = roomId,
-            Timeline = []
+            Timeline = [],
+            Typing = [],
+            ReplyTo = null,
         });
         if (roomId is not null && chats is not null)
             _ = OpenChat(roomId);
@@ -166,7 +168,26 @@ public sealed class AppController(
     public Task Send(string text)
     {
         var trimmed = text.Trim();
-        return trimmed.Length == 0 || chat is null ? Task.CompletedTask : chat.Send(trimmed);
+        if (trimmed.Length == 0 || chat is null)
+            return Task.CompletedTask;
+        var reply = Store.Value.ReplyTo?.EventId;
+        if (reply is not null)
+            SetReplyTo(null);
+        return chat.Send(trimmed, reply);
+    }
+
+    /// <summary>Answers a message in the open chat: the next text sent quotes it. Null cancels.</summary>
+    public void SetReplyTo(TimelineItem? item)
+    {
+        Store.Update(s => s with {
+            ReplyTo = item
+        });
+    }
+
+    /// <summary>Adds my reaction to a message, or takes it away.</summary>
+    public Task ToggleReaction(string itemId, string key)
+    {
+        return chat is null ? Task.CompletedTask : chat.ToggleReaction(itemId, key);
     }
 
     /// <summary>Loads older messages of the open chat.</summary>
@@ -191,6 +212,12 @@ public sealed class AppController(
                 if (ReferenceEquals(chat, session))
                     Store.Update(s => s with {
                         Timeline = items
+                    });
+            });
+            session.TypingChanged += names => Post(() => {
+                if (ReferenceEquals(chat, session))
+                    Store.Update(s => s with {
+                        Typing = names
                     });
             });
             var now = session.Items;
