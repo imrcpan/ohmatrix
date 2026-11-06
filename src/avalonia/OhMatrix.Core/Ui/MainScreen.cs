@@ -38,6 +38,8 @@ public sealed class MainScreen : Grid {
     private readonly ExplorePage explorePage;
     private readonly SettingsPage settingsPage;
     private readonly SessionsPage sessionsPage;
+    private readonly AdvancedPage advancedPage;
+    private readonly LogPage logPage;
     private readonly EncryptionPage encryptionPage;
     private readonly SpacePage spacePage;
     private readonly ChatPane narrowChat;
@@ -79,6 +81,8 @@ public sealed class MainScreen : Grid {
         explorePage = new ExplorePage(controller);
         settingsPage = new SettingsPage(controller);
         sessionsPage = new SessionsPage(controller);
+        advancedPage = new AdvancedPage(controller);
+        logPage = new LogPage(controller);
         encryptionPage = new EncryptionPage(controller);
         spacePage = new SpacePage(controller);
         verifyDialog = new VerifyDialog(controller, this);
@@ -120,6 +124,8 @@ public sealed class MainScreen : Grid {
     public ExplorePage ExploreScreen => explorePage;
     public SettingsPage SettingsScreen => settingsPage;
     public SessionsPage SessionsScreen => sessionsPage;
+    public AdvancedPage AdvancedScreen => advancedPage;
+    public LogPage LogScreen => logPage;
     public EncryptionPage EncryptionScreen => encryptionPage;
     public SpacePage SpaceScreen => spacePage;
     public VerifyDialog Verify => verifyDialog;
@@ -161,6 +167,8 @@ public sealed class MainScreen : Grid {
             SidebarPage.Sessions => sessionsPage,
             SidebarPage.Encryption => encryptionPage,
             SidebarPage.Space => spacePage,
+            SidebarPage.Advanced => advancedPage,
+            SidebarPage.Logs => logPage,
             _ => list,
         };
         detail.Child = split && open ? wideChat : chip;
