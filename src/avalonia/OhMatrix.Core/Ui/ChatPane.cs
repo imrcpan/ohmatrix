@@ -208,7 +208,9 @@ public sealed class ChatPane : Grid {
         }
 
         if (room is not null) {
-            row.Children.Add(new Avatar(room.Id, room.Name, 38, room.IsSpace));
+            var avatar = new Avatar(room.Id, room.Name, 38, room.IsSpace);
+            controller.Pictures.Attach(avatar, room.AvatarUrl, 38);
+            row.Children.Add(avatar);
             var words = new StackPanel {
                 VerticalAlignment = VerticalAlignment.Center
             };

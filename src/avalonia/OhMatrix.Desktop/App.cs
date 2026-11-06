@@ -22,14 +22,15 @@ public class App : Application {
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "OhMatrix"
             );
-            var (auth, rooms, chats) = Engines.Create(data);
+            var (auth, rooms, chats, media) = Engines.Create(data);
             var controller = new AppController(
                 auth,
                 new FileSessionStore(data),
                 new FilePreferencesStore(data),
                 null,
                 rooms,
-                chats
+                chats,
+                media
             );
             var root = new AppRoot(
                 controller,
