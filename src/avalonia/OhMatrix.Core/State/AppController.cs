@@ -1,4 +1,5 @@
 using OhMatrix.Core.Model;
+using OhMatrix.Core.Ui;
 
 namespace OhMatrix.Core.State;
 
@@ -9,7 +10,8 @@ public sealed class AppController(
     IPreferencesStore? preferences = null,
     TimeProvider? clock = null,
     IRoomsEngine? rooms = null,
-    IChatEngine? chats = null
+    IChatEngine? chats = null,
+    IMediaEngine? media = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -24,6 +26,9 @@ public sealed class AppController(
     private int chatOpening;
 
     public Store<AppState> Store { get; } = new(new AppState());
+
+    /// <summary>The pictures of rooms and people.</summary>
+    public Pictures Pictures { get; } = new(media);
 
     /// <summary>Restores the saved session, if there is one. Called once at the start.</summary>
     public async Task Bootstrap()

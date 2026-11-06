@@ -181,6 +181,8 @@ public sealed class RoomListPane : Grid {
             Muted = room.Muted,
             IsSpace = room.IsSpace,
             Compact = Rail,
+            AvatarUrl = room.AvatarUrl,
+            Pictures = controller.Pictures,
         };
         row.Click += (_, _) => {
             if (!room.Invite)

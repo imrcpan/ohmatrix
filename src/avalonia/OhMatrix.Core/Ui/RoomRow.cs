@@ -26,8 +26,10 @@ public sealed class RoomRow : PressableButton {
     public bool IsSpace { get; set; }
     public bool Compact { get; set; }
 
-    /// <summary>The picture of the room; null shows the initials.</summary>
-    public IImage? Picture { get; set; }
+    /// <summary>The picture of the room (an <c>mxc://</c> address) and where to get it from; without them the initials are shown.</summary>
+    public string? AvatarUrl { get; set; }
+
+    public Pictures? Pictures { get; set; }
 
     /// <summary>Pending invitation: Accept and Decline under the preview, with their labels.</summary>
     public (string Accept, string Decline, Action OnAccept, Action OnDecline)? Invite {
@@ -63,9 +65,8 @@ public sealed class RoomRow : PressableButton {
         Height = Invite is null || Compact ? RowHeight : double.NaN;
         Avalonia.Automation.AutomationProperties.SetName(this, Title);
         var secondary = new SolidColorBrush(Selected ? c.OnSelectedSecondary : c.TextSecondary);
-        var avatar = new Avatar(RoomId, Title, 44, IsSpace) {
-            Source = Picture
-        };
+        var avatar = new Avatar(RoomId, Title, 44, IsSpace);
+        Pictures?.Attach(avatar, AvatarUrl, 44);
         if (Compact) {
             Child = CompactContent(avatar, c);
             Refresh();
