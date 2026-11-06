@@ -50,6 +50,12 @@ public sealed class RoomListPane : Grid {
     };
 
     private readonly IconButton plus;
+
+    private readonly Menu addMenu = new() {
+        AlignRight = true
+    };
+
+    private readonly PromptDialog prompt = new();
     private bool connectedOnce;
 
     public RoomListPane(AppController controller, bool rail = false, TimeProvider? time = null)
@@ -103,6 +109,7 @@ public sealed class RoomListPane : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
 
+        plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<RoomListPane>((p, _) => p.Apply());
@@ -114,6 +121,48 @@ public sealed class RoomListPane : Grid {
 
     public StackPanel Rows => rows;
     public SearchField Search => search;
+
+    public Menu AddMenu => addMenu;
+    public PromptDialog Prompt => prompt;
+
+    /// <summary>The plus menu: a new chat, a new group, or joining a room.</summary>
+    public void OpenAddMenu()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        addMenu.AlignRight = !Rail;
+        addMenu.Show(
+            plus,
+            window,
+            [
+                new MenuItem(T("newChat"), () => Ask(window, "newChat",
+                    [new PromptField(T("userIdPlaceholder"))], T("create"),
+                    v => controller.StartDirectChat(v[0])), Icon: "user"),
+                new MenuItem(T("newGroup"), () => Ask(window, "newGroup",
+                        [
+                            new PromptField(T("groupName"), "users"),
+                            new PromptField(T("userIdPlaceholder"), "user", true)
+                        ],
+                        T("create"),
+                        v => controller.CreateGroup(v[0],
+                            v[1].Length == 0
+                                ? []
+                                : v[1].Split([',', ' '], StringSplitOptions.RemoveEmptyEntries))),
+                    Icon: "users"),
+                new MenuItem(T("joinRoom"), () => Ask(window, "joinRoom",
+                    [new PromptField(T("roomIdOrAlias"), "hash")], T("join"),
+                    v => controller.JoinRoom(v[0])), Icon: "hash"),
+            ]
+        );
+    }
+
+    private void Ask(TopLevel window, string key, IReadOnlyList<PromptField> fields, string confirm,
+        Func<IReadOnlyList<string>, Task> run)
+    {
+        prompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale, T(key),
+            T(key + ".body"),
+            fields, confirm, run);
+    }
 
     private string T(string key, params (string, object)[] values)
     {

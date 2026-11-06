@@ -100,6 +100,27 @@ public sealed class AppController(
             _ = OpenChat(roomId);
     }
 
+    /// <summary>Joins a room and opens it. Failures are <see cref="EngineException"/>.</summary>
+    public async Task JoinRoom(string idOrAlias)
+    {
+        var id = await rooms!.JoinRoom(idOrAlias.Trim());
+        SelectRoom(id);
+    }
+
+    /// <summary>Starts a one-to-one chat with a person and opens it.</summary>
+    public async Task StartDirectChat(string userId)
+    {
+        var id = await rooms!.CreateRoom(null, true, [userId.Trim()]);
+        SelectRoom(id);
+    }
+
+    /// <summary>Makes a group, inviting the people, and opens it.</summary>
+    public async Task CreateGroup(string name, IReadOnlyList<string> invite)
+    {
+        var id = await rooms!.CreateRoom(name.Trim(), false, invite);
+        SelectRoom(id);
+    }
+
     /// <summary>Shows a page in the left pane.</summary>
     public void OpenSidebarPage(SidebarPage page)
     {
