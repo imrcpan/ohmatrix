@@ -27,6 +27,7 @@ import { SecuritySheet } from "./SecuritySheet.js";
 import { useMediaUrl } from "./useMedia.js";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 import { PullToRefresh } from "./PullToRefresh.js";
+import { autoHideScrollbar } from "./autoHideScrollbar.js";
 import { useRail } from "./railContext.js";
 import { formatListTime, typingLabel } from "./format.js";
 
@@ -308,6 +309,7 @@ export function RoomListPane() {
         {(scroll) => (
           <FlatList
             {...scroll}
+            {...autoHideScrollbar()}
             ref={scroll.listRef}
             data={settled ? data : NONE}
             keyExtractor={(r) => r.id}
