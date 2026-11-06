@@ -14,9 +14,9 @@
 
 - **Web**: Ready to use (landscape & portrait supported)
 - **Android**: Ready to use (landscape & portrait supported)
-- **Windows**: Coming soon
-- **Linux**: Coming soon
-- **macOS**: Coming soon
+- **Windows**: Ready to use
+- **Linux**: Ready to use
+- **macOS**: Ready to use
 - **iOS**: Planned (future release)
 - **HarmonyOS**: Planned (future release)
 
