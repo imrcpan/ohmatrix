@@ -25,7 +25,16 @@ public sealed class MatrixVerificationEngine(MatrixAuthEngine auth) : IVerificat
             controller = null;
         }
 
-        return controller ??= await client.GetSessionVerificationController();
+        // Right after sign-in the SDK has not fetched the account's own identity yet; it is asked for again for a while.
+        for (var i = 0; controller is null; i++) {
+            try {
+                controller = await client.GetSessionVerificationController();
+            } catch (ClientException) when (i < 30) {
+                await Task.Delay(1000);
+            }
+        }
+
+        return controller;
     }
 
     public async Task Listen()
@@ -106,7 +115,11 @@ public sealed class MatrixVerificationEngine(MatrixAuthEngine auth) : IVerificat
 
         public void DidAcceptVerificationRequest()
         {
-            _ = Start();
+            // The side that asked takes the next step, the pictures; both starting them makes the two cancel each other.
+            if (engine.incoming)
+                engine.Tell(VerifyPhase.Waiting);
+            else
+                _ = Start();
         }
 
         private async Task Start()
