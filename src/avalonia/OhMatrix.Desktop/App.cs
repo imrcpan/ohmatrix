@@ -3,7 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
-using OhMatrix.Avalonia.Core;
+using OhMatrix.Core;
 
 namespace OhMatrix.Desktop;
 

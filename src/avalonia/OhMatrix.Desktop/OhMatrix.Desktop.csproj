@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>OhMatrix.Desktop</RootNamespace>
+        <TargetFramework>net11.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <IsAotCompatible>true</IsAotCompatible>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <PublishAot>true</PublishAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../OhMatrix.Core/OhMatrix.Core.csproj" />
+    </ItemGroup>
+
+</Project>

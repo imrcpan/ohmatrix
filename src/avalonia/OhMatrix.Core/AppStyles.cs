@@ -1,7 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
-namespace OhMatrix.Avalonia.Core;
+namespace OhMatrix.Core;
 
 public static class AppStyles
 {
