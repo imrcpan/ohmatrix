@@ -25,6 +25,7 @@ public sealed class MainScreen : Grid {
 
     private readonly Border detail = new();
     private readonly ProfilePage profilePage;
+    private readonly ThemePage themePage;
     private readonly ChatPane narrowChat;
     private readonly ChatPane wideChat;
 
@@ -55,6 +56,7 @@ public sealed class MainScreen : Grid {
         narrowChat = new ChatPane(controller, () => controller.SelectRoom(null));
         wideChat = new ChatPane(controller);
         profilePage = new ProfilePage(controller);
+        themePage = new ThemePage(controller);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*");
         var row = new StackPanel {
@@ -82,6 +84,8 @@ public sealed class MainScreen : Grid {
 
     public ProfilePage Profile => profilePage;
 
+    public ThemePage Theme => themePage;
+
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
 
@@ -105,7 +109,11 @@ public sealed class MainScreen : Grid {
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
         // The profile takes the place of the list (what opens from it is the left pane's, whatever its width).
-        listHost.Child = s.SidebarPage == SidebarPage.Profile ? profilePage : list;
+        listHost.Child = s.SidebarPage switch {
+            SidebarPage.Profile => profilePage,
+            SidebarPage.Theme => themePage,
+            _ => list,
+        };
         detail.Child = split && open ? wideChat : chip;
         detail.Background = new SolidColorBrush(c.ChatBg);
         chip.Background = new SolidColorBrush(c.ServiceChip);

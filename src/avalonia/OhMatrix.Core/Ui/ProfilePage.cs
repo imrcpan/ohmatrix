@@ -72,43 +72,77 @@ public sealed class ProfilePage : Grid {
         confirm.Show(window, c, T("signOut.title"), T("signOut.body"), yes, no);
     }
 
+    private static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
+        double top)
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
+        };
+        grid.Children.Add(new Icon {
+            Glyph = glyph,
+            Size = 22,
+            Color = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var text = new TextBlock {
+            Text = label,
+            FontSize = 16,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Text),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        var chevron = new Icon {
+            Glyph = "chevronRight",
+            Size = 18,
+            Color = new SolidColorBrush(c.TextTertiary),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(chevron, 2);
+        grid.Children.Add(chevron);
+        var row = new Border {
+            Margin = new Thickness(12, top, 12, 0),
+            Padding = new Thickness(14, 0),
+            Height = 48,
+            CornerRadius = new CornerRadius(Radius.Control),
+            Background = new SolidColorBrush(c.BgSecondary),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = grid,
+        };
+        row.PointerPressed += (_, e) => {
+            e.Handled = true;
+            open();
+        };
+        Avalonia.Automation.AutomationProperties.SetName(row, label);
+        return row;
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        var back = new IconButton("back", T("chats"), 26);
-        back.Click += (_, _) => controller.OpenSidebarPage(SidebarPage.Chats);
-        var title = new TextBlock {
-            Text = T("profile"),
-            FontSize = 17,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Text),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var barRow = new StackPanel {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            Margin = new Thickness(8, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        barRow.Children.Add(back);
-        barRow.Children.Add(title);
-        bar.Child = barRow;
+        PageBar.Fill(bar, c, T("profile"), T("chats"),
+            () => controller.OpenSidebarPage(SidebarPage.Chats));
 
         var id = s.UserId ?? "";
-        var shown = id.TrimStart('@').Split(':')[0];
+        var shown = s.Profile?.DisplayName is { Length: > 0 } dn
+            ? dn
+            : id.TrimStart('@').Split(':')[0];
         content.Children.Clear();
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
             Spacing = 2,
             Margin = new Thickness(0, 12, 0, 4),
         };
-        head.Children.Add(new Avatar(id, shown.Length == 0 ? "?" : shown, 72) {
+        var mine = new Avatar(id, shown.Length == 0 ? "?" : shown, 72) {
             HorizontalAlignment = HorizontalAlignment.Center
-        });
+        };
+        controller.Pictures.Attach(mine, s.Profile?.AvatarUrl, 72);
+        head.Children.Add(mine);
         head.Children.Add(new TextBlock {
             Text = shown,
             FontSize = 22,
@@ -127,8 +161,10 @@ public sealed class ProfilePage : Grid {
         });
         content.Children.Add(head);
 
+        content.Children.Add(NavRow(c, "palette", T("theme"),
+            () => controller.OpenSidebarPage(SidebarPage.Theme), 20));
         var row = new Border {
-            Margin = new Thickness(12, 20, 12, 0),
+            Margin = new Thickness(12, 12, 12, 0),
             Padding = new Thickness(14, 0),
             Height = 48,
             CornerRadius = new CornerRadius(Radius.Control),

@@ -11,7 +11,8 @@ public sealed class AppController(
     TimeProvider? clock = null,
     IRoomsEngine? rooms = null,
     IChatEngine? chats = null,
-    IMediaEngine? media = null
+    IMediaEngine? media = null,
+    IProfileEngine? profiles = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -277,8 +278,23 @@ public sealed class AppController(
         }
     }
 
+    private async Task LoadProfile()
+    {
+        if (profiles is null)
+            return;
+        try {
+            var profile = await profiles.Load();
+            Post(() => Store.Update(s => s with {
+                Profile = profile
+            }));
+        } catch (Exception) {
+            // The name stays what it was until the next sign-in.
+        }
+    }
+
     private void StartRooms()
     {
+        _ = LoadProfile();
         if (rooms is null)
             return;
         if (!roomsHooked) {
@@ -313,6 +329,7 @@ public sealed class AppController(
     {
         Store.Update(s => s with {
             Rooms = [],
+            Profile = null,
             SidebarPage = SidebarPage.Chats,
             SyncState = SyncState.Stopped,
             SelectedRoomId = null,

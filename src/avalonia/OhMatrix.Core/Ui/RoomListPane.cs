@@ -194,8 +194,12 @@ public sealed class RoomListPane : Grid {
         search.IsVisible = !Rail;
         name.Foreground = new SolidColorBrush(c.Text);
         var me = s.UserId ?? "";
-        var shown = me.TrimStart('@').Split(':')[0];
-        avatarHolder.Child = new Avatar(me, shown.Length == 0 ? "?" : shown, Rail ? 44 : 34);
+        var shown = s.Profile?.DisplayName is { Length: > 0 } dn
+            ? dn
+            : me.TrimStart('@').Split(':')[0];
+        var mine = new Avatar(me, shown.Length == 0 ? "?" : shown, Rail ? 44 : 34);
+        controller.Pictures.Attach(mine, s.Profile?.AvatarUrl, Rail ? 44 : 34);
+        avatarHolder.Child = mine;
         name.Text = s.SyncState == SyncState.Syncing || !connectedOnce ? shown : T("connecting");
         name.IsVisible = !Rail;
         Avalonia.Automation.AutomationProperties.SetName(profile, T("profile"));
