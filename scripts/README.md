@@ -2,15 +2,14 @@
 
 Build, sign and check scripts. Each script's options are described in the comment at its top; this page is the map.
 
-| Script                           | What it does                                                                                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `build-web.sh`                   | Builds the web app into `~/release/web`.                                                                                                         |
-| `build-android-<abi>.sh`         | Builds the Android app for one ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`), one script each, into `~/release/android`. Signed with the debug key. |
-| `build-tauri-linux-<arch>.sh`    | Builds the Tauri window for Linux (`x86_64`, `aarch64`, one script each) as .deb, .rpm and AppImage, into `~/release/tauri-linux`.               |
-| `build-tauri-windows-<arch>.ps1` | Builds the Tauri window for Windows (`x86_64`, `aarch64`, one script each) as an NSIS installer, per user. PowerShell 7, on Windows.             |
-| `sign-android.sh`                | Signs built APKs with the release key, after the build.                                                                                          |
-| `release-notes.sh`               | Prints one version's notes from `CHANGELOG.md` (what the publish workflow puts in the release).                                                  |
-| `verify/docker.sh`               | Runs the build scripts in a bare Debian container, to see that they need nothing from the machine.                                               |
+| Script                        | What it does                                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `build-web.sh`                | Builds the web app into `~/release/web`.                                                                                                         |
+| `build-android-<abi>.sh`      | Builds the Android app for one ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`), one script each, into `~/release/android`. Signed with the debug key. |
+| `build-tauri-linux-<arch>.sh` | Builds the Tauri window for Linux (`x86_64`, `aarch64`, one script each) as .deb, .rpm and AppImage, into `~/release/tauri-linux`.               |
+| `sign-android.sh`             | Signs built APKs with the release key, after the build.                                                                                          |
+| `release-notes.sh`            | Prints one version's notes from `CHANGELOG.md` (what the publish workflow puts in the release).                                                  |
+| `verify/docker.sh`            | Runs the build scripts in a bare Debian container, to see that they need nothing from the machine.                                               |
 
 `lib/` and `setup/` are what the scripts share and what they install (system packages, Node, pnpm, a JDK, Rust, the Android SDK and NDK, the web view's development packages). They are not run by hand.
 
@@ -20,7 +19,6 @@ Build, sign and check scripts. Each script's options are described in the commen
 scripts/build-web.sh     --version 1.2.3
 scripts/build-android-arm64-v8a.sh --version 1.2.3
 scripts/build-tauri-linux-x86_64.sh --version 1.2.3
-pwsh scripts/build-tauri-windows-x86_64.ps1 -Version 1.2.3     # on Windows; the options are -ReleaseDir, -Check, -SkipSetup
 ```
 
 - `--version` is required. It is shown in Settings, and each ABI gets its own version code from it. There is one script for each ABI or architecture: to build several, run several, one after the other.
