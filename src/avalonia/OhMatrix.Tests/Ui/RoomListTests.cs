@@ -67,6 +67,14 @@ public class RoomListTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task SetMemberRole(string roomId, string userId, MemberRole role) =>
+            Log($"role {roomId} {userId} {role}");
+
+        public Task RemoveMember(string roomId, string userId) => Log($"remove {roomId} {userId}");
+
+        public Task BanMember(string roomId, string userId, string? reason) =>
+            Log($"ban {roomId} {userId} {reason}");
+
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {
             IReadOnlyList<PersonInfo> all = [

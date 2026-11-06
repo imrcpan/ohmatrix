@@ -187,6 +187,27 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
+    /// <summary>Changes the role of a person in a group, and shows it in the info panel.</summary>
+    public async Task SetMemberRole(string roomId, string userId, MemberRole role)
+    {
+        await rooms!.SetMemberRole(roomId, userId, role);
+        await LoadDetails(roomId);
+    }
+
+    /// <summary>Removes a person from a group.</summary>
+    public async Task RemoveMember(string roomId, string userId)
+    {
+        await rooms!.RemoveMember(roomId, userId);
+        await LoadDetails(roomId);
+    }
+
+    /// <summary>Bans a person from a group.</summary>
+    public async Task BanMember(string roomId, string userId, string? reason)
+    {
+        await rooms!.BanMember(roomId, userId, string.IsNullOrWhiteSpace(reason) ? null : reason);
+        await LoadDetails(roomId);
+    }
+
     /// <summary>Leaves a chat and closes it.</summary>
     public async Task LeaveRoom(string roomId)
     {
