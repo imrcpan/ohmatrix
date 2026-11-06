@@ -174,6 +174,8 @@ public class MatrixChatEngineTests {
         Assert.Equal(10, fileSeen.Task.Result.File!.Size);
 
         var id = seen.Task.Result.Id;
+        await chat.SetPinned(id, true);
+        await chat.SetPinned(id, false);
         var edited = new TaskCompletionSource();
         chat.Changed += items => {
             if (items.Any(i => i.Id == id && i.Edited && i.Body == "changed " + text))

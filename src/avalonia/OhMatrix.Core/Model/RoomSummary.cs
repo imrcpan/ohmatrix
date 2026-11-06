@@ -37,4 +37,7 @@ public sealed record RoomSummary {
 
     /// <summary>Milliseconds since the epoch of the latest activity; the list is ordered by it.</summary>
     public long LastActivityTs { get; init; }
+
+    /// <summary>The ids of the pinned messages, oldest pin first.</summary>
+    public IReadOnlyList<string> PinnedEventIds { get; init; } = [];
 }

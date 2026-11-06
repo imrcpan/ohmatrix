@@ -49,7 +49,17 @@ public sealed class ChatPane : Grid {
         Width = 200,
     };
 
-    private readonly Grid body = new();
+    private readonly Grid body = new() {
+        RowDefinitions = new RowDefinitions("Auto,Auto,*")
+    };
+
+    private readonly Border pinnedBar = new() {
+        BorderThickness = new Thickness(0, 0, 0, 1),
+        Padding = new Thickness(12, 8),
+        IsVisible = false,
+    };
+
+    private int pinnedAt;
     private Icon glass = new();
 
     private readonly Border searchBar = new() {
@@ -135,9 +145,15 @@ public sealed class ChatPane : Grid {
         Grid.SetRow(body, 1);
         Grid.SetRow(composer, 2);
         Children.Add(header);
+        Grid.SetRow(scroller, 2);
+        Grid.SetRow(searchBar, 1);
         body.Children.Add(scroller);
-        searchBar.VerticalAlignment = VerticalAlignment.Top;
         searchBar.IsVisible = false;
+        pinnedBar.PointerPressed += (_, e) => {
+            e.Handled = true;
+            JumpToPinned();
+        };
+        body.Children.Add(pinnedBar);
         body.Children.Add(searchBar);
         Children.Add(body);
         Children.Add(composer);
@@ -245,6 +261,7 @@ public sealed class ChatPane : Grid {
         Avalonia.Automation.AutomationProperties.SetName(attach, T("attach.label"));
 
         var s = controller.Store.Value;
+        BuildPinnedBar(c, s);
         replyHost.Child = ReplyBanner(c, s);
         // Starting to edit puts the text of the message in the field, once.
         if (s.Editing?.Id != editingId) {
@@ -422,6 +439,12 @@ public sealed class ChatPane : Grid {
         var items = new List<MenuItem> {
             new(T("reply"), () => controller.SetReplyTo(item), Icon: "reply"),
         };
+        if (item.EventId is { } eventId) {
+            var pinned = PinnedIds().Contains(eventId);
+            items.Add(new MenuItem(T(pinned ? "unpin" : "pin"),
+                () => _ = controller.SetMessagePinned(item.Id, !pinned), Icon: "pin"));
+        }
+
         if (item.IsOwn && item.EventId is not null && !item.Failed) {
             items.Add(new MenuItem(T("edit"), () => controller.StartEdit(item), Icon: "edit"));
             items.Add(new MenuItem(T("delete"), () => AskDelete(window, item), Icon: "trash",
@@ -438,6 +461,84 @@ public sealed class ChatPane : Grid {
     }
 
     public Menu Actions => actions;
+    public Border PinnedBar => pinnedBar;
+
+    private IReadOnlyList<string> PinnedIds()
+    {
+        var s = controller.Store.Value;
+        return s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId)?.PinnedEventIds ?? [];
+    }
+
+    /// <summary>
+    /// The newest pinned message under the header, with "n/total" when there are several; pressing it goes to that message and moves on to the next
+    /// (older) one, round and round.
+    /// </summary>
+    private void BuildPinnedBar(ColorTokens c, AppState s)
+    {
+        var ids = PinnedIds().Reverse().ToList();
+        pinnedBar.IsVisible = ids.Count > 0;
+        if (ids.Count == 0)
+            return;
+        pinnedAt = Math.Min(pinnedAt, ids.Count - 1);
+        var id = ids[pinnedAt];
+        var item = s.Timeline.FirstOrDefault(i => i.EventId == id);
+        pinnedBar.Background = new SolidColorBrush(c.Bg);
+        pinnedBar.BorderBrush = new SolidColorBrush(c.Separator);
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*")
+        };
+        grid.Children.Add(new Icon {
+            Glyph = "pin",
+            Size = 20,
+            Color = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var bar = new Border {
+            Width = 2,
+            CornerRadius = new CornerRadius(1),
+            Background = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 10, 0),
+        };
+        Grid.SetColumn(bar, 1);
+        grid.Children.Add(bar);
+        var words = new StackPanel();
+        words.Children.Add(new TextBlock {
+            Text = ids.Count > 1
+                ? $"{T("pinned.title")} {pinnedAt + 1}/{ids.Count}"
+                : T("pinned.title"),
+            FontSize = 14,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Accent),
+        });
+        words.Children.Add(new TextBlock {
+            Text = item is null ? "…" :
+                item.Body.Length > 0 ? item.Body : item.File?.Name ?? item.Image?.FileName ?? "",
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        Grid.SetColumn(words, 2);
+        grid.Children.Add(words);
+        pinnedBar.Child = grid;
+        pinnedBar.Cursor = new Cursor(StandardCursorType.Hand);
+    }
+
+    /// <summary>Goes to the pinned message shown, and moves the bar on to the next one.</summary>
+    public void JumpToPinned()
+    {
+        var ids = PinnedIds().Reverse().ToList();
+        if (ids.Count == 0)
+            return;
+        var id = ids[Math.Min(pinnedAt, ids.Count - 1)];
+        var item = controller.Store.Value.Timeline.FirstOrDefault(i => i.EventId == id);
+        if (item is not null && rowsById.TryGetValue(item.Id, out var row))
+            Dispatcher.UIThread.Post(() => row.BringIntoView(), DispatcherPriority.Background);
+        pinnedAt = (pinnedAt + 1) % ids.Count;
+        BuildPinnedBar(ThemeScope.GetColors(this), controller.Store.Value);
+    }
 
     public bool Searching => searching;
     public TextBox SearchInput => searchInput;
