@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>OhMatrix.Engine</RootNamespace>
+        <TargetFramework>net11.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <OutputType>Library</OutputType>
+        <Nullable>enable</Nullable>
+        <IsAotCompatible>true</IsAotCompatible>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <!-- The engine over the Matrix SDK exists only where the SDK was built (src/rust/build-native.sh): see OhMatrix.MatrixSdk. -->
+    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)/../OhMatrix.MatrixSdk/native/bindings')">
+        <DefineConstants>$(DefineConstants);OHMATRIX_NATIVE_SDK</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../OhMatrix.Core/OhMatrix.Core.csproj" />
+        <ProjectReference Include="../OhMatrix.MatrixSdk/OhMatrix.MatrixSdk.csproj" />
+    </ItemGroup>
+
+</Project>

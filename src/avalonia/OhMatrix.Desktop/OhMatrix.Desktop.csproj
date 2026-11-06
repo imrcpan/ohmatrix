@@ -16,12 +16,18 @@
         <PublishAot>true</PublishAot>
     </PropertyGroup>
 
+    <!-- Signing in works where the Matrix SDK was built (src/rust/build-native.sh); elsewhere the app starts but refuses to sign in. -->
+    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)/../OhMatrix.MatrixSdk/native/bindings')">
+        <DefineConstants>$(DefineConstants);OHMATRIX_NATIVE_SDK</DefineConstants>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="../OhMatrix.Core/OhMatrix.Core.csproj" />
+        <ProjectReference Include="../OhMatrix.Engine/OhMatrix.Engine.csproj" />
     </ItemGroup>
 
 </Project>
