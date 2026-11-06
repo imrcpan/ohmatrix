@@ -302,4 +302,46 @@ public class AppControllerTests {
         clock.Advance(TimeSpan.FromSeconds(9));
         Assert.Null(app.Store.Value.ZoomTrial);
     }
+
+    [Fact]
+    public void An_opened_chat_gives_its_row_the_newest_message_when_the_engine_had_none()
+    {
+        IReadOnlyList<RoomSummary> rooms = [
+            new RoomSummary {
+                Id = "!a",
+                Name = "A",
+                LastActivityTs = 5,
+                LastMessage = "kept"
+            },
+            new RoomSummary {
+                Id = "!b",
+                Name = "B"
+            },
+        ];
+        IReadOnlyList<TimelineItem> items = [
+            new TimelineItem {
+                Id = "1",
+                Body = "old",
+                SenderName = "Ann",
+                Ts = 100
+            },
+            new TimelineItem {
+                Id = "d",
+                Kind = TimelineKind.Date,
+                Ts = 200
+            },
+            new TimelineItem {
+                Id = "2",
+                Body = "newest",
+                SenderName = "Ann",
+                Ts = 300
+            },
+        ];
+        var done = AppController.WithPreview(rooms, "!b", items);
+        Assert.Equal("!b", done[0].Id);
+        Assert.Equal(("newest", "Ann", 300L),
+            (done[0].LastMessage, done[0].LastSender, done[0].LastActivityTs));
+        Assert.Equal("kept", AppController.WithPreview(rooms, "!a", items)[0].LastMessage);
+        Assert.Same(rooms, AppController.WithPreview(rooms, "!b", []));
+    }
 }

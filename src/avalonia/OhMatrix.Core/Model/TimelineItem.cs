@@ -13,6 +13,9 @@ public enum TimelineKind {
 
 /// <summary>One line of a chat (<c>TimelineItem</c> of the TypeScript core, for the kinds that are ported so far).</summary>
 public sealed record TimelineItem {
+    /// <summary>The <see cref="Body"/> of a <see cref="TimelineKind.Service"/> line for a message that cannot be decrypted; the pane words it.</summary>
+    public const string Undecryptable = "undecryptable";
+
     /// <summary>Stays the same for the item as it is edited or sent.</summary>
     public required string Id { get; init; }
 
