@@ -64,3 +64,16 @@ public class PicturesTests {
         Assert.IsType<Avalonia.Controls.Image>(avatar.Child);
     }
 }
+
+public class MediaSizeTests {
+    [Xunit.Theory]
+    [Xunit.InlineData(1600, 900, 300, 169)]
+    [Xunit.InlineData(900, 1600, 169, 300)]
+    [Xunit.InlineData(100, 100, 130, 100)]
+    [Xunit.InlineData(null, null, 300, 300)]
+    [Xunit.InlineData(2000, 100, 300, 90)]
+    public void Fits_the_long_edge_with_a_floor(int? w, int? h, int ew, int eh)
+    {
+        Xunit.Assert.Equal((ew, eh), OhMatrix.Core.Ui.MediaSize.Fit(w, h));
+    }
+}

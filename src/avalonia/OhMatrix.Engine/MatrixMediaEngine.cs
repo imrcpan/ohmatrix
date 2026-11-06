@@ -13,7 +13,8 @@ public sealed class MatrixMediaEngine(MatrixAuthEngine auth) : IMediaEngine {
         if (client is null)
             return null;
         try {
-            using var source = MediaSource.FromUrl(mxc);
+            using var source =
+ mxc.StartsWith('{') ? MediaSource.FromJson(mxc) : MediaSource.FromUrl(mxc);
             return await client.GetMediaThumbnail(source, (ulong)width, (ulong)height);
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);

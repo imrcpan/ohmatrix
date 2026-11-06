@@ -88,6 +88,29 @@ public class ChatPaneTests {
         }
     }
 
+    private sealed class Media : IMediaEngine {
+        public readonly List<string> Asked = [];
+
+        public Task<byte[]?> Thumbnail(string mxc, int width, int height)
+        {
+            Asked.Add($"{mxc} {width}x{height}");
+            using var target = new Avalonia.Media.Imaging.RenderTargetBitmap(
+                new Avalonia.PixelSize(width, height)
+            );
+            using (var ctx = target.CreateDrawingContext()) {
+                ctx.DrawRectangle(
+                    Avalonia.Media.Brushes.Orange,
+                    null,
+                    new Avalonia.Rect(0, 0, width, height)
+                );
+            }
+
+            using var stream = new MemoryStream();
+            target.Save(stream);
+            return Task.FromResult<byte[]?>(stream.ToArray());
+        }
+    }
+
     private sealed class Profiles : IProfileEngine {
         public Task<Profile> Load()
         {
@@ -213,6 +236,14 @@ public class ChatPaneTests {
                     Ts = Now - 86400_000 + 120_000,
                 },
                 new TimelineItem {
+                    Id = "img",
+                    Body = "Look at this",
+                    SenderId = "@alice",
+                    SenderName = "Alice",
+                    Ts = Now - 900_000,
+                    Image = new ImageAttachment("mxc://s/pic", 1600, 900, "pic.jpg"),
+                },
+                new TimelineItem {
                     Id = "d2",
                     Kind = TimelineKind.Date,
                     Ts = Now
@@ -259,7 +290,7 @@ public class ChatPaneTests {
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            null, new Profiles());
+            new Media(), new Profiles());
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -310,7 +341,7 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(7, controller.Store.Value.Timeline.Count);
+        Assert.Equal(8, controller.Store.Value.Timeline.Count);
         Assert.Single(engine.Opened);
         Save(window, "light");
     }
@@ -579,6 +610,25 @@ public class ChatPaneTests {
         await Task.Delay(50);
         Assert.Equal(["3"], engine.Opened[0].Deleted);
         Assert.False(pane.DeleteDialog.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task An_image_message_shows_its_picture_at_the_fitted_size()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var picture = FindPane(screen).Messages.GetVisualDescendants().OfType<Image>().First();
+        for (var i = 0; i < 20 && picture.Source is null; i++) {
+            await Task.Delay(50);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Assert.NotNull(picture.Source);
+        Assert.Equal(300, picture.Width);
+        Assert.Equal(169, picture.Height);
+        Save(window, "image-loaded");
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
