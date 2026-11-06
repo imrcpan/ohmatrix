@@ -67,6 +67,18 @@ public class RoomListTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
+        {
+            Actions.Add($"explore {filter} {server}");
+            IReadOnlyList<PublicRoom> all = [
+                new PublicRoom("!pub1:s", "Public Chat", "Talk about anything", "#pub:s", null,
+                    1200),
+                new PublicRoom("!pub2:s", "Rust Fans", null, null, null, 1),
+            ];
+            return Task.FromResult<IReadOnlyList<PublicRoom>>(
+                [.. all.Where(r => r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))]);
+        }
+
         public Task SetRoomAvatar(string roomId, string mimeType, byte[] data) =>
             Log($"avatar {roomId} {mimeType} {data.Length}");
 
