@@ -67,6 +67,18 @@ public class RoomListTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
+        {
+            IReadOnlyList<PersonInfo> all = [
+                new PersonInfo("@ann:s", "Ann Lee", null), new PersonInfo("@anna:s", "Anna K", null)
+            ];
+            return Task.FromResult<IReadOnlyList<PersonInfo>>(
+                [.. all.Where(p => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))]);
+        }
+
+        public Task InviteToRoom(string roomId, IReadOnlyList<string> userIds) =>
+            Log($"invite {roomId} {string.Join(",", userIds)}");
+
         private Task Log(string action)
         {
             Actions.Add(action);

@@ -61,6 +61,7 @@ public sealed class RoomListPane : Grid {
     public RoomListPane(AppController controller, bool rail = false, TimeProvider? time = null)
     {
         this.controller = controller;
+        People = new PeoplePicker(controller);
         this.time = time ?? TimeProvider.System;
         Rail = rail;
         plus = new IconButton("plus", "New", rail ? 28 : 24, rail ? 44 : 36);
@@ -124,6 +125,7 @@ public sealed class RoomListPane : Grid {
 
     public Menu AddMenu => addMenu;
     public PromptDialog Prompt => prompt;
+    public PeoplePicker People { get; }
 
     /// <summary>The plus menu: a new chat, a new group, or joining a room.</summary>
     public void OpenAddMenu()
@@ -135,8 +137,8 @@ public sealed class RoomListPane : Grid {
             plus,
             window,
             [
-                new MenuItem(T("newChat"), () => Ask(window, "newChat",
-                    [new PromptField(T("userIdPlaceholder"))], T("create"),
+                new MenuItem(T("newChat"), () => People.Show(window, ThemeScope.GetColors(this),
+                    T("newChat"), T("newChat.body"), false, _ => T("newChat"),
                     v => controller.StartDirectChat(v[0])), Icon: "user"),
                 new MenuItem(T("newGroup"), () => Ask(window, "newGroup",
                         [

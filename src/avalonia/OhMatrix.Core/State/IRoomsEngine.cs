@@ -42,6 +42,11 @@ public interface IRoomsEngine {
     /// <summary>Leaves the room; it goes from the chat list.</summary>
     Task LeaveRoom(string roomId);
 
+    /// <summary>People of the user directory whose name or id matches the text.</summary>
+    Task<IReadOnlyList<PersonInfo>> SearchPeople(string term);
+
+    Task InviteToRoom(string roomId, IReadOnlyList<string> userIds);
+
     Task StartSync();
     Task StopSync();
 }

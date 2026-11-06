@@ -173,6 +173,20 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
+    public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
+    {
+        return rooms is null
+            ? Task.FromResult<IReadOnlyList<PersonInfo>>([])
+            : rooms.SearchPeople(term);
+    }
+
+    /// <summary>Invites people to a group, and shows them in the info panel.</summary>
+    public async Task InviteToRoom(string roomId, IReadOnlyList<string> userIds)
+    {
+        await rooms!.InviteToRoom(roomId, userIds);
+        await LoadDetails(roomId);
+    }
+
     /// <summary>Leaves a chat and closes it.</summary>
     public async Task LeaveRoom(string roomId)
     {
