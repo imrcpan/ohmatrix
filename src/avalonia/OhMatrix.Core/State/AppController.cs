@@ -239,6 +239,14 @@ public sealed class AppController(
             }));
     }
 
+    /// <summary>Sets the encryption of the account up with the password; gives the recovery key to keep. Failures (a wrong password) are <see cref="EngineException"/>.</summary>
+    public async Task<string> SetUpEncryption(string password)
+    {
+        var key = await security!.SetUp(password);
+        await RefreshSecurity();
+        return key;
+    }
+
     /// <summary>Unlocks the encrypted history with the recovery key. Failures (a wrong key) are <see cref="EngineException"/>.</summary>
     public async Task RestoreWithRecoveryKey(string key)
     {

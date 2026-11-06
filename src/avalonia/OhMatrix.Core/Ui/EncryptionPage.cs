@@ -1,3 +1,4 @@
+using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -40,6 +41,18 @@ public sealed class EncryptionPage : Grid {
     }
 
     public PromptDialog RecoveryPrompt { get; } = new();
+    public PromptDialog SetupPrompt { get; } = new();
+
+    /// <summary>The dialog that shows the new recovery key, once.</summary>
+    public Dialog KeyDialog { get; } = new() {
+        Modal = true
+    };
+
+    /// <summary>The recovery key being shown, or null.</summary>
+    public string? ShownKey { get; private set; }
+
+    /// <summary>The row that sets the encryption up; null when the state has no such step.</summary>
+    public Border? SetupRow { get; private set; }
 
     /// <summary>The row that asks for the recovery key; null when the state has no such step.</summary>
     public Border? RecoveryRow { get; private set; }
@@ -58,6 +71,77 @@ public sealed class EncryptionPage : Grid {
             SecurityState.NeedsRecovery => t("enc.verify"),
             _ => t("enc.unavailable"),
         };
+    }
+
+    /// <summary>Asks for the password to set the encryption up, then shows the recovery key to keep.</summary>
+    public void AskSetup()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        SetupPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("sec.setup.title"), T("sec.setup.body"),
+            [new PromptField(T("password"), "lock", false, true)], T("sec.action.setup"),
+            async v => {
+                var key = await controller.SetUpEncryption(v[0]);
+                ShowKey(window, key);
+            });
+    }
+
+    private void ShowKey(TopLevel window, string key)
+    {
+        ShownKey = key;
+        var c = ThemeScope.GetColors(this);
+        var copy = new PrimaryButton {
+            Title = T("sec.copy")
+        };
+        var done = new TextButton {
+            Title = T("sec.done")
+        };
+        ThemeScope.SetColors(copy, c);
+        ThemeScope.SetColors(done, c);
+        copy.Click += async (_, _) => {
+            if (window.Clipboard is { } clipboard) {
+                await clipboard.SetTextAsync(key);
+                copy.Title = T("copied");
+            }
+        };
+        done.Click += (_, _) => AskSaved(window);
+        var shown = new Border {
+            Background = new SolidColorBrush(c.BgSecondary),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12),
+            Child = new SelectableTextBlock {
+                Text = key,
+                FontSize = 16,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.Text),
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+            },
+        };
+        KeyDialog.Show(window, c, T("sec.saved.title"), T("sec.saved.body"), shown, copy, done);
+    }
+
+    private void AskSaved(TopLevel window)
+    {
+        var c = ThemeScope.GetColors(this);
+        var yes = new PrimaryButton {
+            Title = T("sec.confirm.yes")
+        };
+        var back = new TextButton {
+            Title = T("sec.confirm.back")
+        };
+        ThemeScope.SetColors(yes, c);
+        ThemeScope.SetColors(back, c);
+        yes.Click += (_, _) => {
+            ShownKey = null;
+            KeyDialog.Close();
+        };
+        back.Click += (_, _) => {
+            if (ShownKey is { } key)
+                ShowKey(window, key);
+        };
+        KeyDialog.Show(window, c, T("sec.confirm.title"), T("sec.confirm.body"), yes, back);
     }
 
     /// <summary>Asks for the recovery key to unlock the history of this device.</summary>
@@ -92,6 +176,12 @@ public sealed class EncryptionPage : Grid {
             }, 6,
             Words(s.Security, k => T(k)), false));
         RecoveryRow = null;
+        SetupRow = null;
+        if (s.Security == SecurityState.NeedsSetup) {
+            SetupRow = ProfilePage.NavRow(c, "key", T("sec.setup.title"), AskSetup, 12);
+            content.Children.Add(SetupRow);
+        }
+
         if (s.Security == SecurityState.NeedsRecovery) {
             RecoveryRow = ProfilePage.NavRow(c, "key", T("sec.recovery.title"), AskRecoveryKey, 12);
             content.Children.Add(RecoveryRow);

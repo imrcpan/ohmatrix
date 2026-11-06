@@ -216,6 +216,36 @@ public class MatrixSecurityEngineTests {
 }
 
 [Collection("homeserver")]
+public class MatrixSecuritySetupTests {
+    [Fact]
+    public async Task A_new_account_sets_its_keys_up_and_gets_a_recovery_key()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-setup-" + Guid.NewGuid().ToString("N"))
+        );
+        var name = "keys" + Guid.NewGuid().ToString("N")[..10];
+        await auth.Register(server!, name, "pw123456x", null);
+        var rooms = new MatrixRoomsEngine(auth);
+        await rooms.StartSync();
+        var security = new MatrixSecurityEngine(auth);
+        var key = await security.SetUp("pw123456x");
+        Assert.False(string.IsNullOrWhiteSpace(key));
+        var state = SecurityState.Unavailable;
+        for (var i = 0; i < 20 && state != SecurityState.Ready; i++) {
+            state = await security.State();
+            if (state != SecurityState.Ready)
+                await Task.Delay(500);
+        }
+
+        Assert.Equal(SecurityState.Ready, state);
+        await rooms.StopSync();
+        await auth.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixSpaceEngineTests {
     [Fact]
     public async Task Lists_the_rooms_of_a_space()
