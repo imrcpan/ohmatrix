@@ -120,6 +120,39 @@ public sealed class AppController(
         SelectRoom(id);
     }
 
+    /// <summary>
+    /// Joins a room of the public directory behind a row of the chat list that says so; the failure is in <see cref="AppState.JoinError"/>. The
+    /// caller does not wait: the page can go away at once.
+    /// </summary>
+    public async Task JoinPublicRoom(PublicRoom room)
+    {
+        if (Store.Value.Joining.Any(j => j.Id == room.RoomId))
+            return;
+        var joining = new JoiningRoom(room.RoomId, room.Name, room.AvatarUrl, time.GetUtcNow());
+        Store.Update(s => s with {
+            Joining = [joining, .. s.Joining],
+            JoinError = null
+        });
+        try {
+            await JoinRoom(room.Alias ?? room.RoomId);
+        } catch (EngineException e) {
+            Store.Update(s => s with {
+                JoinError = e.Message
+            });
+        } finally {
+            Store.Update(s => s with {
+                Joining = s.Joining.Where(j => j.Id != room.RoomId).ToList()
+            });
+        }
+    }
+
+    public void DismissJoinError()
+    {
+        Store.Update(s => s with {
+            JoinError = null
+        });
+    }
+
     /// <summary>Starts a one-to-one chat with a person and opens it.</summary>
     public async Task StartDirectChat(string userId)
     {
@@ -810,6 +843,8 @@ public sealed class AppController(
             SyncState = SyncState.Stopped,
             Security = SecurityState.Unavailable,
             Verification = null,
+            Joining = [],
+            JoinError = null,
             SelectedRoomId = null,
             Auth = AuthStatus.SignedOut,
             AuthError = error,

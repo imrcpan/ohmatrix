@@ -5,6 +5,7 @@ using Avalonia.Media;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
 
@@ -110,6 +111,7 @@ public sealed class RoomListPane : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
 
+        ticker.Tick += (_, _) => Apply();
         plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
@@ -219,11 +221,52 @@ public sealed class RoomListPane : Grid {
                 .ToList();
         rows.Children.Clear();
         var now = time.GetUtcNow();
+        if (s.JoinError is { } failed && !Rail)
+            rows.Children.Add(JoinFailure(c, failed));
+        foreach (var joining in s.Joining)
+            rows.Children.Add(JoiningRow(joining, s, now));
+        ticker.IsEnabled = s.Joining.Count > 0;
         foreach (var room in shownRooms)
             rows.Children.Add(MakeRow(room, s, now));
         empty.IsVisible = shownRooms.Count == 0 && s.SyncState == SyncState.Syncing && !Rail;
         empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
+    }
+
+    private readonly Avalonia.Threading.DispatcherTimer ticker = new() {
+        Interval = TimeSpan.FromSeconds(1)
+    };
+
+    /// <summary>The row of a room still being joined, with the seconds it has taken.</summary>
+    private RoomRow JoiningRow(JoiningRoom joining, AppState s, DateTimeOffset now)
+    {
+        var seconds = Math.Max(0, (int)(now - joining.Since).TotalSeconds);
+        var row = new RoomRow {
+            RoomId = joining.Id,
+            Title = joining.Name,
+            Preview = $"{T("explore.joining.item")} ({seconds}s)",
+            Compact = Rail,
+            AvatarUrl = joining.AvatarUrl,
+            Pictures = controller.Pictures,
+            IsEnabled = false,
+        };
+        row.Update();
+        return row;
+    }
+
+    /// <summary>Why a join failed; a press dismisses it.</summary>
+    private Control JoinFailure(ColorTokens c, string message)
+    {
+        var text = new TextBlock {
+            Text = message,
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Danger),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(18, 6),
+        };
+        text.PointerPressed += (_, _) => controller.DismissJoinError();
+        return text;
     }
 
     public Menu RowMenu { get; } = new();

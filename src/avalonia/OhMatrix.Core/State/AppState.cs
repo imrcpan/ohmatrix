@@ -42,6 +42,12 @@ public sealed record AppState {
     /// </summary>
     public ZoomTrial? ZoomTrial { get; init; }
 
+    /// <summary>The public rooms being joined; a big room on another server can take a long while.</summary>
+    public IReadOnlyList<JoiningRoom> Joining { get; init; } = [];
+
+    /// <summary>Why the last join failed, until it is dismissed.</summary>
+    public string? JoinError { get; init; }
+
     /// <summary>The chat list, in the order it is shown: pinned first, then the latest activity first.</summary>
     public IReadOnlyList<RoomSummary> Rooms { get; init; } = [];
 

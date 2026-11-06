@@ -277,8 +277,12 @@ public class ChatPaneTests {
             return Task.CompletedTask;
         }
 
+        public TaskCompletionSource<string>? JoinGate;
+
         public Task<string> JoinRoom(string idOrAlias)
         {
+            if (JoinGate is { } gate)
+                return gate.Task;
             return Task.FromResult("!joined");
         }
 
@@ -748,6 +752,34 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
         Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
+    }
+
+    [AvaloniaFact]
+    public async Task A_room_being_joined_shows_in_the_list_until_the_join_ends()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Explore);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.ExploreScreen;
+        engine.JoinGate = new TaskCompletionSource<string>();
+        page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s", null, 1200));
+        page.Confirm.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
+        Assert.Single(controller.Store.Value.Joining);
+        var first = (RoomRow)screen.List.Rows.Children[0];
+        Assert.Equal("Public Chat", first.Title);
+        Assert.StartsWith("Joining", first.Preview);
+        Save(window, "joining");
+        engine.JoinGate.SetException(new EngineException(EngineErrorCode.Forbidden, "No access"));
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(controller.Store.Value.Joining);
+        Assert.Equal("No access", controller.Store.Value.JoinError);
+        controller.DismissJoinError();
+        Assert.Null(controller.Store.Value.JoinError);
+        engine.JoinGate = null;
     }
 
     [AvaloniaFact]
