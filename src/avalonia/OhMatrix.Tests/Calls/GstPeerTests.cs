@@ -131,4 +131,25 @@ public class GstPeerTests {
         a.SetCameraOff(true);
         a.SetMuted(false);
     }
+
+    [Fact]
+    public async Task The_microphones_and_cameras_are_listed_and_can_be_switched_to_in_a_call()
+    {
+        Assert.SkipUnless(new GstCallPlatform().Available,
+            "GStreamer with webrtcbin is not installed");
+        var platform = new GstCallPlatform(Test);
+        var devices = platform.Media.Devices();
+        Assert.All(devices.Microphones, d => Assert.False(string.IsNullOrEmpty(d.Label)));
+        using var peer = new GstPeer([], Test);
+        peer.AddLocalMedia(true);
+        if (devices.Microphones.Count > 0)
+            Assert.True(peer.UseMicrophone(devices.Microphones[0].Id));
+        if (devices.Cameras.Count > 0)
+            Assert.True(peer.UseCamera(devices.Cameras[0].Id));
+        Assert.False(peer.UseMicrophone("no such microphone"));
+        // The call still makes an offer with what was switched to.
+        var offer = await peer.CreateOffer();
+        Assert.Contains("m=audio", offer.Sdp);
+        Assert.Contains("m=video", offer.Sdp);
+    }
 }

@@ -87,6 +87,10 @@ public class CallSignallingTests {
         public bool Refuse;
         public string? StreamId => "stream-1";
 
+        public CallDevices Devices() => new([], []);
+
+        public void UseDevice(bool camera, string id) => Log.Add($"use {camera} {id}");
+
         public Task Start(IPeer peer, bool video)
         {
             if (Refuse)

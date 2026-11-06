@@ -156,6 +156,15 @@ public sealed class CallScreen : Grid {
         ThemeScope.SetColors(minimize, Themes.Resolve("dark", null).Colors);
         minimize.Click += (_, _) => Minimize(true);
         full.Children.Add(minimize);
+        var gear = new IconButton("gear", "Devices", 24, 44) {
+            Tint = Colors.White,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(12),
+        };
+        ThemeScope.SetColors(gear, Themes.Resolve("dark", null).Colors);
+        gear.Click += (_, _) => OpenDevices(gear);
+        full.Children.Add(gear);
         Children.Add(full);
         BuildMini();
         Children.Add(mini);
@@ -172,6 +181,31 @@ public sealed class CallScreen : Grid {
     public string Status => status.Text ?? "";
 
     public string PeerName => name.Text ?? "";
+
+    /// <summary>The menu of microphones and cameras.</summary>
+    public Menu DevicesMenu { get; } = new() {
+        AlignRight = true
+    };
+
+    /// <summary>Lists the microphones (and, in a video call, the cameras) with the ones in use checked; choosing one switches to it.</summary>
+    public void OpenDevices(Control? anchor = null)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var devices = controller.CallDevices();
+        var items = new List<MenuItem>();
+        foreach (var d in devices.Microphones)
+            items.Add(new MenuItem($"{T("call.microphone")}: {d.Label}",
+                () => controller.UseCallDevice(false, d.Id), Checked: d.Current));
+        if (controller.Store.Value.Call is { Video: true }) {
+            foreach (var d in devices.Cameras)
+                items.Add(new MenuItem($"{T("call.camera")}: {d.Label}",
+                    () => controller.UseCallDevice(true, d.Id), Checked: d.Current));
+        }
+
+        if (items.Count > 0)
+            DevicesMenu.Show(anchor ?? this, window, items);
+    }
 
     /// <summary>The call is shrunk to a small window at the top right; pressing it opens the call again.</summary>
     public bool IsMinimized => minimized;

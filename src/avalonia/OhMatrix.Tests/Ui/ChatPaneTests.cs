@@ -230,6 +230,15 @@ public class ChatPaneTests {
         private sealed class MediaFake(List<string> log) : ICallMedia {
             public string? StreamId => "s1";
 
+            public CallDevices Devices() => new(
+                [
+                    new CallDevice("m1", "Built-in microphone", true),
+                    new CallDevice("m2", "Headset", false)
+                ],
+                [new CallDevice("c1", "Webcam", true)]);
+
+            public void UseDevice(bool camera, string id) => log.Add($"use {camera} {id}");
+
             public Task Start(OhMatrix.Core.Calls.IPeer peer, bool video)
             {
                 log.Add("start " + video);
@@ -1649,6 +1658,12 @@ public class ChatPaneTests {
         Assert.Contains("call.mic", screen.Call.Buttons.Keys);
         Assert.Contains("muted True", CallMedia.Log);
         Save(window, "call-connected");
+        screen.Call.OpenDevices();
+        Assert.Equal(2, screen.Call.DevicesMenu.Rows.Count);
+        Save(window, "call-devices");
+        controller.UseCallDevice(false, "m2");
+        Assert.Contains("use False m2", CallMedia.Log);
+        screen.Call.DevicesMenu.Close();
         screen.Call.Minimize(true);
         Dispatcher.UIThread.RunJobs();
         Assert.True(screen.Call.IsMinimized);
