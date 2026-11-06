@@ -219,6 +219,8 @@ public class ChatPaneTests {
 
         public bool TakeRemoteFrame(Action<IntPtr, int, int> copy) => false;
 
+        public bool TakeLocalFrame(Action<IntPtr, int, int> copy) => false;
+
         public PlatformFake() => Media = new MediaFake(Log);
 
         public OhMatrix.Core.Calls.IPeer NewPeer(
@@ -1647,6 +1649,14 @@ public class ChatPaneTests {
         Assert.Contains("call.mic", screen.Call.Buttons.Keys);
         Assert.Contains("muted True", CallMedia.Log);
         Save(window, "call-connected");
+        screen.Call.Minimize(true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(screen.Call.IsMinimized);
+        Assert.True(screen.Call.MiniWindow.IsVisible);
+        Save(window, "call-minimized");
+        screen.Call.Minimize(false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(screen.Call.MiniWindow.IsVisible);
 
         await controller.HangupCall();
         Dispatcher.UIThread.RunJobs();

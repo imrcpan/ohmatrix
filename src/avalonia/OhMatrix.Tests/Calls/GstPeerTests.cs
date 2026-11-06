@@ -116,6 +116,17 @@ public class GstPeerTests {
                 : null;
         }, "picture at a");
         Assert.Equal(640, back[0]);
+        // My own camera, small, for the corner of the screen.
+        var own = await Within(() => {
+            (int, int)? size = null;
+            a.TryTakeLocalFrame((data, w, h) => size = (w, h));
+            return size is { } s
+                ? new[] {
+                    s.Item1, s.Item2
+                }
+                : null;
+        }, "my own picture");
+        Assert.Equal((240, 180), (own[0], own[1]));
         a.SetMuted(true);
         a.SetCameraOff(true);
         a.SetMuted(false);

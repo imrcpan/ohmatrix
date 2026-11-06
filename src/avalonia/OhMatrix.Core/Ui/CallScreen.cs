@@ -66,8 +66,65 @@ public sealed class CallScreen : Grid {
         Interval = TimeSpan.FromMilliseconds(33)
     };
 
+    private readonly Image local = new() {
+        Width = 160,
+        Height = 120,
+        Stretch = Stretch.UniformToFill,
+        IsVisible = false,
+        IsHitTestVisible = false,
+    };
+
+    private readonly Border localFrame = new() {
+        CornerRadius = new CornerRadius(12),
+        ClipToBounds = true,
+        HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Bottom,
+        Margin = new Thickness(0, 0, 16, 140),
+        IsVisible = false,
+        IsHitTestVisible = false,
+    };
+
+    private WriteableBitmap? localPicture;
     private WriteableBitmap? picture;
     private bool pictureShown;
+    private readonly Grid full = new();
+
+    private readonly Border mini = new() {
+        HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Top,
+        Margin = new Thickness(12),
+        Padding = new Thickness(14, 8, 8, 8),
+        CornerRadius = new CornerRadius(22),
+        Background = new SolidColorBrush(Color.Parse("#111418")),
+        Cursor = new Cursor(StandardCursorType.Hand),
+        IsVisible = false,
+    };
+
+    private readonly TextBlock miniName = new() {
+        FontSize = 15,
+        FontWeight = FontWeight.SemiBold,
+        FontFamily = Fonts.System,
+        Foreground = Brushes.White,
+        MaxWidth = 160,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+    };
+
+    private readonly TextBlock miniStatus = new() {
+        FontSize = 13,
+        FontFamily = Fonts.System,
+        Foreground = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
+    };
+
+    private readonly Border miniEnd = new() {
+        Width = 36,
+        Height = 36,
+        CornerRadius = new CornerRadius(18),
+        Background = new SolidColorBrush(Color.Parse("#E5484D")),
+        Cursor = new Cursor(StandardCursorType.Hand),
+    };
+
+    private bool minimized;
+    private string? minimizedCall;
     private readonly StackPanel middle;
     private string? shownRoom;
 
@@ -75,7 +132,7 @@ public sealed class CallScreen : Grid {
     {
         this.controller = controller;
         this.time = time ?? TimeProvider.System;
-        Background = new SolidColorBrush(Backdrop);
+        full.Background = new SolidColorBrush(Backdrop);
         IsVisible = false;
         middle = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center,
@@ -85,9 +142,23 @@ public sealed class CallScreen : Grid {
         middle.Children.Add(avatarHolder);
         middle.Children.Add(name);
         middle.Children.Add(status);
-        Children.Add(remote);
-        Children.Add(middle);
-        Children.Add(buttons);
+        full.Children.Add(remote);
+        full.Children.Add(middle);
+        full.Children.Add(buttons);
+        localFrame.Child = local;
+        full.Children.Add(localFrame);
+        var minimize = new IconButton("chevronDown", "Minimize", 24, 44) {
+            Tint = Colors.White,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(12),
+        };
+        ThemeScope.SetColors(minimize, Themes.Resolve("dark", null).Colors);
+        minimize.Click += (_, _) => Minimize(true);
+        full.Children.Add(minimize);
+        Children.Add(full);
+        BuildMini();
+        Children.Add(mini);
         controller.Store.Changed += _ => Apply();
         clock.Tick += (_, _) => Apply();
         frames.Tick += (_, _) => TakeFrame();
@@ -102,12 +173,80 @@ public sealed class CallScreen : Grid {
 
     public string PeerName => name.Text ?? "";
 
+    /// <summary>The call is shrunk to a small window at the top right; pressing it opens the call again.</summary>
+    public bool IsMinimized => minimized;
+
+    public Border MiniWindow => mini;
+
+    /// <summary>Shrinks the call to the small window, or opens it again.</summary>
+    public void Minimize(bool value)
+    {
+        minimized = value;
+        minimizedCall = controller.Store.Value.Call?.CallId;
+        Apply();
+    }
+
+    private void BuildMini()
+    {
+        var words = new StackPanel {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 12, 0)
+        };
+        words.Children.Add(miniName);
+        words.Children.Add(miniStatus);
+        miniEnd.Child = new Icon {
+            Glyph = "fluentCall",
+            Size = 18,
+            Color = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransform = new RotateTransform(135),
+        };
+        miniEnd.PointerPressed += (_, e) => {
+            e.Handled = true;
+            _ = controller.HangupCall();
+        };
+        var row = new StackPanel {
+            Orientation = Orientation.Horizontal
+        };
+        row.Children.Add(words);
+        row.Children.Add(miniEnd);
+        mini.Child = row;
+        mini.PointerPressed += (_, _) => Minimize(false);
+    }
+
     /// <summary>True once a picture of the other side is on screen.</summary>
     public bool ShowsVideo => remote.IsVisible;
+
+    /// <summary>True while my own picture is on screen.</summary>
+    public bool ShowsOwnVideo => localFrame.IsVisible;
+
+    private static WriteableBitmap Fill(WriteableBitmap? bitmap, IntPtr data, int width, int height)
+    {
+        if (bitmap is null || bitmap.PixelSize.Width != width || bitmap.PixelSize.Height != height)
+            bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
+                PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        using var frame = bitmap.Lock();
+        unsafe {
+            for (var y = 0; y < height; y++)
+                Buffer.MemoryCopy((byte*)data + y * width * 4,
+                    (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
+        }
+
+        return bitmap;
+    }
 
     /// <summary>Copies the newest picture of the other side into the bitmap shown behind the buttons.</summary>
     public void TakeFrame()
     {
+        // My own camera, in the corner, while it is on.
+        if (controller.TakeLocalCallFrame((data, width, height) => {
+                localPicture = Fill(localPicture, data, width, height);
+                local.Source = localPicture;
+            }))
+            local.InvalidateVisual();
+        localFrame.IsVisible = localPicture is not null &&
+                               controller.Store.Value.Call is { CameraOff: false };
         if (!controller.TakeCallFrame((data, width, height) => {
                 if (picture is null || picture.PixelSize.Width != width
                                     || picture.PixelSize.Height != height) {
@@ -241,12 +380,23 @@ public sealed class CallScreen : Grid {
             pictureShown = false;
             remote.IsVisible = false;
             middle.IsVisible = true;
+            localFrame.IsVisible = false;
+            localPicture = null;
         }
 
         var room = s.Rooms.FirstOrDefault(r => r.Id == call.RoomId);
         var who = room?.Name ?? call.Peer;
         name.Text = who;
         status.Text = StatusOf(call);
+        // Only a call that was minimized stays so; another call opens large.
+        if (minimized && minimizedCall != call.CallId)
+            minimized = false;
+        // A call that is ringing or over is not left in a corner: it asks for attention, or says how it ended.
+        var small = minimized && call.Phase is CallPhase.Connecting or CallPhase.Connected;
+        full.IsVisible = !small;
+        mini.IsVisible = small;
+        miniName.Text = who;
+        miniStatus.Text = status.Text;
         if (shownRoom != call.RoomId) {
             shownRoom = call.RoomId;
             var avatar = new Avatar(call.RoomId, who, 128);
