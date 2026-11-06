@@ -62,8 +62,8 @@ public sealed class ThemePage : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, T("theme"), T("profile"),
-            () => controller.OpenSidebarPage(SidebarPage.Profile));
+        PageBar.Fill(bar, c, T("theme"), T("settings"),
+            () => controller.OpenSidebarPage(SidebarPage.Settings));
 
         previewHost.Child = Preview(c, s.Locale);
         cards.Children.Clear();

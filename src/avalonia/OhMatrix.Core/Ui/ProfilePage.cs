@@ -15,9 +15,6 @@ namespace OhMatrix.Core.Ui;
 /// </summary>
 public sealed class ProfilePage : Grid {
     private readonly AppController controller;
-    private readonly Dialog confirm = new();
-    private readonly ZoomPicker zoom;
-    private Control zoomAnchor = new Border();
     private readonly StackPanel content = new();
 
     private readonly Border bar = new() {
@@ -28,7 +25,6 @@ public sealed class ProfilePage : Grid {
     public ProfilePage(AppController controller)
     {
         this.controller = controller;
-        zoom = new ZoomPicker(controller, this, false);
         RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(bar);
         var scroller = new ScrollViewer {
@@ -43,17 +39,10 @@ public sealed class ProfilePage : Grid {
         Apply();
     }
 
-    /// <summary>The row that signs out.</summary>
-    public Border SignOutRow { get; private set; } = new();
-
-    public Dialog Confirm => confirm;
     public PromptDialog NamePrompt { get; } = new();
 
     /// <summary>The row that changes the name.</summary>
     public Border NameRow { get; private set; } = new();
-
-    public ZoomPicker Zoom => zoom;
-    public Control ZoomRow => zoomAnchor;
 
     private string T(string key, params (string, object)[] values)
     {
@@ -95,29 +84,7 @@ public sealed class ProfilePage : Grid {
         NamePrompt.Fields[0].Text = s.Profile?.DisplayName ?? "";
     }
 
-    /// <summary>Asks whether to sign out; the answer is in the buttons of the dialog.</summary>
-    public void AskSignOut()
-    {
-        if (TopLevel.GetTopLevel(this) is not { } window)
-            return;
-        var c = ThemeScope.GetColors(this);
-        var yes = new PrimaryButton {
-            Title = T("signOut")
-        };
-        var no = new TextButton {
-            Title = T("cancel")
-        };
-        yes.Click += (_, _) => {
-            confirm.Close();
-            _ = controller.Logout();
-        };
-        no.Click += (_, _) => confirm.Close();
-        ThemeScope.SetColors(yes, c);
-        ThemeScope.SetColors(no, c);
-        confirm.Show(window, c, T("signOut.title"), T("signOut.body"), yes, no);
-    }
-
-    private static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
+    internal static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
         double top, string? value = null, bool chevron = true)
     {
         var grid = new Grid {
@@ -239,35 +206,7 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "info", T("homeserver"), () => {
             }, 12,
             s.Homeserver ?? "", false));
-        content.Children.Add(NavRow(c, "palette", T("theme"),
-            () => controller.OpenSidebarPage(SidebarPage.Theme), 20));
-        var zoomRow = NavRow(c, "zoomIn", T("zoom"), () => zoom.Open(zoomAnchor), 12,
-            ZoomPicker.Percent(s.Prefs.UiScale));
-        zoomAnchor = zoomRow;
-        content.Children.Add(zoomRow);
-        content.Children.Add(NavRow(c, "globe", T("language"),
-            () => controller.OpenSidebarPage(SidebarPage.Language), 12));
-        var row = new Border {
-            Margin = new Thickness(12, 12, 12, 0),
-            Padding = new Thickness(14, 0),
-            Height = 48,
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = new SolidColorBrush(c.BgSecondary),
-            Cursor = new Cursor(StandardCursorType.Hand),
-            Child = new TextBlock {
-                Text = T("signOut"),
-                FontSize = 16,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.Danger),
-                VerticalAlignment = VerticalAlignment.Center,
-            },
-        };
-        row.PointerPressed += (_, e) => {
-            e.Handled = true;
-            AskSignOut();
-        };
-        Avalonia.Automation.AutomationProperties.SetName(row, T("signOut"));
-        SignOutRow = row;
-        content.Children.Add(row);
+        content.Children.Add(NavRow(c, "gear", T("settings"),
+            () => controller.OpenSidebarPage(SidebarPage.Settings), 20));
     }
 }
