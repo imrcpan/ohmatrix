@@ -17,7 +17,7 @@ import { ChatSearch } from "./ChatSearch.js";
 import { SelectionBar, SelectionHeader } from "./SelectionBar.js";
 import { SelectionContext, type Selection } from "./selection.js";
 import { MessageList } from "./MessageList.js";
-import type { MessageListHandle } from "./messageList.js";
+import type { MessageListHandle } from "./messageListTypes.js";
 import { DropOverlay, LoadingOverlay, ScrollToLatest, Toast } from "./overlays.js";
 import { TimelineRow } from "./TimelineRow.js";
 import { useAttachments } from "./useAttachments.js";

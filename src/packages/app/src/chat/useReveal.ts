@@ -4,7 +4,7 @@ import type { OpenRoom } from "@ohmatrix/state";
 import { useAppState, useController } from "../context.js";
 import type { Row } from "../timelineRows.js";
 import { loadUntil } from "./loadUntil.js";
-import type { MessageListHandle } from "./messageList.js";
+import type { MessageListHandle } from "./messageListTypes.js";
 import type { Translate } from "./types.js";
 import { useLatest } from "./useLatest.js";
 
