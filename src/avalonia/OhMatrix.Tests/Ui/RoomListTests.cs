@@ -67,6 +67,9 @@ public class RoomListTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task SetRoomAvatar(string roomId, string mimeType, byte[] data) =>
+            Log($"avatar {roomId} {mimeType} {data.Length}");
+
         public Task SetMemberRole(string roomId, string userId, MemberRole role) =>
             Log($"role {roomId} {userId} {role}");
 

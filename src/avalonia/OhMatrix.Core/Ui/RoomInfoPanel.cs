@@ -45,6 +45,26 @@ public sealed class RoomInfoPanel : Grid {
     public Menu MemberMenu { get; } = new();
     public PromptDialog MemberPrompt { get; } = new();
     public TextButton? InviteButton { get; private set; }
+    public TextButton? PhotoButton { get; private set; }
+
+    /// <summary>Asks for a picture file and makes it the picture of the room; the path can be given to skip the dialog.</summary>
+    public async Task ChangePhoto(RoomSummary room, string? path = null)
+    {
+        if (path is null) {
+            if (TopLevel.GetTopLevel(this) is not { } window)
+                return;
+            path = await FilePicker.PickImage(window);
+        }
+
+        if (path is null)
+            return;
+        try {
+            await controller.SetRoomAvatar(room.Id, path);
+        } catch (Exception) {
+            // The picture stays as it was; choosing again tries again.
+        }
+    }
+
     public TextButton? EditNameButton { get; private set; }
     public TextButton? EditTopicButton { get; private set; }
     public TextButton? LeaveButton { get; private set; }
@@ -254,6 +274,16 @@ public sealed class RoomInfoPanel : Grid {
 
         EditNameButton = null;
         EditTopicButton = null;
+        PhotoButton = null;
+        if (!room.IsDirect) {
+            PhotoButton = new TextButton {
+                Title = T("room.changePhoto")
+            };
+            PhotoButton.Click += (_, _) => _ = ChangePhoto(room);
+            ThemeScope.SetColors(PhotoButton, c);
+            content.Children.Add(PhotoButton);
+        }
+
         LeaveButton = null;
         if (!room.IsDirect) {
             EditNameButton = new TextButton {

@@ -134,6 +134,13 @@ public class ChatPaneTests {
         }
 
         public readonly List<string> Names = [];
+        public readonly List<string> Avatars = [];
+
+        public Task SetAvatar(string mimeType, byte[] data)
+        {
+            Avatars.Add($"{mimeType} {data.Length}");
+            return Task.CompletedTask;
+        }
 
         public Task SetDisplayName(string name)
         {
@@ -204,6 +211,9 @@ public class ChatPaneTests {
         public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
+
+        public Task SetRoomAvatar(string roomId, string mimeType, byte[] data) =>
+            Log($"avatar {roomId} {mimeType} {data.Length}");
 
         public Task SetMemberRole(string roomId, string userId, MemberRole role) =>
             Log($"role {roomId} {userId} {role}");
@@ -1029,6 +1039,32 @@ public class ChatPaneTests {
         Assert.Single(glyphs, "checks");
         Assert.Contains("check", glyphs);
         Save(window, "read");
+    }
+
+    [AvaloniaFact]
+    public async Task A_picture_file_becomes_my_photo_and_the_photo_of_a_group()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        var path = Path.Combine(Path.GetTempPath(),
+            "ohm-photo-" + Guid.NewGuid().ToString("N") + ".png");
+        await File.WriteAllBytesAsync(path, [1, 2, 3, 4]);
+        try {
+            controller.OpenSidebarPage(SidebarPage.Profile);
+            Dispatcher.UIThread.RunJobs();
+            var page = screen.GetVisualDescendants().OfType<ProfilePage>().Single();
+            await page.ChangePhoto(path);
+            controller.SelectRoom("!g");
+            await Task.Delay(50);
+            controller.OpenRoomInfo(true);
+            await Task.Delay(100);
+            Dispatcher.UIThread.RunJobs();
+            var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+            Assert.NotNull(panel.PhotoButton);
+            await panel.ChangePhoto(controller.Store.Value.Rooms.First(r => r.Id == "!g"), path);
+            Assert.Contains("avatar !g image/png 4", engine.Actions);
+        } finally {
+            File.Delete(path);
+        }
     }
 
     [AvaloniaFact]

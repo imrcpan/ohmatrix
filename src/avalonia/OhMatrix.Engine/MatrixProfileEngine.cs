@@ -28,6 +28,19 @@ public sealed class MatrixProfileEngine(MatrixAuthEngine auth) : IProfileEngine 
         }
     }
 
+    public async Task SetAvatar(string mimeType, byte[] data)
+    {
+        var client = auth.Client ?? throw new EngineException(
+            EngineErrorCode.Unauthorized,
+            "Not signed in."
+        );
+        try {
+            await client.UploadAvatar(mimeType, data);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
     public async Task SetDisplayName(string name)
     {
         var client = auth.Client ?? throw new EngineException(

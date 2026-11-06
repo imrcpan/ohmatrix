@@ -39,6 +39,9 @@ public interface IRoomsEngine {
     Task SetRoomName(string roomId, string name);
     Task SetRoomTopic(string roomId, string topic);
 
+    /// <summary>Sets the picture of the room from the bytes of an image file.</summary>
+    Task SetRoomAvatar(string roomId, string mimeType, byte[] data);
+
     /// <summary>Leaves the room; it goes from the chat list.</summary>
     Task LeaveRoom(string roomId);
 
