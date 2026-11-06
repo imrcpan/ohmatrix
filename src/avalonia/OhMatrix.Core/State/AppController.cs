@@ -95,6 +95,14 @@ public sealed class AppController(
             _ = OpenChat(roomId);
     }
 
+    /// <summary>Shows a page in the left pane.</summary>
+    public void OpenSidebarPage(SidebarPage page)
+    {
+        Store.Update(s => s with {
+            SidebarPage = page
+        });
+    }
+
     /// <summary>Sends text to the open chat. Nothing is sent for an empty text.</summary>
     public Task Send(string text)
     {
@@ -279,6 +287,7 @@ public sealed class AppController(
     {
         Store.Update(s => s with {
             Rooms = [],
+            SidebarPage = SidebarPage.Chats,
             SyncState = SyncState.Stopped,
             SelectedRoomId = null,
             Auth = AuthStatus.SignedOut,
