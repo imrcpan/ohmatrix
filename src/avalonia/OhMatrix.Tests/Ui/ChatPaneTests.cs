@@ -1332,10 +1332,12 @@ public class ChatPaneTests {
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-        Assert.Contains("47 KB · 1:15", texts);
+        // An audio message plays in its own card: the name, a bar and its length.
+        Assert.Contains("1:15", texts);
+        Assert.Single(screen.GetVisualDescendants().OfType<AudioCard>());
         Assert.Contains(texts, t => t is not null && t.EndsWith("· 1:02:05"));
         var icons = screen.GetVisualDescendants().OfType<Icon>().Select(i => i.Glyph).ToList();
-        Assert.Contains("music", icons);
+        Assert.Contains("play", icons);
         Assert.Contains("video", icons);
         Save(window, "audio-video");
         var path = await controller.DownloadFile(

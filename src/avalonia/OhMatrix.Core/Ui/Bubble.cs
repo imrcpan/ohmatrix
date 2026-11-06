@@ -36,7 +36,8 @@ public sealed class Bubble : Border {
         bool read = false,
         string? readLabel = null,
         Action<Model.FileAttachment>? openFile = null,
-        Func<string, Task<Model.LinkPreview?>>? preview = null
+        Func<string, Task<Model.LinkPreview?>>? preview = null,
+        Func<Model.FileAttachment, Task<string?>>? fetch = null
     )
     {
         const double r = Radius.Bubble;
@@ -229,7 +230,13 @@ public sealed class Bubble : Border {
             Avalonia.Automation.AutomationProperties.SetName(picture, image.FileName);
         }
 
-        if (file is not null) {
+        if (file is { Kind: Model.FileKind.Audio } clip && fetch is not null && openFile is not null
+            && clip.Source.Length > 0) {
+            // An audio message plays in the card itself.
+            var audio = new AudioCard(clip, colors, mine, fg, meta, fetch, () => openFile(clip));
+            audio.Margin = new Thickness(0, 2, 0, hasText ? 4 : 14);
+            stack.Children.Add(audio);
+        } else if (file is not null) {
             // A file: its icon on the accent, the name and the size.
             var card = new Grid {
                 ColumnDefinitions = new ColumnDefinitions("Auto,*"),
