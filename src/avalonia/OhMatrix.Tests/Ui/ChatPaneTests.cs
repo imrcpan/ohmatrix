@@ -132,6 +132,14 @@ public class ChatPaneTests {
         {
             return Task.FromResult(new Profile("@me", "Mia Example", null));
         }
+
+        public readonly List<string> Names = [];
+
+        public Task SetDisplayName(string name)
+        {
+            Names.Add(name);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class Engine : IAuthEngine, IRoomsEngine, IChatEngine {
@@ -871,6 +879,26 @@ public class ChatPaneTests {
         Assert.Null(target.EventId);
         await controller.SetMessagePinned("3", false);
         Assert.Equal(["3 False"], engine.Opened[0].Pins);
+    }
+
+    [AvaloniaFact]
+    public async Task The_profile_page_changes_my_name()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Profile);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.GetVisualDescendants().OfType<ProfilePage>().Single();
+        Assert.Equal("Mia Example", controller.Store.Value.Profile!.DisplayName);
+        page.AskName();
+        Dispatcher.UIThread.RunJobs();
+        var prompt = page.NamePrompt;
+        Assert.Equal("Mia Example", prompt.Fields[0].Text);
+        prompt.Fields[0].Text = "  Mia E.  ";
+        prompt.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Mia E.", controller.Store.Value.Profile!.DisplayName);
+        Save(window, "profile-account");
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)

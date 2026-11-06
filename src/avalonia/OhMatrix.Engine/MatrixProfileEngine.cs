@@ -27,5 +27,18 @@ public sealed class MatrixProfileEngine(MatrixAuthEngine auth) : IProfileEngine 
             throw MatrixAuthEngine.Translate(e);
         }
     }
+
+    public async Task SetDisplayName(string name)
+    {
+        var client = auth.Client ?? throw new EngineException(
+            EngineErrorCode.Unauthorized,
+            "Not signed in."
+        );
+        try {
+            await client.SetDisplayName(name);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
 }
 #endif
