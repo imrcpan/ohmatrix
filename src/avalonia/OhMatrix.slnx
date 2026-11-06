@@ -1,4 +1,6 @@
 <Solution>
     <Project Path="OhMatrix.Core/OhMatrix.Core.csproj" />
     <Project Path="OhMatrix.Desktop/OhMatrix.Desktop.csproj" />
+    <Project Path="OhMatrix.Infra/OhMatrix.Infra.csproj" />
+    <Project Path="OhMatrix.MatrixSdk/OhMatrix.MatrixSdk.csproj" />
 </Solution>
