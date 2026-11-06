@@ -148,6 +148,11 @@ public sealed class TextField : Border {
         box.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(c.TextSecondary);
         box.Resources["TextControlPlaceholderForegroundFocused"] =
             new SolidColorBrush(c.TextSecondary);
+        // The ring is the one of the field itself: the box inside draws none of its own when it has the focus.
+        box.Resources["TextControlBackgroundFocused"] = Brushes.Transparent;
+        box.Resources["TextControlBackgroundPointerOver"] = Brushes.Transparent;
+        box.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
+        box.Resources["TextControlBorderBrushPointerOver"] = Brushes.Transparent;
         icon.Color = new SolidColorBrush(c.TextSecondary);
         eye.Color = new SolidColorBrush(c.TextSecondary);
         eye.Glyph = shown ? "eye" : "eyeOff";

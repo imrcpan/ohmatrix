@@ -29,6 +29,45 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     public event Action<IReadOnlyList<RoomSummary>>? RoomsChanged;
     public event Action<SyncState>? SyncChanged;
 
+    public async Task<string> JoinRoom(string idOrAlias)
+    {
+        try {
+            var client = Signed();
+            using var room = await client.JoinRoomByIdOrAlias(idOrAlias, []);
+            return room.Id();
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    public async Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite)
+    {
+        try {
+            var client = Signed();
+            return await client.CreateRoom(
+                new CreateRoomParameters(
+                    name,
+                    false,
+                    new RoomVisibility.Private(),
+                    direct ? RoomPreset.TrustedPrivateChat : RoomPreset.PrivateChat,
+                    null,
+                    direct,
+                    invite.Count == 0 ? null : [.. invite]
+                )
+            );
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    private Client Signed()
+    {
+        return auth.Client ?? throw new EngineException(
+            EngineErrorCode.Unauthorized,
+            "Not signed in."
+        );
+    }
+
     public async Task StartSync()
     {
         try {

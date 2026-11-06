@@ -36,6 +36,16 @@ public class RoomListTests {
             return Task.CompletedTask;
         }
 
+        public Task<string> JoinRoom(string idOrAlias)
+        {
+            return Task.FromResult("!joined");
+        }
+
+        public Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite)
+        {
+            return Task.FromResult("!made");
+        }
+
         public Task StartSync()
         {
             SyncChanged?.Invoke(SyncState.Syncing);

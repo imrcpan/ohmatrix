@@ -16,6 +16,14 @@ public interface IRoomsEngine {
 
     event Action<SyncState>? SyncChanged;
 
+    /// <summary>Joins a room by its id or alias (<c>#room:server</c>) and gives its id.</summary>
+    Task<string> JoinRoom(string idOrAlias);
+
+    /// <summary>
+    /// Makes a room and gives its id. A direct one is a one-to-one chat with <paramref name="invite"/>[0]; a group has a name and may invite people.
+    /// </summary>
+    Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite);
+
     Task StartSync();
     Task StopSync();
 }

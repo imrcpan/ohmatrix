@@ -82,6 +82,22 @@ public class ChatPaneTests {
             return Task.CompletedTask;
         }
 
+        public Task<string> JoinRoom(string idOrAlias)
+        {
+            return Task.FromResult("!joined");
+        }
+
+        public List<string> Created = [];
+
+        public Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite)
+        {
+            if (name == "bad")
+                return Task.FromException<string>(new EngineException(EngineErrorCode.Forbidden,
+                    "Not allowed"));
+            Created.Add($"{name}|{direct}|{string.Join(",", invite)}");
+            return Task.FromResult("!made");
+        }
+
         public Task StartSync()
         {
             SyncChanged?.Invoke(SyncState.Syncing);
@@ -321,6 +337,67 @@ public class ChatPaneTests {
         Assert.Equal(AuthStatus.SignedOut, controller.Store.Value.Auth);
         Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
         Assert.False(page.Confirm.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task The_plus_menu_joins_a_room_and_opens_it()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        screen.List.OpenAddMenu();
+        Assert.True(screen.List.AddMenu.IsOpen);
+        Assert.Equal(3, screen.List.AddMenu.Rows.Count);
+        Save(window, "plus-menu");
+        screen.List.AddMenu.Close();
+        var prompt = screen.List.Prompt;
+        // Press the third row: Join room.
+        var row = (Border)screen.List.AddMenu.Rows[2];
+        screen.List.OpenAddMenu();
+        row.RaiseEvent(Release(row));
+        Assert.True(prompt.Dialog.IsOpen);
+        Assert.True(prompt.ConfirmButton.Disabled);
+        prompt.Fields[0].Text = "#room:server";
+        Assert.False(prompt.ConfirmButton.Disabled);
+        Save(window, "join-dialog");
+        prompt.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
+        Assert.False(prompt.Dialog.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task A_group_is_made_with_its_people_and_a_refusal_is_shown()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        var prompt = screen.List.Prompt;
+        screen.List.OpenAddMenu();
+        var row = (Border)screen.List.AddMenu.Rows[1];
+        row.RaiseEvent(Release(row));
+        prompt.Fields[0].Text = "bad";
+        prompt.Confirm();
+        await Task.Delay(50);
+        Assert.Equal("Not allowed", prompt.ErrorText);
+        Assert.True(prompt.Dialog.IsOpen);
+        Save(window, "group-error");
+        prompt.Fields[0].Text = "Friends";
+        prompt.Fields[1].Text = "@a:s, @b:s";
+        prompt.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["Friends|False|@a:s,@b:s"], engine.Created);
+        Assert.Equal("!made", controller.Store.Value.SelectedRoomId);
+    }
+
+    private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
+    {
+        return new Avalonia.Input.PointerReleasedEventArgs(
+            row, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), row,
+            new Avalonia.Point(10, 10), 0,
+            new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.None,
+                Avalonia.Input.PointerUpdateKind.LeftButtonReleased),
+            Avalonia.Input.KeyModifiers.None, Avalonia.Input.MouseButton.Left) {
+            RoutedEvent = Avalonia.Input.InputElement.PointerReleasedEvent,
+        };
     }
 
     private static ChatPane FindPane(MainScreen screen)
