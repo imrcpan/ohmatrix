@@ -8,7 +8,8 @@ public sealed class AppController(
     ISessionStore sessions,
     IPreferencesStore? preferences = null,
     TimeProvider? clock = null,
-    IRoomsEngine? rooms = null
+    IRoomsEngine? rooms = null,
+    IChatEngine? chats = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -19,6 +20,8 @@ public sealed class AppController(
     // The engine tells of changes from its own threads; the store is changed on the thread the controller was made on (the UI thread).
     private readonly SynchronizationContext? context = SynchronizationContext.Current;
     private bool roomsHooked;
+    private IChatSession? chat;
+    private int chatOpening;
 
     public Store<AppState> Store { get; } = new(new AppState());
 
@@ -70,6 +73,7 @@ public sealed class AppController(
     public async Task Logout()
     {
         try {
+            CloseChat();
             if (rooms is not null)
                 await Quietly(rooms.StopSync);
             await engine.Logout();
@@ -82,9 +86,61 @@ public sealed class AppController(
     /// <summary>Opens a chat, or closes the open one with null.</summary>
     public void SelectRoom(string? roomId)
     {
+        CloseChat();
         Store.Update(s => s with {
-            SelectedRoomId = roomId
+            SelectedRoomId = roomId,
+            Timeline = []
         });
+        if (roomId is not null && chats is not null)
+            _ = OpenChat(roomId);
+    }
+
+    /// <summary>Sends text to the open chat. Nothing is sent for an empty text.</summary>
+    public Task Send(string text)
+    {
+        var trimmed = text.Trim();
+        return trimmed.Length == 0 || chat is null ? Task.CompletedTask : chat.Send(trimmed);
+    }
+
+    /// <summary>Loads older messages of the open chat.</summary>
+    public async Task<bool> LoadOlder()
+    {
+        return chat is not null && await chat.LoadOlder();
+    }
+
+    private async Task OpenChat(string roomId)
+    {
+        var ticket = ++chatOpening;
+        try {
+            var session = await chats!.Open(roomId);
+            // Another chat was chosen while this one was opening.
+            if (ticket != chatOpening) {
+                session.Dispose();
+                return;
+            }
+
+            chat = session;
+            session.Changed += items => Post(() => {
+                if (ReferenceEquals(chat, session))
+                    Store.Update(s => s with {
+                        Timeline = items
+                    });
+            });
+            var now = session.Items;
+            Store.Update(s => s with {
+                Timeline = now
+            });
+            _ = Quietly(session.MarkRead);
+        } catch (Exception) {
+            // The chat stays empty; choosing it again tries again.
+        }
+    }
+
+    private void CloseChat()
+    {
+        chatOpening++;
+        chat?.Dispose();
+        chat = null;
     }
 
     /// <summary>Changes the preferences and keeps them.</summary>

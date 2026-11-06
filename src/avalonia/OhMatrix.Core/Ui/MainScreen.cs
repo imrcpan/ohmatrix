@@ -24,6 +24,8 @@ public sealed class MainScreen : Grid {
     };
 
     private readonly Border detail = new();
+    private readonly ChatPane narrowChat;
+    private readonly ChatPane wideChat;
 
     private readonly Border chip = new() {
         CornerRadius = new CornerRadius(999),
@@ -49,6 +51,8 @@ public sealed class MainScreen : Grid {
     {
         this.controller = controller;
         list = new RoomListPane(controller);
+        narrowChat = new ChatPane(controller, () => controller.SelectRoom(null));
+        wideChat = new ChatPane(controller);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*");
         var row = new StackPanel {
@@ -64,6 +68,8 @@ public sealed class MainScreen : Grid {
         Children.Add(listHost);
         Children.Add(divider);
         Children.Add(detail);
+        Grid.SetColumnSpan(narrowChat, 3);
+        Children.Add(narrowChat);
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) => s.Apply());
         SizeChanged += (_, _) => Apply();
@@ -71,6 +77,9 @@ public sealed class MainScreen : Grid {
     }
 
     public RoomListPane List => list;
+
+    /// <summary>The chat pane beside the list.</summary>
+    public ChatPane Wide => wideChat;
 
     /// <summary>The width of the chat list in the two-pane layout: a third of the window, between 280 and 420.</summary>
     public static double AutoSidebar(double width)
@@ -88,6 +97,10 @@ public sealed class MainScreen : Grid {
         divider.IsVisible = split;
         detail.IsVisible = split;
         listHost.Width = split ? AutoSidebar(Bounds.Width) : Bounds.Width;
+        var open = s.SelectedRoomId is not null;
+        // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
+        narrowChat.IsVisible = !split && open;
+        detail.Child = split && open ? wideChat : chip;
         detail.Background = new SolidColorBrush(c.ChatBg);
         chip.Background = new SolidColorBrush(c.ServiceChip);
         chipText.Foreground = new SolidColorBrush(c.ServiceChipText);
