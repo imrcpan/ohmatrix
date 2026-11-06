@@ -47,6 +47,14 @@ public interface IRoomsEngine {
 
     Task InviteToRoom(string roomId, IReadOnlyList<string> userIds);
 
+    /// <summary>Gives a person a role in the room (admin 100, moderator 50, member 0).</summary>
+    Task SetMemberRole(string roomId, string userId, MemberRole role);
+
+    /// <summary>Removes a person from the room.</summary>
+    Task RemoveMember(string roomId, string userId);
+
+    Task BanMember(string roomId, string userId, string? reason);
+
     Task StartSync();
     Task StopSync();
 }

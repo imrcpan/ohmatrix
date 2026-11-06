@@ -205,6 +205,14 @@ public class ChatPaneTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task SetMemberRole(string roomId, string userId, MemberRole role) =>
+            Log($"role {roomId} {userId} {role}");
+
+        public Task RemoveMember(string roomId, string userId) => Log($"remove {roomId} {userId}");
+
+        public Task BanMember(string roomId, string userId, string? reason) =>
+            Log($"ban {roomId} {userId} {reason}");
+
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {
             IReadOnlyList<PersonInfo> all = [
@@ -830,6 +838,40 @@ public class ChatPaneTests {
             engine.Actions.Where(a => a.StartsWith("name") || a.StartsWith("topic")
                                                            || a.StartsWith("leave")));
         Assert.Null(controller.Store.Value.SelectedRoomId);
+    }
+
+    [AvaloniaFact]
+    public async Task Members_get_a_role_are_removed_or_banned_from_the_info_panel()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var room = controller.Store.Value.Rooms.First(r => r.Id == "!g");
+        var bob = controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
+        var anchor = panel.Content.Children.OfType<Border>().First(b => b.Cursor is not null);
+        panel.OpenMemberMenu(anchor, room, bob);
+        Assert.True(panel.MemberMenu.IsOpen);
+        Assert.Equal(4, panel.MemberMenu.Rows.Count);
+        Save(window, "member-menu");
+        panel.MemberMenu.Close();
+        panel.AskRole(room, bob, MemberRole.Moderator);
+        panel.MemberPrompt.Confirm();
+        await Task.Delay(50);
+        panel.AskRemove(room, bob);
+        panel.MemberPrompt.Confirm();
+        await Task.Delay(50);
+        panel.AskBan(room, bob);
+        panel.MemberPrompt.Fields[0].Text = "spam";
+        panel.MemberPrompt.Confirm();
+        await Task.Delay(50);
+        Assert.Equal(
+            ["role !g @bob:s Moderator", "remove !g @bob:s", "ban !g @bob:s spam"],
+            engine.Actions.Where(a => a.StartsWith("role") || a.StartsWith("remove")
+                                                           || a.StartsWith("ban")));
     }
 
     [AvaloniaFact]

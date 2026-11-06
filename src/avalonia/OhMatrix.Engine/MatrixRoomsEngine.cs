@@ -137,6 +137,28 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         });
     }
 
+    public Task SetMemberRole(string roomId, string userId, MemberRole role)
+    {
+        var level = role switch {
+            MemberRole.Admin => 100L,
+            MemberRole.Moderator => 50L,
+            _ => 0L,
+        };
+        return Act(roomId, room => room.UpdatePowerLevelsForUsers([
+            new UserPowerLevelUpdate(userId, level)
+        ]));
+    }
+
+    public Task RemoveMember(string roomId, string userId)
+    {
+        return Act(roomId, room => room.KickUser(userId, null));
+    }
+
+    public Task BanMember(string roomId, string userId, string? reason)
+    {
+        return Act(roomId, room => room.BanUser(userId, reason));
+    }
+
     public Task AcceptInvite(string roomId)
     {
         return Act(roomId, room => room.Join());

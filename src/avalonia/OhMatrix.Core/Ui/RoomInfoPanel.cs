@@ -42,6 +42,8 @@ public sealed class RoomInfoPanel : Grid {
     public PromptDialog EditPrompt { get; } = new();
     public Dialog LeaveDialog { get; } = new();
     public PeoplePicker Invite { get; }
+    public Menu MemberMenu { get; } = new();
+    public PromptDialog MemberPrompt { get; } = new();
     public TextButton? InviteButton { get; private set; }
     public TextButton? EditNameButton { get; private set; }
     public TextButton? EditTopicButton { get; private set; }
@@ -67,6 +69,74 @@ public sealed class RoomInfoPanel : Grid {
             T("room.editTopic"), "", [new PromptField(T("room.editTopic"), "info", true)],
             T("save"), v => controller.SetRoomTopic(room.Id, v[0]));
         EditPrompt.Fields[0].Text = topic ?? "";
+    }
+
+    /// <summary>The actions on a person of the room: the roles they can be given, removing and banning.</summary>
+    public void OpenMemberMenu(Control anchor, RoomSummary room, RoomMemberInfo m)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var items = new List<MenuItem>();
+        foreach (var role in new[] {
+                     MemberRole.Admin, MemberRole.Moderator, MemberRole.Member
+                 }) {
+            if (role == m.Role)
+                continue;
+            var key = role switch {
+                MemberRole.Admin => "makeAdmin",
+                MemberRole.Moderator => "makeModerator",
+                _ => "makeMember",
+            };
+            var target = role;
+            items.Add(new MenuItem(T(key), () => AskRole(room, m, target), Icon: "user"));
+        }
+
+        items.Add(new MenuItem(T("removeMember"), () => AskRemove(room, m), Icon: "trash",
+            Danger: true));
+        items.Add(new MenuItem(T("ban"), () => AskBan(room, m), Icon: "lock", Danger: true));
+        MemberMenu.Show(anchor, window, items);
+    }
+
+    /// <summary>Asks before a person is made an admin or moderator; a member is made at once.</summary>
+    public void AskRole(RoomSummary room, RoomMemberInfo m, MemberRole role)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        if (role == MemberRole.Member) {
+            _ = controller.SetMemberRole(room.Id, m.UserId, role);
+            return;
+        }
+
+        var name = T(role == MemberRole.Admin ? "role.admin" : "role.moderator");
+        var kind = role == MemberRole.Admin ? "admin" : "moderator";
+        var body = T($"role.confirm.{kind}.body");
+        if (role == MemberRole.Admin)
+            body += "\n\n" + T("role.confirm.admin.warn");
+        MemberPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T($"role.confirm.{kind}.title"), body, [],
+            T("role.confirm.yes", ("role", name.ToLowerInvariant())),
+            _ => controller.SetMemberRole(room.Id, m.UserId, role));
+    }
+
+    /// <summary>Asks before a person is removed.</summary>
+    public void AskRemove(RoomSummary room, RoomMemberInfo m)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        MemberPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("removeMember.title", ("name", m.Name)), T("removeMember.body"), [],
+            T("removeMember"), _ => controller.RemoveMember(room.Id, m.UserId));
+    }
+
+    /// <summary>Asks before a person is banned, with the reason that may be given.</summary>
+    public void AskBan(RoomSummary room, RoomMemberInfo m)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        MemberPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("ban.title", ("name", m.Name)), T("ban.body"),
+            [new PromptField(T("ban.reason"), "info", true)], T("ban"),
+            v => controller.BanMember(room.Id, m.UserId, v[0]));
     }
 
     /// <summary>Opens the search for people to invite to the room.</summary>
@@ -226,7 +296,7 @@ public sealed class RoomInfoPanel : Grid {
 
         content.Children.Add(Section(c, T("membersTitle")));
         foreach (var member in details.Members)
-            content.Children.Add(MemberRow(c, member));
+            content.Children.Add(MemberRow(c, member, room));
         LeaveButton = new TextButton {
             Title = T(room.IsDirect ? "deleteChat" : "leaveGroup"),
             Margin = new Thickness(0, 16, 0, 0),
@@ -253,7 +323,7 @@ public sealed class RoomInfoPanel : Grid {
         };
     }
 
-    private Control MemberRow(ColorTokens c, RoomMemberInfo m)
+    private Control MemberRow(ColorTokens c, RoomMemberInfo m, RoomSummary room)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
@@ -290,6 +360,18 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         Avalonia.Automation.AutomationProperties.SetName(grid, m.Name);
-        return grid;
+        var row = new Border {
+            Child = grid,
+            Background = Brushes.Transparent
+        };
+        if (!room.IsDirect && m.UserId != controller.Store.Value.UserId) {
+            row.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            row.PointerPressed += (_, e) => {
+                e.Handled = true;
+                OpenMemberMenu(row, room, m);
+            };
+        }
+
+        return row;
     }
 }
