@@ -655,6 +655,26 @@ public class ChatPaneTests {
         Save(window, "languages-zh");
     }
 
+    [AvaloniaFact]
+    public async Task Zoom_is_set_from_the_profile_page_with_the_keep_dialog()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Profile);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.Profile;
+        page.Zoom.Open(page.ZoomRow);
+        Assert.True(page.Zoom.Menu.IsOpen);
+        Save(window, "zoom-menu");
+        page.Zoom.Menu.Close();
+        controller.TryZoom(1.5);
+        Assert.True(page.Zoom.Dialog.IsOpen);
+        Save(window, "zoom-trial");
+        controller.KeepZoom();
+        Assert.False(page.Zoom.Dialog.IsOpen);
+        Assert.Equal(1.5, controller.Store.Value.Prefs.UiScale);
+        Save(window, "zoom-kept");
+    }
+
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
     {
         return new Avalonia.Input.PointerReleasedEventArgs(
