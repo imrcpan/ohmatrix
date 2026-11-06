@@ -1,6 +1,6 @@
 name: publish
 
-# Releases the Android APKs (all ABIs, signed with the release key), the web app, and the Tauri desktop app for Linux (x86_64 and aarch64). The tag is passed in by hand: v1.2.3 or 1.2.3, the same.
+# Releases the Android APKs (all ABIs, signed with the release key), the web app, and the Tauri desktop app for Linux, Windows and macOS (x86_64 and aarch64 of each). The tag is passed in by hand: v1.2.3 or 1.2.3, the same.
 # The text of the release is the section `## [1.2.3]` of CHANGELOG.md, which has to be in the commit this runs on (see scripts/release-notes.sh).
 on:
   workflow_dispatch:
@@ -90,7 +90,7 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  linux:
+  linux_tauri:
     needs: check
     # The window links against the machine's own WebKitGTK, so each architecture is built on a machine of its own kind (not cross-built).
     runs-on: ${{ matrix.runner }}
@@ -108,12 +108,60 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Build the .deb, the .rpm and the AppImage
-        run: scripts/build-tauri-linux-${{ matrix.arch }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+        run: scripts/build-linux-tauri-${{ matrix.arch }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
       - name: Hand the packages to the release job
         uses: actions/upload-artifact@v7
         with:
-          name: tauri-linux-${{ matrix.arch }}
-          path: ${{ runner.temp }}/release/tauri-linux/*
+          name: linux_tauri_${{ matrix.arch }}
+          path: ${{ runner.temp }}/release/linux_tauri/*
+          retention-days: 1
+          compression-level: 0
+
+  win_tauri:
+    needs: check
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      # Both are built on this x64 runner: the ARM64 one is a cross build (the script adds the Visual Studio ARM64 tools if the image lacks them),
+      # and it checks that the program inside the installer is for the CPU asked for.
+      - name: Build the installer
+        shell: pwsh
+        run: scripts/build-win-tauri-${{ matrix.arch }}.ps1 -Version $env:VERSION -ReleaseDir "$env:RUNNER_TEMP/release"
+      - name: Hand the installer to the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: win_tauri_${{ matrix.arch }}
+          path: ${{ runner.temp }}/release/win_tauri/*.exe
+          retention-days: 1
+          compression-level: 0
+
+  mac_tauri:
+    needs: check
+    # The runner is Apple silicon; the Intel app is a cross build there (the script checks that the program inside is for the CPU asked for).
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build the disk image
+        run: scripts/build-mac-tauri-${{ matrix.arch }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+      - name: Hand the disk image to the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac_tauri_${{ matrix.arch }}
+          path: ${{ runner.temp }}/release/mac_tauri/*.dmg
           retention-days: 1
           compression-level: 0
 
@@ -158,7 +206,7 @@ jobs:
           compression-level: 0
 
   release:
-    needs: [check, sign-android, web, linux]
+    needs: [check, sign-android, web, linux_tauri, win_tauri, mac_tauri]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -174,7 +222,7 @@ jobs:
       - name: Download everything to publish
         uses: actions/download-artifact@v8
         with:
-          pattern: "{apk-signed,web,tauri-linux-*}"
+          pattern: "{apk-signed,web,linux_tauri_*,win_tauri_*,mac_tauri_*}"
           path: ${{ runner.temp }}/out
           merge-multiple: true
       - name: Checksums

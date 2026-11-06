@@ -3,7 +3,7 @@
 //   node scripts/makeIcons.mjs [outDir]      (default: src-tauri/icons/, which git ignores)
 //
 // Makes what a Linux package needs: icon.png (512), 32x32.png, 128x128.png and 128x128@2x.png, and what Windows needs (the window's file
-// and the installer's): icon.ico, from logo/colorful/1.svg (the icon with its own rounded shape). That drawing is not square (1025 x 1045),
+// and the installer's): icon.ico, and what macOS needs: icon.icns, from logo/colorful/1.svg (the icon with its own rounded shape). That drawing is not square (1025 x 1045),
 // and a package wants a square icon: it is set in the middle of a transparent square.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -52,6 +52,24 @@ function ico(images) {
   return Buffer.concat([head, ...images.map(({ png }) => png)]);
 }
 
+/** An .icns file holding PNGs of these sizes (macOS reads PNG inside an icon file); each is a chunk named for its size. */
+const ICNS_TYPES = { 128: "ic07", 256: "ic08", 512: "ic09", 1024: "ic10" };
+function icns() {
+  const chunks = Object.entries(ICNS_TYPES).map(([size, type]) => {
+    const png = square(Number(size));
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "ascii");
+    head.writeUInt32BE(8 + png.length, 4);
+    return Buffer.concat([head, png]);
+  });
+  const total = 8 + chunks.reduce((n, c) => n + c.length, 0);
+  const head = Buffer.alloc(8);
+  head.write("icns", 0, "ascii");
+  head.writeUInt32BE(total, 4);
+  return Buffer.concat([head, ...chunks]);
+}
+
 for (const [name, size] of Object.entries(SIZES)) writeFileSync(join(out, name), square(size));
 writeFileSync(join(out, "icon.ico"), ico(ICO_SIZES.map((size) => ({ size, png: square(size) }))));
-console.log(`icons: ${Object.keys(SIZES).join(", ")}, icon.ico -> ${out}`);
+writeFileSync(join(out, "icon.icns"), icns());
+console.log(`icons: ${Object.keys(SIZES).join(", ")}, icon.ico, icon.icns -> ${out}`);

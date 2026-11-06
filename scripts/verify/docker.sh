@@ -7,7 +7,7 @@
 #                            [-- extra args for the build script]
 #
 #   --entry    which build to run: the name of a script without its build- and .sh, like web, android-arm64-v8a or
-#              tauri-linux-x86_64; or both, web and android-arm64-v8a (default both)
+#              linux-tauri-x86_64; or both, web and android-arm64-v8a (default both)
 #   --version  the version to build (default 9.9.9); the result is checked for it
 #   --keep DIR keep what is built: DIR (on this machine) is where the container's release folder is written, instead of vanishing with it
 #   --image    the base image (default debian:bookworm-slim, the older of the two current Debians)
@@ -66,7 +66,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ "$entry" = both ] || [ -f "$here/../build-$entry.sh" ] || {
-  echo "--entry is both, or the name of a script here without build- and .sh (web, android-arm64-v8a, tauri-linux-x86_64...)" >&2
+  echo "--entry is both, or the name of a script here without build- and .sh (web, android-arm64-v8a, linux-tauri-x86_64...)" >&2
   exit 2
 }
 [ -z "$keep" ] || mkdir -p "$keep"
@@ -110,7 +110,7 @@ echo; echo "### disk used"
 df -h / | tail -1
 du -sh "$HOME/.ohmatrix-tools" "$HOME/release" /work/repo/build-out 2>/dev/null || true
 echo; echo "### result: $HOME/release"
-ls -la "$HOME/release/web/index.html" "$HOME/release/android/" "$HOME/release/tauri-linux/" 2>/dev/null || true
+ls -la "$HOME/release/web/index.html" "$HOME/release/android/" "$HOME/release/linux_tauri/" 2>/dev/null || true
 echo "### DONE"
 INNER
 )

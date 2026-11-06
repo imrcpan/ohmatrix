@@ -59,10 +59,15 @@ pub fn run() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
     tauri::Builder::default()
+        // A second start (the launcher clicked again) shows the window of the one running, instead of a second process opening the same
+        // databases. Registered first, as the plugin asks.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_window(app)))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // The folder for saved files that the person chose is let into the file scope again at the next start (the dialog allows it for one run).
+        .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(HidesToTray(AtomicBool::new(false)))
         .setup(|app| {

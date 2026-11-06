@@ -1,6 +1,6 @@
 # OhMatrix on Tauri
 
-The web app (`../web`) in a native window: [Tauri](https://tauri.app) 2, which uses the system's WebKitGTK on Linux. Nothing of the interface is written twice; this folder only holds the window, its icons and how it is packaged. It is its own platform beside `web` and `mobile`, and builds for Linux and Windows (on Windows the window shows the system's WebView2).
+The web app (`../web`) in a native window: [Tauri](https://tauri.app) 2, which uses the system's WebKitGTK on Linux. Nothing of the interface is written twice; this folder only holds the window, its icons and how it is packaged. It is its own platform beside `web` and `mobile`, and builds for Linux, Windows and macOS (on Windows the window shows the system's WebView2, on macOS the system's WKWebView).
 
 ## Run it
 
@@ -32,11 +32,12 @@ The window shows the web app, with these made for the system (`src-tauri/capabil
 - Notifications for new messages, as the desktop's own, with a click bringing the window back.
 - Links open in the system browser.
 - Files to send are chosen with the system's file chooser; files dragged onto the window arrive as in a browser (Tauri's own drop handling is off for that).
-- Files to save go into the Downloads folder, under a name that is free, with a notification saying so.
+- Files to save go into the Downloads folder, or the folder chosen in Settings (above Advanced options), under a name that is free, with a notification saying so.
 - A tray icon (Show, Quit): closing the window hides it there and the app keeps running, so notifications keep coming. Where there is no tray, closing quits as usual.
+- Starting the app again shows the window that is already running (no second process on the same databases).
 - The window opens with the size and place it was closed with (a Wayland desktop decides the place itself).
 - Settings, Appearance, has Fonts: any font installed on the system for the whole interface.
 
-Not done yet: a folder for saved files that the person can choose, the system key store for sessions, and updates.
+Not done yet: the system key store for sessions, and updates.
 
 Run as a bare binary the window has no desktop entry, so the shell shows a generic icon; installed from the package it shows the logo.

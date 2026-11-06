@@ -1,5 +1,6 @@
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { exists, writeFile } from "@tauri-apps/plugin-fs";
+import { chosenFolder } from "./downloadFolder.js";
 import { isPermissionGranted, sendNotification } from "@tauri-apps/plugin-notification";
 
 const extensions: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
@@ -15,14 +16,15 @@ async function freeName(folder: string, name: string) {
   }
 }
 
-/** Saves into the system's Downloads folder, and says so in a notification when those are allowed. */
+/** Saves into the folder the person chose in Settings, or the system's Downloads folder, and says so in a notification when those are allowed. */
 export async function saveFile({ url, name }: { url: string; name: string }): Promise<void> {
   const blob = await (await fetch(url)).blob();
   let filename = name.replace(/[\\/]/g, "_");
   // A name with no extension (an avatar has none): the file's own type says what to add.
   const extension = extensions[blob.type];
   if (!/\.[A-Za-z0-9]{2,5}$/.test(filename) && extension) filename = `${filename}.${extension}`;
-  const { path, candidate } = await freeName(await downloadDir(), filename);
+  const folder = chosenFolder() ?? (await downloadDir());
+  const { path, candidate } = await freeName(folder, filename);
   await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
-  if (await isPermissionGranted()) sendNotification({ title: candidate, body: "Saved to Downloads" });
+  if (await isPermissionGranted()) sendNotification({ title: candidate, body: `Saved to ${folder.split(/[\\/]/).filter(Boolean).pop() ?? folder}` });
 }
