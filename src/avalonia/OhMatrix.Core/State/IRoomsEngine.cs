@@ -45,6 +45,9 @@ public interface IRoomsEngine {
     /// <summary>The public rooms of a server's directory (the homeserver's own when <paramref name="server"/> is null) that match the text.</summary>
     Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server);
 
+    /// <summary>The rooms and spaces a space lists, joined or not (the first pages of it).</summary>
+    Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId);
+
     /// <summary>Leaves the room; it goes from the chat list.</summary>
     Task LeaveRoom(string roomId);
 

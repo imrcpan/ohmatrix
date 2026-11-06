@@ -198,6 +198,37 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
+    public async Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
+    {
+        try {
+            var service = await Signed().SpaceService();
+            using var list = await service.SpaceRoomList(spaceId);
+            // A page at a time, a few pages: a very large space shows its first rooms.
+            for (var i = 0; i < 4; i++) {
+                try {
+                    await list.Paginate();
+                } catch (Exception) {
+                    break;
+                }
+            }
+
+            var rooms = await list.Rooms();
+            return
+            [
+                .. rooms.Where(r => r.RoomId != spaceId).Select(r => new SpaceChild(
+                    r.RoomId,
+                    r.DisplayName,
+                    string.IsNullOrWhiteSpace(r.Topic) ? null : r.Topic,
+                    r.AvatarUrl,
+                    (long)r.NumJoinedMembers,
+                    r.RoomType is RoomType.Space
+                ))
+            ];
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
     public Task SetRoomAvatar(string roomId, string mimeType, byte[] data)
     {
         return Act(roomId, room => room.UploadAvatar(mimeType, data, null));

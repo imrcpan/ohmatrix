@@ -67,6 +67,16 @@ public class RoomListTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
+        {
+            Actions.Add("space " + spaceId);
+            return Task.FromResult<IReadOnlyList<SpaceChild>>([
+                new SpaceChild("!d", "Alice", null, null, 2, false),
+                new SpaceChild("!out", "Not joined room", "Come in", null, 40, false),
+                new SpaceChild("!sub", "Sub space", null, null, 5, true),
+            ]);
+        }
+
         public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
         {
             Actions.Add($"explore {filter} {server}");
