@@ -417,7 +417,10 @@ public sealed class AppController(
         IReadOnlyList<TimelineItem> items
     )
     {
-        var last = items.LastOrDefault(i => i.Kind == TimelineKind.Message && !i.Sending);
+        var last = items.LastOrDefault(i => !i.Sending
+                                            && (i.Kind == TimelineKind.Message
+                                                || (i.Kind == TimelineKind.Service
+                                                    && i.Body != TimelineItem.Undecryptable)));
         var index = -1;
         for (var i = 0; i < rooms.Count; i++) {
             if (rooms[i].Id == roomId)
@@ -432,7 +435,8 @@ public sealed class AppController(
         var copy = rooms.ToList();
         copy[index] = copy[index] with {
             LastMessage = text,
-            LastSender = last.IsOwn ? null : last.SenderName,
+            LastSender = last.IsOwn || last.Kind == TimelineKind.Service ? null : last.SenderName,
+            LastIsLine = last.Kind == TimelineKind.Service,
             LastActivityTs = last.Ts,
         };
         return Order(copy);

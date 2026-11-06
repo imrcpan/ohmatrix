@@ -343,5 +343,14 @@ public class AppControllerTests {
             (done[0].LastMessage, done[0].LastSender, done[0].LastActivityTs));
         Assert.Equal("kept", AppController.WithPreview(rooms, "!a", items)[0].LastMessage);
         Assert.Same(rooms, AppController.WithPreview(rooms, "!b", []));
+        var joined = AppController.WithPreview(rooms, "!b", [
+            new TimelineItem {
+                Id = "s",
+                Kind = TimelineKind.Service,
+                Body = "Ann joined",
+                Ts = 400
+            },
+        ]);
+        Assert.Equal(("Ann joined", true), (joined[0].LastMessage, joined[0].LastIsLine));
     }
 }

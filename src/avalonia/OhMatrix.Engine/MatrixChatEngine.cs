@@ -334,6 +334,16 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 };
             }
 
+            // Someone joining, leaving or being invited, and the room being made or renamed, are lines of their own.
+            if (ServiceLines.For(e.Content, name) is { } line) {
+                return new TimelineItem {
+                    Id = id,
+                    Kind = TimelineKind.Service,
+                    Body = line,
+                    Ts = (long)e.Timestamp,
+                };
+            }
+
             // A message this device cannot read (its keys have not come): shown as a line, not left out.
             if (e.Content is TimelineItemContent.MsgLike { Content.Kind: MsgLikeKind.UnableToDecrypt }) {
                 return new TimelineItem {

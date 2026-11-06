@@ -354,4 +354,22 @@ public class RoomListTests {
         Assert.Equal("2 минуты назад", Format.Relative(Ago(2 * 60_000), now, "ru"));
         Assert.Equal("Oct 1, 2026", Format.Relative(Ago(37 * 86_400_000L), now, "en"));
     }
+
+    [Fact]
+    public void Service_lines_read_as_in_the_react_native_engine()
+    {
+        Assert.Equal("Ann joined", ServiceText.ForMembership(MembershipKind.Joined, "Ann", "Bob"));
+        Assert.Equal("Bob invited Ann",
+            ServiceText.ForMembership(MembershipKind.Invited, "Ann", "Bob"));
+        Assert.Equal("Ann was removed",
+            ServiceText.ForMembership(MembershipKind.Kicked, "Ann", "Bob"));
+        Assert.Null(ServiceText.ForMembership(MembershipKind.None, "Ann", "Bob"));
+        Assert.Equal("Bob created the room", ServiceText.ForState("RoomCreate", null, "Bob"));
+        Assert.Equal("Bob changed the room name to “Crew”",
+            ServiceText.ForState("RoomName", "Crew", "Bob"));
+        Assert.Equal("Bob removed the room name", ServiceText.ForState("RoomName", "", "Bob"));
+        Assert.Null(ServiceText.ForState("RoomAvatar", null, "Bob"));
+        Assert.Equal("ann", ServiceText.PersonName(null, "@ann:s"));
+        Assert.Equal("Ann Lee", ServiceText.PersonName("Ann Lee", "@ann:s"));
+    }
 }
