@@ -867,7 +867,8 @@ public sealed class AppController(
     {
         try {
             return await run();
-        } catch {
+        } catch (Exception e) {
+            AppLog.Error(e.Message);
             return default;
         }
     }
@@ -877,7 +878,8 @@ public sealed class AppController(
         try {
             await run();
             return true;
-        } catch {
+        } catch (Exception e) {
+            AppLog.Error(e.Message);
             return false;
         }
     }

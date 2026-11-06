@@ -1,0 +1,123 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input.Platform;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
+using OhMatrix.Core.I18n;
+using OhMatrix.Core.State;
+using OhMatrix.Core.Theming;
+
+namespace OhMatrix.Core.Ui;
+
+/// <summary>The app's log (<c>LogPage</c>): the last lines in a monospaced font, the newest at the bottom, with buttons to copy and to empty it.</summary>
+public sealed class LogPage : Grid {
+    private readonly AppController controller;
+    private readonly StackPanel lines = new();
+    private readonly ScrollViewer scroller = new();
+    private readonly TextBlock empty = new();
+    private readonly TextButton copy = new();
+    private readonly TextButton clear = new();
+    private bool copied;
+    private bool refreshQueued;
+
+    private readonly Border bar = new() {
+        Height = 56,
+        BorderThickness = new Thickness(0, 0, 0, 1)
+    };
+
+    public LogPage(AppController controller)
+    {
+        this.controller = controller;
+        RowDefinitions = new RowDefinitions("Auto,Auto,*");
+        Children.Add(bar);
+        var buttons = new StackPanel {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Spacing = 12,
+        };
+        buttons.Children.Add(copy);
+        buttons.Children.Add(clear);
+        Grid.SetRow(buttons, 1);
+        Children.Add(buttons);
+        var body = new StackPanel();
+        body.Children.Add(empty);
+        body.Children.Add(lines);
+        scroller.Content = body;
+        scroller.HorizontalScrollBarVisibility =
+            Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        Grid.SetRow(scroller, 2);
+        Children.Add(scroller);
+        copy.Click += async (_, _) => {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+                return;
+            await clipboard.SetTextAsync(AppLog.Text(AppLog.Snapshot()));
+            copied = true;
+            Apply();
+        };
+        clear.Click += (_, _) => AppLog.Clear();
+        // The page follows the log, but not line by line: a burst of lines is one refresh.
+        AppLog.Changed += () => {
+            if (refreshQueued)
+                return;
+            refreshQueued = true;
+            Dispatcher.UIThread.Post(() => {
+                refreshQueued = false;
+                Apply();
+            }, DispatcherPriority.Background);
+        };
+        controller.Store.Changed += _ => Apply();
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<LogPage>((p, _) => p.Apply());
+        Apply();
+    }
+
+    public int LineCount => lines.Children.Count;
+
+    public TextButton CopyButton => copy;
+    public TextButton ClearButton => clear;
+
+    private string T(string key)
+    {
+        return Strings.T(controller.Store.Value.Locale, key);
+    }
+
+    private void Apply()
+    {
+        var c = ThemeScope.GetColors(this);
+        Background = new SolidColorBrush(c.Bg);
+        bar.BorderBrush = new SolidColorBrush(c.Separator);
+        PageBar.Fill(bar, c, T("logs"), T("advanced.options"),
+            () => controller.OpenSidebarPage(SidebarPage.Advanced));
+        copy.Title = copied ? T("copied") : T("copy");
+        clear.Title = T("logs.clear");
+        ThemeScope.SetColors(copy, c);
+        ThemeScope.SetColors(clear, c);
+        var all = AppLog.Snapshot();
+        empty.Text = T("logs.empty");
+        empty.IsVisible = all.Count == 0;
+        empty.Foreground = new SolidColorBrush(c.TextSecondary);
+        empty.FontFamily = Fonts.System;
+        empty.TextAlignment = TextAlignment.Center;
+        empty.Margin = new Thickness(0, 24);
+        lines.Children.Clear();
+        foreach (var line in all) {
+            var color = line.Level switch {
+                LogLevel.Error => c.Danger,
+                LogLevel.Warn => Color.FromRgb(0xE0, 0xA1, 0x00),
+                _ => c.Text,
+            };
+            lines.Children.Add(new SelectableTextBlock {
+                Text = $"{line.Time:HH:mm:ss.fff} {line.Text}",
+                FontFamily = new FontFamily("monospace"),
+                FontSize = 12,
+                LineHeight = 17,
+                Foreground = new SolidColorBrush(color),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(14, 2),
+            });
+        }
+
+        if (all.Count > 0)
+            Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
+    }
+}

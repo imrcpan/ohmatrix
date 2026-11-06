@@ -155,6 +155,10 @@ public sealed class SettingsPage : Grid {
                 OwnBubbleAccent = on
             }), 12));
 
+        Group(c, T("advanced"));
+        content.Children.Add(ProfilePage.NavRow(c, "gear", T("advanced.options"),
+            () => controller.OpenSidebarPage(SidebarPage.Advanced), 6));
+
         Group(c, T("account"));
         content.Children.Add(ProfilePage.NavRow(c, "device", T("sessions"),
             () => controller.OpenSidebarPage(SidebarPage.Sessions), 6));

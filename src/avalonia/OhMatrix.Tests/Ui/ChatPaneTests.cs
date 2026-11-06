@@ -1498,6 +1498,28 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_log_is_reached_from_settings_and_follows_what_is_logged()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Settings);
+        Dispatcher.UIThread.RunJobs();
+        controller.OpenSidebarPage(SidebarPage.Advanced);
+        Dispatcher.UIThread.RunJobs();
+        controller.OpenSidebarPage(SidebarPage.Logs);
+        AppLog.Clear();
+        AppLog.Add(LogLevel.Info, "started");
+        AppLog.Error("it broke");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(2, screen.LogScreen.LineCount);
+        Save(window, "log");
+        AppLog.Clear();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0, screen.LogScreen.LineCount);
+    }
+
+    [AvaloniaFact]
     public async Task Resetting_the_keys_warns_first_then_asks_the_password()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
