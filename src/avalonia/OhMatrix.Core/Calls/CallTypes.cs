@@ -40,7 +40,21 @@ public interface IPeer {
 }
 
 /// <summary>The microphone and camera, and what the other side sends.</summary>
+/// <summary>A microphone or a camera of the machine; <see cref="Id"/> is what <see cref="ICallMedia.UseDevice"/> takes.</summary>
+public sealed record CallDevice(string Id, string Label, bool Current);
+
+public sealed record CallDevices(
+    IReadOnlyList<CallDevice> Microphones,
+    IReadOnlyList<CallDevice> Cameras
+);
+
 public interface ICallMedia {
+    /// <summary>The microphones and cameras there are, with the ones in use marked.</summary>
+    CallDevices Devices();
+
+    /// <summary>Changes the microphone (or the camera) for this call and the next ones; takes effect at once when a call is on.</summary>
+    void UseDevice(bool camera, string id);
+
     /// <summary>Starts the microphone (and the camera, for video) and puts them on <paramref name="peer"/>; throws when they cannot be had.</summary>
     Task Start(IPeer peer, bool video);
 

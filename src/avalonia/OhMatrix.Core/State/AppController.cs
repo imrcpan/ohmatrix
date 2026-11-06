@@ -397,6 +397,18 @@ public sealed class AppController(
         return callPlatform?.TakeLocalFrame(copy) == true;
     }
 
+    /// <summary>The microphones and cameras of the machine, the ones in use marked; empty where calls are not supported.</summary>
+    public Calls.CallDevices CallDevices()
+    {
+        return callPlatform?.Media.Devices() ?? new Calls.CallDevices([], []);
+    }
+
+    /// <summary>Changes the microphone (or camera) of the call and the ones after it.</summary>
+    public void UseCallDevice(bool camera, string id)
+    {
+        callPlatform?.Media.UseDevice(camera, id);
+    }
+
     public Task AnswerCall()
     {
         return Signalling().Answer(Store.Value.Call?.Video == true);

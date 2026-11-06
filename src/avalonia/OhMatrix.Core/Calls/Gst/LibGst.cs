@@ -271,6 +271,9 @@ internal static unsafe partial class LibGst {
     [LibraryImport("gobject")]
     public static partial void g_object_unref(IntPtr obj);
 
+    [LibraryImport("gobject")]
+    public static partial IntPtr g_object_ref(IntPtr obj);
+
     [LibraryImport("glib")]
     public static partial void g_free(IntPtr p);
 
@@ -280,6 +283,34 @@ internal static unsafe partial class LibGst {
 
     [LibraryImport("gst")]
     public static partial IntPtr gst_element_factory_find(byte[] name);
+
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_device_monitor_new();
+
+    [LibraryImport("gst")]
+    public static partial uint gst_device_monitor_add_filter(IntPtr monitor, byte[] classes,
+        IntPtr caps);
+
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_device_monitor_get_devices(IntPtr monitor);
+
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_device_get_display_name(IntPtr device);
+
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_device_create_element(IntPtr device, IntPtr name);
+
+    [LibraryImport("gst")]
+    public static partial int gst_element_link(IntPtr src, IntPtr sink);
+
+    [LibraryImport("gst")]
+    public static partial int gst_element_unlink(IntPtr src, IntPtr sink);
+
+    [LibraryImport("gst")]
+    public static partial int gst_bin_remove(IntPtr bin, IntPtr element);
+
+    [LibraryImport("glib")]
+    public static partial void g_list_free(IntPtr list);
 
     [LibraryImport("gst")]
     public static partial IntPtr gst_parse_launch(byte[] description, out IntPtr error);

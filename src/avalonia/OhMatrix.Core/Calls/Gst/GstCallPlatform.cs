@@ -32,6 +32,8 @@ public sealed class GstCallPlatform(GstSources? sources = null) : ICallPlatform 
 internal sealed class GstCallMedia : ICallMedia {
     private bool muted;
     private bool cameraOff;
+    private string? microphone;
+    private string? cameraName;
 
     public GstPeer? Current { get; set; }
 
@@ -41,10 +43,37 @@ internal sealed class GstCallMedia : ICallMedia {
     {
         if (peer is not GstPeer gst)
             throw new InvalidOperationException("not a GStreamer peer");
-        gst.AddLocalMedia(video);
+        gst.AddLocalMedia(video, microphone, cameraName);
         gst.SetMuted(muted);
         gst.SetCameraOff(cameraOff);
         return Task.CompletedTask;
+    }
+
+    public CallDevices Devices()
+    {
+        static IReadOnlyList<CallDevice> List(IReadOnlyList<string> names, string? chosen)
+        {
+            // Until one is chosen the system's own choice is in use, which is the first the monitor lists.
+            return names.Select((n, i) =>
+                    new CallDevice(n, n, chosen is null ? i == 0 : n == chosen))
+                .ToList();
+        }
+
+        return new CallDevices(
+            List(GstDevices.Names("Audio/Source"), microphone),
+            List(GstDevices.Names("Video/Source"), cameraName)
+        );
+    }
+
+    public void UseDevice(bool camera, string id)
+    {
+        if (camera) {
+            cameraName = id;
+            Current?.UseCamera(id);
+        } else {
+            microphone = id;
+            Current?.UseMicrophone(id);
+        }
     }
 
     public void SetMuted(bool value)

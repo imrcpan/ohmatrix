@@ -26,9 +26,13 @@ public sealed class GstPeer : IPeer, IDisposable {
     private IntPtr pipeline;
     private IntPtr webrtc;
     private IntPtr remoteVideo;
-    private IntPtr microphone;
+    private IntPtr volume;
     private IntPtr camera;
     private IntPtr localVideo;
+    private IntPtr audioSource;
+    private IntPtr audioQueue;
+    private IntPtr videoSource;
+    private IntPtr videoQueue;
     private volatile bool closed;
     private readonly object frameGate = new();
 
@@ -59,16 +63,19 @@ public sealed class GstPeer : IPeer, IDisposable {
     }
 
     /// <summary>Starts the microphone (and camera) and the connection element; done once, before the offer or the answer is made.</summary>
-    public unsafe void AddLocalMedia(bool video)
+    public unsafe void AddLocalMedia(bool video, string? microphone = null,
+        string? cameraName = null)
     {
         if (pipeline != IntPtr.Zero)
             return;
         var description =
             "webrtcbin name=wb bundle-policy=max-bundle "
-            + $"{sources.AudioSource} ! queue ! audioconvert ! audioresample ! volume name=mic ! opusenc ! "
+            + (microphone is null ? $"{sources.AudioSource} name=asrc ! " : "")
+            + "queue name=aq ! audioconvert ! audioresample ! volume name=mic ! opusenc ! "
             + "rtpopuspay pt=111 ! application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! wb. "
             + (video
-                ? $"{sources.VideoSource} ! queue ! videoconvert ! videoscale ! "
+                ? (cameraName is null ? $"{sources.VideoSource} name=vsrc ! " : "")
+                  + "queue name=vq ! videoconvert ! videoscale ! "
                   + "video/x-raw,width=640,height=480 ! valve name=cam ! tee name=lt ! queue ! "
                   + "vp8enc deadline=1 cpu-used=8 target-bitrate=800000 keyframe-max-dist=30 ! "
                   + "rtpvp8pay pt=96 ! application/x-rtp,media=video,encoding-name=VP8,payload=96 ! wb. "
@@ -86,8 +93,12 @@ public sealed class GstPeer : IPeer, IDisposable {
         }
 
         webrtc = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("wb"));
-        microphone = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("mic"));
+        volume = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("mic"));
+        audioQueue = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("aq"));
+        audioSource = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("asrc"));
         if (video) {
+            videoQueue = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("vq"));
+            videoSource = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("vsrc"));
             camera = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("cam"));
             localVideo = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("lv"));
         }
@@ -106,6 +117,11 @@ public sealed class GstPeer : IPeer, IDisposable {
             (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&OnGatheringState,
             data);
         AddServers();
+        // A device chosen by the person is put in front of the queue that the launch text left open for it.
+        if (microphone is not null)
+            UseMicrophone(microphone);
+        if (video && cameraName is not null)
+            UseCamera(cameraName);
         LibGst.gst_element_set_state(pipeline, LibGst.StatePlaying);
     }
 
@@ -136,10 +152,45 @@ public sealed class GstPeer : IPeer, IDisposable {
         }
     }
 
+    /// <summary>Puts the microphone of that name in place of the one in use, in the middle of a call too; false when it is gone.</summary>
+    public bool UseMicrophone(string name)
+    {
+        return Replace(ref audioSource, audioQueue, "Audio/Source", name, "mic-device");
+    }
+
+    public bool UseCamera(string name)
+    {
+        return Replace(ref videoSource, videoQueue, "Video/Source", name, "camera-device");
+    }
+
+    private bool Replace(ref IntPtr source, IntPtr queue, string deviceClass, string name,
+        string elementName)
+    {
+        if (pipeline == IntPtr.Zero || queue == IntPtr.Zero)
+            return false;
+        var next = GstDevices.CreateSource(deviceClass, name, elementName);
+        if (next == IntPtr.Zero)
+            return false;
+        // The new element is owned by the pipeline, and by this class too while it is the source.
+        LibGst.gst_bin_add(pipeline, next);
+        LibGst.g_object_ref(next);
+        if (source != IntPtr.Zero) {
+            LibGst.gst_element_set_state(source, LibGst.StateNull);
+            LibGst.gst_element_unlink(source, queue);
+            LibGst.gst_bin_remove(pipeline, source);
+            LibGst.g_object_unref(source);
+        }
+
+        LibGst.gst_element_link(next, queue);
+        LibGst.gst_element_sync_state_with_parent(next);
+        source = next;
+        return true;
+    }
+
     public void SetMuted(bool muted)
     {
-        if (microphone != IntPtr.Zero)
-            LibGst.SetBool(microphone, "mute", muted);
+        if (volume != IntPtr.Zero)
+            LibGst.SetBool(volume, "mute", muted);
     }
 
     public void SetCameraOff(bool off)
@@ -404,7 +455,7 @@ public sealed class GstPeer : IPeer, IDisposable {
         }
 
         foreach (var element in new[] {
-                     microphone, camera, webrtc
+                     volume, camera, webrtc, audioSource, audioQueue, videoSource, videoQueue
                  })
             if (element != IntPtr.Zero)
                 LibGst.g_object_unref(element);
