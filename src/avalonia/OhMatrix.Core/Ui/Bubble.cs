@@ -28,7 +28,8 @@ public sealed class Bubble : Border {
         Model.ReplyQuote? reply = null,
         Model.ImageAttachment? image = null,
         Pictures? pictures = null,
-        Model.FileAttachment? file = null
+        Model.FileAttachment? file = null,
+        Action<Image>? openImage = null
     )
     {
         const double r = Radius.Bubble;
@@ -119,6 +120,16 @@ public sealed class Bubble : Border {
                 Stretch = Stretch.UniformToFill,
             };
             pictures?.Attach(picture, image.Source, w, h);
+            if (openImage is not null) {
+                picture.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                picture.PointerPressed += (_, e) => {
+                    if (e.GetCurrentPoint(picture).Properties.IsLeftButtonPressed) {
+                        e.Handled = true;
+                        openImage(picture);
+                    }
+                };
+            }
+
             stack.Children.Add(new Border {
                 Width = w,
                 Height = h,

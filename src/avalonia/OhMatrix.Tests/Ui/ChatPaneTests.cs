@@ -767,6 +767,46 @@ public class ChatPaneTests {
         Assert.Equal(expected, Format.Bytes(n));
     }
 
+    [AvaloniaFact]
+    public async Task Pressing_a_picture_opens_the_viewer_that_zooms_and_closes()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        var picture = pane.Messages.GetVisualDescendants().OfType<Image>().First();
+        for (var i = 0; i < 20 && picture.Source is null; i++) {
+            await Task.Delay(50);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        picture.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
+            picture, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), picture,
+            new Avalonia.Point(10, 10), 0,
+            new Avalonia.Input.PointerPointProperties(
+                Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+            Avalonia.Input.KeyModifiers.None) {
+            RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent,
+        });
+        Assert.True(pane.Viewer.IsOpen);
+        window.UpdateLayout();
+        Save(window, "viewer");
+        var centre = new Avalonia.Point(window.ClientSize.Width / 2, window.ClientSize.Height / 2);
+        pane.Viewer.ZoomBy(2, centre);
+        pane.Viewer.ZoomBy(2, centre);
+        Assert.Equal(4, pane.Viewer.Zoom, 3);
+        Save(window, "viewer-zoomed");
+        pane.Viewer.ZoomBy(100, centre);
+        Assert.Equal(ImageViewer.MaxZoom, pane.Viewer.Zoom);
+        pane.Viewer.ZoomBy(0.001, centre);
+        Assert.Equal(1, pane.Viewer.Zoom);
+        window.KeyPress(Avalonia.Input.Key.Escape, Avalonia.Input.RawInputModifiers.None,
+            Avalonia.Input.PhysicalKey.Escape, null);
+        Assert.False(pane.Viewer.IsOpen);
+    }
+
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
     {
         return new Avalonia.Input.PointerReleasedEventArgs(

@@ -50,6 +50,7 @@ public sealed class ChatPane : Grid {
     };
 
     private readonly Dialog deleteDialog = new();
+    private readonly ImageViewer viewer = new();
     private string? editingId;
     private readonly StackPanel composerStack = new();
     private readonly Border replyHost = new();
@@ -334,7 +335,8 @@ public sealed class ChatPane : Grid {
                 item.Reply,
                 item.Image,
                 controller.Pictures,
-                item.File
+                item.File,
+                img => OpenViewer(item, img)
             );
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
@@ -382,6 +384,15 @@ public sealed class ChatPane : Grid {
     }
 
     public Menu Actions => actions;
+    public ImageViewer Viewer => viewer;
+
+    private void OpenViewer(TimelineItem item, Image shown)
+    {
+        if (item.Image is not { } image || TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        viewer.Show(window, controller.Pictures, image.Source, image.FileName, shown.Source);
+    }
+
     public Menu AttachMenu => attachMenu;
 
     /// <summary>The menu of the paperclip: a photo or a file, picked from disk and sent to the chat.</summary>
