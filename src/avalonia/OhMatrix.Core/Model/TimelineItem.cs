@@ -30,4 +30,18 @@ public sealed record TimelineItem {
 
     public bool Failed { get; init; }
     public bool Edited { get; init; }
+
+    /// <summary>The id the server gave the event; null while it is being sent.</summary>
+    public string? EventId { get; init; }
+
+    public IReadOnlyList<ReactionCount> Reactions { get; init; } = [];
+
+    /// <summary>The message this one answers, as it is quoted at the top of the bubble.</summary>
+    public ReplyQuote? Reply { get; init; }
 }
+
+/// <summary>A reaction under a message: the key (an emoji), how many gave it, and whether I did.</summary>
+public sealed record ReactionCount(string Key, int Count, bool Mine);
+
+/// <summary>The quoted message of a reply: who wrote it and the start of what was written.</summary>
+public sealed record ReplyQuote(string SenderName, string Preview, string? EventId);

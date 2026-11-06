@@ -22,8 +22,25 @@ public class ChatPaneTests {
         public readonly List<string> Sent = [];
         public bool Disposed;
 
-        public Task Send(string text)
+        public event Action<IReadOnlyList<string>>? TypingChanged;
+        public readonly List<string> Replies = [];
+        public readonly List<string> Reacted = [];
+
+        public void Type(params string[] names)
         {
+            TypingChanged?.Invoke(names);
+        }
+
+        public Task ToggleReaction(string itemId, string key)
+        {
+            Reacted.Add(itemId + key);
+            return Task.CompletedTask;
+        }
+
+        public Task Send(string text, string? replyToEventId = null)
+        {
+            if (replyToEventId is not null)
+                Replies.Add(replyToEventId);
             Sent.Add(text);
             Items = [
                 .. Items,
@@ -162,6 +179,7 @@ public class ChatPaneTests {
                 },
                 new TimelineItem {
                     Id = "2",
+                    EventId = "$2",
                     Body =
                         "Are we still on for the demo tomorrow? I can bring the slides and a few more details about the plan.",
                     SenderId = "@alice",
@@ -170,6 +188,10 @@ public class ChatPaneTests {
                 },
                 new TimelineItem {
                     Id = "3",
+                    EventId = "$3",
+                    Reply = new ReplyQuote("Alice", "Are we still on for the demo tomorrow?", "$2"),
+                    Reactions =
+                        [new ReactionCount("👍", 2, true), new ReactionCount("❤️", 1, false)],
                     Body = "Yes!",
                     SenderId = "@me",
                     IsOwn = true,
@@ -429,7 +451,7 @@ public class ChatPaneTests {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Theme);
         Dispatcher.UIThread.RunJobs();
-        var cards = screen.Theme.Cards.Children;
+        var cards = screen.ThemeScreen.Cards.Children;
         Assert.Equal(Themes.All().Count + 1, cards.Count);
         Save(window, "themes");
         var press = (Control)cards[3];
@@ -444,6 +466,47 @@ public class ChatPaneTests {
             RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent,
         });
         Assert.Equal(target, controller.Store.Value.Prefs.Theme);
+    }
+
+    [AvaloniaFact]
+    public async Task A_reply_quotes_and_is_sent_as_an_answer()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        var target = controller.Store.Value.Timeline.First(i => i.Id == "2");
+        pane.OpenActions(pane.Messages, target);
+        Assert.Equal(1 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Save(window, "actions");
+        pane.Actions.Close();
+        controller.SetReplyTo(target);
+        Dispatcher.UIThread.RunJobs();
+        Save(window, "reply");
+        pane.Input.Text = "yes";
+        pane.Submit();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["$2"], engine.Opened[0].Replies);
+        Assert.Null(controller.Store.Value.ReplyTo);
+    }
+
+    [AvaloniaFact]
+    public async Task Reactions_are_toggled_and_typing_is_shown_in_the_header()
+    {
+        var (window, controller, engine, _) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        await controller.ToggleReaction("3", "👍");
+        Assert.Equal(["3👍"], engine.Opened[0].Reacted);
+        engine.Opened[0].Type("alice", "bob", "carol");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(3, controller.Store.Value.Typing.Count);
+        Save(window, "typing");
+        engine.Opened[0].Type();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(controller.Store.Value.Typing);
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)

@@ -37,6 +37,13 @@ public sealed class ChatPane : Grid {
 
     private readonly Border composer = new();
 
+    private readonly Menu actions = new() {
+        Width = 180
+    };
+
+    private readonly StackPanel composerStack = new();
+    private readonly Border replyHost = new();
+
     private readonly TextBox input = new() {
         AcceptsReturn = true,
         TextWrapping = TextWrapping.Wrap,
@@ -99,7 +106,9 @@ public sealed class ChatPane : Grid {
         send.Child = sendIcon;
         bar.Children.Add(inputBox);
         bar.Children.Add(send);
-        composer.Child = bar;
+        composerStack.Children.Add(replyHost);
+        composerStack.Children.Add(bar);
+        composer.Child = composerStack;
 
         send.PointerPressed += (_, e) => {
             e.Handled = true;
@@ -183,11 +192,26 @@ public sealed class ChatPane : Grid {
         Avalonia.Automation.AutomationProperties.SetName(send, T("send.files.send"));
 
         var s = controller.Store.Value;
+        replyHost.Child = ReplyBanner(c, s);
         if (!ReferenceEquals(shownItems, s.Timeline) || shownRoom != s.SelectedRoomId) {
             shownRoom = s.SelectedRoomId;
             Rebuild();
         } else
             BuildHeader(c, s);
+    }
+
+    /// <summary>Who is typing, in words (<c>typingLabel</c>).</summary>
+    public string TypingLabel(IReadOnlyList<string> names, bool direct)
+    {
+        if (names.Count == 0)
+            return "";
+        if (direct)
+            return T("typing.short");
+        return names.Count switch {
+            1 => T("typing.one", ("a", names[0])),
+            2 => T("typing.two", ("a", names[0]), ("b", names[1])),
+            _ => T("typing.many", ("a", names[0]), ("n", names.Count - 1)),
+        };
     }
 
     private void BuildHeader(ColorTokens c, AppState s)
@@ -222,13 +246,15 @@ public sealed class ChatPane : Grid {
                 Foreground = new SolidColorBrush(c.Text),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
+            var typing = s.Typing;
             words.Children.Add(new TextBlock {
-                Text = room.IsDirect ? T("directChat")
+                Text = typing.Count > 0 ? TypingLabel(typing, room.IsDirect)
+                    : room.IsDirect ? T("directChat")
                     : room.MemberCount == 1 ? T("member.one")
                     : T("members", ("n", room.MemberCount)),
                 FontSize = 14,
                 FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.TextSecondary),
+                Foreground = new SolidColorBrush(typing.Count > 0 ? c.Accent : c.TextSecondary),
             });
             row.Children.Add(words);
         }
@@ -270,18 +296,155 @@ public sealed class ChatPane : Grid {
                 item.Sending,
                 item.Failed,
                 item.Edited ? T("edited") : null,
-                s.Prefs.OwnBubbleAccent
-            ) {
+                s.Prefs.OwnBubbleAccent,
+                item.Reply
+            );
+            bubble.PointerPressed += (_, e) => {
+                if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
+                    e.Handled = true;
+                    OpenActions(bubble, item);
+                }
+            };
+            var column = new StackPanel {
                 MaxWidth = maxBubble,
                 HorizontalAlignment =
                     item.IsOwn ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                 Margin = new Thickness(0, above ? 2 : 6, 0, 0),
             };
-            list.Children.Add(bubble);
+            column.Children.Add(bubble);
+            if (item.Reactions.Count > 0)
+                column.Children.Add(Chips(c, item, s.Prefs.OwnBubbleAccent));
+            list.Children.Add(column);
         }
 
         if (stickToBottom)
             Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
+    }
+
+    /// <summary>The menu of a message: answer it, or react to it.</summary>
+    public void OpenActions(Control anchor, TimelineItem item)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var items = new List<MenuItem> {
+            new(T("reply"), () => controller.SetReplyTo(item), Icon: "reply"),
+        };
+        foreach (var emoji in QuickReactions) {
+            var mine = item.Reactions.Any(r => r.Key == emoji && r.Mine);
+            items.Add(new MenuItem(emoji, () => _ = controller.ToggleReaction(item.Id, emoji),
+                Checked: mine));
+        }
+
+        actions.Show(anchor, window, items);
+    }
+
+    public Menu Actions => actions;
+
+    public static readonly string[] QuickReactions = ["👍", "❤️", "😂", "🎉", "😮", "😢"];
+
+    private Control Chips(ColorTokens c, TimelineItem item, bool accent)
+    {
+        var own = item.IsOwn && accent;
+        var baseColor = own ? c.BubbleOut : c.BubbleIn;
+        var ink = own ? c.BubbleOutText : c.BubbleInText;
+        var strong = ThemeColor.Mix(baseColor, ink, 0.2);
+        var panel = new WrapPanel {
+            Margin = new Thickness(0, 3, 0, 0),
+            HorizontalAlignment = item.IsOwn ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+        };
+        foreach (var r in item.Reactions) {
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4
+            };
+            row.Children.Add(new TextBlock {
+                Text = r.Key,
+                FontSize = 14,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(ink),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            if (r.Count > 1 || !r.Mine) {
+                row.Children.Add(new TextBlock {
+                    Text = r.Count.ToString(),
+                    FontSize = 13,
+                    FontWeight = r.Mine ? FontWeight.Bold : FontWeight.SemiBold,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(ink),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+            }
+
+            var chip = new Border {
+                Height = 26,
+                Padding = new Thickness(9, 0),
+                CornerRadius = new CornerRadius(13),
+                Margin = new Thickness(0, 0, 4, 4),
+                Background = new SolidColorBrush(r.Mine ? strong : baseColor),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                Child = row,
+            };
+            var key = r.Key;
+            chip.PointerPressed += (_, e) => {
+                e.Handled = true;
+                _ = controller.ToggleReaction(item.Id, key);
+            };
+            Avalonia.Automation.AutomationProperties.SetName(chip, $"{r.Key} {r.Count}");
+            panel.Children.Add(chip);
+        }
+
+        return panel;
+    }
+
+    private Control? ReplyBanner(ColorTokens c, AppState s)
+    {
+        if (s.ReplyTo is not { } to)
+            return null;
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
+            Margin = new Thickness(12, 8, 12, 0),
+        };
+        var icon = new Icon {
+            Glyph = "reply",
+            Size = 20,
+            Color = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var bar = new Border {
+            Width = 2,
+            CornerRadius = new CornerRadius(1),
+            Background = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 10, 0),
+        };
+        Grid.SetColumn(bar, 1);
+        var words = new StackPanel();
+        words.Children.Add(new TextBlock {
+            Text = to.IsOwn ? T("you") : to.SenderName,
+            FontSize = 14,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Accent),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        words.Children.Add(new TextBlock {
+            Text = to.Body,
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        Grid.SetColumn(words, 2);
+        var cancel = new IconButton("close", T("cancel"), 18, 28) {
+            Tint = c.TextSecondary
+        };
+        cancel.Click += (_, _) => controller.SetReplyTo(null);
+        Grid.SetColumn(cancel, 3);
+        grid.Children.Add(icon);
+        grid.Children.Add(bar);
+        grid.Children.Add(words);
+        grid.Children.Add(cancel);
+        return grid;
     }
 
     private static bool SameRun(TimelineItem a, TimelineItem b)

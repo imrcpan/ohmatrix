@@ -22,7 +22,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 "No such chat."
             );
             var timeline = await room.Timeline();
-            var session = new Session(timeline);
+            var session = new Session(timeline, room, client.UserId());
             await session.Start();
             return session;
         } catch (Exception e) when (e is not EngineException) {
@@ -31,31 +31,56 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
     }
 
     /// <summary>One open chat: the SDK's changes are applied to a list of its items, in order, and the lines are made from them.</summary>
-    private sealed class Session(Timeline timeline) : IChatSession {
+    private sealed class Session(Timeline timeline, Room room, string me) : IChatSession {
         private readonly Channel<TimelineDiff[]> diffs = Channel.CreateUnbounded<TimelineDiff[]>();
         private readonly List<SdkTimelineItem> items = [];
         private readonly CancellationTokenSource stop = new();
         private TaskHandle? handle;
+        private TaskHandle? typingHandle;
+        private readonly Dictionary<string, SdkTimelineItem> byId = [];
 
         public event Action<IReadOnlyList<TimelineItem>>? Changed;
+        public event Action<IReadOnlyList<string>>? TypingChanged;
 
         public IReadOnlyList<TimelineItem> Items { get; private set; } = [];
+
+        public string Me => me;
 
         public async Task Start()
         {
             handle = await timeline.AddListener(new Listener(diffs.Writer));
+            typingHandle = room.SubscribeToTypingNotifications(new TypingListener(this));
             _ = Pump(stop.Token);
             // The first page of history; more is asked for as the person scrolls up.
             _ = Quietly(() => timeline.PaginateBackwards(30));
         }
 
-        public async Task Send(string text)
+        public async Task Send(string text, string? replyToEventId = null)
         {
             try {
                 var content = MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
-                await timeline.Send(content);
+                if (replyToEventId is null)
+                    await timeline.Send(content);
+                else
+                    await timeline.SendReply(content, replyToEventId);
             } catch (Exception e) when (e is not EngineException) {
                 throw MatrixAuthEngine.Translate(e);
+            }
+        }
+
+        public async Task ToggleReaction(string itemId, string key)
+        {
+            SdkTimelineItem? item;
+            lock (byId) {
+                byId.TryGetValue(itemId, out item);
+            }
+
+            if (item?.AsEvent() is not { } e)
+                return;
+            try {
+                await timeline.ToggleReaction(e.EventOrTransactionId, key);
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
             }
         }
 
@@ -78,6 +103,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             stop.Cancel();
             handle?.Dispose();
+            typingHandle?.Dispose();
             timeline.Dispose();
         }
 
@@ -96,7 +122,13 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 await foreach (var batch in diffs.Reader.ReadAllAsync(token)) {
                     foreach (var d in batch)
                         Apply(d);
-                    Items = items.Select(Convert).OfType<TimelineItem>().ToList();
+                    lock (byId) {
+                        byId.Clear();
+                        foreach (var i in items)
+                            byId[i.UniqueId().Id] = i;
+                    }
+
+                    Items = items.Select(i => Convert(i, me)).OfType<TimelineItem>().ToList();
                     Changed?.Invoke(Items);
                 }
             } catch (OperationCanceledException) {
@@ -145,7 +177,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         }
 
         /// <summary>The line for an item of the SDK; null for what is not shown yet (read markers, kinds not ported).</summary>
-        private static TimelineItem? Convert(SdkTimelineItem item)
+        private static TimelineItem? Convert(SdkTimelineItem item, string me)
         {
             var id = item.UniqueId().Id;
             if (item.AsVirtual() is VirtualTimelineItem.DateDivider divider) {
@@ -161,7 +193,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             var name = e.SenderProfile is ProfileDetails.Ready { DisplayName: { } n }
                 ? n
                 : e.Sender;
-            if (e.Content is TimelineItemContent.MsgLike { Content.Kind: MsgLikeKind.Message m }) {
+            if (e.Content is TimelineItemContent.MsgLike { Content: { Kind: MsgLikeKind.Message m } msg }) {
                 return new TimelineItem {
                     Id = id,
                     Body = m.Content.Body,
@@ -172,10 +204,49 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     Sending = e.LocalSendState is EventSendState.NotSentYet,
                     Failed = e.LocalSendState is EventSendState.SendingFailed,
                     Edited = m.Content.IsEdited,
+                    EventId = e.EventOrTransactionId is EventOrTransactionId.EventId ev
+                        ? ev.EventIdValue
+                        : null,
+                    Reactions = [..
+                        msg.Reactions.Select(r => new ReactionCount(
+                            r.Key,
+                            r.Senders.Length,
+                            r.Senders.Any(x => x.SenderId == me)
+                        ))
+                    ],
+                    Reply = Quote(msg.InReplyTo),
                 };
             }
 
             return null;
+        }
+
+        /// <summary>The quote of a reply, when the message it answers is known.</summary>
+        private static ReplyQuote? Quote(InReplyToDetails? reply)
+        {
+            if (reply is null)
+                return null;
+            if (reply.Event() is not EmbeddedEventDetails.Ready ready)
+                return new ReplyQuote("", "…", reply.EventId());
+            var name = ready.SenderProfile is ProfileDetails.Ready { DisplayName: { } n }
+                ? n
+                : ready.Sender;
+            var text =
+ ready.Content is TimelineItemContent.MsgLike { Content.Kind: MsgLikeKind.Message m }
+                ? m.Content.Body
+                : "";
+            return new ReplyQuote(name, text, reply.EventId());
+        }
+
+        private sealed class TypingListener(Session session) : TypingNotificationsListener {
+            public void Call(string[] typingUserIds)
+            {
+                var names = typingUserIds
+                    .Where(u => u != session.Me)
+                    .Select(u => u.TrimStart('@').Split(':')[0])
+                    .ToList();
+                session.TypingChanged?.Invoke(names);
+            }
         }
 
         private sealed class Listener(ChannelWriter<TimelineDiff[]> writer) : TimelineListener {
