@@ -681,6 +681,43 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task Explore_asks_another_server_and_keeps_the_servers_added()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Explore);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.ExploreScreen;
+        // The homeserver is matrix.org here, so its own directory is the only one before the ones added.
+        Assert.Equal(["matrix.org"], page.Servers().Select(x => x.Name));
+        Assert.Null(page.Server);
+        Assert.Contains("explore  ", engine.Actions);
+        page.AskAddServer();
+        page.AddPrompt.Fields[0].Text = "not a server!";
+        page.AddPrompt.Confirm();
+        await Task.Delay(50);
+        Assert.Equal("That is not a server name.", page.AddPrompt.ErrorText);
+        page.AddPrompt.Fields[0].Text = "https://KDE.org/rooms";
+        page.AddPrompt.Confirm();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["kde.org"], controller.Store.Value.Prefs.ExploreServers);
+        Assert.Equal("kde.org", page.Server);
+        Assert.Contains("explore  kde.org", engine.Actions);
+        Save(window, "explore-servers");
+    }
+
+    [Fact]
+    public void A_server_name_is_cut_down_to_the_host()
+    {
+        Assert.Equal("kde.org", ServerName.Parse(" https://KDE.org/x?y "));
+        Assert.Equal("matrix.org:8448", ServerName.Parse("matrix.org:8448"));
+        Assert.Equal("example.com", ServerName.Parse("#room:example.com"));
+        Assert.Null(ServerName.Parse("two words"));
+        Assert.Null(ServerName.Parse(""));
+    }
+
+    [AvaloniaFact]
     public async Task A_group_is_made_with_its_people_and_a_refusal_is_shown()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
