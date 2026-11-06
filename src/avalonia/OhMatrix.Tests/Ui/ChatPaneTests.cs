@@ -738,6 +738,12 @@ public class ChatPaneTests {
         var page = screen.ExploreScreen;
         Assert.Equal(["Public Chat", "Rust Fans"], page.Names);
         Save(window, "explore");
+        Assert.IsType<Avalonia.Controls.WrapPanel>(page.Rows.Children[0]);
+        page.OpenFull(
+            new PublicRoom("!pub1:s", "Public Chat", "Talk\n\nmore", "#pub:s", null, 1200), false);
+        Assert.True(page.Full.IsOpen);
+        Save(window, "explore-full");
+        page.Full.Close();
         page.Field.Text = "rust";
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();

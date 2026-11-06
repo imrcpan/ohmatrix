@@ -1,3 +1,4 @@
+using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -46,6 +47,14 @@ public sealed class ExplorePage : Grid {
         Children.Add(servers);
         Children.Add(scroller);
         search.TextChanged += (_, _) => _ = Load();
+        // A card is 320 wide, or the width of the page when that is narrower.
+        SizeChanged += (_, e) => {
+            var width = Math.Min(CardWidth, Math.Max(200, e.NewSize.Width - 24));
+            if (Math.Abs(width - cardWidth) < 1)
+                return;
+            cardWidth = width;
+            Apply();
+        };
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<ExplorePage>((p, _) => p.Apply());
         Apply();
@@ -187,8 +196,13 @@ public sealed class ExplorePage : Grid {
             return;
         }
 
+        var cards = new WrapPanel {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(6, 4),
+        };
         foreach (var room in found)
-            rows.Children.Add(Row(c, room, s.Rooms.Any(r => r.Id == room.RoomId)));
+            cards.Children.Add(Card(c, room, s.Rooms.Any(r => r.Id == room.RoomId)));
+        rows.Children.Add(cards);
     }
 
     private void BuildServers(ColorTokens c)
@@ -225,27 +239,73 @@ public sealed class ExplorePage : Grid {
         return chip;
     }
 
-    private Control Row(ColorTokens c, PublicRoom room, bool joined)
+    private const double CardWidth = 320;
+    private double cardWidth = CardWidth;
+
+    /// <summary>The card pressed open, larger, with the whole text of the room.</summary>
+    public Dialog Full { get; } = new();
+
+    /// <summary>The card of a room: who it is, its text and the buttons.</summary>
+    private Control Card(ColorTokens c, PublicRoom room, bool joined)
     {
-        var grid = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            Margin = new Thickness(12, 8),
+        var card = new Border {
+            Width = cardWidth,
+            MinHeight = 168,
+            Margin = new Thickness(6),
+            Padding = new Thickness(16),
+            CornerRadius = new CornerRadius(16),
+            Background = new SolidColorBrush(c.BgSecondary),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = Face(c, room, joined, false),
         };
-        var avatar = new Avatar(room.RoomId, room.Name, 48) {
+        card.PointerPressed += (_, e) => {
+            e.Handled = true;
+            OpenFull(room, joined);
+        };
+        Avalonia.Automation.AutomationProperties.SetName(card, room.Name);
+        return card;
+    }
+
+    /// <summary>Opens the card larger over the page.</summary>
+    public void OpenFull(PublicRoom room, bool joined)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var c = ThemeScope.GetColors(this);
+        Full.Show(window, c, "", null, Face(c, room, joined, true));
+    }
+
+    private static string Flat(string? text)
+    {
+        return string.Join(" ",
+            (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private StackPanel Face(ColorTokens c, PublicRoom room, bool joined, bool full)
+    {
+        var face = new StackPanel {
+            Spacing = 10
+        };
+        var head = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*")
+        };
+        var avatar = new Avatar(room.RoomId, room.Name, 52) {
             Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        controller.Pictures.Attach(avatar, room.AvatarUrl, 48);
-        grid.Children.Add(avatar);
+        controller.Pictures.Attach(avatar, room.AvatarUrl, 52);
+        head.Children.Add(avatar);
         var words = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center
         };
         words.Children.Add(new TextBlock {
             Text = room.Name,
-            FontSize = 16,
-            FontWeight = FontWeight.SemiBold,
+            FontSize = 17,
+            FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
+            TextWrapping = TextWrapping.Wrap,
+            MaxLines = 2,
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         words.Children.Add(new TextBlock {
@@ -255,45 +315,76 @@ public sealed class ExplorePage : Grid {
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
+            TextTrimming = TextTrimming.CharacterEllipsis,
         });
-        if (room.Topic is { } topic) {
-            words.Children.Add(new TextBlock {
-                Text = topic,
-                FontSize = 14,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                TextTrimming = TextTrimming.CharacterEllipsis,
-            });
-        }
-
         Grid.SetColumn(words, 1);
-        grid.Children.Add(words);
-        if (joined) {
-            var tag = new TextBlock {
-                Text = T("explore.in"),
-                FontSize = 13,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.Accent),
-                Margin = new Thickness(8, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(tag, 2);
-            grid.Children.Add(tag);
+        head.Children.Add(words);
+        face.Children.Add(head);
+
+        var topic = new TextBlock {
+            FontSize = 14,
+            LineHeight = 19,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        if (full) {
+            topic.Text = room.Topic?.Trim() ?? "";
+            face.Children.Add(new ScrollViewer {
+                MaxHeight = 240,
+                Content = topic
+            });
+        } else {
+            topic.Text = Flat(room.Topic);
+            topic.MaxLines = 3;
+            topic.TextTrimming = TextTrimming.CharacterEllipsis;
+            face.Children.Add(topic);
         }
 
-        var row = new Border {
-            Child = grid,
-            Background = Brushes.Transparent,
-            Cursor = new Cursor(StandardCursorType.Hand),
+        var actions = new WrapPanel {
+            HorizontalAlignment = HorizontalAlignment.Left
         };
-        row.PointerPressed += (_, e) => {
+        var copy = Pill(c, T("explore.copy"), c.Hover, c.Text);
+        copy.PointerPressed += async (_, e) => {
             e.Handled = true;
-            if (joined)
-                controller.SelectRoom(room.RoomId);
-            else
-                AskJoin(room);
+            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) {
+                await clipboard.SetTextAsync(room.Alias ?? room.RoomId);
+                ((TextBlock)copy.Child!).Text = T("copied");
+            }
         };
-        Avalonia.Automation.AutomationProperties.SetName(row, room.Name);
-        return row;
+        actions.Children.Add(copy);
+        if (joined)
+            actions.Children.Add(Pill(c, T("explore.in"), c.Hover, c.TextSecondary));
+        else {
+            var join = Pill(c, T("join"), c.Accent, c.OnAccent);
+            join.PointerPressed += (_, e) => {
+                e.Handled = true;
+                Full.Close();
+                AskJoin(room);
+            };
+            Avalonia.Automation.AutomationProperties.SetName(join, $"{T("join")} {room.Name}");
+            actions.Children.Add(join);
+        }
+
+        face.Children.Add(actions);
+        return face;
+    }
+
+    private static Border Pill(ColorTokens c, string text, Color background, Color foreground)
+    {
+        return new Border {
+            Margin = new Thickness(0, 0, 8, 0),
+            Padding = new Thickness(16, 6),
+            CornerRadius = new CornerRadius(14),
+            Background = new SolidColorBrush(background),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = new TextBlock {
+                Text = text,
+                FontSize = 14,
+                FontWeight = FontWeight.SemiBold,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(foreground),
+            },
+        };
     }
 }

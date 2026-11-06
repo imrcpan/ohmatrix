@@ -95,15 +95,16 @@ public sealed class Dialog {
         // width: 100% with a maximum, as the card of the React Native dialog
         card.Width = Math.Min(MaxWidth, window.ClientSize.Width - 2 * Pad);
         stack.Children.Clear();
-        stack.Children.Add(new TextBlock {
-            Text = title,
-            FontSize = 19,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(colors.Text),
-            TextAlignment = TextAlignment.Center,
-            TextWrapping = TextWrapping.Wrap,
-        });
+        if (title.Length > 0)
+            stack.Children.Add(new TextBlock {
+                Text = title,
+                FontSize = 19,
+                FontWeight = FontWeight.Bold,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(colors.Text),
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+            });
         messageText.Foreground = new SolidColorBrush(colors.TextSecondary);
         messageText.Text = message;
         if (!string.IsNullOrEmpty(message))
