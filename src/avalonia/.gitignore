@@ -4,3 +4,6 @@ obj/
 .vs/
 .idea/
 *.DotSettings.user
+
+# The Matrix SDK library and its C# bindings: made by src/rust/build-native.sh
+OhMatrix.MatrixSdk/native/
