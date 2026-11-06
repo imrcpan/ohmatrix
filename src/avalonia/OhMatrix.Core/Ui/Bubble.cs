@@ -25,7 +25,9 @@ public sealed class Bubble : Border {
         bool failed = false,
         string? editedLabel = null,
         bool accent = true,
-        Model.ReplyQuote? reply = null
+        Model.ReplyQuote? reply = null,
+        Model.ImageAttachment? image = null,
+        Pictures? pictures = null
     )
     {
         const double r = Radius.Bubble;
@@ -43,6 +45,7 @@ public sealed class Bubble : Border {
         // The room the time and the state take on the last line of the text, so that the text wraps before it, as in the React Native bubble.
         var timeRoom = Math.Ceiling(metaText.Length * 7.4) + (own ? 24 : 0) + 8;
 
+        var hasText = text.Length > 0 || image is null;
         var body = new SelectableTextBlock {
             FontSize = 16,
             FontFamily = Fonts.System,
@@ -107,7 +110,29 @@ public sealed class Bubble : Border {
             stack.Children.Add(quote);
         }
 
-        stack.Children.Add(body);
+        if (image is not null) {
+            var (w, h) = MediaSize.Fit(image.Width, image.Height);
+            var picture = new Image {
+                Width = w,
+                Height = h,
+                Stretch = Stretch.UniformToFill,
+            };
+            pictures?.Attach(picture, image.Source, w, h);
+            stack.Children.Add(new Border {
+                Width = w,
+                Height = h,
+                CornerRadius = new CornerRadius(Math.Max(0, r - 6)),
+                ClipToBounds = true,
+                Background =
+                    new SolidColorBrush(ThemeColor.Mix(colors.BubbleIn, colors.Separator, 0.5)),
+                Margin = new Thickness(-6, -3, -6, hasText ? 4 : 14),
+                Child = picture,
+            });
+            Avalonia.Automation.AutomationProperties.SetName(picture, image.FileName);
+        }
+
+        if (hasText)
+            stack.Children.Add(body);
 
         var metaRow = new StackPanel {
             Orientation = Orientation.Horizontal,

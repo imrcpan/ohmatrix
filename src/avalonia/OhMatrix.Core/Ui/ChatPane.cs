@@ -306,7 +306,9 @@ public sealed class ChatPane : Grid {
                 item.Failed,
                 item.Edited ? T("edited") : null,
                 s.Prefs.OwnBubbleAccent,
-                item.Reply
+                item.Reply,
+                item.Image,
+                controller.Pictures
             );
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {

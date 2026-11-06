@@ -228,7 +228,17 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             if (e.Content is TimelineItemContent.MsgLike { Content: { Kind: MsgLikeKind.Message m } msg }) {
                 return new TimelineItem {
                     Id = id,
-                    Body = m.Content.Body,
+                    Body = m.Content.MsgType is MessageType.Image img
+                        ? img.Content.Caption ?? ""
+                        : m.Content.Body,
+                    Image = m.Content.MsgType is MessageType.Image im
+                        ? new ImageAttachment(
+                            im.Content.Source.ToJson(),
+                            (int?)im.Content.Info?.Width,
+                            (int?)im.Content.Info?.Height,
+                            im.Content.Filename
+                        )
+                        : null,
                     SenderId = e.Sender,
                     SenderName = name,
                     IsOwn = e.IsOwn,

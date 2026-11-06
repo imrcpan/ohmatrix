@@ -38,7 +38,16 @@ public sealed record TimelineItem {
 
     /// <summary>The message this one answers, as it is quoted at the top of the bubble.</summary>
     public ReplyQuote? Reply { get; init; }
+
+    /// <summary>The picture of an image message; <see cref="Body"/> is then its caption (empty when it has none).</summary>
+    public ImageAttachment? Image { get; init; }
 }
+
+/// <summary>
+/// A picture in a message. <paramref name="Source"/> is what the engine needs to fetch it (the <c>mxc://</c> address, or the JSON of an
+/// encrypted file); the size is the one the sender gave, if any.
+/// </summary>
+public sealed record ImageAttachment(string Source, int? Width, int? Height, string FileName);
 
 /// <summary>A reaction under a message: the key (an emoji), how many gave it, and whether I did.</summary>
 public sealed record ReactionCount(string Key, int Count, bool Mine);
