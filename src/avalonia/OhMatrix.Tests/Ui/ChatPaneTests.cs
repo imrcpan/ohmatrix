@@ -31,6 +31,14 @@ public class ChatPaneTests {
             TypingChanged?.Invoke(names);
         }
 
+        public readonly List<string> Attached = [];
+
+        public Task SendAttachment(string path, string mimeType, int? width, int? height)
+        {
+            Attached.Add($"{Path.GetFileName(path)} {mimeType} {width}x{height}");
+            return Task.CompletedTask;
+        }
+
         public readonly List<string> Edits = [];
         public readonly List<string> Deleted = [];
 
@@ -253,6 +261,14 @@ public class ChatPaneTests {
                     Image = new ImageAttachment("mxc://s/pic", 1600, 900, "pic.jpg"),
                 },
                 new TimelineItem {
+                    Id = "doc",
+                    Body = "",
+                    SenderId = "@me",
+                    IsOwn = true,
+                    Ts = Now - 700_000,
+                    File = new FileAttachment("budget-2026.pdf", 1_450_000),
+                },
+                new TimelineItem {
                     Id = "d2",
                     Kind = TimelineKind.Date,
                     Ts = Now
@@ -350,7 +366,7 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(8, controller.Store.Value.Timeline.Count);
+        Assert.Equal(9, controller.Store.Value.Timeline.Count);
         Assert.Single(engine.Opened);
         Save(window, "light");
     }
@@ -714,6 +730,41 @@ public class ChatPaneTests {
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Save(window, "info-narrow");
+    }
+
+    [AvaloniaFact]
+    public async Task A_picture_from_disk_is_sent_with_its_size_and_a_file_without()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var dir = Path.Combine(Path.GetTempPath(), "ohm-att-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var png = Path.Combine(dir, "pic.png");
+        using (var target =
+               new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(40, 20)))
+        using (var stream = File.Create(png))
+            target.Save(stream);
+        var doc = Path.Combine(dir, "notes.pdf");
+        File.WriteAllText(doc, "x");
+        await controller.SendAttachment(png);
+        await controller.SendAttachment(doc);
+        Assert.Equal(["pic.png image/png 40x20", "notes.pdf application/pdf x"],
+            engine.Opened[0].Attached);
+        var pane = FindPane(screen);
+        pane.OpenAttach();
+        Assert.Equal(2, pane.AttachMenu.Rows.Count);
+        Save(window, "attach");
+    }
+
+    [Xunit.Theory]
+    [Xunit.InlineData(0L, "")]
+    [Xunit.InlineData(512L, "512 B")]
+    [Xunit.InlineData(1_450_000L, "1.4 MB")]
+    [Xunit.InlineData(52_000L, "51 KB")]
+    public void Sizes_are_read_by_people(long n, string expected)
+    {
+        Assert.Equal(expected, Format.Bytes(n));
     }
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)

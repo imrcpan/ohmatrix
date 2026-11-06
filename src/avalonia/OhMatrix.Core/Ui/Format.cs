@@ -59,4 +59,21 @@ public static class Format {
             ? at.ToString("m", culture)
             : at.ToString("D", culture);
     }
+
+    /// <summary>A size in bytes as people read it: <c>12 KB</c>, <c>3.4 MB</c>; empty for none.</summary>
+    public static string Bytes(long n)
+    {
+        if (n <= 0)
+            return "";
+        string[] units = ["B", "KB", "MB", "GB"];
+        var i = 0;
+        double v = n;
+        while (v >= 1024 && i < units.Length - 1) {
+            v /= 1024;
+            i++;
+        }
+
+        return
+            $"{(v >= 10 || i == 0 ? Math.Round(v).ToString(CultureInfo.InvariantCulture) : v.ToString("0.0", CultureInfo.InvariantCulture))} {units[i]}";
+    }
 }

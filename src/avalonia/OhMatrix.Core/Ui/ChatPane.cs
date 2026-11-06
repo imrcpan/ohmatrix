@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
@@ -39,6 +40,13 @@ public sealed class ChatPane : Grid {
 
     private readonly Menu actions = new() {
         Width = 180
+    };
+
+    private readonly IconButton attach = new("attach", "Attach", 24, 38);
+
+    private readonly Menu attachMenu = new() {
+        Up = true,
+        Width = 200,
     };
 
     private readonly Dialog deleteDialog = new();
@@ -99,11 +107,16 @@ public sealed class ChatPane : Grid {
         Children.Add(composer);
 
         var bar = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             Margin = new Thickness(10, 8)
         };
         inputBox.Child = input;
-        Grid.SetColumn(send, 1);
+        Grid.SetColumn(inputBox, 1);
+        attach.VerticalAlignment = VerticalAlignment.Bottom;
+        attach.Margin = new Thickness(0, 0, 10, 0);
+        attach.Click += (_, _) => OpenAttach();
+        bar.Children.Add(attach);
+        Grid.SetColumn(send, 2);
         send.Margin = new Thickness(10, 0, 0, 0);
         send.Child = sendIcon;
         bar.Children.Add(inputBox);
@@ -192,6 +205,7 @@ public sealed class ChatPane : Grid {
         send.Background = new SolidColorBrush(ready ? c.Accent : c.Separator);
         sendIcon.Color = new SolidColorBrush(ready ? c.OnAccent : c.TextSecondary);
         Avalonia.Automation.AutomationProperties.SetName(send, T("send.files.send"));
+        Avalonia.Automation.AutomationProperties.SetName(attach, T("attach.label"));
 
         var s = controller.Store.Value;
         replyHost.Child = ReplyBanner(c, s);
@@ -319,7 +333,8 @@ public sealed class ChatPane : Grid {
                 s.Prefs.OwnBubbleAccent,
                 item.Reply,
                 item.Image,
-                controller.Pictures
+                controller.Pictures,
+                item.File
             );
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
@@ -367,6 +382,45 @@ public sealed class ChatPane : Grid {
     }
 
     public Menu Actions => actions;
+    public Menu AttachMenu => attachMenu;
+
+    /// <summary>The menu of the paperclip: a photo or a file, picked from disk and sent to the chat.</summary>
+    public void OpenAttach()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        attachMenu.Show(
+            attach,
+            window,
+            [
+                new MenuItem(T("attach.image"), () => _ = PickAndSend(window, true), Icon: "image"),
+                new MenuItem(T("attach.file"), () => _ = PickAndSend(window, false), Icon: "file"),
+            ]
+        );
+    }
+
+    private async Task PickAndSend(TopLevel window, bool images)
+    {
+        var provider = window.StorageProvider;
+        if (!provider.CanOpen)
+            return;
+        var files = await provider.OpenFilePickerAsync(
+            new Avalonia.Platform.Storage.FilePickerOpenOptions {
+                AllowMultiple = true,
+                FileTypeFilter =
+                    images ? [Avalonia.Platform.Storage.FilePickerFileTypes.ImageAll] : null,
+            });
+        foreach (var file in files) {
+            if (file.TryGetLocalPath() is { } path) {
+                try {
+                    await controller.SendAttachment(path);
+                } catch (Exception) {
+                    // The file stays unsent; the person can try again.
+                }
+            }
+        }
+    }
+
     public Dialog DeleteDialog => deleteDialog;
 
     private void AskDelete(TopLevel window, TimelineItem item)

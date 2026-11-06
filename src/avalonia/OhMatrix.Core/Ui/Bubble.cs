@@ -27,7 +27,8 @@ public sealed class Bubble : Border {
         bool accent = true,
         Model.ReplyQuote? reply = null,
         Model.ImageAttachment? image = null,
-        Pictures? pictures = null
+        Pictures? pictures = null,
+        Model.FileAttachment? file = null
     )
     {
         const double r = Radius.Bubble;
@@ -45,7 +46,7 @@ public sealed class Bubble : Border {
         // The room the time and the state take on the last line of the text, so that the text wraps before it, as in the React Native bubble.
         var timeRoom = Math.Ceiling(metaText.Length * 7.4) + (own ? 24 : 0) + 8;
 
-        var hasText = text.Length > 0 || image is null;
+        var hasText = text.Length > 0 || (image is null && file is null);
         var body = new SelectableTextBlock {
             FontSize = 16,
             FontFamily = Fonts.System,
@@ -129,6 +130,54 @@ public sealed class Bubble : Border {
                 Child = picture,
             });
             Avalonia.Automation.AutomationProperties.SetName(picture, image.FileName);
+        }
+
+        if (file is not null) {
+            // A file: its icon on the accent, the name and the size.
+            var card = new Grid {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                Margin = new Thickness(0, 2, 0, hasText ? 4 : 14),
+                MinWidth = 200,
+            };
+            var disc = new Border {
+                Width = 40,
+                Height = 40,
+                CornerRadius = new CornerRadius(20),
+                Background = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
+                Margin = new Thickness(0, 0, 12, 0),
+                Child = new Icon {
+                    Glyph = "file",
+                    Size = 22,
+                    Color = new SolidColorBrush(mine ? colors.BubbleOut : colors.OnAccent),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+            };
+            var words = new StackPanel {
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            words.Children.Add(new TextBlock {
+                Text = file.Name,
+                FontSize = 16,
+                FontWeight = FontWeight.Medium,
+                FontFamily = Fonts.System,
+                Foreground = fg,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            var size = Format.Bytes(file.Size);
+            if (size.Length > 0) {
+                words.Children.Add(new TextBlock {
+                    Text = size,
+                    FontSize = 14,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(meta),
+                });
+            }
+
+            Grid.SetColumn(words, 1);
+            card.Children.Add(disc);
+            card.Children.Add(words);
+            stack.Children.Add(card);
         }
 
         if (hasText)

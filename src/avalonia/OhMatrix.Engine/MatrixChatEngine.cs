@@ -68,6 +68,31 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        public async Task SendAttachment(string path, string mimeType, int? width, int? height)
+        {
+            try {
+                var size = (ulong)new System.IO.FileInfo(path).Length;
+                var upload =
+ new UploadParameters(new UploadSource.File(path), null, null, null, null);
+                if (mimeType.StartsWith("image/", StringComparison.Ordinal)) {
+                    using var handle = timeline.SendImage(
+                        upload,
+                        null,
+                        new ImageInfo((ulong?)height, (ulong?)width, mimeType, size, null, null, null, null)
+                    );
+                    await handle.Join();
+                } else {
+                    using var handle = timeline.SendFile(
+                        upload,
+                        new uniffi.matrix_sdk_ffi.FileInfo(mimeType, size, null, null)
+                    );
+                    await handle.Join();
+                }
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
+            }
+        }
+
         public async Task Edit(string itemId, string text)
         {
             var e = Event(itemId);
@@ -228,9 +253,14 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             if (e.Content is TimelineItemContent.MsgLike { Content: { Kind: MsgLikeKind.Message m } msg }) {
                 return new TimelineItem {
                     Id = id,
-                    Body = m.Content.MsgType is MessageType.Image img
-                        ? img.Content.Caption ?? ""
-                        : m.Content.Body,
+                    Body = m.Content.MsgType switch {
+                        MessageType.Image img => img.Content.Caption ?? "",
+                        MessageType.File f => f.Content.Caption ?? "",
+                        _ => m.Content.Body,
+                    },
+                    File = m.Content.MsgType is MessageType.File file
+                        ? new FileAttachment(file.Content.Filename, (long)(file.Content.Info?.Size ?? 0))
+                        : null,
                     Image = m.Content.MsgType is MessageType.Image im
                         ? new ImageAttachment(
                             im.Content.Source.ToJson(),
