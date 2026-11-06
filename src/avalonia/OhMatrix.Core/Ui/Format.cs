@@ -61,6 +61,91 @@ public static class Format {
     }
 
     /// <summary>A size in bytes as people read it: <c>12 KB</c>, <c>3.4 MB</c>; empty for none.</summary>
+    private enum Unit {
+        Minute,
+        Hour,
+        Day,
+    }
+
+    private static string Ago(string locale, int n, Unit unit)
+    {
+        var i = (int)unit;
+
+        string[] Two(string a, string b, string c)
+        {
+            return [a, b, c];
+        }
+
+        string Plural(string one, string many)
+        {
+            return n == 1 ? one : many;
+        }
+
+        var ru = (n % 10 == 1 && n % 100 != 11) ? 0
+            : (n % 10 is >= 2 and <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 1 : 2;
+        return locale switch {
+            "zh-CN" => $"{n}{Two("分钟", "小时", "天")[i]}前",
+            "zh-TW" => $"{n}{Two("分鐘", "小時", "天")[i]}前",
+            "es" =>
+                $"hace {n} {Two(Plural("minuto", "minutos"), Plural("hora", "horas"), Plural("día", "días"))[i]}",
+            "fr" =>
+                $"il y a {n} {Two(n > 1 ? "minutes" : "minute", n > 1 ? "heures" : "heure", n > 1 ? "jours" : "jour")[i]}",
+            "de" =>
+                $"vor {n} {Two(Plural("Minute", "Minuten"), Plural("Stunde", "Stunden"), Plural("Tag", "Tagen"))[i]}",
+            "pt" =>
+                $"há {n} {Two(Plural("minuto", "minutos"), Plural("hora", "horas"), Plural("dia", "dias"))[i]}",
+            "it" =>
+                $"{n} {Two(Plural("minuto", "minuti"), Plural("ora", "ore"), Plural("giorno", "giorni"))[i]} fa",
+            "ru" => $"{n} {(i switch {
+                0 => new[] { "минуту", "минуты", "минут" },
+                1 => new[] { "час", "часа", "часов" },
+                _ => new[] { "день", "дня", "дней" },
+            })[ru]} назад",
+            "ja" => $"{n}{Two("分", "時間", "日")[i]}前",
+            "ko" => $"{n}{Two("분", "시간", "일")[i]} 전",
+            "hi" => $"{n} {Two("मिनट", "घंटे", "दिन")[i]} पहले",
+            "bn" => $"{n} {Two("মিনিট", "ঘণ্টা", "দিন")[i]} আগে",
+            "id" => $"{n} {Two("menit", "jam", "hari")[i]} yang lalu",
+            _ => $"{n} {Two("minute", "hour", "day")[i]}{(n == 1 ? "" : "s")} ago",
+        };
+    }
+
+    private static string Now(string locale)
+    {
+        return locale switch {
+            "zh-CN" => "现在",
+            "zh-TW" => "現在",
+            "es" => "ahora",
+            "fr" => "maintenant",
+            "de" => "jetzt",
+            "pt" => "agora",
+            "it" => "ora",
+            "ru" => "сейчас",
+            "ja" => "たった今",
+            "ko" => "지금",
+            "hi" => "अभी",
+            "bn" => "এখন",
+            "id" => "sekarang",
+            _ => "now",
+        };
+    }
+
+    /// <summary>"now", "5 minutes ago", "3 days ago" in the language, or the date from a week on: for "last active" (<c>formatRelative</c>).</summary>
+    public static string Relative(long ts, DateTimeOffset now, string locale)
+    {
+        var diff = now.ToUnixTimeMilliseconds() - ts;
+        if (diff < 60_000)
+            return Now(locale);
+        if (diff < 3_600_000)
+            return Ago(locale, (int)(diff / 60_000), Unit.Minute);
+        if (diff < 86_400_000)
+            return Ago(locale, (int)(diff / 3_600_000), Unit.Hour);
+        if (diff < 7 * 86_400_000L)
+            return Ago(locale, (int)(diff / 86_400_000), Unit.Day);
+        return DateTimeOffset.FromUnixTimeMilliseconds(ts).ToLocalTime()
+            .ToString("MMM d, yyyy", Culture(locale));
+    }
+
     /// <summary>A length of time as <c>m:ss</c>, or <c>h:mm:ss</c> from an hour.</summary>
     public static string Duration(TimeSpan t)
     {
