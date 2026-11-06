@@ -216,6 +216,61 @@ public class MatrixSecurityEngineTests {
 }
 
 [Collection("homeserver")]
+public class MatrixSpaceEngineTests {
+    [Fact]
+    public async Task Lists_the_rooms_of_a_space()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-space-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var rooms = new MatrixRoomsEngine(auth);
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var space = await auth.Client!.CreateRoom(
+            new uniffi.matrix_sdk_ffi.CreateRoomParameters(
+                "Space " + tag,
+                false,
+                new uniffi.matrix_sdk_ffi.RoomVisibility.Private(),
+                uniffi.matrix_sdk_ffi.RoomPreset.PrivateChat,
+                IsSpace: true
+            )
+        );
+        var child = await auth.Client!.CreateRoom(
+            new uniffi.matrix_sdk_ffi.CreateRoomParameters(
+                "Child " + tag,
+                false,
+                new uniffi.matrix_sdk_ffi.RoomVisibility.Private(),
+                uniffi.matrix_sdk_ffi.RoomPreset.PrivateChat
+            )
+        );
+        // Adding a child needs both rooms in the local cache, which the sync fills.
+        await rooms.StartSync();
+        var service = await auth.Client!.SpaceService();
+        for (var i = 0; i < 20; i++) {
+            try {
+                await service.AddChildToSpace(child, space);
+                break;
+            } catch (Exception) when (i < 19) {
+                await Task.Delay(500);
+            }
+        }
+
+        IReadOnlyList<SpaceChild> found = [];
+        for (var i = 0; i < 10 && found.Count == 0; i++) {
+            found = await rooms.SpaceChildren(space);
+            if (found.Count == 0)
+                await Task.Delay(500);
+        }
+
+        Assert.Contains(found, c => c.RoomId == child && c.Name == "Child " + tag && !c.IsSpace);
+        await rooms.StopSync();
+        await auth.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixProfileEngineTests {
     [Fact]
     public async Task Changes_the_display_name()

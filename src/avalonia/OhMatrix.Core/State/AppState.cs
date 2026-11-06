@@ -13,6 +13,7 @@ public enum SidebarPage {
     Settings,
     Sessions,
     Encryption,
+    Space,
 }
 
 public enum AuthStatus {
@@ -57,6 +58,9 @@ public sealed record AppState {
 
     /// <summary>What the left pane shows: the chats, or the profile page (and what opens from it).</summary>
     public SidebarPage SidebarPage { get; init; } = SidebarPage.Chats;
+
+    /// <summary>The space whose rooms the left pane lists while <see cref="SidebarPage"/> is <see cref="SidebarPage.Space"/>.</summary>
+    public string? OpenSpaceId { get; init; }
 
     /// <summary>The info panel of the open chat is showing.</summary>
     public bool RoomInfoOpen { get; init; }

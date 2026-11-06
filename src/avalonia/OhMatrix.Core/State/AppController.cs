@@ -276,6 +276,23 @@ public sealed class AppController(
             SelectRoom(null);
     }
 
+    /// <summary>Opens a space in the left pane: the rooms it lists.</summary>
+    public void OpenSpace(string spaceId)
+    {
+        Store.Update(s => s with {
+            SidebarPage = SidebarPage.Space,
+            OpenSpaceId = spaceId
+        });
+    }
+
+    /// <summary>The rooms and spaces a space lists. Failures are <see cref="EngineException"/>.</summary>
+    public Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
+    {
+        return rooms is null
+            ? Task.FromResult<IReadOnlyList<SpaceChild>>([])
+            : rooms.SpaceChildren(spaceId);
+    }
+
     /// <summary>Shows a page in the left pane.</summary>
     public void OpenSidebarPage(SidebarPage page)
     {

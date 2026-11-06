@@ -272,6 +272,16 @@ public class ChatPaneTests {
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
 
+        public Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
+        {
+            Actions.Add("space " + spaceId);
+            return Task.FromResult<IReadOnlyList<SpaceChild>>([
+                new SpaceChild("!d", "Alice", null, null, 2, false),
+                new SpaceChild("!out", "Not joined room", "Come in", null, 40, false),
+                new SpaceChild("!sub", "Sub space", null, null, 5, true),
+            ]);
+        }
+
         public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
         {
             Actions.Add($"explore {filter} {server}");
@@ -1325,6 +1335,29 @@ public class ChatPaneTests {
             Room("!new", 4, "unknown before"));
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(2, notes.Sent.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task A_space_lists_its_rooms_and_joins_one_that_is_not_joined()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.OpenSpace("!g");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SidebarPage.Space, controller.Store.Value.SidebarPage);
+        var page = screen.SpaceScreen;
+        Assert.Equal(["Alice", "Not joined room", "Sub space"], page.Children_.Select(c => c.Name));
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains("Not joined yet", texts);
+        Assert.Contains("Demo team", texts);
+        Save(window, "space");
+        page.AskJoin(page.Children_[1]);
+        Assert.True(page.Confirm.Dialog.IsOpen);
+        page.Confirm.Confirm();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
+        Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
     }
 
     [AvaloniaFact]

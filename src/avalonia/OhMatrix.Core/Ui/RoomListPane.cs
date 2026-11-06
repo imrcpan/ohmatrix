@@ -277,7 +277,11 @@ public sealed class RoomListPane : Grid {
             row.MenuRequested += (_, _) => OpenRowMenu(row, room);
 
         row.Click += (_, _) => {
-            if (!room.Invite)
+            if (room.Invite)
+                return;
+            if (room.IsSpace)
+                controller.OpenSpace(room.Id);
+            else
                 controller.SelectRoom(room.Id);
         };
         row.Update();
