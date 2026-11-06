@@ -35,7 +35,8 @@ public class App : Application {
                 profiles,
                 devices,
                 links,
-                security
+                security,
+                new DesktopNotifier(() => desktop.MainWindow?.IsActive == true)
             );
             var root = new AppRoot(
                 controller,
