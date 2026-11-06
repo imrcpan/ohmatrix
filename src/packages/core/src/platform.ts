@@ -186,6 +186,16 @@ export interface PlatformServices {
    * device's own library (the photo gallery), so the app can say so; a download or a share sheet shows itself.
    */
   saveFile?(file: { url: string; name: string }): Promise<"saved" | void>;
+  /**
+   * Where saved files go, when the platform lets the person choose (a desktop; a phone has its own places). `current` is the folder chosen, or
+   * null for the system's Downloads folder; `choose` asks with the system's folder chooser and answers the folder once it is kept (null if the
+   * person gave up); `reset` goes back to the Downloads folder. Absent = Settings offers no choice.
+   */
+  downloadFolder?: {
+    current(): Promise<string | null>;
+    choose(): Promise<string | null>;
+    reset(): Promise<void>;
+  };
 }
 
 /** What the screens get of the platform: everything but the session store, which belongs to the controllers (one per account). */

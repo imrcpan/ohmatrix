@@ -1,5 +1,5 @@
 # shellcheck shell=bash disable=SC2154,SC2153
-# Sourced by build-tauri-linux-<arch>.sh, which sets `here` (this folder) and `ARCH` (the CPU the script builds for).
+# Sourced by build-linux-tauri-<arch>.sh, which sets `here` (this folder) and `ARCH` (the CPU the script builds for).
 set -euo pipefail
 # shellcheck source=lib/common.sh
 source "$here/lib/common.sh"
@@ -42,7 +42,7 @@ for tool in node pnpm cargo; do have "$tool" || die "$tool is needed (run withou
 
 cd "$OHM_ROOT"
 # CI=true, not 1: the tauri command line takes only true or false.
-export CI=true CARGO_BUILD_JOBS="$OHM_JOBS" CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$OHM_OUT/cargo-target-tauri}"
+export CI=true CARGO_BUILD_JOBS="$OHM_JOBS" CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$OHM_OUT/cargo-target-linux-tauri}"
 # The version goes into the packages (tauri's own setting) and into the JavaScript (Settings shows it). A build in a container has no
 # FUSE, which the AppImage tools use to run themselves: they unpack instead.
 export VITE_APP_VERSION="$OHM_VERSION" NODE_OPTIONS="--max-old-space-size=$OHM_NODE_HEAP_MB" APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=true
@@ -54,7 +54,7 @@ run_step "Tauri build ($ARCH, ${bundles[*]})" pnpm --filter @ohmatrix/tauri exec
 
 step "collect the result"
 bundle_dir="$CARGO_TARGET_DIR/release/bundle"
-dir="$OHM_RELEASE_DIR/tauri-linux"
+dir="$OHM_RELEASE_DIR/linux_tauri"
 mkdir -p "$dir"
 for kind in "deb:deb" "rpm:rpm" "appimage:AppImage"; do
   folder=${kind%%:*}
@@ -62,7 +62,7 @@ for kind in "deb:deb" "rpm:rpm" "appimage:AppImage"; do
   built=$(find "$bundle_dir/$folder" -maxdepth 1 -name "*.$extension" -type f 2>/dev/null | head -n1)
   [ -n "$built" ] || die "tauri finished but there is no .$extension in $bundle_dir/$folder"
   grep -q "$OHM_VERSION" <<<"$(basename "$built")" || die "$(basename "$built") does not carry the version $OHM_VERSION"
-  name="OhMatrix_tauri-linux_${OHM_VERSION}_${ARCH}.$extension"
+  name="OhMatrix_linux_tauri_${OHM_VERSION}_${ARCH}.$extension"
   cp "$built" "$dir/$name"
   ok "$dir/$name ($(du -h "$dir/$name" | cut -f1), sha256 $(sha256sum "$dir/$name" | cut -d' ' -f1))"
 done

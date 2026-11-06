@@ -74,6 +74,14 @@ export function SettingsPage() {
   const [scaleMenu, setScaleMenu] = useState(false);
   const [fonts, setFonts] = useState<string[] | null>(null);
   const [fontDialog, setFontDialog] = useState(false);
+  // The folder saved files go to (a desktop): null is the system's Downloads folder.
+  const folderRef = useRef<ComponentRef<typeof View>>(null);
+  const [folderAnchor, setFolderAnchor] = useState<Anchor | null>(null);
+  const [folderMenu, setFolderMenu] = useState(false);
+  const [folder, setFolder] = useState<string | null>(null);
+  useEffect(() => {
+    services.downloadFolder?.current().then(setFolder, () => {});
+  }, [services]);
   // Read when the page opens, so that the dialog has them at once.
   useEffect(() => {
     services.listFonts?.().then(setFonts, () => setFonts([]));
@@ -189,6 +197,22 @@ export function SettingsPage() {
           <Text style={{ fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary, marginHorizontal: 18 }}>{t("ownAccent.footer")}</Text>
         </Group>
         <Group title={t("advanced")}>
+          {services.downloadFolder && (
+            <View ref={folderRef}>
+              <Item
+                label={t("downloadFolder")}
+                icon="download"
+                value={folder ?? t("downloadFolder.default")}
+                copyable
+                onPress={() =>
+                  folderRef.current?.measureInWindow((x, y, width, height) => {
+                    setFolderAnchor({ x, y, width, height });
+                    setFolderMenu(true);
+                  })
+                }
+              />
+            </View>
+          )}
           <Item label={t("advanced.options")} icon="gear" onPress={() => controller.openSidebarPage("advanced")} />
         </Group>
         <Group title={t("account")}>
@@ -209,6 +233,31 @@ export function SettingsPage() {
         alignRight
         onClose={() => setLangMenu(false)}
         items={LANGUAGES.map((l) => ({ label: l.label, checked: l.id === locale, onPress: () => controller.setPreferences({ locale: l.id }) }))}
+      />
+      <Menu
+        visible={folderMenu}
+        anchor={folderAnchor}
+        alignRight
+        onClose={() => setFolderMenu(false)}
+        items={[
+          {
+            label: t("downloadFolder.default"),
+            checked: folder === null,
+            onPress: () =>
+              void services.downloadFolder?.reset().then(
+                () => setFolder(null),
+                () => {},
+              ),
+          },
+          {
+            label: t("downloadFolder.choose"),
+            onPress: () =>
+              void services.downloadFolder?.choose().then(
+                (chosen) => chosen !== null && setFolder(chosen),
+                () => {},
+              ),
+          },
+        ]}
       />
       <Menu
         fade={false}

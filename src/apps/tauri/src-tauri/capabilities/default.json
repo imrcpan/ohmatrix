@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the window may ask of the app: its own page, to show notifications, to open a web link in the browser, to pick files and read them, and to save files into the Downloads folder.",
+  "description": "What the window may ask of the app: its own page, to show notifications, to open a web link in the browser, to pick files and read them, and to save files into the Downloads folder (or the one the person chose, which the dialog lets in).",
   "windows": ["main"],
   "permissions": [
     "notification:default",
