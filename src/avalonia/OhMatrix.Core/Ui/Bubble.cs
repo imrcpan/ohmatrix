@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Layout;
 using Avalonia.Media;
+using OhMatrix.Core.Model;
 using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
@@ -29,7 +30,9 @@ public sealed class Bubble : Border {
         Model.ImageAttachment? image = null,
         Pictures? pictures = null,
         Model.FileAttachment? file = null,
-        Action<Image>? openImage = null
+        Action<Image>? openImage = null,
+        string? formatted = null,
+        Action<string>? openLink = null
     )
     {
         const double r = Radius.Bubble;
@@ -52,13 +55,92 @@ public sealed class Bubble : Border {
             FontSize = 16,
             FontFamily = Fonts.System,
             Foreground = fg,
+            Background = Brushes.Transparent,
             TextWrapping = TextWrapping.Wrap,
         };
-        body.Inlines!.Add(new Run(text));
-        body.Inlines.Add(new InlineUIContainer(new Border {
-            Width = timeRoom,
-            Height = 1
-        }));
+        var runs = formatted is null
+            ? RichText.PlainRuns(text)
+            : RichText.ParseFormatted(formatted);
+        var linkColor = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent);
+        var mentionBack = new SolidColorBrush(colors.MentionBg);
+        var spans = new List<(int Start, int End, TextRun Run)>();
+        var revealed = false;
+
+        void Fill()
+        {
+            body.Inlines!.Clear();
+            spans.Clear();
+            var at = 0;
+            foreach (var run in runs) {
+                if (run.Br) {
+                    body.Inlines.Add(new LineBreak());
+                    at += 1;
+                    continue;
+                }
+
+                var shown = (run.Prefix ?? "")
+                            + (run.Spoiler && !revealed ? Hidden(run.Text) : run.Text);
+                if (shown.Length == 0)
+                    continue;
+                var piece = new Run(shown);
+                if (run.Bold || run.UserId is not null)
+                    piece.FontWeight = run.UserId is not null && !run.Bold
+                        ? FontWeight.SemiBold
+                        : FontWeight.Bold;
+                if (run.Italic)
+                    piece.FontStyle = FontStyle.Italic;
+                if (run.Code)
+                    piece.FontFamily = new FontFamily("Cascadia Mono, DejaVu Sans Mono, monospace");
+                var lines = new TextDecorationCollection();
+                if (run.Underline || (run.Href is not null && run.UserId is null))
+                    lines.Add(new TextDecoration {
+                        Location = TextDecorationLocation.Underline
+                    });
+                if (run.Strike)
+                    lines.Add(new TextDecoration {
+                        Location = TextDecorationLocation.Strikethrough
+                    });
+                if (lines.Count > 0)
+                    piece.TextDecorations = lines;
+                if (run.UserId is not null) {
+                    piece.Foreground = linkColor;
+                    piece.Background = mentionBack;
+                } else if (run.Href is not null)
+                    piece.Foreground = linkColor;
+
+                body.Inlines.Add(piece);
+                spans.Add((at, at + shown.Length, run));
+                at += shown.Length;
+            }
+
+            body.Inlines.Add(new InlineUIContainer(new Border {
+                Width = timeRoom,
+                Height = 1
+            }));
+        }
+
+        Fill();
+        var hasSpoiler = runs.Any(r => r.Spoiler);
+        body.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, (_, e) => {
+            if (e.InitialPressMouseButton != Avalonia.Input.MouseButton.Left)
+                return;
+            if (body.SelectionStart != body.SelectionEnd)
+                return;
+            var index = body.TextLayout.HitTestPoint(e.GetPosition(body)).TextPosition;
+            foreach (var (start, end, run) in spans) {
+                if (index < start || index >= end)
+                    continue;
+                if (run.Spoiler && !revealed) {
+                    revealed = true;
+                    Fill();
+                } else if (run.Href is { } href)
+                    (openLink ?? (h => OpenInBrowser(body, h)))(href);
+
+                break;
+            }
+        }, handledEventsToo: true);
+        if (hasSpoiler)
+            body.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
 
         var stack = new StackPanel();
         if (senderName is not null && !own) {
@@ -222,5 +304,19 @@ public sealed class Bubble : Border {
         root.Children.Add(stack);
         root.Children.Add(metaRow);
         Child = root;
+    }
+
+    private static string Hidden(string text)
+    {
+        return new string(text.Select(c => c == '\n' ? c : '•').ToArray());
+    }
+
+    private static void OpenInBrowser(Visual from, string href)
+    {
+        if (!Uri.TryCreate(href, UriKind.Absolute, out var uri) ||
+            uri.Scheme is not ("http" or "https"))
+            return;
+        if (TopLevel.GetTopLevel(from)?.Launcher is { } launcher)
+            _ = launcher.LaunchUriAsync(uri);
     }
 }

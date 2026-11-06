@@ -272,6 +272,11 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                         MessageType.File f => f.Content.Caption ?? "",
                         _ => m.Content.Body,
                     },
+                    FormattedBody = m.Content.MsgType is MessageType.Text {
+                        Content: { Formatted: { Format: MessageFormat.Html } formatted }
+                    }
+                        ? formatted.Body
+                        : null,
                     File = m.Content.MsgType is MessageType.File file
                         ? new FileAttachment(file.Content.Filename, (long)(file.Content.Info?.Size ?? 0))
                         : null,

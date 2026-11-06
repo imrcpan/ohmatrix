@@ -18,6 +18,10 @@ public sealed record TimelineItem {
 
     public TimelineKind Kind { get; init; } = TimelineKind.Message;
     public string Body { get; init; } = "";
+
+    /// <summary>The HTML of the body when the sender formatted it; null for a plain text.</summary>
+    public string? FormattedBody { get; init; }
+
     public string SenderId { get; init; } = "";
     public string SenderName { get; init; } = "";
     public bool IsOwn { get; init; }

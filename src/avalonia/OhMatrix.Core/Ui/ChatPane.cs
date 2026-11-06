@@ -396,7 +396,8 @@ public sealed class ChatPane : Grid {
                 item.Image,
                 controller.Pictures,
                 item.File,
-                img => OpenViewer(item, img)
+                img => OpenViewer(item, img),
+                item.FormattedBody
             );
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
