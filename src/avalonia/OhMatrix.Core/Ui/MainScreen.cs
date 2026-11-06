@@ -37,6 +37,7 @@ public sealed class MainScreen : Grid {
     private readonly LanguagePage languagePage;
     private readonly ExplorePage explorePage;
     private readonly SettingsPage settingsPage;
+    private readonly SessionsPage sessionsPage;
     private readonly ChatPane narrowChat;
     private readonly ChatPane wideChat;
 
@@ -73,6 +74,7 @@ public sealed class MainScreen : Grid {
         languagePage = new LanguagePage(controller);
         explorePage = new ExplorePage(controller);
         settingsPage = new SettingsPage(controller);
+        sessionsPage = new SessionsPage(controller);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
         infoDockHost.Child = infoDock;
@@ -110,6 +112,7 @@ public sealed class MainScreen : Grid {
     public LanguagePage LanguageScreen => languagePage;
     public ExplorePage ExploreScreen => explorePage;
     public SettingsPage SettingsScreen => settingsPage;
+    public SessionsPage SessionsScreen => sessionsPage;
 
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
@@ -144,6 +147,7 @@ public sealed class MainScreen : Grid {
             SidebarPage.Language => languagePage,
             SidebarPage.Explore => explorePage,
             SidebarPage.Settings => settingsPage,
+            SidebarPage.Sessions => sessionsPage,
             _ => list,
         };
         detail.Child = split && open ? wideChat : chip;

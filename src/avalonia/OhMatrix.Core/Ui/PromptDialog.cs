@@ -9,7 +9,12 @@ using OhMatrix.Core.Theming;
 namespace OhMatrix.Core.Ui;
 
 /// <summary>A field of a <see cref="PromptDialog"/>.</summary>
-public sealed record PromptField(string Label, string Glyph = "user", bool Optional = false);
+public sealed record PromptField(
+    string Label,
+    string Glyph = "user",
+    bool Optional = false,
+    bool Secret = false
+);
 
 /// <summary>
 /// A small form in a <see cref="Dialog"/> (<c>PromptDialog</c>): text fields, a confirm button that is ready when every field that is not optional is
@@ -63,6 +68,9 @@ public sealed class PromptDialog {
                 Glyph = f.Glyph
             };
             ThemeScope.SetColors(field, colors);
+            if (f.Secret)
+                field.Reveal = (Strings.T(locale, "password.show"),
+                    Strings.T(locale, "password.hide"));
             field.TextChanged += (_, _) => Refresh();
             field.Submit += (_, _) => Confirm();
             fields.Add(field);

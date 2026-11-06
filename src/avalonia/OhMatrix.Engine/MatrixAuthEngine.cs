@@ -21,6 +21,9 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
     /// <summary>The signed-in client, or null.</summary>
     public Client? Client { get; private set; }
 
+    /// <summary>The session of the client now (its token may have been renewed), or null when signed out.</summary>
+    public Session? CurrentSession => Client is { } c ? ToSession(c.Session()) : null;
+
     public async Task<Session> LoginWithPassword(string homeserver, string username,
         string password)
     {

@@ -11,6 +11,7 @@ public enum SidebarPage {
     Language,
     Explore,
     Settings,
+    Sessions,
 }
 
 public enum AuthStatus {
