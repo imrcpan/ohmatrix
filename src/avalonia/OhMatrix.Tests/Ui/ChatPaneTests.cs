@@ -105,6 +105,21 @@ public class ChatPaneTests {
             return Task.FromResult("!made");
         }
 
+        public List<string> Actions = [];
+
+        public Task AcceptInvite(string roomId) => Log("accept " + roomId);
+        public Task DeclineInvite(string roomId) => Log("decline " + roomId);
+        public Task SetPinned(string roomId, bool pinned) => Log($"pin {roomId} {pinned}");
+        public Task SetMuted(string roomId, bool muted) => Log($"mute {roomId} {muted}");
+        public Task SetMarkedUnread(string roomId, bool unread) => Log($"unread {roomId} {unread}");
+        public Task MarkRoomRead(string roomId) => Log("read " + roomId);
+
+        private Task Log(string action)
+        {
+            Actions.Add(action);
+            return Task.CompletedTask;
+        }
+
         public Task StartSync()
         {
             SyncChanged?.Invoke(SyncState.Syncing);

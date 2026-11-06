@@ -46,6 +46,21 @@ public class RoomListTests {
             return Task.FromResult("!made");
         }
 
+        public List<string> Actions = [];
+
+        public Task AcceptInvite(string roomId) => Log("accept " + roomId);
+        public Task DeclineInvite(string roomId) => Log("decline " + roomId);
+        public Task SetPinned(string roomId, bool pinned) => Log($"pin {roomId} {pinned}");
+        public Task SetMuted(string roomId, bool muted) => Log($"mute {roomId} {muted}");
+        public Task SetMarkedUnread(string roomId, bool unread) => Log($"unread {roomId} {unread}");
+        public Task MarkRoomRead(string roomId) => Log("read " + roomId);
+
+        private Task Log(string action)
+        {
+            Actions.Add(action);
+            return Task.CompletedTask;
+        }
+
         public Task StartSync()
         {
             SyncChanged?.Invoke(SyncState.Syncing);
@@ -197,6 +212,39 @@ public class RoomListTests {
         screen.List.Search.Text = "team";
         Assert.Equal(["!b"], screen.List.Rows.Children.Cast<RoomRow>().Select(r => r.RoomId));
         Save(window, "search");
+    }
+
+    [AvaloniaFact]
+    public async Task An_invite_has_accept_and_decline()
+    {
+        var (window, controller, engine, screen) = Open("light", 1000);
+        await SignedIn(controller, engine);
+        var row = screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!e");
+        Assert.NotNull(row.Invite);
+        Assert.Equal("Accept", row.Invite!.Value.Accept);
+        Save(window, "invite");
+        row.Invite.Value.OnDecline();
+        row.Invite.Value.OnAccept();
+        await Task.Delay(50);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["decline !e", "accept !e"], engine.Actions);
+        Assert.Equal("!e", controller.Store.Value.SelectedRoomId);
+    }
+
+    [AvaloniaFact]
+    public async Task The_row_menu_offers_pin_mute_and_the_unread_mark()
+    {
+        var (window, controller, engine, screen) = Open("light", 1000);
+        await SignedIn(controller, engine);
+        var room = controller.Store.Value.Rooms.First(r => r.Id == "!a");
+        var row = screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!a");
+        screen.List.OpenRowMenu(row, room);
+        Assert.Equal(3, screen.List.RowMenu.Rows.Count);
+        Save(window, "row-menu");
+        await controller.SetPinned("!a", true);
+        await controller.SetRoomMuted("!a", true);
+        await controller.MarkRoomRead("!a");
+        Assert.Equal(["pin !a True", "mute !a True", "read !a"], engine.Actions);
     }
 
     [AvaloniaFact]

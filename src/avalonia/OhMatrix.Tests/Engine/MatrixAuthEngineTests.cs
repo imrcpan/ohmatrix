@@ -109,6 +109,16 @@ public class MatrixRoomsEngineTests {
         Assert.Same(found.Task, await Task.WhenAny(found.Task, Task.Delay(30000)));
         Assert.False(found.Task.Result.Invite);
         Assert.True(found.Task.Result.LastActivityTs > 0);
+
+        var id = found.Task.Result.Id;
+        var changed = new TaskCompletionSource();
+        rooms.RoomsChanged += list => {
+            if (list.FirstOrDefault(r => r.Id == id) is { Pinned: true, Muted: true })
+                changed.TrySetResult();
+        };
+        await rooms.SetPinned(id, true);
+        await rooms.SetMuted(id, true);
+        Assert.Same(changed.Task, await Task.WhenAny(changed.Task, Task.Delay(30000)));
         await rooms.StopSync();
         await auth.Logout();
     }

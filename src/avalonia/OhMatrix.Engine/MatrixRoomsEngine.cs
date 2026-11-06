@@ -60,6 +60,66 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
+    public Task AcceptInvite(string roomId)
+    {
+        return Act(roomId, room => room.Join());
+    }
+
+    public Task DeclineInvite(string roomId)
+    {
+        return Act(roomId, room => room.Leave());
+    }
+
+    public Task SetPinned(string roomId, bool pinned)
+    {
+        return Act(roomId, room => room.SetIsFavourite(pinned, null));
+    }
+
+    public Task SetMarkedUnread(string roomId, bool unread)
+    {
+        return Act(roomId, room => room.SetUnreadFlag(unread));
+    }
+
+    public Task SetMuted(string roomId, bool muted)
+    {
+        return Run(async () => {
+            var settings = await Signed().GetNotificationSettings();
+            if (muted)
+                await settings.SetRoomNotificationMode(roomId, RoomNotificationMode.Mute);
+            else
+                await settings.RestoreDefaultRoomNotificationMode(roomId);
+        });
+    }
+
+    public Task MarkRoomRead(string roomId)
+    {
+        return Act(roomId, async room => {
+            await room.SetUnreadFlag(false);
+            using var timeline = await room.Timeline();
+            await timeline.MarkAsRead(ReceiptType.Read);
+        });
+    }
+
+    private Task Act(string roomId, Func<Room, Task> action)
+    {
+        return Run(async () => {
+            var room = Signed().GetRoom(roomId) ?? throw new EngineException(
+                EngineErrorCode.NotFound,
+                "No such chat."
+            );
+            await action(room);
+        });
+    }
+
+    private static async Task Run(Func<Task> action)
+    {
+        try {
+            await action();
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
     private Client Signed()
     {
         return auth.Client ?? throw new EngineException(

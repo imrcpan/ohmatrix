@@ -220,6 +220,33 @@ public sealed class RoomListPane : Grid {
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
     }
 
+    public Menu RowMenu { get; } = new();
+
+    /// <summary>The menu of a chat: pin, mute, and the unread mark.</summary>
+    public void OpenRowMenu(Control anchor, RoomSummary room)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var unread = room.MarkedUnread || room.UnreadCount > 0;
+        RowMenu.Show(
+            anchor,
+            window,
+            [
+                new MenuItem(T(room.Pinned ? "unpin" : "pin"),
+                    () => _ = controller.SetPinned(room.Id, !room.Pinned), Icon: "pin"),
+                new MenuItem(T(room.Muted ? "unmute" : "mute"),
+                    () => _ = controller.SetRoomMuted(room.Id, !room.Muted),
+                    Icon: room.Muted ? "bell" : "bellOff"),
+                unread
+                    ? new MenuItem(T("markRead"), () => _ = controller.MarkRoomRead(room.Id),
+                        Icon: "mailUnread")
+                    : new MenuItem(T("markUnread"),
+                        () => _ = controller.SetMarkedUnread(room.Id, true),
+                        Icon: "mailUnread"),
+            ]
+        );
+    }
+
     private RoomRow MakeRow(RoomSummary room, AppState s, DateTimeOffset now)
     {
         var row = new RoomRow {
@@ -237,6 +264,12 @@ public sealed class RoomListPane : Grid {
             AvatarUrl = room.AvatarUrl,
             Pictures = controller.Pictures,
         };
+        if (room.Invite) {
+            row.Invite = (T("accept"), T("decline"), () => _ = controller.AcceptInvite(room.Id),
+                () => _ = controller.DeclineInvite(room.Id));
+        } else
+            row.MenuRequested += (_, _) => OpenRowMenu(row, room);
+
         row.Click += (_, _) => {
             if (!room.Invite)
                 controller.SelectRoom(room.Id);
