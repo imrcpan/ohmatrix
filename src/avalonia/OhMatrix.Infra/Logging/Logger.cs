@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 
 namespace OhMatrix.Infra.Logging;
@@ -106,17 +105,6 @@ public class Logger : ILogger {
         });
     }
 
-    public void Debug(string message)
-    {
-        PanicIfFailed(() => {
-            if (!enableDebug)
-                return;
-            var fmt = $"DBG {UtcTimeStr()} {message}";
-            LogWriter.FileWriteLine(pathLog, fmt);
-            LogWriter.ConsoleWriteLine(fmt);
-        });
-    }
-
     public void Info(string message)
     {
         PanicIfFailed(() => {
@@ -139,29 +127,10 @@ public class Logger : ILogger {
         });
     }
 
-    private readonly ConcurrentBag<(DateTime, string)> errors = [];
-
-    public ConcurrentBag<(DateTime, string)> GetErrors()
-    {
-        return errors;
-    }
-
-    public bool HasErrors()
-    {
-        return errors.Count > 0;
-    }
-
-    public void ClearErrors()
-    {
-        errors.Clear();
-    }
-
     public void Error(string message)
     {
         PanicIfFailed(() => {
-            var time = DateTime.UtcNow;
-            errors.Add((time, message));
-            var fmt = $"ERR {UtcTimeStr(time)} {message}";
+            var fmt = $"ERR {UtcTimeStr()} {message}";
             LogWriter.FileWriteLine(pathLog, fmt);
             const ConsoleColor color = ConsoleColor.Red;
             LogWriter.ConsoleColorfulWriteLine(fmt, color);
@@ -171,9 +140,7 @@ public class Logger : ILogger {
     public void Fatal(string message)
     {
         PanicIfFailed(() => {
-            var time = DateTime.UtcNow;
-            errors.Add((time, message));
-            var fmt = $"FTL {UtcTimeStr(time)} {message}";
+            var fmt = $"FTL {UtcTimeStr()} {message}";
             LogWriter.FileWriteLine(pathLog, fmt);
             const ConsoleColor color = ConsoleColor.Red;
             LogWriter.ConsoleColorfulWriteLine(fmt, color);
@@ -209,6 +176,6 @@ public class Logger : ILogger {
         Fatal(exception);
         onPanic?.Invoke(PanicMessage);
         if (onPanic == null)
-            System.Environment.FailFast(PanicMessage.PrintStr);
+            Environment.FailFast(PanicMessage.PrintStr);
     }
 }
