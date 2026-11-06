@@ -6,6 +6,9 @@ namespace OhMatrix.Core.State;
 public interface IProfileEngine {
     Task<Profile> Load();
 
+    /// <summary>Sets my picture from the bytes of an image file.</summary>
+    Task SetAvatar(string mimeType, byte[] data);
+
     /// <summary>Changes the name others see. Failures are <see cref="EngineException"/>.</summary>
     Task SetDisplayName(string name);
 }

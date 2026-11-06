@@ -105,6 +105,11 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.SetTopic(topic));
     }
 
+    public Task SetRoomAvatar(string roomId, string mimeType, byte[] data)
+    {
+        return Act(roomId, room => room.UploadAvatar(mimeType, data, null));
+    }
+
     public Task LeaveRoom(string roomId)
     {
         return Act(roomId, room => room.Leave());

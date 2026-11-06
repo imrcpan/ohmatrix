@@ -145,6 +145,8 @@ public class MatrixProfileEngineTests {
         await profiles.SetDisplayName("Tester One");
         Assert.Equal("Tester One", (await profiles.Load()).DisplayName);
         await profiles.SetDisplayName(before ?? "test");
+        await profiles.SetAvatar("image/png", [137, 80, 78, 71, 13, 10, 26, 10]);
+        Assert.StartsWith("mxc://", (await profiles.Load()).AvatarUrl);
         await auth.Logout();
     }
 }

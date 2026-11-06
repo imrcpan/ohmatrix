@@ -60,6 +60,29 @@ public sealed class ProfilePage : Grid {
         return Strings.T(controller.Store.Value.Locale, key, values);
     }
 
+    /// <summary>Asks for a picture file and makes it my picture; the path can be given to skip the dialog.</summary>
+    public async Task ChangePhoto(string? path = null)
+    {
+        if (path is null) {
+            if (TopLevel.GetTopLevel(this) is not { } window)
+                return;
+            path = await FilePicker.PickImage(window);
+        }
+
+        if (path is null)
+            return;
+        try {
+            await controller.SetAvatar(path);
+        } catch (Exception) {
+            // The picture stays as it was; choosing again tries again.
+        }
+    }
+
+    private void ChangePhoto()
+    {
+        _ = ChangePhoto(null);
+    }
+
     /// <summary>Asks for a new name.</summary>
     public void AskName()
     {
@@ -208,7 +231,8 @@ public sealed class ProfilePage : Grid {
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(26, 18, 12, 0),
         });
-        NameRow = NavRow(c, "user", T("name"), AskName, 6, shown);
+        content.Children.Add(NavRow(c, "camera", T("changePhoto"), ChangePhoto, 6));
+        NameRow = NavRow(c, "user", T("name"), AskName, 12, shown);
         content.Children.Add(NameRow);
         content.Children.Add(NavRow(c, "hash", T("userId"), () => {
         }, 12, id, false));

@@ -473,6 +473,21 @@ public sealed class AppController(
         }
     }
 
+    /// <summary>Makes a picture file my picture. Failures are <see cref="EngineException"/>.</summary>
+    public async Task SetAvatar(string path)
+    {
+        var data = await File.ReadAllBytesAsync(path);
+        await profiles!.SetAvatar(MimeTypes.For(path), data);
+        await LoadProfile();
+    }
+
+    /// <summary>Makes a picture file the picture of a group.</summary>
+    public async Task SetRoomAvatar(string roomId, string path)
+    {
+        var data = await File.ReadAllBytesAsync(path);
+        await rooms!.SetRoomAvatar(roomId, MimeTypes.For(path), data);
+    }
+
     /// <summary>Changes my name; the profile shows the new one at once. Failures are <see cref="EngineException"/>.</summary>
     public async Task SetDisplayName(string name)
     {
