@@ -138,9 +138,10 @@ public sealed class ExplorePage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         confirm.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
-            T("explore.confirm", ("name", room.Name)), room.Topic ?? "", [], T("join"), async _ => {
-                await controller.JoinRoom(room.Alias ?? room.RoomId);
+            T("explore.confirm", ("name", room.Name)), room.Topic ?? "", [], T("join"), values => {
+                _ = controller.JoinPublicRoom(room);
                 controller.OpenSidebarPage(SidebarPage.Chats);
+                return Task.CompletedTask;
             });
     }
 
