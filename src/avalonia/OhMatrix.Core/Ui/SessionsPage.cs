@@ -90,7 +90,7 @@ public sealed class SessionsPage : Grid {
     {
         if (d.LastSeenTs is not { } ts)
             return T("sessions.neverSeen");
-        var when = Format.ListTime(ts, time.GetUtcNow(), controller.Store.Value.Locale);
+        var when = Format.Relative(ts, time.GetUtcNow(), controller.Store.Value.Locale);
         var text = T("sessions.lastActive", ("when", when));
         return d.LastSeenIp is { } ip ? text + " · " + ip : text;
     }

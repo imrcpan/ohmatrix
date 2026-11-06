@@ -338,4 +338,20 @@ public class RoomListTests {
         Assert.Equal("26/9/28",
             Format.ListTime(Now - 40 * 86400_000L, now, "en", utc).Length > 0 ? "26/9/28" : "");
     }
+
+    [Fact]
+    public void Relative_times_are_worded_in_the_language()
+    {
+        var now = new DateTimeOffset(2026, 11, 7, 12, 0, 0, TimeSpan.Zero);
+        long Ago(long ms) => now.ToUnixTimeMilliseconds() - ms;
+        Assert.Equal("now", Format.Relative(Ago(5_000), now, "en"));
+        Assert.Equal("1 minute ago", Format.Relative(Ago(60_000), now, "en"));
+        Assert.Equal("5 minutes ago", Format.Relative(Ago(5 * 60_000), now, "en"));
+        Assert.Equal("2 hours ago", Format.Relative(Ago(2 * 3_600_000L), now, "en"));
+        Assert.Equal("3天前", Format.Relative(Ago(3 * 86_400_000L), now, "zh-CN"));
+        Assert.Equal("vor 1 Stunde", Format.Relative(Ago(3_600_000), now, "de"));
+        Assert.Equal("5 минут назад", Format.Relative(Ago(5 * 60_000), now, "ru"));
+        Assert.Equal("2 минуты назад", Format.Relative(Ago(2 * 60_000), now, "ru"));
+        Assert.Equal("Oct 1, 2026", Format.Relative(Ago(37 * 86_400_000L), now, "en"));
+    }
 }
