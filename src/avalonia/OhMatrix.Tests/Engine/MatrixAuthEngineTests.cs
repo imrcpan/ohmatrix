@@ -197,6 +197,12 @@ public class MatrixChatEngineTests {
         await Task.WhenAny(fileSeen.Task, Task.Delay(30000));
         Assert.True(fileSeen.Task.IsCompleted, "the file message did not come back");
         Assert.Equal(10, fileSeen.Task.Result.File!.Size);
+        var fetched = await new MatrixMediaEngine(auth).Download(
+            fileSeen.Task.Result.File!.Source,
+            "note.txt",
+            "text/plain"
+        );
+        Assert.Equal("hello file", await File.ReadAllTextAsync(fetched!));
 
         var id = seen.Task.Result.Id;
         await chat.SetPinned(id, true);

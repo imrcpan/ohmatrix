@@ -34,7 +34,8 @@ public sealed class Bubble : Border {
         string? formatted = null,
         Action<string>? openLink = null,
         bool read = false,
-        string? readLabel = null
+        string? readLabel = null,
+        Action<Model.FileAttachment>? openFile = null
     )
     {
         const double r = Radius.Bubble;
@@ -241,7 +242,11 @@ public sealed class Bubble : Border {
                 Background = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
                 Margin = new Thickness(0, 0, 12, 0),
                 Child = new Icon {
-                    Glyph = "file",
+                    Glyph = file.Kind switch {
+                        Model.FileKind.Audio => "music",
+                        Model.FileKind.Video => "video",
+                        _ => "file",
+                    },
                     Size = 22,
                     Color = new SolidColorBrush(mine ? colors.BubbleOut : colors.OnAccent),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -260,6 +265,8 @@ public sealed class Bubble : Border {
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
             var size = Format.Bytes(file.Size);
+            if (file.Duration is { } length)
+                size = (size.Length > 0 ? size + " · " : "") + Format.Duration(length);
             if (size.Length > 0) {
                 words.Children.Add(new TextBlock {
                     Text = size,
@@ -272,6 +279,15 @@ public sealed class Bubble : Border {
             Grid.SetColumn(words, 1);
             card.Children.Add(disc);
             card.Children.Add(words);
+            if (openFile is not null && file.Source.Length > 0) {
+                card.Background = Brushes.Transparent;
+                card.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                card.PointerPressed += (_, e) => {
+                    e.Handled = true;
+                    openFile(file);
+                };
+            }
+
             stack.Children.Add(card);
         }
 

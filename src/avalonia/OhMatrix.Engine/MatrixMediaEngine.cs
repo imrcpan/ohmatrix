@@ -20,5 +20,28 @@ public sealed class MatrixMediaEngine(MatrixAuthEngine auth) : IMediaEngine {
             throw MatrixAuthEngine.Translate(e);
         }
     }
+
+    public async Task<string?> Download(string source, string fileName, string mimeType)
+    {
+        var client = auth.Client;
+        if (client is null)
+            return null;
+        try {
+            using var media = source.StartsWith('{')
+                ? MediaSource.FromJson(source)
+                : MediaSource.FromUrl(source);
+            using var handle = await client.GetMediaFile(media, fileName, mimeType, true, null);
+            var from = handle.Path();
+            // The handle removes its file when it goes; the copy stays for the viewer of the system.
+            var dir =
+ Path.Combine(Path.GetTempPath(), "ohmatrix-media", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            var to = Path.Combine(dir, Path.GetFileName(fileName));
+            File.Copy(from, to, true);
+            return to;
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
 }
 #endif

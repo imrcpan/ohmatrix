@@ -400,7 +400,8 @@ public sealed class ChatPane : Grid {
                 item.FormattedBody,
                 null,
                 item.Read,
-                T("read")
+                T("read"),
+                OpenFile
             );
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
@@ -665,6 +666,23 @@ public sealed class ChatPane : Grid {
     }
 
     public ImageViewer Viewer => viewer;
+
+    /// <summary>Fetches the file of a message and opens it with the program of the system for it.</summary>
+    private async void OpenFile(FileAttachment file)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        try {
+            var path = await controller.DownloadFile(file);
+            if (path is null)
+                return;
+            var stored = await window.StorageProvider.TryGetFileFromPathAsync(path);
+            if (stored is not null)
+                await window.Launcher.LaunchFileAsync(stored);
+        } catch (Exception) {
+            // The file stays unopened; pressing it again tries again.
+        }
+    }
 
     private void OpenViewer(TimelineItem item, Image shown)
     {

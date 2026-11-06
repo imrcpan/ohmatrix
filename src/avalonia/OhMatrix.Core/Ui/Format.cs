@@ -61,6 +61,16 @@ public static class Format {
     }
 
     /// <summary>A size in bytes as people read it: <c>12 KB</c>, <c>3.4 MB</c>; empty for none.</summary>
+    /// <summary>A length of time as <c>m:ss</c>, or <c>h:mm:ss</c> from an hour.</summary>
+    public static string Duration(TimeSpan t)
+    {
+        var total = (long)Math.Round(t.TotalSeconds);
+        var h = total / 3600;
+        var m = total % 3600 / 60;
+        var sec = total % 60;
+        return h > 0 ? $"{h}:{m:00}:{sec:00}" : $"{m}:{sec:00}";
+    }
+
     public static string Bytes(long n)
     {
         if (n <= 0)

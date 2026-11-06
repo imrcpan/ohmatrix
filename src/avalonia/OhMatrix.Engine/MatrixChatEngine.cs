@@ -270,6 +270,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     Body = m.Content.MsgType switch {
                         MessageType.Image img => img.Content.Caption ?? "",
                         MessageType.File f => f.Content.Caption ?? "",
+                        MessageType.Audio a => a.Content.Caption ?? "",
+                        MessageType.Video v => v.Content.Caption ?? "",
                         _ => m.Content.Body,
                     },
                     FormattedBody = m.Content.MsgType is MessageType.Text {
@@ -277,9 +279,31 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     }
                         ? formatted.Body
                         : null,
-                    File = m.Content.MsgType is MessageType.File file
-                        ? new FileAttachment(file.Content.Filename, (long)(file.Content.Info?.Size ?? 0))
-                        : null,
+                    File = m.Content.MsgType switch {
+                        MessageType.File file => new FileAttachment(
+                            file.Content.Filename,
+                            (long)(file.Content.Info?.Size ?? 0),
+                            file.Content.Source.ToJson(),
+                            file.Content.Info?.Mimetype ?? "application/octet-stream"
+                        ),
+                        MessageType.Audio audio => new FileAttachment(
+                            audio.Content.Filename,
+                            (long)(audio.Content.Info?.Size ?? 0),
+                            audio.Content.Source.ToJson(),
+                            audio.Content.Info?.Mimetype ?? "audio/mpeg",
+                            FileKind.Audio,
+                            audio.Content.Info?.Duration
+                        ),
+                        MessageType.Video video => new FileAttachment(
+                            video.Content.Filename,
+                            (long)(video.Content.Info?.Size ?? 0),
+                            video.Content.Source.ToJson(),
+                            video.Content.Info?.Mimetype ?? "video/mp4",
+                            FileKind.Video,
+                            video.Content.Info?.Duration
+                        ),
+                        _ => null,
+                    },
                     Image = m.Content.MsgType is MessageType.Image im
                         ? new ImageAttachment(
                             im.Content.Source.ToJson(),

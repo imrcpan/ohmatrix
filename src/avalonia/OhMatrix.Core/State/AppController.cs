@@ -473,6 +473,14 @@ public sealed class AppController(
         }
     }
 
+    /// <summary>Fetches the file of a message to disk and gives its path; null when it cannot be fetched.</summary>
+    public async Task<string?> DownloadFile(FileAttachment file)
+    {
+        if (media is null || file.Source.Length == 0)
+            return null;
+        return await media.Download(file.Source, file.Name, file.Mime);
+    }
+
     /// <summary>Makes a picture file my picture. Failures are <see cref="EngineException"/>.</summary>
     public async Task SetAvatar(string path)
     {

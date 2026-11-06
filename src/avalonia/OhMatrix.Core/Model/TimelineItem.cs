@@ -54,8 +54,24 @@ public sealed record TimelineItem {
     public FileAttachment? File { get; init; }
 }
 
-/// <summary>A file in a message: its name and size in bytes (0 when unknown).</summary>
-public sealed record FileAttachment(string Name, long Size);
+public enum FileKind {
+    File,
+    Audio,
+    Video,
+}
+
+/// <summary>
+/// A file in a message: its name and size in bytes (0 when unknown); <paramref name="Source"/> is what the engine needs to fetch it (like
+/// <see cref="ImageAttachment.Source"/>), <paramref name="Kind"/> tells an audio or video message from a plain file.
+/// </summary>
+public sealed record FileAttachment(
+    string Name,
+    long Size,
+    string Source = "",
+    string Mime = "",
+    FileKind Kind = FileKind.File,
+    TimeSpan? Duration = null
+);
 
 /// <summary>
 /// A picture in a message. <paramref name="Source"/> is what the engine needs to fetch it (the <c>mxc://</c> address, or the JSON of an

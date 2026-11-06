@@ -107,6 +107,12 @@ public class ChatPaneTests {
     private sealed class Media : IMediaEngine {
         public readonly List<string> Asked = [];
 
+        public Task<string?> Download(string source, string fileName, string mimeType)
+        {
+            Asked.Add($"download {source} {fileName} {mimeType}");
+            return Task.FromResult<string?>("/tmp/" + fileName);
+        }
+
         public Task<byte[]?> Thumbnail(string mxc, int width, int height)
         {
             Asked.Add($"{mxc} {width}x{height}");
@@ -316,7 +322,26 @@ public class ChatPaneTests {
                     SenderId = "@me",
                     IsOwn = true,
                     Ts = Now - 700_000,
-                    File = new FileAttachment("budget-2026.pdf", 1_450_000),
+                    File = new FileAttachment("budget-2026.pdf", 1_450_000, "mxc://s/doc",
+                        "application/pdf"),
+                },
+                new TimelineItem {
+                    Id = "voice",
+                    Body = "",
+                    SenderId = "@alice",
+                    SenderName = "Alice",
+                    Ts = Now - 650_000,
+                    File = new FileAttachment("voice.ogg", 48_000, "mxc://s/voice", "audio/ogg",
+                        FileKind.Audio, TimeSpan.FromSeconds(75)),
+                },
+                new TimelineItem {
+                    Id = "clip",
+                    Body = "The demo",
+                    SenderId = "@alice",
+                    SenderName = "Alice",
+                    Ts = Now - 640_000,
+                    File = new FileAttachment("demo.mp4", 9_000_000, "mxc://s/clip", "video/mp4",
+                        FileKind.Video, TimeSpan.FromSeconds(3725)),
                 },
                 new TimelineItem {
                     Id = "d2",
@@ -417,7 +442,7 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(9, controller.Store.Value.Timeline.Count);
+        Assert.Equal(11, controller.Store.Value.Timeline.Count);
         Assert.Single(engine.Opened);
         Save(window, "light");
     }
@@ -1069,6 +1094,26 @@ public class ChatPaneTests {
         } finally {
             File.Delete(path);
         }
+    }
+
+    [AvaloniaFact]
+    public async Task Audio_and_video_messages_show_their_length_and_files_are_fetched()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains("47 KB · 1:15", texts);
+        Assert.Contains(texts, t => t is not null && t.EndsWith("· 1:02:05"));
+        var icons = screen.GetVisualDescendants().OfType<Icon>().Select(i => i.Glyph).ToList();
+        Assert.Contains("music", icons);
+        Assert.Contains("video", icons);
+        Save(window, "audio-video");
+        var path = await controller.DownloadFile(
+            new FileAttachment("a.pdf", 1, "mxc://s/a", "application/pdf"));
+        Assert.Equal("/tmp/a.pdf", path);
+        Assert.Null(await controller.DownloadFile(new FileAttachment("b.pdf", 1)));
     }
 
     [AvaloniaFact]
