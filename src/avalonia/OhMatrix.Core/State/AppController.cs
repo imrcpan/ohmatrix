@@ -572,6 +572,20 @@ public sealed class AppController(
         await rooms!.SetRoomAvatar(roomId, MimeTypes.For(path), data);
     }
 
+    /// <summary>Sets my status line; the profile shows it at once. Failures are <see cref="EngineException"/>.</summary>
+    public async Task SetStatus(string status)
+    {
+        var trimmed = status.Trim();
+        await profiles!.SetStatus(trimmed);
+        Store.Update(s => s with {
+            Profile = s.Profile is null
+                ? null
+                : s.Profile with {
+                    Status = trimmed.Length == 0 ? null : trimmed
+                }
+        });
+    }
+
     /// <summary>Changes my name; the profile shows the new one at once. Failures are <see cref="EngineException"/>.</summary>
     public async Task SetDisplayName(string name)
     {

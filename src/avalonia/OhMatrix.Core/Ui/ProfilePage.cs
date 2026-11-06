@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.I18n;
+using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 
@@ -70,6 +71,28 @@ public sealed class ProfilePage : Grid {
     private void ChangePhoto()
     {
         _ = ChangePhoto(null);
+    }
+
+    /// <summary>The row that changes the status.</summary>
+    public Border StatusRow { get; private set; } = new();
+
+    public PromptDialog StatusPrompt { get; } = new();
+
+    /// <summary>Asks for a new status line (up to 100 characters); a server without statuses says so.</summary>
+    public void AskStatus()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var s = controller.Store.Value;
+        StatusPrompt.Show(window, ThemeScope.GetColors(this), s.Locale, T("status.edit"), "",
+            [new PromptField(T("status.placeholder"), "smile", true)], T("save"), async v => {
+                try {
+                    await controller.SetStatus(v[0].Length > 100 ? v[0][..100] : v[0]);
+                } catch (EngineException e) when (e.Code == EngineErrorCode.Unsupported) {
+                    throw new InvalidOperationException(T("status.unsupported"));
+                }
+            });
+        StatusPrompt.Fields[0].Text = s.Profile?.Status ?? "";
     }
 
     /// <summary>Asks for a new name.</summary>
@@ -201,6 +224,9 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "camera", T("changePhoto"), ChangePhoto, 6));
         NameRow = NavRow(c, "user", T("name"), AskName, 12, shown);
         content.Children.Add(NameRow);
+        StatusRow = NavRow(c, "smile", T("status"), AskStatus, 12,
+            s.Profile?.Status ?? T("status.empty"));
+        content.Children.Add(StatusRow);
         content.Children.Add(NavRow(c, "hash", T("userId"), () => {
         }, 12, id, false));
         content.Children.Add(NavRow(c, "info", T("homeserver"), () => {

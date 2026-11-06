@@ -166,6 +166,16 @@ public class ChatPaneTests {
         }
 
         public readonly List<string> Names = [];
+        public readonly List<string> Statuses = [];
+
+        public Task SetStatus(string status)
+        {
+            if (status == "refused")
+                throw new EngineException(EngineErrorCode.Unsupported, "no");
+            Statuses.Add(status);
+            return Task.CompletedTask;
+        }
+
         public readonly List<string> Avatars = [];
 
         public Task SetAvatar(string mimeType, byte[] data)
@@ -1234,6 +1244,27 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(["D2"], Sessions.Removed);
         Assert.Single(page.Devices);
+    }
+
+    [AvaloniaFact]
+    public async Task The_profile_page_sets_a_status_and_tells_when_the_server_cannot()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Profile);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.GetVisualDescendants().OfType<ProfilePage>().Single();
+        page.AskStatus();
+        Dispatcher.UIThread.RunJobs();
+        page.StatusPrompt.Fields[0].Text = "refused";
+        page.StatusPrompt.Confirm();
+        await Task.Delay(50);
+        Assert.Equal("This server does not support statuses.", page.StatusPrompt.ErrorText);
+        page.StatusPrompt.Fields[0].Text = "  Coding  ";
+        page.StatusPrompt.Confirm();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Coding", controller.Store.Value.Profile!.Status);
+        Save(window, "profile-status");
     }
 
     [AvaloniaFact]
