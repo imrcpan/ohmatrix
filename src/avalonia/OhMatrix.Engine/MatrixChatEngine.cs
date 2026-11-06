@@ -68,6 +68,38 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        public async Task Edit(string itemId, string text)
+        {
+            var e = Event(itemId);
+            if (e is null)
+                return;
+            try {
+                var content = MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
+                await timeline.Edit(e.EventOrTransactionId, new EditedContent.RoomMessage(content));
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
+            }
+        }
+
+        public async Task Delete(string itemId)
+        {
+            var e = Event(itemId);
+            if (e is null)
+                return;
+            try {
+                await timeline.RedactEvent(e.EventOrTransactionId, null);
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
+            }
+        }
+
+        private EventTimelineItem? Event(string itemId)
+        {
+            lock (byId) {
+                return byId.TryGetValue(itemId, out var item) ? item.AsEvent() : null;
+            }
+        }
+
         public async Task ToggleReaction(string itemId, string key)
         {
             SdkTimelineItem? item;

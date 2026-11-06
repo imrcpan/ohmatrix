@@ -53,6 +53,9 @@ public sealed record AppState {
     /// <summary>The message the person is answering in the open chat, if any.</summary>
     public TimelineItem? ReplyTo { get; init; }
 
+    /// <summary>One of my messages whose text is being changed in the composer.</summary>
+    public TimelineItem? Editing { get; init; }
+
     /// <summary>The names of the people typing in the open chat.</summary>
     public IReadOnlyList<string> Typing { get; init; } = [];
 

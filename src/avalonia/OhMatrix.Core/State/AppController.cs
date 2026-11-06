@@ -98,6 +98,7 @@ public sealed class AppController(
             Timeline = [],
             Typing = [],
             ReplyTo = null,
+            Editing = null,
         });
         if (roomId is not null && chats is not null)
             _ = OpenChat(roomId);
@@ -170,6 +171,11 @@ public sealed class AppController(
         var trimmed = text.Trim();
         if (trimmed.Length == 0 || chat is null)
             return Task.CompletedTask;
+        if (Store.Value.Editing is { } editing) {
+            StartEdit(null);
+            return chat.Edit(editing.Id, trimmed);
+        }
+
         var reply = Store.Value.ReplyTo?.EventId;
         if (reply is not null)
             SetReplyTo(null);
@@ -180,8 +186,24 @@ public sealed class AppController(
     public void SetReplyTo(TimelineItem? item)
     {
         Store.Update(s => s with {
-            ReplyTo = item
+            ReplyTo = item,
+            Editing = item is null ? Store.Value.Editing : null,
         });
+    }
+
+    /// <summary>Starts changing one of my messages: the composer takes its text, and the next send replaces it. Null cancels.</summary>
+    public void StartEdit(TimelineItem? item)
+    {
+        Store.Update(s => s with {
+            Editing = item,
+            ReplyTo = null
+        });
+    }
+
+    /// <summary>Removes one of my messages for everyone.</summary>
+    public Task DeleteMessage(string itemId)
+    {
+        return chat is null ? Task.CompletedTask : chat.Delete(itemId);
     }
 
     /// <summary>Adds my reaction to a message, or takes it away.</summary>

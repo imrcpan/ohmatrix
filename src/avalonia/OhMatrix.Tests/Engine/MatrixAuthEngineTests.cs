@@ -155,6 +155,31 @@ public class MatrixChatEngineTests {
         Assert.Same(seen.Task, await Task.WhenAny(seen.Task, Task.Delay(30000)));
         Assert.True(seen.Task.Result.IsOwn);
         Assert.Contains(chat.Items, i => i.Kind == TimelineKind.Date);
+
+        var id = seen.Task.Result.Id;
+        var edited = new TaskCompletionSource();
+        chat.Changed += items => {
+            if (items.Any(i => i.Id == id && i.Edited && i.Body == "changed " + text))
+                edited.TrySetResult();
+        };
+        await chat.Edit(id, "changed " + text);
+        await Task.WhenAny(edited.Task, Task.Delay(30000));
+        Assert.True(
+            edited.Task.IsCompleted,
+            "edit not seen: " + string.Join(" | ", chat.Items.Select(i => $"{i.Id}:{i.Body}:{i.Edited}"))
+        );
+
+        var gone = new TaskCompletionSource();
+        chat.Changed += items => {
+            if (items.All(i => i.Body != "changed " + text))
+                gone.TrySetResult();
+        };
+        await chat.Delete(id);
+        await Task.WhenAny(gone.Task, Task.Delay(30000));
+        Assert.True(
+            gone.Task.IsCompleted,
+            "delete not seen: " + string.Join(" | ", chat.Items.Select(i => $"{i.Id}:{i.Body}:{i.Edited}"))
+        );
         chat.Dispose();
         await rooms.StopSync();
         await auth.Logout();
