@@ -6,6 +6,7 @@ Native desktop and mobile client using Avalonia UI and the Rust SDK.
 
 - `OhMatrix.Desktop/` — Desktop entry point
 - `OhMatrix.Core/` — Shared core library
+- `OhMatrix.MatrixSdk/` — FFI to the Rust Matrix SDK (`src/rust`), nothing else
 - Additional platform projects will be added as needed
 
 ## Build
