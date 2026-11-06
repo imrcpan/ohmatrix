@@ -523,14 +523,18 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_profile_page_signs_out_after_asking()
+    public async Task The_settings_page_signs_out_after_asking()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Profile);
         Dispatcher.UIThread.RunJobs();
-        var page = screen.Profile;
-        Assert.Same(page, ((Border)screen.Children[0]).Child);
+        Assert.Same(screen.Profile, ((Border)screen.Children[0]).Child);
         Save(window, "profile");
+        controller.OpenSidebarPage(SidebarPage.Settings);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.SettingsScreen;
+        Assert.Same(page, ((Border)screen.Children[0]).Child);
+        Save(window, "settings");
         page.AskSignOut();
         Assert.True(page.Confirm.IsOpen);
         Save(window, "signout-dialog");
@@ -838,12 +842,12 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task Zoom_is_set_from_the_profile_page_with_the_keep_dialog()
+    public async Task Zoom_is_set_from_the_settings_page_with_the_keep_dialog()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
-        controller.OpenSidebarPage(SidebarPage.Profile);
+        controller.OpenSidebarPage(SidebarPage.Settings);
         Dispatcher.UIThread.RunJobs();
-        var page = screen.Profile;
+        var page = screen.SettingsScreen;
         page.Zoom.Open(page.ZoomRow);
         Assert.True(page.Zoom.Menu.IsOpen);
         Save(window, "zoom-menu");
@@ -1155,6 +1159,26 @@ public class ChatPaneTests {
             new FileAttachment("a.pdf", 1, "mxc://s/a", "application/pdf"));
         Assert.Equal("/tmp/a.pdf", path);
         Assert.Null(await controller.DownloadFile(new FileAttachment("b.pdf", 1)));
+    }
+
+    [AvaloniaFact]
+    public async Task The_settings_toggle_puts_my_messages_in_the_accent_colour_or_not()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Settings);
+        Dispatcher.UIThread.RunJobs();
+        var toggle = screen.SettingsScreen.AccentToggle;
+        Assert.True(toggle.IsOn);
+        toggle.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
+            toggle, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), toggle,
+            new Avalonia.Point(5, 5), 0,
+            new Avalonia.Input.PointerPointProperties(
+                Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+            Avalonia.Input.KeyModifiers.None));
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(controller.Store.Value.Prefs.OwnBubbleAccent);
+        Assert.False(screen.SettingsScreen.AccentToggle.IsOn);
     }
 
     [AvaloniaFact]

@@ -10,6 +10,7 @@ public enum SidebarPage {
     Theme,
     Language,
     Explore,
+    Settings,
 }
 
 public enum AuthStatus {

@@ -43,8 +43,8 @@ public sealed class LanguagePage : Grid {
         var c = ThemeScope.GetColors(this);
         var locale = controller.Store.Value.Locale;
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, Strings.T(locale, "language"), Strings.T(locale, "profile"),
-            () => controller.OpenSidebarPage(SidebarPage.Profile));
+        PageBar.Fill(bar, c, Strings.T(locale, "language"), Strings.T(locale, "settings"),
+            () => controller.OpenSidebarPage(SidebarPage.Settings));
         rows.Children.Clear();
         foreach (var language in Strings.Languages) {
             var active = language.Id == locale;
