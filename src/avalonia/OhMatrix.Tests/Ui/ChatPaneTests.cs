@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using OhMatrix.Core.Calls;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -185,6 +186,97 @@ public class ChatPaneTests {
 
     private static readonly Security Keys = new();
     private static readonly Verifier Verify = new();
+
+    private sealed class CallsFake : ICallsEngine {
+        public event Action<OhMatrix.Core.Calls.CallEvent>? CallEvent;
+
+        public readonly List<(string Room, string Type, System.Text.Json.Nodes.JsonObject Content)>
+            Sent = [];
+
+        public Task Listen() => Task.CompletedTask;
+
+        public Task SendCallEvent(string roomId, string type,
+            System.Text.Json.Nodes.JsonObject content)
+        {
+            Sent.Add((roomId, type,
+                System.Text.Json.Nodes.JsonNode.Parse(content.ToJsonString())!.AsObject()));
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<OhMatrix.Core.Calls.IceServer>> TurnServers() =>
+            Task.FromResult<IReadOnlyList<OhMatrix.Core.Calls.IceServer>>([]);
+
+        public void Deliver(string type, string sender,
+            System.Text.Json.Nodes.JsonObject content) =>
+            CallEvent?.Invoke(
+                new OhMatrix.Core.Calls.CallEvent("!d", type, sender, "$e", 0, content));
+    }
+
+    private sealed class PlatformFake : ICallPlatform {
+        public bool Available => true;
+        public readonly List<string> Log = [];
+        public ICallMedia Media { get; }
+
+        public PlatformFake() => Media = new MediaFake(Log);
+
+        public OhMatrix.Core.Calls.IPeer NewPeer(
+            IReadOnlyList<OhMatrix.Core.Calls.IceServer> servers) =>
+            new PeerFake();
+
+        private sealed class MediaFake(List<string> log) : ICallMedia {
+            public string? StreamId => "s1";
+
+            public Task Start(OhMatrix.Core.Calls.IPeer peer, bool video)
+            {
+                log.Add("start " + video);
+                return Task.CompletedTask;
+            }
+
+            public void SetMuted(bool muted) => log.Add("muted " + muted);
+            public void SetCameraOff(bool off) => log.Add("camera " + off);
+            public void Stop() => log.Add("stop");
+        }
+
+        private sealed class PeerFake : OhMatrix.Core.Calls.IPeer {
+            private bool local, remote;
+            public event Action<OhMatrix.Core.Calls.IceCandidate?>? Candidate;
+            public event Action<OhMatrix.Core.Calls.PeerState>? Connection;
+
+            public Task<OhMatrix.Core.Calls.SessionDescription> CreateOffer() =>
+                Task.FromResult(
+                    new OhMatrix.Core.Calls.SessionDescription("offer", "v=0\nm=audio"));
+
+            public Task<OhMatrix.Core.Calls.SessionDescription> CreateAnswer() =>
+                Task.FromResult(
+                    new OhMatrix.Core.Calls.SessionDescription("answer", "v=0\nm=audio"));
+
+            public Task SetLocalDescription(OhMatrix.Core.Calls.SessionDescription d)
+            {
+                local = true;
+                Check();
+                return Task.CompletedTask;
+            }
+
+            public Task SetRemoteDescription(OhMatrix.Core.Calls.SessionDescription d)
+            {
+                remote = true;
+                Check();
+                return Task.CompletedTask;
+            }
+
+            public Task AddIceCandidate(OhMatrix.Core.Calls.IceCandidate c) => Task.CompletedTask;
+            public void Close() { }
+
+            private void Check()
+            {
+                if (local && remote)
+                    Connection?.Invoke(OhMatrix.Core.Calls.PeerState.Connected);
+            }
+        }
+    }
+
+    private static readonly CallsFake CallLine = new();
+    private static readonly PlatformFake CallMedia = new();
 
     private sealed class Verifier : IVerificationEngine {
         public event Action<VerifyFlow>? Changed;
@@ -514,7 +606,7 @@ public class ChatPaneTests {
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            new Media(), new Profiles(), Sessions, null, Keys, null, Verify);
+            new Media(), new Profiles(), Sessions, null, Keys, null, Verify, CallLine, CallMedia);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -1497,6 +1589,88 @@ public class ChatPaneTests {
         Assert.Equal(SecurityState.Ready, controller.Store.Value.Security);
         Save(window, "recovery-key");
         Keys.Current = SecurityState.NeedsRecovery;
+    }
+
+    [AvaloniaFact]
+    public async Task A_call_is_placed_from_a_direct_chat_rings_connects_and_ends()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        CallLine.Sent.Clear();
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        // Only a one-to-one chat can be called.
+        var group =
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                controller.PlaceCall("!g", false));
+        Assert.Equal("direct", group.Message);
+        await controller.PlaceCall("!d", false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(screen.Call.IsVisible);
+        Assert.Equal("Alice", screen.Call.PeerName);
+        Assert.Equal("Calling…", screen.Call.Status);
+        Assert.Contains("call.hangup", screen.Call.Buttons.Keys);
+        var invite = CallLine.Sent.Single(x => x.Type == "m.call.invite");
+        Save(window, "call-calling");
+
+        CallLine.Deliver("m.call.answer", "@alice:s", new System.Text.Json.Nodes.JsonObject {
+            ["call_id"] = (string?)invite.Content["call_id"],
+            ["party_id"] = "alice-1",
+            ["answer"] = new System.Text.Json.Nodes.JsonObject {
+                ["type"] = "answer",
+                ["sdp"] = "v=0"
+            },
+        });
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected, controller.Store.Value.Call!.Phase);
+        Assert.Matches(@"^\d\d:\d\d$", screen.Call.Status);
+        Assert.Contains("call.mic", screen.Call.Buttons.Keys);
+        controller.SetCallMuted(true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("call.mic", screen.Call.Buttons.Keys);
+        Assert.Contains("muted True", CallMedia.Log);
+        Save(window, "call-connected");
+
+        await controller.HangupCall();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Call ended", screen.Call.Status);
+        Assert.Empty(screen.Call.Buttons);
+        await Task.Delay(2200);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(controller.Store.Value.Call);
+        Assert.False(screen.Call.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task A_call_that_comes_in_is_accepted_or_declined()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        CallLine.Sent.Clear();
+        CallLine.Deliver("m.call.invite", "@alice:s", new System.Text.Json.Nodes.JsonObject {
+            ["call_id"] = "in-1",
+            ["party_id"] = "alice-1",
+            ["lifetime"] = 60000,
+            ["offer"] = new System.Text.Json.Nodes.JsonObject {
+                ["type"] = "offer",
+                ["sdp"] = "v=0\nm=audio"
+            },
+        });
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(screen.Call.IsVisible);
+        Assert.Equal("Incoming voice call", screen.Call.Status);
+        Assert.Contains("call.accept", screen.Call.Buttons.Keys);
+        Assert.Contains("call.decline", screen.Call.Buttons.Keys);
+        Save(window, "call-incoming");
+        await controller.AnswerCall();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected, controller.Store.Value.Call!.Phase);
+        Assert.Contains(CallLine.Sent, x => x.Type == "m.call.answer");
+        await controller.HangupCall();
+        await Task.Delay(2200);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(controller.Store.Value.Call);
     }
 
     [AvaloniaFact]

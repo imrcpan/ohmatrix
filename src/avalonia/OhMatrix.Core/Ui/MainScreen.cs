@@ -66,6 +66,7 @@ public sealed class MainScreen : Grid {
     };
 
     private readonly VerifyDialog verifyDialog;
+    private readonly CallScreen callScreen;
 
     public MainScreen(AppController controller)
     {
@@ -86,6 +87,7 @@ public sealed class MainScreen : Grid {
         encryptionPage = new EncryptionPage(controller);
         spacePage = new SpacePage(controller);
         verifyDialog = new VerifyDialog(controller, this);
+        callScreen = new CallScreen(controller);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
         infoDockHost.Child = infoDock;
@@ -108,6 +110,8 @@ public sealed class MainScreen : Grid {
         Children.Add(narrowChat);
         Grid.SetColumnSpan(infoNarrow, 4);
         Children.Add(infoNarrow);
+        Grid.SetColumnSpan(callScreen, 4);
+        Children.Add(callScreen);
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) => s.Apply());
         SizeChanged += (_, _) => Apply();
@@ -129,6 +133,7 @@ public sealed class MainScreen : Grid {
     public EncryptionPage EncryptionScreen => encryptionPage;
     public SpacePage SpaceScreen => spacePage;
     public VerifyDialog Verify => verifyDialog;
+    public CallScreen Call => callScreen;
 
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
