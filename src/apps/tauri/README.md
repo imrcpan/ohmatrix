@@ -1,6 +1,6 @@
 # OhMatrix on Tauri
 
-The web app (`../web`) in a native window: [Tauri](https://tauri.app) 2, which uses the system's WebKitGTK on Linux. Nothing of the interface is written twice; this folder only holds the window, its icons and how it is packaged. It is its own platform beside `web` and `mobile`, and builds for Linux.
+The web app (`../web`) in a native window: [Tauri](https://tauri.app) 2, which uses the system's WebKitGTK on Linux. Nothing of the interface is written twice; this folder only holds the window, its icons and how it is packaged. It is its own platform beside `web` and `mobile`, and builds for Linux and Windows (on Windows the window shows the system's WebView2).
 
 ## Run it
 
@@ -11,6 +11,17 @@ pnpm --filter @ohmatrix/tauri dev                           # the window, on the
 pnpm --filter @ohmatrix/tauri exec tauri build --debug --no-bundle    # a debug binary, src-tauri/target/debug/ohmatrix-tauri
 pnpm --filter @ohmatrix/tauri exec tauri build --bundles deb          # a package: also rpm, appimage
 ```
+
+### Windows
+
+Needs [Rust](https://rustup.rs) with the `x86_64-pc-windows-msvc` toolchain (not the GNU one), the C++ build tools of Visual Studio 2022 (the "Desktop development with C++" workload, with a Windows 11 SDK), and the WebView2 runtime (Windows 11 has it). The commands are the same as on Linux; a package is an NSIS installer (`tauri.windows.conf.json`):
+
+```
+pnpm --filter @ohmatrix/tauri exec tauri build --debug --no-bundle    # src-tauri\target\debug\ohmatrix-tauri.exe
+pnpm --filter @ohmatrix/tauri exec tauri build --bundles nsis         # the installer, per user (no administrator needed)
+```
+
+The window's icon file for Windows (`icons/icon.ico`) is made with the others from the logo.
 
 `dev` and `build` first make the icons from `logo/colorful/1.svg` (`pnpm --filter @ohmatrix/tauri icons`; nothing made from the logo is kept in the repository) and build or serve the web app.
 
