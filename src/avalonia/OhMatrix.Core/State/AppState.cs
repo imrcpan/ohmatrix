@@ -12,6 +12,7 @@ public enum SidebarPage {
     Explore,
     Settings,
     Sessions,
+    Encryption,
 }
 
 public enum AuthStatus {
@@ -47,6 +48,9 @@ public sealed record AppState {
     public Profile? Profile { get; init; }
 
     public SyncState SyncState { get; init; } = SyncState.Stopped;
+
+    /// <summary>Where the account stands with its encryption keys.</summary>
+    public SecurityState Security { get; init; } = SecurityState.Unavailable;
 
     /// <summary>The chat that is open, or null.</summary>
     public string? SelectedRoomId { get; init; }

@@ -14,7 +14,8 @@ public sealed class AppController(
     IMediaEngine? media = null,
     IProfileEngine? profiles = null,
     IDevicesEngine? devices = null,
-    ILinkPreviewEngine? links = null
+    ILinkPreviewEngine? links = null,
+    ISecurityEngine? security = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -223,6 +224,25 @@ public sealed class AppController(
         }
 
         return task;
+    }
+
+    /// <summary>Asks the engine where the account stands with its keys; it comes a little after sign-in, so it is asked again on request.</summary>
+    public async Task RefreshSecurity()
+    {
+        if (security is null)
+            return;
+        var state = await Quietly(security.State);
+        if (state is { } now)
+            Post(() => Store.Update(s => s with {
+                Security = now
+            }));
+    }
+
+    /// <summary>Unlocks the encrypted history with the recovery key. Failures (a wrong key) are <see cref="EngineException"/>.</summary>
+    public async Task RestoreWithRecoveryKey(string key)
+    {
+        await security!.RestoreWithRecoveryKey(key);
+        await RefreshSecurity();
     }
 
     /// <summary>My sessions, this one first. Failures are <see cref="EngineException"/>.</summary>
@@ -614,9 +634,22 @@ public sealed class AppController(
         }
     }
 
+    // Right after sign-in the SDK has not found the keys of the account yet: the state is asked a few times.
+    private async Task WatchSecurity()
+    {
+        for (var i = 0; i < 6; i++) {
+            await RefreshSecurity();
+            if (Store.Value.Security != SecurityState.Unavailable
+                && Store.Value.Security != SecurityState.NeedsSetup)
+                return;
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
+    }
+
     private void StartRooms()
     {
         _ = LoadProfile();
+        _ = WatchSecurity();
         if (rooms is null)
             return;
         if (!roomsHooked) {
@@ -656,6 +689,7 @@ public sealed class AppController(
             Profile = null,
             SidebarPage = SidebarPage.Chats,
             SyncState = SyncState.Stopped,
+            Security = SecurityState.Unavailable,
             SelectedRoomId = null,
             Auth = AuthStatus.SignedOut,
             AuthError = error,

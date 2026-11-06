@@ -135,7 +135,9 @@ public sealed class ProfilePage : Grid {
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
-                Margin = new Thickness(0, 0, 6, 0),
+                Margin = new Thickness(12, 0, 6, 0),
+                MaxWidth = 170,
+                TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center,
             };
             Grid.SetColumn(shown, 2);
@@ -232,6 +234,17 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "info", T("homeserver"), () => {
             }, 12,
             s.Homeserver ?? "", false));
+        content.Children.Add(new TextBlock {
+            Text = T("security"),
+            FontSize = 13,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(26, 18, 12, 0),
+        });
+        content.Children.Add(NavRow(c, "lock", T("encryption"),
+            () => controller.OpenSidebarPage(SidebarPage.Encryption), 6,
+            EncryptionPage.Words(s.Security, k => T(k))));
         content.Children.Add(NavRow(c, "gear", T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 20));
     }
