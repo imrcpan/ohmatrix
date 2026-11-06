@@ -269,6 +269,7 @@ public class ChatPaneTests {
                     Body = "Yes!",
                     SenderId = "@me",
                     IsOwn = true,
+                    Read = true,
                     Ts = Now - 86400_000 + 120_000,
                 },
                 new TimelineItem {
@@ -921,6 +922,19 @@ public class ChatPaneTests {
         Assert.Null(target.EventId);
         await controller.SetMessagePinned("3", false);
         Assert.Equal(["3 False"], engine.Opened[0].Pins);
+    }
+
+    [AvaloniaFact]
+    public async Task A_message_somebody_read_shows_two_checks()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var glyphs = screen.GetVisualDescendants().OfType<Icon>().Select(i => i.Glyph).ToList();
+        Assert.Single(glyphs, "checks");
+        Assert.Contains("check", glyphs);
+        Save(window, "read");
     }
 
     [AvaloniaFact]
