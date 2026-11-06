@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, View } from "react-native";
 import type { Row } from "../timelineRows.js";
-import type { MessageListProps } from "./messageList.js";
+import type { MessageListProps } from "./messageListTypes.js";
 import { gapToBottom, isAtBottom, isAway, needsFill } from "./scrollMath.js";
 import { ChatSkeleton } from "./ChatSkeleton.js";
 import { OLDER_SKELETON, OLDER_SKELETON_HEIGHT } from "./olderSkeleton.js";
