@@ -7,8 +7,7 @@ using OhMatrix.Core;
 
 namespace OhMatrix.Desktop;
 
-public class App : Application
-{
+public class App : Application {
     public override void Initialize()
     {
         AppStyles.Apply(this);
@@ -16,15 +15,12 @@ public class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.MainWindow = new Window
-            {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+            desktop.MainWindow = new Window {
                 Title = "OhMatrix",
                 Width = 800,
                 Height = 600,
-                Content = new TextBlock
-                {
+                Content = new TextBlock {
                     Text = "OhMatrix",
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center

@@ -1,22 +1,19 @@
-﻿namespace OhMatrix.Infra.Logging;
+namespace OhMatrix.Infra.Logging;
 
-internal static class LogWriter
-{
+internal static class LogWriter {
     private static readonly Lock consoleLock = new();
     private static readonly Lock fileLock = new();
 
     public static void ConsoleWriteLine(string message)
     {
-        lock (consoleLock)
-        {
+        lock (consoleLock) {
             Console.WriteLine(message);
         }
     }
 
     public static void ConsoleColorfulWriteLine(string message, ConsoleColor color)
     {
-        lock (consoleLock)
-        {
+        lock (consoleLock) {
             Console.ForegroundColor = color;
             Console.WriteLine(message);
             Console.ResetColor();
@@ -25,16 +22,14 @@ internal static class LogWriter
 
     public static void FileWriteLine(string path, string message)
     {
-        lock (fileLock)
-        {
+        lock (fileLock) {
             File.AppendAllLines(path, [message]);
         }
     }
 
     public static string Read(string path)
     {
-        lock (fileLock)
-        {
+        lock (fileLock) {
             return File.ReadAllText(path);
         }
     }

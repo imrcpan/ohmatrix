@@ -3,8 +3,7 @@ using Avalonia;
 
 namespace OhMatrix.Desktop;
 
-class Program
-{
+class Program {
     [STAThread]
     public static void Main(string[] args) => BuildAvaloniaApp()
         .StartWithClassicDesktopLifetime(args);
