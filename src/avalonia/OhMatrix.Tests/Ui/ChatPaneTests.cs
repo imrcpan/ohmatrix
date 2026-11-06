@@ -165,6 +165,14 @@ public class ChatPaneTests {
 
         public Task<SecurityState> State() => Task.FromResult(Current);
 
+        public Task<string> SetUp(string password)
+        {
+            if (password != "pw")
+                throw new EngineException(EngineErrorCode.Forbidden, "Wrong password");
+            Current = SecurityState.Ready;
+            return Task.FromResult("EsTc new key");
+        }
+
         public Task RestoreWithRecoveryKey(string key)
         {
             if (key != "EsTc good key")
@@ -1388,6 +1396,32 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SecurityState.Ready, controller.Store.Value.Security);
         Assert.Null(page.RecoveryRow);
+        Keys.Current = SecurityState.NeedsRecovery;
+    }
+
+    [AvaloniaFact]
+    public async Task The_encryption_page_sets_the_keys_up_and_shows_the_recovery_key_once()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        Keys.Current = SecurityState.NeedsSetup;
+        await controller.RefreshSecurity();
+        controller.OpenSidebarPage(SidebarPage.Encryption);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.EncryptionScreen;
+        Assert.NotNull(page.SetupRow);
+        page.AskSetup();
+        page.SetupPrompt.Fields[0].Text = "wrong";
+        page.SetupPrompt.Confirm();
+        await Task.Delay(50);
+        Assert.Equal("Wrong password", page.SetupPrompt.ErrorText);
+        page.SetupPrompt.Fields[0].Text = "pw";
+        page.SetupPrompt.Confirm();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("EsTc new key", page.ShownKey);
+        Assert.True(page.KeyDialog.IsOpen);
+        Assert.Equal(SecurityState.Ready, controller.Store.Value.Security);
+        Save(window, "recovery-key");
         Keys.Current = SecurityState.NeedsRecovery;
     }
 
