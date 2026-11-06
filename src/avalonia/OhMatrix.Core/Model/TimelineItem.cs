@@ -33,6 +33,10 @@ public sealed record TimelineItem {
     public bool Sending { get; init; }
 
     public bool Failed { get; init; }
+
+    /// <summary>Mine, and someone else has read up to it.</summary>
+    public bool Read { get; init; }
+
     public bool Edited { get; init; }
 
     /// <summary>The id the server gave the event; null while it is being sent.</summary>

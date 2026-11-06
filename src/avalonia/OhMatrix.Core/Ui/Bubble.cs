@@ -32,7 +32,9 @@ public sealed class Bubble : Border {
         Model.FileAttachment? file = null,
         Action<Image>? openImage = null,
         string? formatted = null,
-        Action<string>? openLink = null
+        Action<string>? openLink = null,
+        bool read = false,
+        string? readLabel = null
     )
     {
         const double r = Radius.Bubble;
@@ -291,13 +293,19 @@ public sealed class Bubble : Border {
             VerticalAlignment = VerticalAlignment.Center,
         });
         if (own) {
-            metaRow.Children.Add(new Icon {
-                Glyph = failed ? "alert" : sending ? "clock" : "check",
-                Size = 18,
+            var seen = read && !failed && !sending;
+            var mark = new Icon {
+                Glyph = failed ? "alert" : sending ? "clock" : seen ? "checks" : "check",
+                Size = seen ? 20 : 18,
                 StrokeWidth = 2,
-                Color = new SolidColorBrush(meta),
+                Color = new SolidColorBrush(seen
+                    ? (mine ? colors.BubbleOutText : colors.Accent)
+                    : meta),
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            if (seen && readLabel is not null)
+                Avalonia.Automation.AutomationProperties.SetName(mark, readLabel);
+            metaRow.Children.Add(mark);
         }
 
         var root = new Grid();

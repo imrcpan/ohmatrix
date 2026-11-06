@@ -291,6 +291,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     SenderId = e.Sender,
                     SenderName = name,
                     IsOwn = e.IsOwn,
+                    Read = e.IsOwn && e.ReadReceipts.Keys.Any(u => u != e.Sender),
                     Ts = (long)e.Timestamp,
                     Sending = e.LocalSendState is EventSendState.NotSentYet,
                     Failed = e.LocalSendState is EventSendState.SendingFailed,
