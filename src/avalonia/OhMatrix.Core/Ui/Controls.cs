@@ -34,6 +34,13 @@ public abstract class PressableButton : Border {
         }
     }
 
+    /// <summary>Does what a press and release on the button do.</summary>
+    public void RaiseClick()
+    {
+        if (!Disabled && IsHitTestVisible)
+            Click?.Invoke(this, EventArgs.Empty);
+    }
+
     protected bool Hovered => hovered;
     protected bool Pressed => pressed;
 

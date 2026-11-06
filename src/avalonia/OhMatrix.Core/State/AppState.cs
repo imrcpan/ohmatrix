@@ -1,3 +1,5 @@
+using System.Globalization;
+using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 
 namespace OhMatrix.Core.State;
@@ -27,6 +29,11 @@ public sealed record AppState {
     /// stays what is kept.
     /// </summary>
     public ZoomTrial? ZoomTrial { get; init; }
+
+    /// <summary>The language the screens speak: the one chosen, else the one of the system.</summary>
+    public string Locale => Strings.IsLocale(Prefs.Locale)
+        ? Prefs.Locale!
+        : Strings.DetectLocale(CultureInfo.CurrentUICulture.Name);
 }
 
 /// <summary>A zoom that is being tried; <c>Until</c> is a time of the clock of the controller.</summary>
