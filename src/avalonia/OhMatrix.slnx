@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/slnx.schema.json",
+  "solution": {
+    "path": "OhMatrix.slnx",
+    "projects": [
+      "src/OhMatrix.Avalonia.Core/OhMatrix.Avalonia.Core.csproj",
+      "heads/OhMatrix.Desktop/OhMatrix.Desktop.csproj"
+    ]
+  }
+}
