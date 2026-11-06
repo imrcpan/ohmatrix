@@ -41,7 +41,13 @@ public sealed record TimelineItem {
 
     /// <summary>The picture of an image message; <see cref="Body"/> is then its caption (empty when it has none).</summary>
     public ImageAttachment? Image { get; init; }
+
+    /// <summary>The file of a file message; <see cref="Body"/> is then its caption.</summary>
+    public FileAttachment? File { get; init; }
 }
+
+/// <summary>A file in a message: its name and size in bytes (0 when unknown).</summary>
+public sealed record FileAttachment(string Name, long Size);
 
 /// <summary>
 /// A picture in a message. <paramref name="Source"/> is what the engine needs to fetch it (the <c>mxc://</c> address, or the JSON of an

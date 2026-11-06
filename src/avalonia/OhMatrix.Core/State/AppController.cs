@@ -221,6 +221,28 @@ public sealed class AppController(
         }
     }
 
+    /// <summary>Sends a file from disk to the open chat (a picture as a picture). Failures are <see cref="EngineException"/>.</summary>
+    public async Task SendAttachment(string path)
+    {
+        if (chat is null)
+            return;
+        var mime = MimeTypes.For(path);
+        int? width = null;
+        int? height = null;
+        if (MimeTypes.IsImage(mime)) {
+            try {
+                using var stream = File.OpenRead(path);
+                using var bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                width = bitmap.PixelSize.Width;
+                height = bitmap.PixelSize.Height;
+            } catch (Exception) {
+                // A picture whose size cannot be read is sent without one.
+            }
+        }
+
+        await chat.SendAttachment(path, mime, width, height);
+    }
+
     /// <summary>Starts changing one of my messages: the composer takes its text, and the next send replaces it. Null cancels.</summary>
     public void StartEdit(TimelineItem? item)
     {

@@ -159,6 +159,20 @@ public class MatrixChatEngineTests {
         Assert.True(seen.Task.Result.IsOwn);
         Assert.Contains(chat.Items, i => i.Kind == TimelineKind.Date);
 
+        var dir = Path.Combine(Path.GetTempPath(), "ohm-up-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var note = Path.Combine(dir, "note.txt");
+        await File.WriteAllTextAsync(note, "hello file");
+        var fileSeen = new TaskCompletionSource<TimelineItem>();
+        chat.Changed += items => {
+            if (items.FirstOrDefault(i => i.File?.Name == "note.txt" && !i.Sending) is { } f)
+                fileSeen.TrySetResult(f);
+        };
+        await chat.SendAttachment(note, "text/plain", null, null);
+        await Task.WhenAny(fileSeen.Task, Task.Delay(30000));
+        Assert.True(fileSeen.Task.IsCompleted, "the file message did not come back");
+        Assert.Equal(10, fileSeen.Task.Result.File!.Size);
+
         var id = seen.Task.Result.Id;
         var edited = new TaskCompletionSource();
         chat.Changed += items => {

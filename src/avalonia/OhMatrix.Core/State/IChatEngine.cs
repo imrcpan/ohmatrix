@@ -15,6 +15,11 @@ public interface IChatSession : IDisposable {
     /// <summary>Sends a text message; with <paramref name="replyToEventId"/>, as the answer to that message.</summary>
     Task Send(string text, string? replyToEventId = null);
 
+    /// <summary>
+    /// Sends a file from disk as a message: a picture when <paramref name="mimeType"/> is an image (with its size when known), otherwise a file.
+    /// </summary>
+    Task SendAttachment(string path, string mimeType, int? width, int? height);
+
     /// <summary>Replaces the text of one of my messages.</summary>
     Task Edit(string itemId, string text);
 
