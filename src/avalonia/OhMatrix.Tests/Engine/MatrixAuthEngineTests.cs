@@ -314,6 +314,149 @@ public class MatrixVerificationTests {
 }
 
 [Collection("homeserver")]
+public class MatrixCallTests {
+    // A thread that runs what is posted to it one at a time, as the UI thread does for the conversation of a call.
+    private sealed class Loop : SynchronizationContext {
+        private readonly System.Collections.Concurrent.BlockingCollection<Action> queue = new();
+
+        public Loop()
+        {
+            new Thread(() => {
+                SetSynchronizationContext(this);
+                foreach (var work in queue.GetConsumingEnumerable())
+                    work();
+            }) { IsBackground = true }.Start();
+        }
+
+        public override void Post(SendOrPostCallback d, object? state)
+        {
+            queue.Add(() => d(state));
+        }
+
+        public Task<T> Run<T>(Func<T> work)
+        {
+            var done = new TaskCompletionSource<T>();
+            queue.Add(() => {
+                try {
+                    done.SetResult(work());
+                } catch (Exception e) {
+                    done.SetException(e);
+                }
+            });
+            return done.Task;
+        }
+
+        public async Task Run(Func<Task> work)
+        {
+            var done = new TaskCompletionSource();
+            queue.Add(async () => {
+                try {
+                    await work();
+                    done.SetResult();
+                } catch (Exception e) {
+                    done.SetException(e);
+                }
+            });
+            await done.Task;
+        }
+    }
+
+    private static async Task<T> Within<T>(Func<T?> read, string what) where T : class
+    {
+        for (var waited = 0; waited < 40_000; waited += 100) {
+            if (read() is { } found)
+                return found;
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException("not in time: " + what);
+    }
+
+    [Fact]
+    public async Task A_video_call_between_two_accounts_connects_and_the_pictures_cross()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        Assert.SkipUnless(new OhMatrix.Core.Calls.Gst.GstCallPlatform().Available,
+            "GStreamer with webrtcbin is not installed");
+        string Dir() => Path.Combine(Path.GetTempPath(), "ohm-call-" + Guid.NewGuid().ToString("N"));
+        var tag = Guid.NewGuid().ToString("N")[..10];
+        var authA = new MatrixAuthEngine(Dir());
+        var authB = new MatrixAuthEngine(Dir());
+        var userA = (await authA.Register(server!, "ca" + tag, "pw123456x", null)).UserId;
+        var userB = (await authB.Register(server!, "cb" + tag, "pw123456x", null)).UserId;
+        var roomsA = new MatrixRoomsEngine(authA);
+        var roomsB = new MatrixRoomsEngine(authB);
+        await roomsA.StartSync();
+        await roomsB.StartSync();
+        var room = await roomsA.CreateRoom(null, true, [userB]);
+        for (var i = 0; i < 60; i++) {
+            try {
+                await roomsB.AcceptInvite(room);
+                break;
+            } catch (EngineException) when (i < 59) {
+                await Task.Delay(500);
+            }
+        }
+
+        var test = new OhMatrix.Core.Calls.Gst.GstSources(
+            "audiotestsrc is-live=true wave=silence",
+            "fakesink sync=false",
+            "videotestsrc is-live=true pattern=ball"
+        );
+        var callsA = new MatrixCallsEngine(authA);
+        var callsB = new MatrixCallsEngine(authB);
+        var platformA = new OhMatrix.Core.Calls.Gst.GstCallPlatform(test);
+        var platformB = new OhMatrix.Core.Calls.Gst.GstCallPlatform(test);
+        var loopA = new Loop();
+        var loopB = new Loop();
+        OhMatrix.Core.Calls.CallInfo? infoA = null, infoB = null;
+        var sigA = await loopA.Run(() => new OhMatrix.Core.Calls.CallSignalling(
+            new OhMatrix.Core.Calls.CallTransport(callsA, platformA, TimeProvider.System,
+                a => loopA.Post(_ => a(), null)), () => userA, i => infoA = i));
+        var sigB = await loopB.Run(() => new OhMatrix.Core.Calls.CallSignalling(
+            new OhMatrix.Core.Calls.CallTransport(callsB, platformB, TimeProvider.System,
+                a => loopB.Post(_ => a(), null)), () => userB, i => infoB = i));
+        callsA.CallEvent += e => loopA.Post(_ => _ = sigA.Receive(e), null);
+        callsB.CallEvent += e => loopB.Post(_ => _ = sigB.Receive(e), null);
+        await callsA.Listen();
+        await callsB.Listen();
+
+        await loopA.Run(() => sigA.Place(room, userB, true));
+        await Within(() => infoB is { Phase: OhMatrix.Core.Calls.CallPhase.Ringing } ? infoB : null,
+            "the call rings at the other account");
+        Assert.True(infoB!.Video);
+        Assert.Equal(userA, infoB.Peer);
+        await loopB.Run(() => sigB.Answer(true));
+        await Within(() => infoA is { Phase: OhMatrix.Core.Calls.CallPhase.Connected } ? infoA : null,
+            "connected at the caller; it is " + infoA?.Phase);
+        await Within(() => infoB is { Phase: OhMatrix.Core.Calls.CallPhase.Connected } ? infoB : null,
+            "connected at the callee; it is " + infoB?.Phase);
+
+        var seenAtA = await Within(() => {
+            (int, int)? size = null;
+            platformA.TakeRemoteFrame((d, w, h) => size = (w, h));
+            return size is { } s ? new[] { s.Item1, s.Item2 } : null;
+        }, "the picture of the callee at the caller");
+        Assert.Equal(640, seenAtA[0]);
+        var seenAtB = await Within(() => {
+            (int, int)? size = null;
+            platformB.TakeRemoteFrame((d, w, h) => size = (w, h));
+            return size is { } s ? new[] { s.Item1, s.Item2 } : null;
+        }, "the picture of the caller at the callee");
+        Assert.Equal(640, seenAtB[0]);
+
+        await loopA.Run(() => sigA.Hangup());
+        await Within(() => infoB is { Phase: OhMatrix.Core.Calls.CallPhase.Ended } ? infoB : null,
+            "the callee sees the call end");
+        await roomsA.StopSync();
+        await roomsB.StopSync();
+        await authA.Logout();
+        await authB.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixSpaceEngineTests {
     [Fact]
     public async Task Lists_the_rooms_of_a_space()

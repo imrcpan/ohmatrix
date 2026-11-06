@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace OhMatrix.Core.Audio;
@@ -10,13 +9,6 @@ namespace OhMatrix.Core.Audio;
 internal static partial class LibVlc {
     private const string Name = "vlc";
 
-    private static readonly string[] Candidates = [
-        "libvlc.so.5", "libvlc.so", "libvlc.dll",
-        "/Applications/VLC.app/Contents/MacOS/lib/libvlc.dylib",
-        "C:\\Program Files\\VideoLAN\\VLC\\libvlc.dll",
-    ];
-
-    private static IntPtr library;
     private static IntPtr instance;
     private static IntPtr videoInstance;
     private static bool tried;
@@ -31,21 +23,7 @@ internal static partial class LibVlc {
 
     static LibVlc()
     {
-        NativeLibrary.SetDllImportResolver(typeof(LibVlc).Assembly, Resolve);
-    }
-
-    private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? path)
-    {
-        if (name != Name)
-            return IntPtr.Zero;
-        if (library != IntPtr.Zero)
-            return library;
-        foreach (var candidate in Candidates) {
-            if (NativeLibrary.TryLoad(candidate, out var handle))
-                return library = handle;
-        }
-
-        return IntPtr.Zero;
+        NativeLibs.Init();
     }
 
     /// <summary>The VLC instance of the app, made on first use; null when libvlc is not on the system.</summary>

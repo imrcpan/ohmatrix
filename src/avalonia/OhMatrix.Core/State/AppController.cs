@@ -358,6 +358,12 @@ public sealed class AppController(
         await Signalling().Place(roomId, other.UserId, video);
     }
 
+    /// <summary>The newest picture of the other side of a video call, if one has come; see <see cref="ICallPlatform.TakeRemoteFrame"/>.</summary>
+    public bool TakeCallFrame(Action<IntPtr, int, int> copy)
+    {
+        return callPlatform?.TakeRemoteFrame(copy) == true;
+    }
+
     public Task AnswerCall()
     {
         return Signalling().Answer(Store.Value.Call?.Video == true);

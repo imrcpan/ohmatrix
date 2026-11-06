@@ -39,7 +39,8 @@ public class App : Application {
                 security,
                 new DesktopNotifier(() => desktop.MainWindow?.IsActive == true),
                 verification,
-                calls
+                calls,
+                new OhMatrix.Core.Calls.Gst.GstCallPlatform()
             );
             var root = new AppRoot(
                 controller,

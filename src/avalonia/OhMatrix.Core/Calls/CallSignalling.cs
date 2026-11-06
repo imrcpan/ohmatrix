@@ -134,7 +134,7 @@ public sealed partial class CallSignalling {
             return;
         var list = new JsonArray();
         foreach (var x in c.Outgoing) {
-            list.Add(new JsonObject {
+            list.Add((JsonNode)new JsonObject {
                 ["candidate"] = x.Candidate,
                 ["sdpMid"] = x.SdpMid ?? "",
                 ["sdpMLineIndex"] = x.SdpMLineIndex ?? 0,

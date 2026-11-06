@@ -217,6 +217,8 @@ public class ChatPaneTests {
         public readonly List<string> Log = [];
         public ICallMedia Media { get; }
 
+        public bool TakeRemoteFrame(Action<IntPtr, int, int> copy) => false;
+
         public PlatformFake() => Media = new MediaFake(Log);
 
         public OhMatrix.Core.Calls.IPeer NewPeer(

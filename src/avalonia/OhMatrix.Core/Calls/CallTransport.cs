@@ -4,7 +4,7 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Calls;
 
 /// <summary>Joins the conversation of a call to the engine that carries its events and the platform that makes its media.</summary>
-internal sealed class CallTransport(
+public sealed class CallTransport(
     ICallsEngine engine,
     ICallPlatform platform,
     TimeProvider time,
