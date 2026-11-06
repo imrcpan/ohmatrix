@@ -4,6 +4,11 @@ using OhMatrix.Core.Model;
 
 namespace OhMatrix.Core.State;
 
+public enum SidebarPage {
+    Chats,
+    Profile,
+}
+
 public enum AuthStatus {
     Booting,
     SignedOut,
@@ -37,6 +42,9 @@ public sealed record AppState {
 
     /// <summary>The chat that is open, or null.</summary>
     public string? SelectedRoomId { get; init; }
+
+    /// <summary>What the left pane shows: the chats, or the profile page (and what opens from it).</summary>
+    public SidebarPage SidebarPage { get; init; } = SidebarPage.Chats;
 
     /// <summary>The lines of the open chat, oldest first.</summary>
     public IReadOnlyList<TimelineItem> Timeline { get; init; } = [];

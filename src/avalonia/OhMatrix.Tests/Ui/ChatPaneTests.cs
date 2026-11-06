@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -299,6 +300,27 @@ public class ChatPaneTests {
         controller.SelectRoom(null);
         Assert.Null(controller.Store.Value.SelectedRoomId);
         Save(window, "back");
+    }
+
+    [AvaloniaFact]
+    public async Task The_profile_page_signs_out_after_asking()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Profile);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.Profile;
+        Assert.Same(page, ((Border)screen.Children[0]).Child);
+        Save(window, "profile");
+        page.AskSignOut();
+        Assert.True(page.Confirm.IsOpen);
+        Save(window, "signout-dialog");
+        var yes = page.Confirm.Card.GetVisualDescendants().OfType<PrimaryButton>().First();
+        yes.RaiseClick();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(AuthStatus.SignedOut, controller.Store.Value.Auth);
+        Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
+        Assert.False(page.Confirm.IsOpen);
     }
 
     private static ChatPane FindPane(MainScreen screen)

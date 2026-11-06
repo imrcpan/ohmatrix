@@ -73,6 +73,10 @@ public sealed class RoomListPane : Grid {
         line.Children.Add(avatarHolder);
         line.Children.Add(name);
         profile.Child = line;
+        profile.PointerPressed += (_, e) => {
+            e.Handled = true;
+            controller.OpenSidebarPage(SidebarPage.Profile);
+        };
         top.Children.Add(profile);
         Grid.SetColumn(plus, 1);
         plus.HorizontalAlignment = HorizontalAlignment.Right;
