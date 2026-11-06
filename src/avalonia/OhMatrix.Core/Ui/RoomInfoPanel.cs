@@ -46,6 +46,14 @@ public sealed class RoomInfoPanel : Grid {
     public PromptDialog MemberPrompt { get; } = new();
     public TextButton? InviteButton { get; private set; }
     public TextButton? PhotoButton { get; private set; }
+    public ImageViewer Viewer { get; } = new();
+
+    /// <summary>The pictures shown under Shared media (those of the messages loaded), newest first.</summary>
+    public IReadOnlyList<Image> MediaThumbnails => mediaThumbs;
+
+    private readonly List<Image> mediaThumbs = [];
+    private const int MediaShown = 9;
+    private const int FilesShown = 5;
 
     /// <summary>Asks for a picture file and makes it the picture of the room; the path can be given to skip the dialog.</summary>
     public async Task ChangePhoto(RoomSummary room, string? path = null)
@@ -324,6 +332,7 @@ public sealed class RoomInfoPanel : Grid {
             content.Children.Add(InviteButton);
         }
 
+        AddShared(c, s.Timeline);
         content.Children.Add(Section(c, T("membersTitle")));
         foreach (var member in details.Members)
             content.Children.Add(MemberRow(c, member, room));
@@ -339,6 +348,98 @@ public sealed class RoomInfoPanel : Grid {
         content.Children.Add(new Border {
             Height = 16
         });
+    }
+
+    /// <summary>The pictures and files of the messages loaded.</summary>
+    private void AddShared(ColorTokens c, IReadOnlyList<TimelineItem> timeline)
+    {
+        mediaThumbs.Clear();
+        var pictures = timeline.Where(i => i.Image is not null).Reverse().Take(MediaShown).ToList();
+        var files = timeline.Where(i => i.File is not null).Reverse().Take(FilesShown).ToList();
+        content.Children.Add(Section(c, T("sharedMedia")));
+        if (pictures.Count == 0 && files.Count == 0) {
+            content.Children.Add(new TextBlock {
+                Text = T("media.none"),
+                FontSize = 15,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                Margin = new Thickness(20, 0, 20, 8),
+            });
+            return;
+        }
+
+        if (pictures.Count > 0) {
+            var grid = new WrapPanel {
+                Margin = new Thickness(18, 0, 18, 8)
+            };
+            foreach (var item in pictures) {
+                var image = new Image {
+                    Width = 88,
+                    Height = 88,
+                    Stretch = Stretch.UniformToFill
+                };
+                controller.Pictures.Attach(image, item.Image!.Source, 176, 176);
+                mediaThumbs.Add(image);
+                var cell = new Border {
+                    Width = 88,
+                    Height = 88,
+                    Margin = new Thickness(2),
+                    CornerRadius = new CornerRadius(6),
+                    ClipToBounds = true,
+                    Background = new SolidColorBrush(c.BgSecondary),
+                    Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                    Child = image,
+                };
+                var shown = item.Image!;
+                cell.PointerPressed += (_, e) => {
+                    e.Handled = true;
+                    if (TopLevel.GetTopLevel(this) is { } window)
+                        Viewer.Show(window, controller.Pictures, shown.Source, shown.FileName,
+                            image.Source);
+                };
+                grid.Children.Add(cell);
+            }
+
+            content.Children.Add(grid);
+        }
+
+        if (files.Count > 0) {
+            content.Children.Add(Section(c, T("sharedFiles")));
+            foreach (var item in files) {
+                var row = new Grid {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+                    Margin = new Thickness(20, 4),
+                };
+                row.Children.Add(new Icon {
+                    Glyph = "file",
+                    Size = 20,
+                    Color = new SolidColorBrush(c.Accent),
+                    Margin = new Thickness(0, 0, 10, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+                var name = new TextBlock {
+                    Text = item.File!.Name,
+                    FontSize = 15,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(c.Text),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                Grid.SetColumn(name, 1);
+                row.Children.Add(name);
+                var size = new TextBlock {
+                    Text = Format.Bytes(item.File.Size),
+                    FontSize = 13,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(c.TextSecondary),
+                    Margin = new Thickness(8, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                Grid.SetColumn(size, 2);
+                row.Children.Add(size);
+                content.Children.Add(row);
+            }
+        }
     }
 
     private static TextBlock Section(ColorTokens c, string title)
