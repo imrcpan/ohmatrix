@@ -70,3 +70,4 @@ Func<int> f = () => 3;
 ```
 
 - A namespace is file-scoped (`namespace OhMatrix.Core;`). A namespace with braces is an error.
+- An auto property may be written on one line (`{ get; init; }`) or over several; the formatter keeps either.
