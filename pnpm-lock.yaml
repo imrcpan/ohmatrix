@@ -121,7 +121,7 @@ importers:
         version: link:../../packages/engine-rust
       '@ohmatrix/i18n':
         specifier: workspace:*
-        version: link:../../packages/i18n
+        version: link:../../i18n
       '@ohmatrix/state':
         specifier: workspace:*
         version: link:../../packages/state
@@ -282,6 +282,12 @@ importers:
         specifier: ^1.64.0
         version: 1.64.0
 
+  src/i18n:
+    devDependencies:
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(terser@5.51.2)(yaml@2.9.1))
+
   src/packages/app:
     dependencies:
       '@ohmatrix/core':
@@ -289,7 +295,7 @@ importers:
         version: link:../core
       '@ohmatrix/i18n':
         specifier: workspace:*
-        version: link:../i18n
+        version: link:../../i18n
       '@ohmatrix/state':
         specifier: workspace:*
         version: link:../state
@@ -362,12 +368,6 @@ importers:
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
-      vitest:
-        specifier: ^5.0.3
-        version: 5.0.3(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(terser@5.51.2)(yaml@2.9.1))
-
-  src/packages/i18n:
-    devDependencies:
       vitest:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(terser@5.51.2)(yaml@2.9.1))
