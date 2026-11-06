@@ -51,6 +51,12 @@ public sealed record AppState {
     /// <summary>What the left pane shows: the chats, or the profile page (and what opens from it).</summary>
     public SidebarPage SidebarPage { get; init; } = SidebarPage.Chats;
 
+    /// <summary>The info panel of the open chat is showing.</summary>
+    public bool RoomInfoOpen { get; init; }
+
+    /// <summary>What the info panel lists; null until it has been read.</summary>
+    public RoomDetails? Details { get; init; }
+
     /// <summary>The message the person is answering in the open chat, if any.</summary>
     public TimelineItem? ReplyTo { get; init; }
 

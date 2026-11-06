@@ -99,7 +99,10 @@ public sealed class AppController(
             Typing = [],
             ReplyTo = null,
             Editing = null,
+            Details = null,
         });
+        if (roomId is not null && Store.Value.RoomInfoOpen)
+            _ = LoadDetails(roomId);
         if (roomId is not null && chats is not null)
             _ = OpenChat(roomId);
     }
@@ -189,6 +192,33 @@ public sealed class AppController(
             ReplyTo = item,
             Editing = item is null ? Store.Value.Editing : null,
         });
+    }
+
+    /// <summary>Shows or hides the info panel of the open chat.</summary>
+    public void OpenRoomInfo(bool open)
+    {
+        Store.Update(s => s with {
+            RoomInfoOpen = open
+        });
+        if (open && Store.Value.SelectedRoomId is { } id)
+            _ = LoadDetails(id);
+    }
+
+    private async Task LoadDetails(string roomId)
+    {
+        if (rooms is null)
+            return;
+        try {
+            var details = await rooms.Details(roomId);
+            Post(() => {
+                if (Store.Value.SelectedRoomId == roomId)
+                    Store.Update(s => s with {
+                        Details = details
+                    });
+            });
+        } catch (Exception) {
+            // The panel shows what it has; opening it again tries again.
+        }
     }
 
     /// <summary>Starts changing one of my messages: the composer takes its text, and the next send replaces it. Null cancels.</summary>
@@ -410,6 +440,8 @@ public sealed class AppController(
     {
         Store.Update(s => s with {
             Rooms = [],
+            RoomInfoOpen = false,
+            Details = null,
             Profile = null,
             SidebarPage = SidebarPage.Chats,
             SyncState = SyncState.Stopped,

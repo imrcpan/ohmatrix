@@ -48,6 +48,15 @@ public class RoomListTests {
 
         public List<string> Actions = [];
 
+        public Task<RoomDetails> Details(string roomId)
+        {
+            return Task.FromResult(new RoomDetails("We plan the demo here.", [
+                new RoomMemberInfo("@me:s", "Mia Example", null, MemberRole.Admin),
+                new RoomMemberInfo("@alice:s", "Alice", null, MemberRole.Moderator),
+                new RoomMemberInfo("@bob:s", "Bob", null, MemberRole.Member),
+            ]));
+        }
+
         public Task AcceptInvite(string roomId) => Log("accept " + roomId);
         public Task DeclineInvite(string roomId) => Log("decline " + roomId);
         public Task SetPinned(string roomId, bool pinned) => Log($"pin {roomId} {pinned}");

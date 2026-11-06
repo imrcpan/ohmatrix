@@ -33,6 +33,9 @@ public interface IRoomsEngine {
     /// <summary>Marks everything in the room as read, and removes the unread mark.</summary>
     Task MarkRoomRead(string roomId);
 
+    /// <summary>The topic and the people of a room.</summary>
+    Task<RoomDetails> Details(string roomId);
+
     Task StartSync();
     Task StopSync();
 }

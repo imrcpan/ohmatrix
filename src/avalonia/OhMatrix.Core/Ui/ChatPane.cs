@@ -268,7 +268,18 @@ public sealed class ChatPane : Grid {
             row.Children.Add(words);
         }
 
-        header.Child = row;
+        var bar = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto")
+        };
+        bar.Children.Add(row);
+        var info = new IconButton("info", T("chatInfo"), 24) {
+            Margin = new Thickness(0, 0, 12, 0),
+            Tint = s.RoomInfoOpen ? c.Accent : null,
+        };
+        info.Click += (_, _) => controller.OpenRoomInfo(!controller.Store.Value.RoomInfoOpen);
+        Grid.SetColumn(info, 1);
+        bar.Children.Add(info);
+        header.Child = bar;
     }
 
     private void Rebuild()

@@ -26,6 +26,14 @@ public sealed class MainScreen : Grid {
     private readonly Border detail = new();
     private readonly ProfilePage profilePage;
     private readonly ThemePage themePage;
+    private readonly RoomInfoPanel infoDock;
+    private readonly RoomInfoPanel infoNarrow;
+
+    private readonly Border infoDockHost = new() {
+        Width = RoomInfoPanel.Width_,
+        BorderThickness = new Thickness(1, 0, 0, 0)
+    };
+
     private readonly LanguagePage languagePage;
     private readonly ChatPane narrowChat;
     private readonly ChatPane wideChat;
@@ -58,9 +66,13 @@ public sealed class MainScreen : Grid {
         wideChat = new ChatPane(controller);
         profilePage = new ProfilePage(controller);
         themePage = new ThemePage(controller);
+        infoDock = new RoomInfoPanel(controller);
+        infoNarrow = new RoomInfoPanel(controller);
         languagePage = new LanguagePage(controller);
         listHost.Child = list;
-        ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*");
+        ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
+        infoDockHost.Child = infoDock;
+        Grid.SetColumn(infoDockHost, 3);
         var row = new StackPanel {
             Orientation = Orientation.Horizontal,
             Spacing = 8
@@ -74,8 +86,11 @@ public sealed class MainScreen : Grid {
         Children.Add(listHost);
         Children.Add(divider);
         Children.Add(detail);
-        Grid.SetColumnSpan(narrowChat, 3);
+        Children.Add(infoDockHost);
+        Grid.SetColumnSpan(narrowChat, 4);
         Children.Add(narrowChat);
+        Grid.SetColumnSpan(infoNarrow, 4);
+        Children.Add(infoNarrow);
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) => s.Apply());
         SizeChanged += (_, _) => Apply();
@@ -112,6 +127,10 @@ public sealed class MainScreen : Grid {
         var open = s.SelectedRoomId is not null;
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
+        infoDockHost.IsVisible = split && open && s.RoomInfoOpen;
+        infoDockHost.BorderBrush = new SolidColorBrush(c.Separator);
+        // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
+        infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
         // The profile takes the place of the list (what opens from it is the left pane's, whatever its width).
         listHost.Child = s.SidebarPage switch {
             SidebarPage.Profile => profilePage,
