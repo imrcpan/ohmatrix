@@ -133,6 +133,32 @@ public class ChatPaneTests {
         }
     }
 
+    private sealed class Devices : IDevicesEngine {
+        public readonly List<string> Removed = [];
+        private bool gone;
+
+        public Task<IReadOnlyList<DeviceInfo>> ListDevices()
+        {
+            IReadOnlyList<DeviceInfo> all = gone
+                ? [new DeviceInfo("D1", "This laptop", Now, null, true)]
+                : [
+                    new DeviceInfo("D1", "This laptop", Now, null, true),
+                    new DeviceInfo("D2", "Phone", Now - 3 * 86_400_000L, "10.0.0.7", false),
+                    new DeviceInfo("D3", "Old tablet", null, null, false),
+                ];
+            return Task.FromResult(all);
+        }
+
+        public Task RemoveDevices(IReadOnlyList<string> ids, string password)
+        {
+            if (password != "pw")
+                throw new EngineException(EngineErrorCode.Forbidden, "Invalid password");
+            Removed.AddRange(ids);
+            gone = true;
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class Profiles : IProfileEngine {
         public Task<Profile> Load()
         {
@@ -396,13 +422,15 @@ public class ChatPaneTests {
         }
     }
 
+    private static readonly Devices Sessions = new();
+
     private static async Task<(Window Window, AppController Controller, Engine Engine, MainScreen
             Screen)>
         Open(string theme, double width)
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            new Media(), new Profiles());
+            new Media(), new Profiles(), Sessions);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -1179,6 +1207,33 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.False(controller.Store.Value.Prefs.OwnBubbleAccent);
         Assert.False(screen.SettingsScreen.AccentToggle.IsOn);
+    }
+
+    [AvaloniaFact]
+    public async Task The_sessions_page_lists_devices_and_signs_one_out_with_the_password()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Sessions);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.SessionsScreen;
+        Assert.Equal(["D1", "D2", "D3"], page.Devices.Select(d => d.Id));
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains("This device", texts);
+        Assert.Contains("Other sessions", texts);
+        Assert.Contains("No recent activity", texts);
+        Save(window, "sessions");
+        page.AskSignOut(["D2"], false);
+        page.Confirm.Fields[0].Text = "wrong";
+        page.Confirm.Confirm();
+        await Task.Delay(50);
+        Assert.Equal("Wrong password.", page.Confirm.ErrorText);
+        page.Confirm.Fields[0].Text = "pw";
+        page.Confirm.Confirm();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["D2"], Sessions.Removed);
+        Assert.Single(page.Devices);
     }
 
     [AvaloniaFact]

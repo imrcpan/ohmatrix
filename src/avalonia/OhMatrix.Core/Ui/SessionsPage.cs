@@ -1,0 +1,228 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using OhMatrix.Core.I18n;
+using OhMatrix.Core.Model;
+using OhMatrix.Core.State;
+using OhMatrix.Core.Theming;
+
+namespace OhMatrix.Core.Ui;
+
+/// <summary>
+/// The sessions of the account (<c>SessionsPage</c>): this device, the other sessions with when they were last active, and a way to sign one or all
+/// of the others out after the password is entered.
+/// </summary>
+public sealed class SessionsPage : Grid {
+    private readonly AppController controller;
+
+    private readonly Border bar = new() {
+        Height = 56,
+        BorderThickness = new Thickness(0, 0, 0, 1)
+    };
+
+    private readonly StackPanel content = new();
+    private readonly PromptDialog confirm = new();
+    private IReadOnlyList<DeviceInfo>? devices;
+    private bool wasOpen;
+    private TimeProvider time = TimeProvider.System;
+
+    public SessionsPage(AppController controller)
+    {
+        this.controller = controller;
+        RowDefinitions = new RowDefinitions("Auto,*");
+        Children.Add(bar);
+        var scroller = new ScrollViewer {
+            Content = content,
+            HorizontalScrollBarVisibility =
+                Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        };
+        Grid.SetRow(scroller, 1);
+        Children.Add(scroller);
+        controller.Store.Changed += _ => Apply();
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SessionsPage>((p, _) => p.Apply());
+        Apply();
+    }
+
+    public PromptDialog Confirm => confirm;
+
+    /// <summary>The sessions shown, this one first.</summary>
+    public IReadOnlyList<DeviceInfo> Devices => devices ?? [];
+
+    /// <summary>Asks the server for the sessions again.</summary>
+    public async Task Reload()
+    {
+        try {
+            devices = await controller.ListDevices();
+        } catch (Exception) {
+            devices = [];
+        }
+
+        Apply();
+    }
+
+    private string T(string key, params (string, object)[] values)
+    {
+        return Strings.T(controller.Store.Value.Locale, key, values);
+    }
+
+    /// <summary>Asks for the password to sign these sessions out.</summary>
+    public void AskSignOut(IReadOnlyList<string> ids, bool all)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        confirm.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T(all ? "sessions.confirm.all" : "sessions.confirm.one"), T("sessions.confirm.body"),
+            [new PromptField(T("password"), "lock", false, true)], T("sessions.signOut"),
+            async v => {
+                try {
+                    await controller.RemoveDevices(ids, v[0]);
+                } catch (EngineException e) when (e.Code == EngineErrorCode.Forbidden) {
+                    throw new InvalidOperationException(T("sessions.wrongPassword"));
+                }
+
+                await Reload();
+            });
+    }
+
+    private string LastActive(DeviceInfo d)
+    {
+        if (d.LastSeenTs is not { } ts)
+            return T("sessions.neverSeen");
+        var when = Format.ListTime(ts, time.GetUtcNow(), controller.Store.Value.Locale);
+        var text = T("sessions.lastActive", ("when", when));
+        return d.LastSeenIp is { } ip ? text + " · " + ip : text;
+    }
+
+    private void Apply()
+    {
+        var c = ThemeScope.GetColors(this);
+        var s = controller.Store.Value;
+        var open = s.SidebarPage == SidebarPage.Sessions;
+        if (open && !wasOpen) {
+            wasOpen = true;
+            devices = null;
+            _ = Reload();
+        } else if (!open)
+            wasOpen = false;
+
+        Background = new SolidColorBrush(c.Bg);
+        bar.BorderBrush = new SolidColorBrush(c.Separator);
+        PageBar.Fill(bar, c, T("sessions"), T("settings"),
+            () => controller.OpenSidebarPage(SidebarPage.Settings));
+        content.Children.Clear();
+        if (devices is null) {
+            content.Children.Add(new Spinner {
+                Size = 28,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 24),
+            });
+            return;
+        }
+
+        var current = devices.FirstOrDefault(d => d.Current);
+        var others = devices.Where(d => !d.Current).ToList();
+        if (current is not null) {
+            Caption(c, T("sessions.thisDevice"));
+            content.Children.Add(Card(c, current, null));
+        }
+
+        Caption(c, T("sessions.others"));
+        if (others.Count == 0) {
+            content.Children.Add(new TextBlock {
+                Text = T("sessions.empty"),
+                FontSize = 15,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                Margin = new Thickness(26, 6, 12, 0),
+            });
+        }
+
+        foreach (var d in others)
+            content.Children.Add(Card(c, d, () => AskSignOut([d.Id], false)));
+        if (others.Count > 0) {
+            var all = new TextButton {
+                Title = T("sessions.signOutAll"),
+                Margin = new Thickness(0, 12, 0, 0)
+            };
+            ThemeScope.SetColors(all, c with {
+                Accent = c.Danger
+            });
+            all.Click += (_, _) => AskSignOut([.. others.Select(d => d.Id)], true);
+            content.Children.Add(all);
+        }
+
+        content.Children.Add(new TextBlock {
+            Text = T("sessions.footer"),
+            FontSize = 13,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(26, 12, 20, 24),
+        });
+    }
+
+    private void Caption(ColorTokens c, string text)
+    {
+        content.Children.Add(new TextBlock {
+            Text = text,
+            FontSize = 14,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(26, 18, 12, 6),
+        });
+    }
+
+    private Border Card(ColorTokens c, DeviceInfo d, Action? press)
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
+        };
+        grid.Children.Add(new Icon {
+            Glyph = "device",
+            Size = 22,
+            Color = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var words = new StackPanel {
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        words.Children.Add(new TextBlock {
+            Text = d.Name,
+            FontSize = 16,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Text),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        words.Children.Add(new TextBlock {
+            Text = LastActive(d),
+            FontSize = 13,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        Grid.SetColumn(words, 1);
+        grid.Children.Add(words);
+        var card = new Border {
+            Margin = new Thickness(12, 0, 12, 6),
+            Padding = new Thickness(14, 8),
+            MinHeight = 56,
+            CornerRadius = new CornerRadius(Radius.Control),
+            Background = new SolidColorBrush(c.BgSecondary),
+            Child = grid,
+        };
+        if (press is not null) {
+            card.Cursor = new Cursor(StandardCursorType.Hand);
+            card.PointerPressed += (_, e) => {
+                e.Handled = true;
+                press();
+            };
+        }
+
+        Avalonia.Automation.AutomationProperties.SetName(card, d.Name);
+        return card;
+    }
+}

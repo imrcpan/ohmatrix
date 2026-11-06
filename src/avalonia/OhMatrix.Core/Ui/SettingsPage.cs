@@ -126,8 +126,10 @@ public sealed class SettingsPage : Grid {
         content.Children.Add(ToggleRow(c, T("ownAccent"), AccentToggle, s.Prefs.OwnBubbleAccent));
 
         Group(c, T("account"));
+        content.Children.Add(ProfilePage.NavRow(c, "device", T("sessions"),
+            () => controller.OpenSidebarPage(SidebarPage.Sessions), 6));
         var row = new Border {
-            Margin = new Thickness(12, 6, 12, 0),
+            Margin = new Thickness(12, 12, 12, 0),
             Padding = new Thickness(14, 0),
             Height = 48,
             CornerRadius = new CornerRadius(Radius.Control),

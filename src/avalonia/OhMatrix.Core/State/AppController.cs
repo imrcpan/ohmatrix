@@ -12,7 +12,8 @@ public sealed class AppController(
     IRoomsEngine? rooms = null,
     IChatEngine? chats = null,
     IMediaEngine? media = null,
-    IProfileEngine? profiles = null
+    IProfileEngine? profiles = null,
+    IDevicesEngine? devices = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -206,6 +207,20 @@ public sealed class AppController(
     {
         await rooms!.BanMember(roomId, userId, string.IsNullOrWhiteSpace(reason) ? null : reason);
         await LoadDetails(roomId);
+    }
+
+    /// <summary>My sessions, this one first. Failures are <see cref="EngineException"/>.</summary>
+    public Task<IReadOnlyList<DeviceInfo>> ListDevices()
+    {
+        return devices is null
+            ? Task.FromResult<IReadOnlyList<DeviceInfo>>([])
+            : devices.ListDevices();
+    }
+
+    /// <summary>Signs other sessions out; the server wants the password.</summary>
+    public Task RemoveDevices(IReadOnlyList<string> ids, string password)
+    {
+        return devices!.RemoveDevices(ids, password);
     }
 
     /// <summary>Searches the public rooms of the homeserver (or of <paramref name="server"/>).</summary>

@@ -1,4 +1,5 @@
 #if OHMATRIX_NATIVE_SDK
+using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Engine;
@@ -155,6 +156,35 @@ public class MatrixExploreEngineTests {
         var found = await rooms.SearchPublicRooms(name, null);
         Assert.All(found, r => Assert.NotEmpty(r.RoomId));
         await auth.Logout();
+    }
+}
+
+[Collection("homeserver")]
+public class MatrixDevicesEngineTests {
+    [Fact]
+    public async Task Lists_the_sessions_and_signs_another_out_with_the_password()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var first = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-dev-" + Guid.NewGuid().ToString("N"))
+        );
+        var second = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-dev-" + Guid.NewGuid().ToString("N"))
+        );
+        await first.LoginWithPassword(server!, "test", "123456");
+        var other = await second.LoginWithPassword(server!, "test", "123456");
+        var devices = new HttpDevicesEngine(() => first.CurrentSession);
+        var list = await devices.ListDevices();
+        Assert.True(list[0].Current);
+        Assert.Contains(list, d => d.Id == other.DeviceId && !d.Current);
+        var bad = await Assert.ThrowsAsync<EngineException>(
+            () => devices.RemoveDevices([other.DeviceId], "wrong")
+        );
+        Assert.Equal(EngineErrorCode.Forbidden, bad.Code);
+        await devices.RemoveDevices([other.DeviceId], "123456");
+        Assert.DoesNotContain(await devices.ListDevices(), d => d.Id == other.DeviceId);
+        await first.Logout();
     }
 }
 
