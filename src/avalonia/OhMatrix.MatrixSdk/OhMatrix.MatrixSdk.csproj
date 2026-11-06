@@ -8,7 +8,26 @@
         <Nullable>enable</Nullable>
         <IsAotCompatible>true</IsAotCompatible>
         <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <ImplicitUsings>enable</ImplicitUsings>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
+
+    <!--
+        native/ is made by src/rust/build-native.sh (the library of the Matrix SDK and the C# bindings made from it) and is not in git. Without it
+        this project is empty; with it the bindings are compiled in and the library is copied next to every program that uses this project.
+        The code of the bindings is the generator's: it is not held to our warnings.
+    -->
+    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)/native/bindings')">
+        <DefineConstants>$(DefineConstants);OHMATRIX_NATIVE_SDK</DefineConstants>
+        <NoWarn>$(NoWarn);CS0108;CS0168;CS0219;CS0649;CS8981;CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8625;CS8765</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup Condition="!Exists('$(MSBuildProjectDirectory)/native/bindings')">
+        <Compile Remove="native/**" />
+    </ItemGroup>
+
+    <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/native/bindings')">
+        <None Include="native/*.so;native/*.dylib;native/*.dll" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
+    </ItemGroup>
 
 </Project>
