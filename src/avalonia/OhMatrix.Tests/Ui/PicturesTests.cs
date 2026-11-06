@@ -14,6 +14,9 @@ public class PicturesTests {
         public int Calls;
         public (int, int) Size;
 
+        public Task<string?> Download(string source, string fileName, string mimeType) =>
+            Task.FromResult<string?>(null);
+
         public Task<byte[]?> Thumbnail(string mxc, int width, int height)
         {
             Calls++;
