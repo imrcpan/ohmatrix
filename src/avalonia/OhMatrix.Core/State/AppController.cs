@@ -346,9 +346,9 @@ public sealed class AppController(
             ZoomTrial = new ZoomTrial(from, scale, until)
         });
         zoomTimer = time.CreateTimer(
-            _ => Store.Update(s => s with {
+            _ => Post(() => Store.Update(s => s with {
                 ZoomTrial = null
-            }),
+            })),
             null,
             ZoomTrialTime,
             Timeout.InfiniteTimeSpan
@@ -415,6 +415,20 @@ public sealed class AppController(
         } catch (Exception e) {
             SignedOut(e.Message, (e as EngineException)?.Code);
         }
+    }
+
+    /// <summary>Changes my name; the profile shows the new one at once. Failures are <see cref="EngineException"/>.</summary>
+    public async Task SetDisplayName(string name)
+    {
+        var trimmed = name.Trim();
+        await profiles!.SetDisplayName(trimmed);
+        Store.Update(s => s with {
+            Profile = s.Profile is null
+                ? null
+                : s.Profile with {
+                    DisplayName = trimmed
+                }
+        });
     }
 
     private async Task LoadProfile()

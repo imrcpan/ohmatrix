@@ -7,6 +7,7 @@ using Xunit;
 namespace OhMatrix.Tests.Engine;
 
 // Against a real homeserver: set OHMATRIX_TEST_HOMESERVER (a test server with the user test / 123456, open registration with no steps).
+[Collection("homeserver")]
 public class MatrixAuthEngineTests {
     private static string Server()
     {
@@ -72,6 +73,7 @@ public class MatrixAuthEngineTests {
     }
 }
 
+[Collection("homeserver")]
 public class MatrixRoomsEngineTests {
     [Fact]
     public async Task Syncs_and_lists_the_rooms()
@@ -127,6 +129,27 @@ public class MatrixRoomsEngineTests {
     }
 }
 
+[Collection("homeserver")]
+public class MatrixProfileEngineTests {
+    [Fact]
+    public async Task Changes_the_display_name()
+    {
+        var server = Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server), "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(), "ohm-prof-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var profiles = new MatrixProfileEngine(auth);
+        var before = (await profiles.Load()).DisplayName;
+        await profiles.SetDisplayName("Tester One");
+        Assert.Equal("Tester One", (await profiles.Load()).DisplayName);
+        await profiles.SetDisplayName(before ?? "test");
+        await auth.Logout();
+    }
+}
+
+[Collection("homeserver")]
 public class MatrixChatEngineTests {
     [Fact]
     public async Task Sends_a_message_and_reads_it_back()
