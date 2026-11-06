@@ -807,6 +807,33 @@ public class ChatPaneTests {
         Assert.False(pane.Viewer.IsOpen);
     }
 
+    [AvaloniaFact]
+    public async Task Search_finds_loaded_messages_and_steps_through_them()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        pane.ToggleSearch();
+        Assert.True(pane.Searching);
+        pane.SearchInput.Text = "d";
+        Assert.Empty(pane.Matches);
+        pane.SearchInput.Text = "Ye";
+        Assert.Equal(["3"], pane.Matches);
+        pane.SearchInput.Text = "ing";
+        // "Morning" and "Look at this" has none; "bring" is in the long message.
+        Assert.Equal(["2", "4"], pane.Matches);
+        Assert.Equal(1, pane.CurrentMatch);
+        Save(window, "search");
+        pane.SearchInput.Text = "zzzz";
+        Assert.Empty(pane.Matches);
+        Save(window, "search-none");
+        pane.ToggleSearch();
+        Assert.False(pane.Searching);
+        Assert.Empty(pane.Matches);
+    }
+
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
     {
         return new Avalonia.Input.PointerReleasedEventArgs(
