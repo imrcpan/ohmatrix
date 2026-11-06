@@ -122,6 +122,38 @@ public sealed class AppController(
         SelectRoom(id);
     }
 
+    /// <summary>Accepts an invitation and opens the chat.</summary>
+    public async Task AcceptInvite(string roomId)
+    {
+        await rooms!.AcceptInvite(roomId);
+        SelectRoom(roomId);
+    }
+
+    public Task DeclineInvite(string roomId)
+    {
+        return rooms!.DeclineInvite(roomId);
+    }
+
+    public Task SetPinned(string roomId, bool pinned)
+    {
+        return rooms!.SetPinned(roomId, pinned);
+    }
+
+    public Task SetRoomMuted(string roomId, bool muted)
+    {
+        return rooms!.SetMuted(roomId, muted);
+    }
+
+    public Task SetMarkedUnread(string roomId, bool unread)
+    {
+        return rooms!.SetMarkedUnread(roomId, unread);
+    }
+
+    public Task MarkRoomRead(string roomId)
+    {
+        return rooms!.MarkRoomRead(roomId);
+    }
+
     /// <summary>Shows a page in the left pane.</summary>
     public void OpenSidebarPage(SidebarPage page)
     {

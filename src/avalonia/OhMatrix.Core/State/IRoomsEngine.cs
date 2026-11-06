@@ -24,6 +24,15 @@ public interface IRoomsEngine {
     /// </summary>
     Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite);
 
+    Task AcceptInvite(string roomId);
+    Task DeclineInvite(string roomId);
+    Task SetPinned(string roomId, bool pinned);
+    Task SetMuted(string roomId, bool muted);
+    Task SetMarkedUnread(string roomId, bool unread);
+
+    /// <summary>Marks everything in the room as read, and removes the unread mark.</summary>
+    Task MarkRoomRead(string roomId);
+
     Task StartSync();
     Task StopSync();
 }
