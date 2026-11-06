@@ -12,16 +12,12 @@ cd "$(dirname "$0")/.."
 case "$(uname -s)" in Darwin) host=darwin-x86_64 ;; *) host=linux-x86_64 ;; esac
 clang_dir=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/$host/lib/clang/*/lib/linux | head -1)
 
-# The pinned checkout, with the patch applied once.
+# The pinned checkout (the revision is src/rust/sdk.sh's; ubrn reads its own copy in ubrn.yaml, which has to be the same), with our patches on.
+# shellcheck source=../../../rust/sdk.sh
+source ../../rust/sdk.sh
+grep -q "rev: $SDK_REV" ubrn.yaml || { echo "ubrn.yaml names another revision of the SDK than src/rust/sdk.sh ($SDK_REV)" >&2; exit 1; }
 if [ ! -d rust_modules/matrix-rust-sdk ]; then npx ubrn checkout --config ubrn.yaml; fi
-# (The patch is applied once; whether it is already there is told by a line it adds.)
-if ! grep -q "rustls-no-provider" rust_modules/matrix-rust-sdk/crates/matrix-sdk/Cargo.toml; then
-  git -C rust_modules/matrix-rust-sdk apply ../../patches/matrix-rust-sdk-ring-provider.patch
-fi
-# The call events of the room (for calls between two people): a listener the app gives the signalling events to (patches/matrix-rust-sdk-call-events.patch).
-if [ ! -f rust_modules/matrix-rust-sdk/bindings/matrix-sdk-ffi/src/call_events.rs ]; then
-  git -C rust_modules/matrix-rust-sdk apply ../../patches/matrix-rust-sdk-call-events.patch
-fi
+../../rust/apply-patches.sh rust_modules/matrix-rust-sdk
 
 # x86_64 needs the compiler runtime for 128-bit arithmetic that the NDK does not link by default.
 export CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS="-L$clang_dir"

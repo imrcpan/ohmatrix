@@ -3,7 +3,7 @@
 # generates for; matrix-sdk 0.19 moved to uniffi 0.32 and does not work with it yet.
 crate:
   repo: https://github.com/matrix-org/matrix-rust-sdk
-  rev: 1c44fb66214667c6d00acaf72ab592493653708b # matrix-sdk-0.18.0
+  rev: 1c44fb66214667c6d00acaf72ab592493653708b # matrix-sdk-0.18.0; src/rust/sdk.sh names the same one (build-android.sh checks)
   manifestPath: bindings/matrix-sdk-ffi/Cargo.toml
 android:
   cargoExtras: []

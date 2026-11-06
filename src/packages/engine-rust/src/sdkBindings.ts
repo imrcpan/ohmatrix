@@ -351,7 +351,7 @@ export function sdkFromBindings(b: Bindings): Sdk {
     restore: (s) => call(() => c.restoreSession(s as unknown as Ffi.Session)),
     logout: () => call(() => c.logout()),
     syncService: async () => syncOf(await call(async () => c.syncService().finish())),
-    // The patched library has `subscribeToCallEvents` (patches/matrix-rust-sdk-call-events.patch); one built without the patch has none, and
+    // The patched library has `subscribeToCallEvents` (src/rust/patches/matrix-rust-sdk-call-events.patch); one built without the patch has none, and
     // the app then cannot make calls. Its listener and subscription are the generated `CallEventListener` / `CallEventSubscription`.
     ...("subscribeToCallEvents" in c
       ? {
