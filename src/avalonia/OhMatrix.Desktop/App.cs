@@ -40,7 +40,8 @@ public class App : Application {
                 new DesktopNotifier(() => desktop.MainWindow?.IsActive == true),
                 verification,
                 calls,
-                new OhMatrix.Core.Calls.Gst.GstCallPlatform()
+                new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
+                new OhMatrix.Core.Calls.VlcCallSounds()
             );
             var root = new AppRoot(
                 controller,

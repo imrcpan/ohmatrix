@@ -1,3 +1,4 @@
+using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.Ui;
 
@@ -19,7 +20,8 @@ public sealed class AppController(
     INotifier? notifier = null,
     IVerificationEngine? verification = null,
     ICallsEngine? callsEngine = null,
-    ICallPlatform? callPlatform = null
+    ICallPlatform? callPlatform = null,
+    Calls.ICallSounds? callSounds = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -306,9 +308,11 @@ public sealed class AppController(
             new Calls.CallTransport(callsEngine!, callPlatform!, time, Post),
             () => Store.Value.UserId ?? "",
             info => {
+                var before = Store.Value.Call;
                 Store.Update(s => s with {
                     Call = info
                 });
+                CallHeard(before, info);
                 // An ended call goes by itself after a moment.
                 callEndedTimer?.Dispose();
                 if (info is { Phase: Calls.CallPhase.Ended })
@@ -316,6 +320,29 @@ public sealed class AppController(
                         CallEndedStays, Timeout.InfiniteTimeSpan);
             }
         );
+    }
+
+    /// <summary>The sound and the notification of a call: it rings while it is ringing, and a short sound ends it.</summary>
+    private void CallHeard(Calls.CallInfo? before, Calls.CallInfo? now)
+    {
+        var ringing = now is { Phase: Calls.CallPhase.Ringing };
+        var wasRinging = before is { Phase: Calls.CallPhase.Ringing } &&
+                         before.CallId == now?.CallId;
+        if (ringing && !wasRinging) {
+            callSounds?.Ring(now!.Incoming);
+            if (now!.Incoming && notifier is not null && Store.Value.Prefs.Notifications) {
+                var room = Store.Value.Rooms.FirstOrDefault(r => r.Id == now.RoomId);
+                notifier.Notify(new Notification(now.RoomId, room?.Name ?? now.Peer,
+                    Strings.T(Store.Value.Locale,
+                        now.Video ? "call.incoming.video" : "call.incoming.voice"),
+                    false));
+            }
+        } else if (!ringing && wasRinging)
+            callSounds?.Stop();
+
+        if (now is { Phase: Calls.CallPhase.Ended } &&
+            before is not { Phase: Calls.CallPhase.Ended })
+            callSounds?.Ended();
     }
 
     private async Task ListenForCalls()

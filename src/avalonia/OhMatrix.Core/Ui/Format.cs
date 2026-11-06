@@ -140,6 +140,9 @@ public static class Format {
             return Ago(locale, (int)(diff / 60_000), Unit.Minute);
         if (diff < 86_400_000)
             return Ago(locale, (int)(diff / 3_600_000), Unit.Hour);
+        // A day ago is "yesterday", as Intl.RelativeTimeFormat says it with numeric "auto".
+        if (diff < 2 * 86_400_000L)
+            return I18n.Strings.T(locale, "yesterday").ToLower(Culture(locale));
         if (diff < 7 * 86_400_000L)
             return Ago(locale, (int)(diff / 86_400_000), Unit.Day);
         return DateTimeOffset.FromUnixTimeMilliseconds(ts).ToLocalTime()

@@ -277,6 +277,18 @@ public class ChatPaneTests {
         }
     }
 
+    private sealed class SoundsFake : ICallSounds {
+        public readonly List<string> Log = [];
+
+        public void Ring(bool incoming) => Log.Add(incoming ? "ring" : "ringback");
+
+        public void Stop() => Log.Add("stop");
+
+        public void Ended() => Log.Add("ended");
+    }
+
+    private static readonly SoundsFake CallSound = new();
+    private static readonly Notes CallNotes = new();
     private static readonly CallsFake CallLine = new();
     private static readonly PlatformFake CallMedia = new();
 
@@ -608,7 +620,8 @@ public class ChatPaneTests {
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            new Media(), new Profiles(), Sessions, null, Keys, null, Verify, CallLine, CallMedia);
+            new Media(), new Profiles(), Sessions, null, Keys, CallNotes, Verify, CallLine,
+            CallMedia, CallSound);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -1598,6 +1611,7 @@ public class ChatPaneTests {
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         CallLine.Sent.Clear();
+        CallSound.Log.Clear();
         controller.SelectRoom("!g");
         await Task.Delay(50);
         // Only a one-to-one chat can be called.
@@ -1610,6 +1624,7 @@ public class ChatPaneTests {
         Assert.True(screen.Call.IsVisible);
         Assert.Equal("Alice", screen.Call.PeerName);
         Assert.Equal("Calling…", screen.Call.Status);
+        Assert.Equal("ringback", CallSound.Log.Last());
         Assert.Contains("call.hangup", screen.Call.Buttons.Keys);
         var invite = CallLine.Sent.Single(x => x.Type == "m.call.invite");
         Save(window, "call-calling");
@@ -1648,6 +1663,9 @@ public class ChatPaneTests {
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         CallLine.Sent.Clear();
+        controller.SetPreferences(p => p with {
+            Notifications = true
+        });
         CallLine.Deliver("m.call.invite", "@alice:s", new System.Text.Json.Nodes.JsonObject {
             ["call_id"] = "in-1",
             ["party_id"] = "alice-1",
@@ -1664,12 +1682,16 @@ public class ChatPaneTests {
         Assert.Contains("call.accept", screen.Call.Buttons.Keys);
         Assert.Contains("call.decline", screen.Call.Buttons.Keys);
         Save(window, "call-incoming");
+        Assert.Equal("ring", CallSound.Log.Last());
+        Assert.Contains(CallNotes.Sent, n => n.Body == "Incoming voice call");
         await controller.AnswerCall();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected, controller.Store.Value.Call!.Phase);
         Assert.Contains(CallLine.Sent, x => x.Type == "m.call.answer");
+        Assert.Contains("stop", CallSound.Log);
         await controller.HangupCall();
+        Assert.Equal("ended", CallSound.Log.Last());
         await Task.Delay(2200);
         Dispatcher.UIThread.RunJobs();
         Assert.Null(controller.Store.Value.Call);
