@@ -1,6 +1,6 @@
 name: publish
 
-# Releases the Android APKs (all ABIs, signed with the release key), the web app and the Windows installers (x86_64 and ARM64). The tag is passed in by hand: v1.2.3 or 1.2.3, the same.
+# Releases the Android APKs (all ABIs, signed with the release key), the web app, and the desktop app (Tauri) for Linux (x86_64 and aarch64) and for Windows (x86_64 and ARM64). The tag is passed in by hand: v1.2.3 or 1.2.3, the same.
 # The text of the release is the section `## [1.2.3]` of CHANGELOG.md, which has to be in the commit this runs on (see scripts/release-notes.sh).
 on:
   workflow_dispatch:
@@ -90,6 +90,33 @@ jobs:
           retention-days: 1
           compression-level: 0
 
+  linux:
+    needs: check
+    # The window links against the machine's own WebKitGTK, so each architecture is built on a machine of its own kind (not cross-built).
+    runs-on: ${{ matrix.runner }}
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build the .deb, the .rpm and the AppImage
+        run: scripts/build-tauri-linux-${{ matrix.arch }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+      - name: Hand the packages to the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: tauri-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/release/tauri-linux/*
+          retention-days: 1
+          compression-level: 0
+
   windows:
     needs: check
     runs-on: windows-latest
@@ -156,7 +183,7 @@ jobs:
           compression-level: 0
 
   release:
-    needs: [check, sign-android, web, windows]
+    needs: [check, sign-android, web, linux, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -172,7 +199,7 @@ jobs:
       - name: Download everything to publish
         uses: actions/download-artifact@v8
         with:
-          pattern: "{apk-signed,web,windows-*}"
+          pattern: "{apk-signed,web,tauri-linux-*,windows-*}"
           path: ${{ runner.temp }}/out
           merge-multiple: true
       - name: Checksums
