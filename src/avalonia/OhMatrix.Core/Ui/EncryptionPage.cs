@@ -12,7 +12,7 @@ namespace OhMatrix.Core.Ui;
 
 /// <summary>
 /// The encryption of the account (<c>EncryptionPage</c>), as far as it is ported: its state, and for a device that cannot read the history yet the
-/// ways to unlock it: the recovery key, or the verification with another session. Exporting the keys is not ported.
+/// ways to unlock it: the recovery key, or the verification with another session. Exporting the keys is not offered: the Matrix SDK has no export.
 /// </summary>
 public sealed class EncryptionPage : Grid {
     private readonly AppController controller;
@@ -56,6 +56,43 @@ public sealed class EncryptionPage : Grid {
 
     /// <summary>The row that asks for the recovery key; null when the state has no such step.</summary>
     public Border? RecoveryRow { get; private set; }
+
+    /// <summary>The row that makes new keys; null unless the account has working ones.</summary>
+    public Border? ResetRow { get; private set; }
+
+    /// <summary>The warning before new keys are made.</summary>
+    public Dialog ResetDialog { get; } = new();
+
+    /// <summary>Warns that new keys make the old recovery key useless, and goes on to the password.</summary>
+    public void AskReset()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var c = ThemeScope.GetColors(this);
+        var go = new TextButton {
+            Title = T("keys.reset.confirm"),
+            Danger = true
+        };
+        var cancel = new TextButton {
+            Title = T("cancel")
+        };
+        ThemeScope.SetColors(go, c);
+        ThemeScope.SetColors(cancel, c);
+        go.Click += (_, _) => {
+            ResetDialog.Close();
+            AskSetup();
+        };
+        cancel.Click += (_, _) => ResetDialog.Close();
+        var warning = new TextBlock {
+            Text = T("keys.reset.warning"),
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Danger),
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+        };
+        ResetDialog.Show(window, c, T("keys.reset"), T("keys.reset.body"), warning, go, cancel);
+    }
 
     /// <summary>The row that asks my other sessions to verify this one; null when the state has no such step.</summary>
     public Border? VerifyRow { get; private set; }
@@ -181,9 +218,16 @@ public sealed class EncryptionPage : Grid {
         RecoveryRow = null;
         VerifyRow = null;
         SetupRow = null;
+        ResetRow = null;
         if (s.Security == SecurityState.NeedsSetup) {
             SetupRow = ProfilePage.NavRow(c, "key", T("sec.setup.title"), AskSetup, 12);
             content.Children.Add(SetupRow);
+        }
+
+        if (s.Security == SecurityState.Ready) {
+            ResetRow = ProfilePage.NavRow(c, "refresh", T("keys.reset"), AskReset, 12, null, false,
+                true);
+            content.Children.Add(ResetRow);
         }
 
         if (s.Security == SecurityState.NeedsRecovery) {

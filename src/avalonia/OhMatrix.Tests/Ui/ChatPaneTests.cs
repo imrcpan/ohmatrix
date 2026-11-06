@@ -1498,6 +1498,23 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task Resetting_the_keys_warns_first_then_asks_the_password()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        Keys.Current = SecurityState.Ready;
+        await controller.RefreshSecurity();
+        controller.OpenSidebarPage(SidebarPage.Encryption);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.EncryptionScreen;
+        Assert.NotNull(page.ResetRow);
+        page.AskReset();
+        Assert.True(page.ResetDialog.IsOpen);
+        Save(window, "reset-keys");
+        page.ResetDialog.Close();
+        Keys.Current = SecurityState.NeedsRecovery;
+    }
+
+    [AvaloniaFact]
     public async Task A_device_is_verified_by_comparing_pictures_with_another_session()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
