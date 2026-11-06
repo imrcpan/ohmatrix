@@ -11,9 +11,10 @@ test("a language with texts has every text of English, none empty, and the same 
   for (const id of have) {
     for (const k of KEYS) {
       const text = t(id, k);
-      if (!text.trim()) problems.push(`${id}: ${k} is empty`);
-      if (JSON.stringify(values(text)) !== JSON.stringify(values(en[k])))
-        problems.push(`${id}: ${k} has ${JSON.stringify(values(text))}, English ${JSON.stringify(values(en[k]))}`);
+      if (!text.trim()) problems.push(`${id}: ${String(k)} is empty`);
+      const enText = en[k as MessageKey];
+      if (JSON.stringify(values(text)) !== JSON.stringify(values(enText)))
+        problems.push(`${id}: ${String(k)} has ${JSON.stringify(values(text))}, English ${JSON.stringify(values(enText))}`);
     }
   }
   expect(problems).toEqual([]);
