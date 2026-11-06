@@ -411,7 +411,8 @@ public sealed class ChatPane : Grid {
                 item.Read,
                 T("read"),
                 OpenFile,
-                controller.LinkPreview
+                controller.LinkPreview,
+                controller.DownloadFile
             );
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
