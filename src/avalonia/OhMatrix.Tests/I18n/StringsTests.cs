@@ -108,4 +108,51 @@ public class StringsTests {
     {
         Assert.Throws<FormatException>(() => TomlLite.Parse(text));
     }
+
+    [Fact]
+    public void The_short_forms_give_what_the_general_form_gives()
+    {
+        Assert.Equal("Ann and Bob are typing...",
+            Strings.T("en", "typing.two", ("a", "Ann"), ("b", "Bob")));
+        Assert.Equal(
+            Strings.T("en", "typing.two", ("a", (object)"Ann"),
+                ("b", (object)"Bob")),
+            Strings.T("en", "typing.two", ("a", "Ann"), ("b", "Bob")));
+        Assert.Equal("7 messages selected",
+            Strings.T("en", "selected.count", ("n", 7)));
+        Assert.Equal(
+            Strings.T("en", "selected.count", ("n", (object)7)),
+            Strings.T("en", "selected.count", ("n", 7)));
+        Assert.Equal("Uploading stickers 2/9…",
+            Strings.T("en", "sticker.uploading.n", ("n", 9), ("i", 2)));
+        // A number is written the same in every language of the list.
+        Assert.Equal(
+            Strings.T("de", "sticker.uploading.n", ("n", (object)1234567),
+                ("i", (object)2)),
+            Strings.T("de", "sticker.uploading.n", ("n", 1234567), ("i", 2)));
+    }
+
+    [Fact]
+    public void An_unknown_language_reads_english_and_an_unknown_key_itself()
+    {
+        Assert.Equal(Strings.T("en", "cancel"), Strings.T("xx", "cancel"));
+        Assert.Equal("no.such.key", Strings.T("en", "no.such.key"));
+        Assert.Equal("no.such.key",
+            Strings.T("zh-CN", "no.such.key", ("n", 1)));
+    }
+
+    [Fact]
+    public void Languages_asked_for_from_many_threads_at_once_read_right()
+    {
+        var ids = Strings.Languages.Select(l => l.Id).ToArray();
+        var expected = ids.ToDictionary(id => id,
+            id => Strings.T(id, "cancel"));
+        var wrong = 0;
+        Parallel.For(0, 4000, n => {
+            var id = ids[n % ids.Length];
+            if (Strings.T(id, "cancel") != expected[id])
+                Interlocked.Increment(ref wrong);
+        });
+        Assert.Equal(0, wrong);
+    }
 }
