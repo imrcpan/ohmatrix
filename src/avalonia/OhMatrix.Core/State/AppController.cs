@@ -530,6 +530,9 @@ public sealed class AppController(
         }
     }
 
+    /// <summary>Whether sessions can be verified.</summary>
+    public bool CanVerify => verification is not null;
+
     /// <summary>Whether a person can be asked to verify.</summary>
     public bool CanVerifyUser => verification is not null;
 

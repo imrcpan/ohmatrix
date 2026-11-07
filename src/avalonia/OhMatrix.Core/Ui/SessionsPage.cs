@@ -133,6 +133,19 @@ public sealed class SessionsPage : Grid {
         if (current is not null) {
             Caption(c, T("sessions.thisDevice"));
             content.Children.Add(Card(c, current, null));
+            // Whether this session is verified by the keys of the account;
+            // when it is not, it can be verified from another session.
+            var security = controller.Store.Value.Security;
+            if (controller.CanVerify && security == SecurityState.Ready)
+                content.Children.Add(ProfilePage.NavRow(c, "lock",
+                    T("verify.state.yes"), () => {
+                    }, 8, chevron: false));
+            else if (controller.CanVerify &&
+                     security == SecurityState.NeedsRecovery)
+                content.Children.Add(ProfilePage.NavRow(c, "lock",
+                    T("verify.session"),
+                    () => _ = controller.RequestVerification(), 8,
+                    T("verify.state.no")));
         }
 
         Caption(c, T("sessions.others"));

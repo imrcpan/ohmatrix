@@ -1663,6 +1663,22 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_message_that_is_not_there_is_said_not_to_be_found()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        await pane.Reveal("$nothing");
+        Assert.Equal("That message could not be found",
+            controller.Store.Value.Notice?.Message);
+        var known = controller.Store.Value.Timeline
+            .First(i => i.EventId is not null);
+        await pane.Reveal(known.EventId!);
+        Assert.Null(controller.Store.Value.Notice);
+    }
+
+    [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
         var (window, controller, _, screen) = await Open("light", 1000);

@@ -13,6 +13,9 @@ namespace OhMatrix.Core.Ui;
 /// colour on the right, the others on the left; the time and the state of a sent message sit inside at the bottom right, on the last line of the text.
 /// </summary>
 public sealed class Bubble : Border {
+    /// <summary>The quote of the message this one answers, when it has one; pressing it goes to that message.</summary>
+    public Control? Quote { get; private set; }
+
     public Bubble(
         ColorTokens colors,
         string text,
@@ -222,6 +225,8 @@ public sealed class Bubble : Border {
             Grid.SetColumn(lines, 1);
             quote.Children.Add(bar);
             quote.Children.Add(lines);
+            quote.Background = Brushes.Transparent;
+            Quote = quote;
             stack.Children.Add(quote);
         }
 
