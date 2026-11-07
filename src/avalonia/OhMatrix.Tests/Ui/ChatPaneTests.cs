@@ -1348,6 +1348,30 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_settings_rows_change_the_room_through_menus_and_prompts()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Contains("Who can join", texts);
+        Assert.Contains("Permissions", texts);
+        Assert.Contains("Who can send messages", texts);
+        Assert.Contains("Add address", texts);
+        await controller.SetJoinRule("!g", JoinRule.Public);
+        await controller.AddRoomAlias("!g", "#new:s");
+        Assert.Contains("joinRule !g Public", engine.Actions);
+        Assert.Contains("addAlias !g #new:s", engine.Actions);
+        panel.AskAddAlias(controller.Store.Value.Rooms.First(r => r.Id == "!g"));
+        Assert.Single(panel.MemberPrompt.Fields);
+        Save(window, "settings");
+    }
+
+    [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
         var (window, controller, _, screen) = await Open("light", 1000);

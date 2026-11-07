@@ -526,7 +526,7 @@ public sealed class RoomInfoPanel : Grid {
             content.Children.Add(InviteButton);
         }
 
-        if (!room.IsDirect && details.Can.ChangeSettings) {
+        if (!room.IsDirect) {
             content.Children.Add(Section(c, T("access.title")));
             AddAccessSettings(c, room, details);
         }
@@ -551,45 +551,261 @@ public sealed class RoomInfoPanel : Grid {
 
     private void AddAccessSettings(ColorTokens c, RoomSummary room, RoomDetails details)
     {
-        var joinLabel = details.JoinRule switch {
-            JoinRule.Public => "join.public",
-            JoinRule.Invite => "join.invite",
-            JoinRule.Knock => "join.knock",
-            JoinRule.Restricted => "join.restricted",
-            _ => "join.other",
-        };
-        content.Children.Add(SettingRow(c, T("join.title"), T(joinLabel), "lock", () => {
-            if (!details.Can.ChangeSettings)
+        var can = details.Can.ChangeSettings;
+        var joinLabel = JoinKey(details.JoinRule);
+        Border? joinRow = null;
+        joinRow = SettingRow(c, T("join.title"), T(joinLabel), "lock", can ? () => {
+            if (TopLevel.GetTopLevel(this) is not { } window)
                 return;
-            ShowJoinRuleMenu(room.Id);
-        }));
+            MemberMenu.Show(joinRow!, window, [
+                .. new[] { JoinRule.Public, JoinRule.Invite }.Select(r =>
+                    new MenuItem(T(JoinKey(r)), () => _ = Run(controller.SetJoinRule(room.Id, r)),
+                        Checked: details.JoinRule == r))
+            ]);
+        }
+        : null);
+        content.Children.Add(joinRow);
 
-        var historyLabel = details.HistoryVisibility switch {
-            HistoryVisibility.Shared => "history.shared",
-            HistoryVisibility.Invited => "history.invited",
-            HistoryVisibility.Joined => "history.joined",
-            HistoryVisibility.WorldReadable => "history.world_readable",
-            _ => "history.shared",
-        };
-        content.Children.Add(SettingRow(c, T("history.title"), T(historyLabel), "clock", () => {
-            if (!details.Can.ChangeSettings)
-                return;
-            ShowHistoryMenu(room.Id);
-        }));
+        Border? historyRow = null;
+        historyRow = SettingRow(c, T("history.title"), T(HistoryKey(details.HistoryVisibility)),
+            "clock", can ? () => {
+                if (TopLevel.GetTopLevel(this) is not { } window)
+                    return;
+                MemberMenu.Show(historyRow!, window, [
+                    .. Enum.GetValues<HistoryVisibility>().Select(v =>
+                        new MenuItem(T(HistoryKey(v)),
+                            () => _ = Run(controller.SetHistoryVisibility(room.Id, v)),
+                            Checked: details.HistoryVisibility == v))
+                ]);
+            }
+        : null);
+        content.Children.Add(historyRow);
+        content.Children.Add(Hint(c, T(details.JoinRule == JoinRule.Public
+            ? "join.public.hint" : "join.invite.hint")));
+
+        if (details.Aliases.Count > 0 || can) {
+            content.Children.Add(Section(c, T("addresses.title")));
+            for (var i = 0; i < details.Aliases.Count; i++) {
+                var alias = details.Aliases[i];
+                Border? row = null;
+                row = SettingRow(c, alias, i == 0 ? T("address.main") : "", "hash", can ? () => {
+                    if (TopLevel.GetTopLevel(this) is not { } window)
+                        return;
+                    var items = new List<MenuItem>();
+                    if (i0(details, alias) != 0)
+                        items.Add(new MenuItem(T("address.makeMain"), () => AskMainAlias(room, details, alias),
+                            Icon: "hash"));
+                    items.Add(new MenuItem(Foreign(alias, details) ? T("address.unlist") : T("address.remove"),
+                        () => AskRemoveAlias(room, details, alias, false), Icon: "close", Danger: true));
+                    MemberMenu.Show(row!, window, items);
+                }
+                : null);
+                content.Children.Add(row);
+            }
+
+            if (can)
+                content.Children.Add(SettingRow(c, T("address.add"), "", "plus",
+                    () => AskAddAlias(room)));
+            content.Children.Add(Hint(c, T("addresses.footer")));
+        }
+
+        content.Children.Add(Section(c, T("perm.title")));
+        var myRole = details.Members.FirstOrDefault(m => m.UserId == controller.Store.Value.UserId)
+            ?.Role ?? MemberRole.Member;
+        var myPower = myRole == MemberRole.Admin ? 100 : myRole == MemberRole.Moderator ? 50 : 0;
+        var levels = details.Levels;
+        (string Key, Func<PowerThresholds, int> Get, Func<PowerThresholds, int, PowerThresholds> Set)[] rows = [
+            ("perm.sendMessages", l => l.SendMessages, (l, n) => l with { SendMessages = n }),
+            ("perm.invite", l => l.Invite, (l, n) => l with { Invite = n }),
+            ("perm.kick", l => l.Kick, (l, n) => l with { Kick = n }),
+            ("perm.ban", l => l.Ban, (l, n) => l with { Ban = n }),
+            ("perm.redact", l => l.Redact, (l, n) => l with { Redact = n }),
+            ("perm.changeSettings", l => l.ChangeSettings, (l, n) => l with { ChangeSettings = n }),
+            ("perm.changeLevels", l => l.ChangeLevels, (l, n) => l with { ChangeLevels = n }),
+        ];
+        foreach (var (key, get, set) in rows) {
+            if (room.IsSpace && key is "perm.sendMessages" or "perm.redact")
+                continue;
+            var current = get(levels);
+            var editable = details.Can.ChangeRoles && current <= myPower;
+            Border? row = null;
+            row = SettingRow(c, T(key), LevelLabel(current), "info", editable ? () => {
+                if (TopLevel.GetTopLevel(this) is not { } window)
+                    return;
+                var presets = new[] { 0, 50, 100 }.Where(n => n <= myPower).ToList();
+                var items = presets.Select(n => new MenuItem(LevelLabel(n),
+                    () => _ = Run(controller.SetPowerThresholds(room.Id, set(levels, n))),
+                    Checked: current == n)).ToList();
+                items.Add(new MenuItem(T("level.customAction"),
+                    () => AskLevel(room, current, myPower, n => set(levels, n)),
+                    Checked: !presets.Contains(current)));
+                MemberMenu.Show(row!, window, items);
+            }
+            : null);
+            content.Children.Add(row);
+        }
+
+        content.Children.Add(Hint(c, T("perm.footer")));
     }
 
-    private void ShowJoinRuleMenu(string roomId)
+    private static int i0(RoomDetails d, string alias) => d.Aliases.ToList().IndexOf(alias);
+
+    private bool Foreign(string alias, RoomDetails d)
     {
-        // TODO: implement menu
+        return ServerOf(alias) != ServerOf(controller.Store.Value.UserId ?? "");
     }
 
-    private void ShowHistoryMenu(string roomId)
+    private static string ServerOf(string id)
     {
-        // TODO: implement menu
+        var at = id.IndexOf(':');
+        return at >= 0 ? id[(at + 1)..] : "";
+    }
+
+    private static string JoinKey(JoinRule r) => r switch {
+        JoinRule.Public => "join.public",
+        JoinRule.Invite => "join.invite",
+        JoinRule.Knock => "join.knock",
+        JoinRule.Restricted => "join.restricted",
+        _ => "join.other",
+    };
+
+    private static string HistoryKey(HistoryVisibility v) => v switch {
+        HistoryVisibility.Shared => "history.shared",
+        HistoryVisibility.Invited => "history.invited",
+        HistoryVisibility.Joined => "history.joined",
+        _ => "history.world_readable",
+    };
+
+    /// <summary>"Admin · 100", "Moderator · 50", "Member · 0" or "Level 25".</summary>
+    private string LevelLabel(int level)
+    {
+        return level >= 100 ? $"{T("role.admin")} · {level}"
+            : level == 50 ? $"{T("role.moderator")} · 50"
+            : level == 0 ? $"{T("role.member")} · 0"
+            : T("level.custom", ("n", level));
+    }
+
+    private TextBlock Hint(ColorTokens c, string text)
+    {
+        return new TextBlock {
+            Text = text,
+            FontSize = 13,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(20, 6, 20, 4),
+        };
+    }
+
+    /// <summary>Runs a change of the room's settings; why it failed is shown as a notice.</summary>
+    private async Task Run(Task change)
+    {
+        try {
+            await change;
+        } catch (EngineException e) {
+            controller.ShowNotice(e.Code == EngineErrorCode.Forbidden ? T("notAllowed") : e.Message,
+                NoticeKind.Error);
+        }
+    }
+
+    /// <summary>Asks for the name of a new address, and checks that it is free before it is added.</summary>
+    public void AskAddAlias(RoomSummary room)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var server = ServerOf(controller.Store.Value.UserId ?? "");
+        MemberPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("address.add"), T("address.add.body"),
+            [new PromptField(T("address.localpart"), "hash")], T("address.add.confirm"),
+            async v => {
+                var name = v[0].Trim().TrimStart('#');
+                if (name.Length == 0 || !System.Text.RegularExpressions.Regex.IsMatch(name, "^[a-zA-Z0-9._=/+-]+$"))
+                    throw new InvalidOperationException(T("address.invalid"));
+                var alias = $"#{name}:{server}";
+                bool free;
+                try {
+                    free = await controller.IsAliasAvailable(alias);
+                } catch (Exception) {
+                    throw new InvalidOperationException(T("address.check.failed"));
+                }
+
+                if (!free)
+                    throw new InvalidOperationException(T("address.taken"));
+                try {
+                    await controller.AddRoomAlias(room.Id, alias);
+                } catch (EngineException e) {
+                    throw new InvalidOperationException(
+                        e.Code == EngineErrorCode.Forbidden ? T("notAllowed") : T("address.invalid"));
+                }
+            });
+    }
+
+    private void AskMainAlias(RoomSummary room, RoomDetails d, string alias)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var body = T("address.main.body");
+        if (d.Aliases.Count > 0 && d.Aliases[0] != alias)
+            body += " " + T("address.main.old", ("alias", d.Aliases[0]));
+        MemberPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("address.main.title"), body + "\n\n" + alias, [], T("address.main.yes"),
+            _ => controller.SetMainAlias(room.Id, alias));
+    }
+
+    /// <summary>Removing an address asks twice: first plainly, then with the warning that it cannot be undone.</summary>
+    public void AskRemoveAlias(RoomSummary room, RoomDetails d, string alias, bool sure)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var foreign = Foreign(alias, d);
+        var server = ServerOf(alias);
+        var colors = ThemeScope.GetColors(this);
+        var locale = controller.Store.Value.Locale;
+        if (!sure) {
+            MemberPrompt.Show(window, colors, locale,
+                foreign ? T("address.unlist.title") : T("address.remove.title"),
+                (foreign ? T("address.unlist.body", ("server", server)) : T("address.remove.body"))
+                + "\n\n" + alias, [], foreign ? T("address.unlist") : T("address.remove"),
+                _ => {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(
+                        () => AskRemoveAlias(room, d, alias, true));
+                    return Task.CompletedTask;
+                });
+            return;
+        }
+
+        var warn = foreign ? T("address.unlist.warn", ("server", server)) : T("address.remove.warn");
+        if (d.Aliases.Count > 0 && d.Aliases[0] == alias)
+            warn += " " + T("address.remove.main", ("next", d.Aliases.Count > 1
+                ? T("address.remove.next", ("alias", d.Aliases[1])) : T("address.remove.none")));
+        MemberPrompt.Show(window, colors, locale,
+            foreign ? T("address.unlist.title2") : T("address.remove.title2"),
+            warn + "\n\n" + alias, [],
+            foreign ? T("address.unlist.yes") : T("address.remove.yes"),
+            async _ => {
+                await controller.RemoveRoomAlias(room.Id, alias);
+                if (!foreign && controller.Store.Value.Details?.Aliases.Contains(alias) == true)
+                    controller.ShowNotice(T("address.remove.kept", ("alias", alias)), NoticeKind.Error);
+            });
+    }
+
+    /// <summary>Asks for a power level of one's own choosing, from 0 to the highest I hold.</summary>
+    private void AskLevel(RoomSummary room, int current, int max, Func<int, PowerThresholds> make)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        MemberPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+            T("level.customAction"), T("level.custom.body", ("max", max)),
+            [new PromptField(T("level.field"), "info")], T("save"), v => {
+                if (!int.TryParse(v[0].Trim(), out var n) || n < 0 || n > max)
+                    throw new InvalidOperationException(T("level.invalid", ("max", max)));
+                return controller.SetPowerThresholds(room.Id, make(n));
+            });
+        MemberPrompt.Fields[0].Text = current.ToString();
     }
 
     private Border SettingRow(ColorTokens c, string label, string value, string icon,
-        Action onPress)
+        Action? onPress)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -634,7 +850,7 @@ public sealed class RoomInfoPanel : Grid {
         };
         row.PointerPressed += (_, e) => {
             e.Handled = true;
-            onPress();
+            onPress?.Invoke();
         };
         return row;
     }

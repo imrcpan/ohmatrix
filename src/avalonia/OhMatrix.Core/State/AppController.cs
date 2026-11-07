@@ -242,6 +242,46 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
+    /// <summary>Changes who can join a room, and shows it in the info panel.</summary>
+    public async Task SetJoinRule(string roomId, JoinRule rule)
+    {
+        await rooms!.SetJoinRule(roomId, rule);
+        await LoadDetails(roomId);
+    }
+
+    public async Task SetHistoryVisibility(string roomId, HistoryVisibility visibility)
+    {
+        await rooms!.SetHistoryVisibility(roomId, visibility);
+        await LoadDetails(roomId);
+    }
+
+    /// <summary>Whether the address (<c>#name:server</c>) is free to take.</summary>
+    public Task<bool> IsAliasAvailable(string alias) => rooms!.IsAliasAvailable(alias);
+
+    public async Task AddRoomAlias(string roomId, string alias)
+    {
+        await rooms!.AddRoomAlias(roomId, alias);
+        await LoadDetails(roomId);
+    }
+
+    public async Task RemoveRoomAlias(string roomId, string alias)
+    {
+        await rooms!.RemoveRoomAlias(roomId, alias);
+        await LoadDetails(roomId);
+    }
+
+    public async Task SetMainAlias(string roomId, string alias)
+    {
+        await rooms!.SetMainAlias(roomId, alias);
+        await LoadDetails(roomId);
+    }
+
+    public async Task SetPowerThresholds(string roomId, PowerThresholds thresholds)
+    {
+        await rooms!.SetPowerThresholds(roomId, thresholds);
+        await LoadDetails(roomId);
+    }
+
     /// <summary>Removes a person from a group.</summary>
     public async Task RemoveMember(string roomId, string userId)
     {
