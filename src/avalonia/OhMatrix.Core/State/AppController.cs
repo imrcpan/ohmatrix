@@ -497,6 +497,12 @@ public sealed class AppController(
     }
 
     /// <summary>Leaves a chat and closes it.</summary>
+    /// <summary>Blocks a person.</summary>
+    public Task BlockUser(string userId)
+    {
+        return rooms!.BlockUser(userId);
+    }
+
     public async Task LeaveRoom(string roomId)
     {
         await rooms!.LeaveRoom(roomId);

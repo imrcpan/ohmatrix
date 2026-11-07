@@ -239,6 +239,15 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.Leave());
     }
 
+    public async Task BlockUser(string userId)
+    {
+        try {
+            await Signed().IgnoreUser(userId);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
     public async Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
     {
         try {

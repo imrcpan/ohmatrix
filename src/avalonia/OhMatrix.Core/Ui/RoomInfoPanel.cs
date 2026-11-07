@@ -1,3 +1,4 @@
+using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -50,6 +51,156 @@ public sealed class RoomInfoPanel : Grid {
 
     /// <summary>The pictures shown under Shared media (those of the messages loaded), newest first.</summary>
     public IReadOnlyList<Image> MediaThumbnails => mediaThumbs;
+
+    private RoomMemberInfo? viewing;
+    private string? viewingRoom;
+
+    /// <summary>The person whose page is open, or null.</summary>
+    public RoomMemberInfo? Viewing => viewing;
+
+    public Dialog MemberDialog { get; } = new();
+
+    /// <summary>Opens the page of a person of the room.</summary>
+    public void ViewMember(RoomMemberInfo m)
+    {
+        viewing = m;
+        viewingRoom = controller.Store.Value.SelectedRoomId;
+        Apply();
+    }
+
+    /// <summary>Goes back from the page of a person to the info of the chat.</summary>
+    public void LeaveMember()
+    {
+        viewing = null;
+        Apply();
+    }
+
+    private void Copy(string text)
+    {
+        _ = CopyAsync(text);
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        try {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+                throw new InvalidOperationException();
+            await clipboard.SetTextAsync(text);
+            controller.ShowNotice(T("copied"));
+        } catch (Exception) {
+            controller.ShowNotice(T("copyFailed"), NoticeKind.Error);
+        }
+    }
+
+    /// <summary>The page of one person: who they are, and what can be done with them (copy their link, write to them, block).</summary>
+    private void BuildMember(ColorTokens c, RoomMemberInfo m)
+    {
+        PageBar.Fill(bar, c, T("member.info"), T("chatInfo"), LeaveMember);
+        var me = m.UserId == controller.Store.Value.UserId;
+        var head = new StackPanel {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(20, 12, 20, 8),
+            Spacing = 2,
+        };
+        var avatar = new Avatar(m.UserId, m.Name, 72) {
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        controller.Pictures.Attach(avatar, m.AvatarUrl, 72);
+        head.Children.Add(avatar);
+        head.Children.Add(new TextBlock {
+            Text = m.Name,
+            FontSize = 22,
+            FontWeight = FontWeight.Bold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Text),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 8, 0, 0),
+        });
+        head.Children.Add(new SelectableTextBlock {
+            Text = m.UserId,
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        content.Children.Add(head);
+        content.Children.Add(ProfilePage.NavRow(c, "copy", T("member.copyLink"),
+            () => Copy($"https://matrix.to/#/{m.UserId}"), 12, chevron: false));
+        content.Children.Add(ProfilePage.NavRow(c, "copy", T("member.copyAddress"),
+            () => Copy(m.UserId), 8, chevron: false));
+        if (!me) {
+            content.Children.Add(ProfilePage.NavRow(c, "chat", T("member.message"),
+                () => AskMessage(m), 8, chevron: false));
+            content.Children.Add(ProfilePage.NavRow(c, "close", T("member.block"),
+                () => AskBlock(m), 8, chevron: false, danger: true));
+        }
+    }
+
+    private void AskMessage(RoomMemberInfo m)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var c = ThemeScope.GetColors(this);
+        var start = new PrimaryButton {
+            Title = T("member.message.start")
+        };
+        var cancel = new TextButton {
+            Title = T("cancel")
+        };
+        ThemeScope.SetColors(start, c);
+        ThemeScope.SetColors(cancel, c);
+        cancel.Click += (_, _) => MemberDialog.Close();
+        start.Click += async (_, _) => {
+            start.Loading = true;
+            try {
+                // The chat that opens replaces this panel (choosing a room closes the chat info).
+                await controller.StartDirectChat(m.UserId);
+                MemberDialog.Close();
+                viewing = null;
+            } catch (Exception e) {
+                MemberDialog.Close();
+                controller.ShowNotice(e.Message, NoticeKind.Error);
+            }
+        };
+        MemberDialog.Show(window, c, T("member.message.title", ("name", m.Name)),
+            T("member.message.body"), start, cancel);
+    }
+
+    public void AskBlockForTest(RoomMemberInfo m)
+    {
+        AskBlock(m);
+    }
+
+    private void AskBlock(RoomMemberInfo m)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var c = ThemeScope.GetColors(this);
+        var block = new PrimaryButton {
+            Title = T("member.block")
+        };
+        var cancel = new TextButton {
+            Title = T("cancel")
+        };
+        ThemeScope.SetColors(block, c);
+        ThemeScope.SetColors(cancel, c);
+        cancel.Click += (_, _) => MemberDialog.Close();
+        block.Click += async (_, _) => {
+            block.Loading = true;
+            try {
+                await controller.BlockUser(m.UserId);
+                MemberDialog.Close();
+                controller.ShowNotice(T("member.blocked"));
+            } catch (Exception e) {
+                MemberDialog.Close();
+                controller.ShowNotice(e.Message, NoticeKind.Error);
+            }
+        };
+        MemberDialog.Show(window, c, T("member.block.title", ("name", m.Name)),
+            T("member.block.body"), block, cancel);
+    }
 
     private readonly List<Image> mediaThumbs = [];
     private const int MediaShown = 9;
@@ -104,7 +255,9 @@ public sealed class RoomInfoPanel : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        var items = new List<MenuItem>();
+        var items = new List<MenuItem> {
+            new(T("member.view"), () => ViewMember(m), Icon: "user"),
+        };
         foreach (var role in new[] {
                      MemberRole.Admin, MemberRole.Moderator, MemberRole.Member
                  }) {
@@ -239,6 +392,14 @@ public sealed class RoomInfoPanel : Grid {
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         if (room is null)
             return;
+        // Another chat has its own info.
+        if (viewingRoom != room.Id)
+            viewing = null;
+        if (viewing is { } person) {
+            BuildMember(c, person);
+            return;
+        }
+
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(16, 16, 16, 8),

@@ -51,6 +51,9 @@ public interface IRoomsEngine {
     /// <summary>Leaves the room; it goes from the chat list.</summary>
     Task LeaveRoom(string roomId);
 
+    /// <summary>Ignores a person: their messages and invitations no longer reach me.</summary>
+    Task BlockUser(string userId);
+
     /// <summary>People of the user directory whose name or id matches the text.</summary>
     Task<IReadOnlyList<PersonInfo>> SearchPeople(string term);
 
