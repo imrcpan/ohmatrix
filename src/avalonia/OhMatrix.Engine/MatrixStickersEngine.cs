@@ -55,6 +55,35 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
         }
     }
 
+    public async Task<string> AddExisting(Sticker picture, string? groupId)
+    {
+        await gate.WaitAsync();
+        try {
+            var client = Client;
+            var previous = await client.AccountData(StickerPack.PackEvent);
+            var stickers = StickerPack.Parse(previous).ToList();
+            var code = StickerPack.NewShortcode(picture.Shortcode,
+                stickers.Select(s => s.Shortcode).ToHashSet());
+            stickers.Add(picture with {
+                Shortcode = code
+            });
+            await client.SetAccountData(StickerPack.PackEvent, StickerPack.Write(previous, stickers));
+            if (groupId is not null) {
+                var stored =
+ StickerPack.ParseGroups(await client.AccountData(StickerPack.GroupsEvent));
+                var placed =
+ StickerPack.Place(StickerPack.WithDefault(stored, stickers), code, groupId);
+                await client.SetAccountData(StickerPack.GroupsEvent, StickerPack.WriteGroups(placed));
+            }
+
+            return code;
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        } finally {
+            gate.Release();
+        }
+    }
+
     public async Task Remove(IReadOnlyList<string> shortcodes)
     {
         await gate.WaitAsync();

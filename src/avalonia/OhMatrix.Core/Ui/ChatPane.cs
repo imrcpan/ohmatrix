@@ -1,3 +1,4 @@
+using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -38,9 +39,8 @@ public sealed class ChatPane : Grid {
 
     private readonly Border composer = new();
 
-    private readonly Menu actions = new() {
-        Width = 180
-    };
+    private readonly MessageMenu actions = new();
+    private readonly Dialog groupDialog = new();
 
     private readonly IconButton attach = new("attach", "Attach", 24, 38);
     private readonly IconButton emojiButton = new("sticker", "Emoji", 30, 38);
@@ -563,7 +563,7 @@ public sealed class ChatPane : Grid {
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
                     e.Handled = true;
-                    OpenActions(bubble, item);
+                    OpenActions(bubble, item, e.GetPosition(TopLevel.GetTopLevel(bubble)));
                 }
             };
             var column = new StackPanel {
@@ -593,36 +593,74 @@ public sealed class ChatPane : Grid {
             Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
     }
 
-    /// <summary>The menu of a message: answer it, or react to it.</summary>
-    public void OpenActions(Control anchor, TimelineItem item)
+    /// <summary>The menu of a message: a pill of quick reactions and the actions (<c>MessageMenu</c>); it opens at <paramref name="at"/> or under <paramref name="anchor"/>.</summary>
+    public void OpenActions(Control anchor, TimelineItem item, Point? at = null)
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        var items = new List<MenuItem> {
-            new(T("reply"), () => controller.SetReplyTo(item), Icon: "reply"),
-        };
+        var items = new List<MenuItem>();
+        if (item.Body.Length > 0 && item.Image is null && item.File is null)
+            items.Add(new MenuItem(T("copy"), () => _ = Copy(window, item.Body), Icon: "copy"));
+        items.Add(new MenuItem(T("reply"), () => controller.SetReplyTo(item), Icon: "reply"));
+        var isText = item.Image is null && item.File is null;
+        if (item.IsOwn && item.EventId is not null && !item.Failed && isText)
+            items.Add(new MenuItem(T("edit"), () => controller.StartEdit(item), Icon: "edit"));
         if (item.EventId is { } eventId) {
             var pinned = PinnedIds().Contains(eventId);
             items.Add(new MenuItem(T(pinned ? "unpin" : "pin"),
                 () => _ = controller.SetMessagePinned(item.Id, !pinned), Icon: "pin"));
         }
 
-        if (item.IsOwn && item.EventId is not null && !item.Failed) {
-            items.Add(new MenuItem(T("edit"), () => controller.StartEdit(item), Icon: "edit"));
+        if (item.Image is { } picture && controller.CanStickers
+                                      && picture.Source.StartsWith("mxc://",
+                                          StringComparison.Ordinal))
+            items.Add(new MenuItem(T("sticker.add"), () => AskStickerGroup(window, item),
+                Icon: "sticker"));
+        if (item.IsOwn && item.EventId is not null && !item.Failed)
             items.Add(new MenuItem(T("delete"), () => AskDelete(window, item), Icon: "trash",
                 Danger: true));
-        }
-
-        foreach (var emoji in QuickReactions) {
-            var mine = item.Reactions.Any(r => r.Key == emoji && r.Mine);
-            items.Add(new MenuItem(emoji, () => _ = controller.ToggleReaction(item.Id, emoji),
-                Checked: mine));
-        }
-
-        actions.Show(anchor, window, items);
+        var mine = item.Reactions.Where(r => r.Mine).Select(r => r.Key).ToList();
+        var point = at ?? (anchor.TranslatePoint(new Point(0, 0), window) ?? new Point());
+        actions.Show(window, ThemeScope.GetColors(this), point, QuickReactions, mine,
+            emoji => _ = controller.ToggleReaction(item.Id, emoji), items);
     }
 
-    public Menu Actions => actions;
+    private static async Task Copy(TopLevel window, string text)
+    {
+        if (window.Clipboard is { } clipboard)
+            await clipboard.SetTextAsync(text);
+    }
+
+    /// <summary>Asks to which group of my stickers the picture of a message goes, and puts it there.</summary>
+    private void AskStickerGroup(TopLevel window, TimelineItem item)
+    {
+        var colors = ThemeScope.GetColors(this);
+        stickerPane ??= new StickerPane(controller, emojiPicker.Close);
+        _ = Quietly(controller.LoadStickers);
+        var cancel = new TextButton {
+            Title = T("cancel")
+        };
+        cancel.Click += (_, _) => groupDialog.Close();
+        groupDialog.Show(window, colors, T("sticker.add.where"), null,
+            stickerPane.GroupChoice(id => {
+                groupDialog.Close();
+                _ = AddToStickers(item, id);
+            }), cancel);
+    }
+
+    private async Task AddToStickers(TimelineItem item, string groupId)
+    {
+        try {
+            await controller.AddStickerFrom(item, groupId);
+            controller.ShowNotice(T("sticker.added"));
+        } catch (Exception e) {
+            controller.ShowNotice(T("sticker.add.failed", ("reason", Failure.Reason(e, k => T(k)))),
+                NoticeKind.Error);
+        }
+    }
+
+    public MessageMenu Actions => actions;
+    public Dialog GroupDialog => groupDialog;
     public Border PinnedBar => pinnedBar;
 
     private IReadOnlyList<string> PinnedIds()
@@ -946,7 +984,7 @@ public sealed class ChatPane : Grid {
         deleteDialog.Show(window, c, T("delete.title"), T("delete.body"), yes, no);
     }
 
-    public static readonly string[] QuickReactions = ["👍", "❤️", "😂", "🎉", "😮", "😢"];
+    public static readonly string[] QuickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
     private Control Chips(ColorTokens c, TimelineItem item, bool accent)
     {

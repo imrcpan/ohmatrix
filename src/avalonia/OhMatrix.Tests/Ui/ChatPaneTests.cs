@@ -212,6 +212,17 @@ public class ChatPaneTests {
             return Task.FromResult(code);
         }
 
+        public Task<string> AddExisting(Sticker picture, string? groupId)
+        {
+            var code = StickerPack.NewShortcode(picture.Shortcode,
+                Pack.Select(p => p.Shortcode).ToHashSet());
+            Pack.Add(picture with {
+                Shortcode = code
+            });
+            Calls.Add("existing " + code + " " + groupId);
+            return Task.FromResult(code);
+        }
+
         public Task Remove(IReadOnlyList<string> shortcodes)
         {
             Pack.RemoveAll(p => shortcodes.Contains(p.Shortcode));
@@ -1119,7 +1130,8 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var target = controller.Store.Value.Timeline.First(i => i.Id == "2");
         pane.OpenActions(pane.Messages, target);
-        Assert.Equal(2 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Assert.Equal(3, pane.Actions.Rows.Count);
+        Assert.Equal(ChatPane.QuickReactions.Length, pane.Actions.Emojis.Count);
         Save(window, "actions");
         pane.Actions.Close();
         controller.SetReplyTo(target);
@@ -1160,9 +1172,10 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var tl = controller.Store.Value.Timeline;
         pane.OpenActions(pane.Messages, tl.First(i => i.Id == "2"));
-        Assert.Equal(2 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Assert.Equal(3, pane.Actions.Rows.Count);
+        Assert.Equal(ChatPane.QuickReactions.Length, pane.Actions.Emojis.Count);
         pane.OpenActions(pane.Messages, tl.First(i => i.Id == "3"));
-        Assert.Equal(4 + ChatPane.QuickReactions.Length, pane.Actions.Rows.Count);
+        Assert.Equal(5, pane.Actions.Rows.Count);
         Save(window, "own-actions");
     }
 
@@ -1195,8 +1208,8 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
         pane.OpenActions(pane.Messages, controller.Store.Value.Timeline.First(i => i.Id == "3"));
-        // The Delete row is the fourth of the menu: Reply, Pin, Edit, Delete.
-        var row = (Border)pane.Actions.Rows[3];
+        // The Delete row is the last of the menu: Copy, Reply, Edit, Pin, Delete.
+        var row = (Border)pane.Actions.Rows[4];
         row.RaiseEvent(Release(row));
         Assert.True(pane.DeleteDialog.IsOpen);
         Save(window, "delete-dialog");

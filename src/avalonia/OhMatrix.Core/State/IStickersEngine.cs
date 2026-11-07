@@ -22,6 +22,9 @@ public interface IStickersEngine {
     /// </summary>
     Task<string> Add(StickerUpload file, string? groupId);
 
+    /// <summary>Adds a picture that is already on the server (one of a message) to the pack, without downloading it; gives its name as <see cref="Add"/> does.</summary>
+    Task<string> AddExisting(Sticker picture, string? groupId);
+
     /// <summary>Takes these stickers out of the pack and of the groups, in one save. Those it does not have are ignored.</summary>
     Task Remove(IReadOnlyList<string> shortcodes);
 
