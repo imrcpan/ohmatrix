@@ -54,6 +54,16 @@ public sealed class AppRoot : Border {
 
     private void OnStore(AppState _) => Apply();
 
+    /// <summary>The main page with the page of a share over it, which shows only while something waits to be shared.</summary>
+    private Control WithShare(Control main)
+    {
+        var share = new SharePage(controller);
+        var layers = new Grid();
+        layers.Children.Add(main);
+        layers.Children.Add(share);
+        return layers;
+    }
+
     /// <summary>The page being shown (a sign-in page, a spinner...).</summary>
     public Control? Page => page;
 
@@ -82,6 +92,6 @@ public sealed class AppRoot : Border {
                     ? (OhMatrix.Core.I18n.Strings.T(s.Locale, "cancel"), accounts.CancelAdd)
                     : null),
         };
-        host.Child = page;
+        host.Child = page is MainScreen ? WithShare(page) : page;
     }
 }

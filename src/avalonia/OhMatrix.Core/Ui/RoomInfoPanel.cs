@@ -901,7 +901,7 @@ public sealed class RoomInfoPanel : Grid {
                     e.Handled = true;
                     if (TopLevel.GetTopLevel(this) is { } window)
                         Viewer.Show(window, controller.Pictures, shown.Source, shown.FileName,
-                            image.Source);
+                            image.Source, () => controller.SavePicture(window, shown.Source, shown.FileName));
                 };
                 grid.Children.Add(cell);
             }

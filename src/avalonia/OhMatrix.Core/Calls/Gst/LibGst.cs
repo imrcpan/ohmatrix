@@ -64,6 +64,18 @@ internal static unsafe partial class LibGst {
         }
     }
 
+    /// <summary>Whether the elements that record sound (and, with <paramref name="video"/>, the camera) are on the system.</summary>
+    public static bool CanRecord(bool video)
+    {
+        try {
+            gst_init(IntPtr.Zero, IntPtr.Zero);
+            return Has("autoaudiosrc") && Has("opusenc") && Has("oggmux")
+                   && (!video || Has("autovideosrc") && Has("vp8enc") && Has("webmmux"));
+        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) {
+            return false;
+        }
+    }
+
     private static bool Has(string element)
     {
         var factory = gst_element_factory_find(Utf8(element));
@@ -330,6 +342,19 @@ internal static unsafe partial class LibGst {
 
     [LibraryImport("gst")]
     public static partial int gst_element_sync_state_with_parent(IntPtr element);
+
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_event_new_eos();
+
+    [LibraryImport("gst")]
+    public static partial int gst_element_send_event(IntPtr element, IntPtr evt);
+
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_element_get_bus(IntPtr element);
+
+    /// <summary>Waits for a message of the kinds in <paramref name="types"/> (bit flags: 1 end of stream, 2 error); zero when none came in time.</summary>
+    [LibraryImport("gst")]
+    public static partial IntPtr gst_bus_timed_pop_filtered(IntPtr bus, ulong timeoutNs, int types);
 
     [LibraryImport("gst")]
     public static partial IntPtr gst_element_get_static_pad(IntPtr element, byte[] name);

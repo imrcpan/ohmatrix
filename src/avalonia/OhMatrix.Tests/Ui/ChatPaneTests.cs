@@ -1372,6 +1372,73 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_share_is_offered_to_chats_ticked_and_confirmed()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        var page = new SharePage(controller);
+        var host = new Window {
+            Content = page,
+            Width = 600,
+            Height = 600
+        };
+        ThemeScope.SetColors(host, OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
+        host.Show();
+        Assert.False(page.IsVisible);
+        controller.SetIncomingShare(new SharedContent("hello there", ["/tmp/a.txt"]));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(page.IsVisible);
+        var room = page.Postable[0];
+        page.Toggle(room.Id);
+        Assert.Contains(room.Id, page.Picked);
+        page.Confirm();
+        Assert.True(page.Confirmation.IsOpen);
+        Assert.Contains(room.Id, page.Kept);
+        Save(window, "share");
+        page.Cancel();
+        Assert.Null(controller.Store.Value.Share);
+        Assert.Empty(page.Picked);
+    }
+
+    [Fact]
+    public void A_share_is_described_by_its_files_and_text()
+    {
+        string T(string k, (string, object)[] v) => OhMatrix.Core.I18n.Strings.T("en", k, v);
+        Assert.Equal("2 files · hi", new SharedContent("hi", ["a", "b"]).Describe(T));
+        Assert.Equal("Text", new SharedContent(null, []).Describe(T));
+    }
+
+    [AvaloniaFact]
+    public async Task The_image_viewer_offers_save_only_when_asked()
+    {
+        var (window, controller, _, _) = await Open("light", 1000);
+        var viewer = new ImageViewer();
+        var saved = 0;
+        viewer.Show(window, controller.Pictures, "mxc://x", "a.png", null, () => {
+            saved++;
+            return Task.CompletedTask;
+        });
+        Assert.True(viewer.SaveButton.IsVisible);
+        viewer.SaveButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(
+            Avalonia.Controls.Button.ClickEvent));
+        viewer.Close();
+        viewer.Show(window, controller.Pictures, "mxc://x", "a.png", null);
+        Assert.False(viewer.SaveButton.IsVisible);
+        viewer.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task The_recording_dialog_opens_and_says_so_when_there_is_no_device()
+    {
+        var (window, controller, _, _) = await Open("light", 1000);
+        var dialog = new RecordingDialog(controller);
+        dialog.Open(window, false);
+        Assert.True(dialog.Dialog.IsOpen);
+        dialog.Discard();
+        dialog.Dialog.Close();
+        Assert.False(dialog.Recording);
+    }
+
+    [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
@@ -1547,7 +1614,8 @@ public class ChatPaneTests {
             engine.Opened[0].Attached);
         var pane = FindPane(screen);
         pane.OpenAttach();
-        Assert.Equal(2, pane.AttachMenu.Rows.Count);
+        Assert.Equal(2 + (RecordingDialog.Available(false) ? 1 : 0) + (RecordingDialog.Available(true) ? 1 : 0),
+            pane.AttachMenu.Rows.Count);
         Save(window, "attach");
     }
 

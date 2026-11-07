@@ -51,6 +51,9 @@ public sealed record AppState {
     /// <summary>Why the last join failed, until it is dismissed.</summary>
     public string? JoinError { get; init; }
 
+    /// <summary>Text and files another app handed over, waiting for the chats to send them to.</summary>
+    public SharedContent? Share { get; init; }
+
     /// <summary>A message the open chat is to scroll to once it has it (from a search result).</summary>
     public string? JumpToEventId { get; init; }
 

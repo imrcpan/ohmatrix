@@ -1,0 +1,126 @@
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using OhMatrix.Core.Audio;
+using OhMatrix.Core.I18n;
+using OhMatrix.Core.State;
+using OhMatrix.Core.Theming;
+
+namespace OhMatrix.Core.Ui;
+
+/// <summary>
+/// Recording a voice message or a short clip (<c>useVoiceRecording</c> and <c>VideoRecorderDialog</c>): the microphone (and camera) opens and
+/// recording starts at once, a running clock is shown, and Send or Discard end it. A recording under half a second is not sent.
+/// </summary>
+public sealed class RecordingDialog {
+    private readonly AppController controller;
+    private readonly Dialog dialog = new();
+    private readonly TextBlock clock = new() {
+        FontSize = 28,
+        FontFamily = Fonts.System,
+        HorizontalAlignment = HorizontalAlignment.Center,
+    };
+
+    private readonly Avalonia.Threading.DispatcherTimer ticker = new() {
+        Interval = TimeSpan.FromMilliseconds(200)
+    };
+
+    private MediaRecorder? recorder;
+    private PrimaryButton? sendButton;
+
+    public RecordingDialog(AppController controller)
+    {
+        this.controller = controller;
+        ticker.Tick += (_, _) => {
+            if (recorder is not null)
+                clock.Text = Format.Duration(recorder.Elapsed);
+        };
+        dialog.OnClose = Discard;
+    }
+
+    public Dialog Dialog => dialog;
+    public bool Recording => recorder is { Running: true };
+    public PrimaryButton? SendButton => sendButton;
+
+    /// <summary>Whether this machine can record sound, or a clip.</summary>
+    public static bool Available(bool video) => MediaRecorder.Available(video);
+
+    private string T(string key) => Strings.T(controller.Store.Value.Locale, key);
+
+    /// <summary>Opens the dialog and starts recording; why it could not start is shown in the dialog.</summary>
+    public void Open(TopLevel window, bool video)
+    {
+        Discard();
+        var c = ThemeScope.GetColors(window);
+        var rec = new MediaRecorder(video);
+        var notice = new TextBlock {
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Danger),
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            IsVisible = false,
+        };
+        clock.Foreground = new SolidColorBrush(c.Danger);
+        clock.Text = "● 0:00";
+        sendButton = new PrimaryButton {
+            Title = T("record.send")
+        };
+        var cancel = new TextButton {
+            Title = T("record.cancel")
+        };
+        ThemeScope.SetColors(sendButton, c);
+        ThemeScope.SetColors(cancel, c);
+        sendButton.Click += async (_, _) => await Finish(rec);
+        cancel.Click += (_, _) => dialog.Close();
+        try {
+            rec.Start();
+            recorder = rec;
+            ticker.Start();
+        } catch (Exception) {
+            rec.Cancel();
+            notice.Text = T(MediaRecorder.Available(video) ? "record.noDevice" : "record.unsupported");
+            notice.IsVisible = true;
+            sendButton.IsEnabled = false;
+            clock.Text = "";
+        }
+
+        dialog.Show(window, c, T(video ? "record.video" : "record.voice"), null, clock, notice,
+            sendButton, cancel);
+    }
+
+    /// <summary>Ends the recording and sends it to the chat.</summary>
+    public async Task Finish(MediaRecorder rec)
+    {
+        if (!ReferenceEquals(rec, recorder))
+            return;
+        recorder = null;
+        ticker.Stop();
+        var done = await rec.Stop();
+        dialog.OnClose = null;
+        dialog.Close();
+        dialog.OnClose = Discard;
+        if (done is null)
+            return;
+        try {
+            if (done.Duration >= TimeSpan.FromMilliseconds(500))
+                await controller.SendAttachment(done.Path);
+        } catch (Exception) {
+            controller.ShowNotice(T("record.unsupported"), NoticeKind.Error);
+        } finally {
+            try {
+                File.Delete(done.Path);
+            } catch (IOException) {
+                // A file in the temporary folder that stays is only a little disk.
+            }
+        }
+    }
+
+    /// <summary>Throws a recording in progress away.</summary>
+    public void Discard()
+    {
+        ticker.Stop();
+        recorder?.Cancel();
+        recorder = null;
+    }
+}

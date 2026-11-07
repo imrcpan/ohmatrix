@@ -689,6 +689,65 @@ public sealed class AppController(
         return chats is null ? Task.CompletedTask : chats.SendMessageContent(roomId, content);
     }
 
+    /// <summary>Fetches the picture of a message and asks where to keep a copy (the save of the photo viewer); says so when it is kept.</summary>
+    public async Task SavePicture(Avalonia.Controls.TopLevel window, string source, string name)
+    {
+        if (media is null)
+            return;
+        try {
+            var path = await media.Download(source, name, "");
+            if (path is null)
+                throw new IOException();
+            var target = await window.StorageProvider.SaveFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerSaveOptions {
+                    SuggestedFileName = name
+                });
+            if (target is null)
+                return;
+            await using (var from = File.OpenRead(path))
+            await using (var to = await target.OpenWriteAsync())
+                await from.CopyToAsync(to);
+            ShowNotice(Strings.T(Store.Value.Locale, "viewer.saved"));
+        } catch (Exception) {
+            ShowNotice(Strings.T(Store.Value.Locale, "copyFailed"), NoticeKind.Error);
+        }
+    }
+
+    /// <summary>What another app handed over to be shared (text and files); null when nothing waits.</summary>
+    public void SetIncomingShare(SharedContent? content)
+    {
+        Store.Update(s => s with {
+            Share = content
+        });
+    }
+
+    /// <summary>Sends shared text and files to a chat, as messages of that chat; the chat need not be the open one.</summary>
+    public async Task SendShared(string roomId, SharedContent content)
+    {
+        if (chats is null)
+            throw new EngineException(EngineErrorCode.Unsupported, "Not available.");
+        using var session = await chats.Open(roomId);
+        if (content.Text is { Length: > 0 } text)
+            await session.Send(text);
+        foreach (var path in content.Files) {
+            var mime = MimeTypes.For(path);
+            int? width = null;
+            int? height = null;
+            if (MimeTypes.IsImage(mime)) {
+                try {
+                    using var stream = File.OpenRead(path);
+                    using var bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                    width = bitmap.PixelSize.Width;
+                    height = bitmap.PixelSize.Height;
+                } catch (Exception) {
+                    // A picture whose size cannot be read is sent without one.
+                }
+            }
+
+            await session.SendAttachment(path, mime, width, height);
+        }
+    }
+
     /// <summary>Whether messages can be searched through the server.</summary>
     public bool CanSearchMessages => searchEngine is not null;
 
