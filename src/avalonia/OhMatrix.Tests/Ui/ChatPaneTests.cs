@@ -1350,6 +1350,41 @@ public class ChatPaneTests {
         Save(window, "attach");
     }
 
+    [AvaloniaFact]
+    public async Task The_emoji_button_opens_a_picker_that_fills_the_draft_and_remembers()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        pane.EmojiButton.RaiseClick();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(pane.Emoji.IsOpen);
+        // Nothing used yet: no recent tab, and the first group is open.
+        Assert.DoesNotContain("recent", pane.Emoji.TabIds);
+        Assert.Equal(EmojiData.Groups[0].Emojis.Length, pane.Emoji.Tiles.Count);
+        Save(window, "emoji");
+        pane.Emoji.Search.Text = "🎉";
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["🎉"], pane.Emoji.Shown);
+        pane.Input.Text = "hi ";
+        pane.Input.CaretIndex = 3;
+        pane.InsertEmoji("🎉");
+        Assert.Equal("hi 🎉", pane.Input.Text);
+        Assert.Equal(["🎉"], controller.Store.Value.Prefs.RecentEmoji);
+        pane.InsertEmoji("😀");
+        pane.InsertEmoji("🎉");
+        Assert.Equal(["🎉", "😀"], controller.Store.Value.Prefs.RecentEmoji);
+        // Opened again, the recent ones come first.
+        pane.Emoji.Close();
+        pane.EmojiButton.RaiseClick();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("recent", pane.Emoji.TabIds[0]);
+        Assert.Equal(["🎉", "😀"], pane.Emoji.Shown);
+        Save(window, "emoji-recent");
+    }
+
     [Xunit.Theory]
     [Xunit.InlineData(0L, "")]
     [Xunit.InlineData(512L, "512 B")]

@@ -43,6 +43,44 @@ public sealed class ChatPane : Grid {
     };
 
     private readonly IconButton attach = new("attach", "Attach", 24, 38);
+    private readonly IconButton emojiButton = new("sticker", "Emoji", 30, 38);
+    private readonly EmojiPicker emojiPicker = new();
+
+    /// <summary>The emoji picker over the composer.</summary>
+    public EmojiPicker Emoji => emojiPicker;
+
+    /// <summary>The button that opens the emoji picker.</summary>
+    public IconButton EmojiButton => emojiButton;
+
+    private void OpenEmoji()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        if (emojiPicker.IsOpen) {
+            emojiPicker.Close();
+            return;
+        }
+
+        var s = controller.Store.Value;
+        emojiPicker.Show(emojiButton, window, ThemeScope.GetColors(this), s.Prefs.RecentEmoji,
+            T("emoji.search"), InsertEmoji);
+    }
+
+    /// <summary>Puts an emoji into the draft at the caret, and remembers it as the latest used.</summary>
+    public void InsertEmoji(string emoji)
+    {
+        var text = input.Text ?? "";
+        var at = Math.Clamp(input.CaretIndex, 0, text.Length);
+        input.Text = text[..at] + emoji + text[at..];
+        input.CaretIndex = at + emoji.Length;
+        controller.SetPreferences(p => p with {
+            RecentEmoji = new[] {
+                    emoji
+                }.Concat(p.RecentEmoji.Where(e => e != emoji))
+                .Take(EmojiPicker.RecentMax).ToList()
+        });
+        input.Focus();
+    }
 
     private readonly Menu attachMenu = new() {
         Up = true,
@@ -231,9 +269,19 @@ public sealed class ChatPane : Grid {
         inputBox.Child = input;
         Grid.SetColumn(inputBox, 1);
         attach.VerticalAlignment = VerticalAlignment.Bottom;
-        attach.Margin = new Thickness(0, 0, 10, 0);
         attach.Click += (_, _) => OpenAttach();
-        bar.Children.Add(attach);
+        emojiButton.VerticalAlignment = VerticalAlignment.Bottom;
+        emojiButton.Click += (_, _) => OpenEmoji();
+        // The buttons touch, and sit a little closer to the field than the row's gap.
+        bar.Children.Add(new StackPanel {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 8, 0),
+            Children = {
+                emojiButton,
+                attach
+            },
+        });
         Grid.SetColumn(send, 2);
         send.Margin = new Thickness(10, 0, 0, 0);
         send.Child = sendIcon;
@@ -333,6 +381,7 @@ public sealed class ChatPane : Grid {
         sendIcon.Color = new SolidColorBrush(ready ? c.OnAccent : c.TextSecondary);
         Avalonia.Automation.AutomationProperties.SetName(send, T("send.files.send"));
         Avalonia.Automation.AutomationProperties.SetName(attach, T("attach.label"));
+        Avalonia.Automation.AutomationProperties.SetName(emojiButton, T("emoji"));
 
         var s = controller.Store.Value;
         UpdateOverlay(s);
