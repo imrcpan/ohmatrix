@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -687,6 +688,24 @@ public class ChatPaneTests {
         Assert.Equal(11, controller.Store.Value.Timeline.Count);
         Assert.Single(engine.Opened);
         Save(window, "light");
+    }
+
+    [AvaloniaFact]
+    public async Task Dark_rows_that_are_not_selected_have_light_titles()
+    {
+        var (window, controller, _, _) = await Open("dark", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var colors = ThemeScope.GetColors(window);
+        var titles = window.GetVisualDescendants().OfType<RoomRow>()
+            .Where(r => !r.Selected)
+            .SelectMany(r => r.GetVisualDescendants().OfType<TextBlock>())
+            .Where(t => t.FontWeight == FontWeight.SemiBold && t.FontSize == 16)
+            .ToList();
+        Assert.NotEmpty(titles);
+        Assert.All(titles, t => Assert.Equal(colors.Text, ((SolidColorBrush)t.Foreground!).Color));
+        Save(window, "dark-wide");
     }
 
     [AvaloniaFact]

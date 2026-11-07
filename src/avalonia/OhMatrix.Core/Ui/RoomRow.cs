@@ -62,6 +62,7 @@ public sealed class RoomRow : PressableButton {
     public void Update()
     {
         var c = Colors;
+        drawn = c;
         Height = Invite is null || Compact ? RowHeight : double.NaN;
         Avalonia.Automation.AutomationProperties.SetName(this, Title);
         var secondary = new SolidColorBrush(Selected ? c.OnSelectedSecondary : c.TextSecondary);
@@ -280,9 +281,14 @@ public sealed class RoomRow : PressableButton {
         return pill;
     }
 
+    private Theming.ColorTokens? drawn;
+
     protected override void Refresh()
     {
         var c = Colors;
+        // A row is drawn before it is in the tree, with the default colours; it is drawn again with the ones of its place.
+        if (drawn is not null && drawn != c)
+            Update();
         Background = Selected ? new SolidColorBrush(c.Selected)
             : Pressed ? new SolidColorBrush(c.Separator)
             : Hovered ? new SolidColorBrush(c.Hover)
