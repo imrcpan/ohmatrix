@@ -1137,8 +1137,14 @@ public sealed class ChatPane : Grid {
     {
         if (item.Image is not { } image || TopLevel.GetTopLevel(this) is not { } window)
             return;
-        viewer.Show(window, controller.Pictures, image.Source, image.FileName, shown.Source);
+        viewer.Show(window, controller.Pictures, image.Source, image.FileName, shown.Source,
+            () => controller.SavePicture(window, image.Source, image.FileName));
     }
+
+    private RecordingDialog? recordingDialog;
+    private RecordingDialog recording => recordingDialog ??= new RecordingDialog(controller);
+
+    public RecordingDialog Recorder => recording;
 
     public Menu AttachMenu => attachMenu;
 
@@ -1151,6 +1157,12 @@ public sealed class ChatPane : Grid {
             new(T("attach.image"), () => _ = PickAndSend(window, true), Icon: "image"),
             new(T("attach.file"), () => _ = PickAndSend(window, false), Icon: "file"),
         };
+        if (RecordingDialog.Available(false))
+            items.Add(new MenuItem(T("record.voice"), () => recording.Open(window, false),
+                Icon: "mic"));
+        if (RecordingDialog.Available(true))
+            items.Add(new MenuItem(T("record.video"), () => recording.Open(window, true),
+                Icon: "video"));
         // Calls are for one-to-one chats, where this machine can make them.
         var s = controller.Store.Value;
         if (controller.CallsSupported && s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId)

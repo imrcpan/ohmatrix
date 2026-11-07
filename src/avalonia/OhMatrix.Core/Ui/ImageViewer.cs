@@ -41,6 +41,8 @@ public sealed class ImageViewer {
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    private readonly IconButton saveButton;
+    private Func<Task>? onSave;
     private double zoom = 1;
     private Point? dragFrom;
     private Point dragStartOffset;
@@ -60,7 +62,20 @@ public sealed class ImageViewer {
         };
         close.Click += (_, _) => Close();
         ThemeScope.SetColors(close, Themes.Resolve("dark", null).Colors);
-        title.Margin = new Thickness(20, 12, 60, 0);
+        saveButton = new IconButton("download", "Save", 26) {
+            Tint = Colors.White,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 12, 56, 0),
+            IsVisible = false,
+        };
+        saveButton.Click += (_, _) => {
+            if (onSave is not null)
+                _ = onSave();
+        };
+        ThemeScope.SetColors(saveButton, Themes.Resolve("dark", null).Colors);
+        shade.Children.Add(saveButton);
+        title.Margin = new Thickness(20, 12, 110, 0);
         title.VerticalAlignment = VerticalAlignment.Top;
         title.Height = 36;
         shade.Children.Add(title);
@@ -112,10 +127,15 @@ public sealed class ImageViewer {
     public Image Picture => picture;
 
     /// <summary>Opens the picture; <paramref name="source"/> is fetched large, and the small one already on screen shows until it has come.</summary>
+    /// <summary>The button that saves the picture is shown when <paramref name="save"/> is given.</summary>
+    public IconButton SaveButton => saveButton;
+
     public void Show(TopLevel window, Pictures pictures, string source, string name,
-        IImage? preview)
+        IImage? preview, Func<Task>? save = null)
     {
         Close();
+        onSave = save;
+        saveButton.IsVisible = save is not null;
         layer = OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;

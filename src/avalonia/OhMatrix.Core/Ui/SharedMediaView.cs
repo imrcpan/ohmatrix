@@ -201,7 +201,7 @@ public sealed class SharedMediaView : StackPanel {
                 e.Handled = true;
                 if (TopLevel.GetTopLevel(this) is { } window)
                     viewer.Show(window, controller.Pictures, picture.Source, picture.FileName,
-                        image.Source);
+                        image.Source, () => controller.SavePicture(window, picture.Source, picture.FileName));
             };
         } else {
             cell.Child = new Icon {

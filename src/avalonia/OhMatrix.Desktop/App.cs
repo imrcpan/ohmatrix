@@ -79,6 +79,18 @@ public class App : Application {
                     }
                 );
                 desktop.MainWindow.Content = root;
+                // Files named on the command line, or dropped on the window, are offered to be shared to chats.
+                var named = (desktop.Args ?? []).Where(File.Exists).Select(Path.GetFullPath).ToList();
+                if (named.Count > 0)
+                    manager.Current.SetIncomingShare(new OhMatrix.Core.Model.SharedContent(null, named));
+                Avalonia.Input.DragDrop.SetAllowDrop(desktop.MainWindow, true);
+                desktop.MainWindow.AddHandler(Avalonia.Input.DragDrop.DropEvent, (_, e) => {
+                    var paths = Avalonia.Input.DataTransferExtensions.TryGetFiles(e.DataTransfer)?
+                        .Select(f => Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(f)).OfType<string>().ToList();
+                    if (paths is { Count: > 0 })
+                        manager.Current.SetIncomingShare(
+                            new OhMatrix.Core.Model.SharedContent(null, paths));
+                });
             }
         }
 
