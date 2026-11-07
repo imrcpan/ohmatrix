@@ -48,7 +48,14 @@ resharper_keep_existing_anonymous_method_arrangement = false
 resharper_place_simple_case_statement_on_same_line = never
 csharp_new_line_before_open_brace = methods, local_functions
 dotnet_diagnostic.IDE0161.severity = error
+# An unused using is an error, in the build and for the commit check.
+dotnet_diagnostic.IDE0005.severity = error
 csharp_preserve_single_line_statements = false
 resharper_wrap_object_and_collection_initializer_style = chop_always
 resharper_max_initializer_elements_on_line = 1
 csharp_preserve_single_line_blocks = true
+
+# The bindings of the Matrix SDK are generated: they are not formatted or tidied by hand.
+[OhMatrix.MatrixSdk/native/**.cs]
+generated_code = true
+dotnet_diagnostic.IDE0005.severity = none

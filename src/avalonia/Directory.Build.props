@@ -1,0 +1,14 @@
+<Project>
+
+    <PropertyGroup>
+        <!--
+            An unused using (IDE0005) is only seen, by the build and by dotnet format, when the code style is enforced in
+            the build and the XML documentation is generated. The documentation file is not wanted for itself, so what it
+            complains about is not shown.
+        -->
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1570;CS1571;CS1572;CS1573;CS1574;CS1580;CS1584;CS1587;CS1591;CS1658</NoWarn>
+    </PropertyGroup>
+
+</Project>
