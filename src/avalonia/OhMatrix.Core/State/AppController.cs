@@ -631,6 +631,14 @@ public sealed class AppController(
             }), null, w, Timeout.InfiniteTimeSpan);
     }
 
+    /// <summary>Sends a message of the open chat on to another chat.</summary>
+    public Task ForwardMessage(TimelineItem item, string roomId)
+    {
+        var content = Forward.Content(item) ?? throw new EngineException(
+            EngineErrorCode.Unsupported, "This cannot be forwarded.");
+        return chats is null ? Task.CompletedTask : chats.SendMessageContent(roomId, content);
+    }
+
     /// <summary>Whether this account can keep a sticker pack (the picker has a stickers tab).</summary>
     public bool CanStickers => stickersEngine is not null;
 

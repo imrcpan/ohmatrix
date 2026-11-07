@@ -42,4 +42,7 @@ public interface IChatSession : IDisposable {
 /// <summary>The part of an engine that opens a chat (<c>timeline</c> of the TypeScript core).</summary>
 public interface IChatEngine {
     Task<IChatSession> Open(string roomId);
+
+    /// <summary>Sends the content of an <c>m.room.message</c> to a room (a forwarded message).</summary>
+    Task SendMessageContent(string roomId, System.Text.Json.Nodes.JsonObject content);
 }

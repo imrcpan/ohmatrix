@@ -568,6 +568,16 @@ public class ChatPaneTests {
             RoomsChanged?.Invoke(rooms);
         }
 
+        public readonly List<string> Forwarded = [];
+
+        public Task SendMessageContent(string roomId, System.Text.Json.Nodes.JsonObject content)
+        {
+            if (roomId == "!bad")
+                throw new EngineException(EngineErrorCode.Network, "offline");
+            Forwarded.Add($"{roomId} {content["msgtype"]} {content["body"]}");
+            return Task.CompletedTask;
+        }
+
         public Task<IChatSession> Open(string roomId)
         {
             var chat = new FakeChat(History(roomId));
@@ -1130,7 +1140,7 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var target = controller.Store.Value.Timeline.First(i => i.Id == "2");
         pane.OpenActions(pane.Messages, target);
-        Assert.Equal(3, pane.Actions.Rows.Count);
+        Assert.Equal(5, pane.Actions.Rows.Count);
         Assert.Equal(ChatPane.QuickReactions.Length, pane.Actions.Emojis.Count);
         Save(window, "actions");
         pane.Actions.Close();
@@ -1172,10 +1182,10 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var tl = controller.Store.Value.Timeline;
         pane.OpenActions(pane.Messages, tl.First(i => i.Id == "2"));
-        Assert.Equal(3, pane.Actions.Rows.Count);
+        Assert.Equal(5, pane.Actions.Rows.Count);
         Assert.Equal(ChatPane.QuickReactions.Length, pane.Actions.Emojis.Count);
         pane.OpenActions(pane.Messages, tl.First(i => i.Id == "3"));
-        Assert.Equal(5, pane.Actions.Rows.Count);
+        Assert.Equal(7, pane.Actions.Rows.Count);
         Save(window, "own-actions");
     }
 
@@ -1208,8 +1218,8 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
         pane.OpenActions(pane.Messages, controller.Store.Value.Timeline.First(i => i.Id == "3"));
-        // The Delete row is the last of the menu: Copy, Reply, Edit, Pin, Delete.
-        var row = (Border)pane.Actions.Rows[4];
+        // The Delete row is the last of the menu: Copy, Reply, Edit, Pin, Forward, Select, Delete.
+        var row = (Border)pane.Actions.Rows[6];
         row.RaiseEvent(Release(row));
         Assert.True(pane.DeleteDialog.IsOpen);
         Save(window, "delete-dialog");
@@ -1584,6 +1594,47 @@ public class ChatPaneTests {
         Assert.DoesNotContain(controller.Store.Value.Stickers, s => s.Shortcode == "owl");
         Assert.DoesNotContain(controller.Store.Value.StickerGroups, g => g.Id == "g1");
         Assert.Equal("default", stickers.CurrentId);
+    }
+
+    [AvaloniaFact]
+    public async Task Messages_are_chosen_and_forwarded_in_two_steps()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        var items = controller.Store.Value.Timeline;
+        var first = items.First(i =>
+            i.Kind == TimelineKind.Message && i.Image is null && i.File is null);
+        pane.StartSelect(first);
+        Assert.True(pane.Selecting);
+        Assert.Equal(["" + first.Id], pane.Chosen);
+        Save(window, "selecting");
+        var second = items.Last(i =>
+            i.Kind == TimelineKind.Message && i.Image is null && i.File is null);
+        pane.ToggleChosen(second.Id);
+        Assert.Equal(2, pane.Chosen.Count);
+        // Forward: the first step ticks chats, the second asks again.
+        var forwarding = pane.Forwarding;
+        forwarding.Show(window, [first, second]);
+        Assert.True(forwarding.IsOpen);
+        Assert.Equal(2, forwarding.Rows.Count);
+        forwarding.Toggle("!d");
+        forwarding.Toggle("!g");
+        forwarding.Toggle("!g");
+        Assert.Equal(["!d"], forwarding.Picked);
+        forwarding.Confirm();
+        Assert.True(forwarding.Confirming);
+        Assert.Single(forwarding.Rows);
+        Save(window, "forward-confirm");
+        await forwarding.Send();
+        await Settle();
+        Assert.Equal(2, engine.Forwarded.Count);
+        Assert.StartsWith("!d m.text", engine.Forwarded[0]);
+        Assert.False(forwarding.IsOpen);
+        pane.CancelSelect();
+        Assert.False(pane.Selecting);
+        Assert.Empty(pane.Chosen);
     }
 
     [Xunit.Theory]

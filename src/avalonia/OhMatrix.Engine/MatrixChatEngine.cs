@@ -10,6 +10,24 @@ namespace OhMatrix.Engine;
 
 /// <summary>Opens chats over the Matrix SDK (<c>timeline</c> of <c>RustEngineCore</c>).</summary>
 public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
+    public async Task SendMessageContent(string roomId,
+        System.Text.Json.Nodes.JsonObject content)
+    {
+        try {
+            var client = auth.Client ?? throw new EngineException(
+                EngineErrorCode.Unauthorized,
+                "Not signed in."
+            );
+            var room = client.GetRoom(roomId) ?? throw new EngineException(
+                EngineErrorCode.NotFound,
+                "No such chat."
+            );
+            await room.SendRaw("m.room.message", content.ToJsonString());
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
     public async Task<IChatSession> Open(string roomId)
     {
         try {

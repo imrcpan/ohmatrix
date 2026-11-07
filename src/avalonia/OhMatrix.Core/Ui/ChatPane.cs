@@ -40,6 +40,83 @@ public sealed class ChatPane : Grid {
     private readonly Border composer = new();
 
     private readonly MessageMenu actions = new();
+    private readonly Grid inputBar = new();
+    private ForwardDialog? forwardDialog;
+    private readonly HashSet<string> chosen = [];
+
+    private readonly TextBlock selectedCount = new() {
+        FontSize = 18,
+        FontFamily = Fonts.System,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly Border selectionBar = new() {
+        MinHeight = 54,
+        BorderThickness = new Thickness(0, 1, 0, 0),
+        IsVisible = false,
+    };
+
+    /// <summary>Whether messages are being chosen (to copy or forward).</summary>
+    public bool Selecting { get; private set; }
+
+    /// <summary>The ids of the messages chosen.</summary>
+    public IReadOnlyCollection<string> Chosen => chosen;
+
+    public ForwardDialog Forwarding => forwardDialog ??= new ForwardDialog(controller);
+
+    /// <summary>Starts choosing messages, with <paramref name="first"/> chosen.</summary>
+    public void StartSelect(TimelineItem first)
+    {
+        Selecting = true;
+        chosen.Clear();
+        chosen.Add(first.Id);
+        Rebuild();
+        Apply();
+    }
+
+    /// <summary>Chooses a message, or lets it go.</summary>
+    public void ToggleChosen(string id)
+    {
+        if (!chosen.Remove(id))
+            chosen.Add(id);
+        Rebuild();
+        Apply();
+    }
+
+    /// <summary>Stops choosing.</summary>
+    public void CancelSelect()
+    {
+        Selecting = false;
+        chosen.Clear();
+        Rebuild();
+        Apply();
+    }
+
+    private List<TimelineItem> ChosenItems()
+    {
+        return controller.Store.Value.Timeline.Where(i => chosen.Contains(i.Id)).ToList();
+    }
+
+    private async Task CopyChosen()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var text = string.Join("\n",
+            ChosenItems().Where(i => i.Image is null && i.File is null).Select(i => i.Body));
+        await Copy(window, text);
+        controller.ShowNotice(T("copied"));
+        CancelSelect();
+    }
+
+    private void ForwardChosen()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var items = ChosenItems().Where(i => Forward.Content(i) is not null).ToList();
+        Forwarding.Show(window, items, CancelSelect);
+    }
+
     private readonly Dialog groupDialog = new();
 
     private readonly IconButton attach = new("attach", "Attach", 24, 38);
@@ -284,10 +361,9 @@ public sealed class ChatPane : Grid {
         Children.Add(body);
         Children.Add(composer);
 
-        var bar = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            Margin = new Thickness(10, 8)
-        };
+        var bar = inputBar;
+        bar.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
+        bar.Margin = new Thickness(10, 8);
         inputBox.Child = input;
         Grid.SetColumn(inputBox, 1);
         attach.VerticalAlignment = VerticalAlignment.Bottom;
@@ -311,6 +387,7 @@ public sealed class ChatPane : Grid {
         bar.Children.Add(send);
         composerStack.Children.Add(replyHost);
         composerStack.Children.Add(bar);
+        composerStack.Children.Add(selectionBar);
         composer.Child = composerStack;
 
         BuildSearchBar();
@@ -406,6 +483,15 @@ public sealed class ChatPane : Grid {
         Avalonia.Automation.AutomationProperties.SetName(emojiButton, T("emoji"));
 
         var s = controller.Store.Value;
+        // While messages are being chosen the message box gives way to how many there are.
+        selectionBar.IsVisible = Selecting;
+        selectionBar.BorderBrush = new SolidColorBrush(c.Separator);
+        selectionBar.Child = selectedCount;
+        selectedCount.Foreground = new SolidColorBrush(c.BubbleInText);
+        selectedCount.Text = chosen.Count == 1
+            ? T("selected.one")
+            : T("selected.count", ("n", chosen.Count));
+        inputBar.IsVisible = !Selecting;
         UpdateOverlay(s);
         BuildPinnedBar(c, s);
         replyHost.Child = ReplyBanner(c, s);
@@ -437,10 +523,63 @@ public sealed class ChatPane : Grid {
         };
     }
 
+    /// <summary>While messages are being chosen, the bar above the chat: Cancel at the left, Copy and Forward at the right.</summary>
+    private void BuildSelectionHeader(ColorTokens c)
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"),
+            Margin = new Thickness(20, 0, 12, 0),
+        };
+        var cancel = new TextBlock {
+            Text = T("cancel"),
+            FontSize = 17,
+            FontWeight = FontWeight.Bold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Accent),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(0, 8, 8, 8),
+        };
+        cancel.PointerPressed += (_, e) => {
+            e.Handled = true;
+            CancelSelect();
+        };
+        Avalonia.Automation.AutomationProperties.SetName(cancel, T("cancel"));
+        grid.Children.Add(cancel);
+        var any = chosen.Count > 0;
+        var copy = new IconButton("copy", T("copy"), 22) {
+            Tint = any ? c.Accent : c.TextTertiary
+        };
+        copy.Click += (_, _) => {
+            if (chosen.Count > 0)
+                _ = CopyChosen();
+        };
+        Grid.SetColumn(copy, 2);
+        grid.Children.Add(copy);
+        var forward = new IconButton("forward", T("forward"), 22) {
+            Tint = any ? c.Accent : c.TextTertiary
+        };
+        forward.Click += (_, _) => {
+            if (chosen.Count > 0)
+                ForwardChosen();
+        };
+        Grid.SetColumn(forward, 3);
+        grid.Children.Add(forward);
+        header.Child = new Border {
+            Height = 56,
+            Child = grid
+        };
+    }
+
     private void BuildHeader(ColorTokens c, AppState s)
     {
         header.Background = new SolidColorBrush(c.Bg);
         header.BorderBrush = new SolidColorBrush(c.Separator);
+        if (Selecting) {
+            BuildSelectionHeader(c);
+            return;
+        }
+
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         var row = new StackPanel {
             Orientation = Orientation.Horizontal,
@@ -583,7 +722,34 @@ public sealed class ChatPane : Grid {
                 HorizontalAlignment =
                     item.IsOwn ? HorizontalAlignment.Right : HorizontalAlignment.Left,
             };
-            list.Children.Add(frame);
+            if (Selecting) {
+                var on = chosen.Contains(item.Id);
+                var id = item.Id;
+                // The whole row is the target while choosing, and a chosen row is shaded across the chat.
+                var row = new Border {
+                    Background = on
+                        ? new SolidColorBrush(
+                            Color.FromArgb(46, c.Accent.R, c.Accent.G, c.Accent.B))
+                        : Brushes.Transparent,
+                    Cursor = new Cursor(StandardCursorType.Hand),
+                    Child = new Grid {
+                        ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                        Children = {
+                            SelectMark(c, on),
+                            frame
+                        }
+                    },
+                };
+                Grid.SetColumn(frame, 1);
+                frame.IsHitTestVisible = false;
+                row.PointerPressed += (_, e) => {
+                    e.Handled = true;
+                    ToggleChosen(id);
+                };
+                list.Children.Add(row);
+            } else
+                list.Children.Add(frame);
+
             rowsById[item.Id] = frame;
         }
 
@@ -591,6 +757,29 @@ public sealed class ChatPane : Grid {
             Search();
         else if (stickToBottom)
             Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
+    }
+
+    private static Control SelectMark(ColorTokens c, bool on)
+    {
+        return new Border {
+            Width = 22,
+            Height = 22,
+            Margin = new Thickness(4, 0, 8, 0),
+            CornerRadius = new CornerRadius(11),
+            BorderThickness = new Thickness(2),
+            BorderBrush = new SolidColorBrush(on ? c.Accent : c.TextTertiary),
+            Background = on ? new SolidColorBrush(c.Accent) : Brushes.Transparent,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = on
+                ? new Icon {
+                    Glyph = "check",
+                    Size = 14,
+                    Color = new SolidColorBrush(c.OnAccent),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                }
+                : null,
+        };
     }
 
     /// <summary>The menu of a message: a pill of quick reactions and the actions (<c>MessageMenu</c>); it opens at <paramref name="at"/> or under <paramref name="anchor"/>.</summary>
@@ -611,11 +800,16 @@ public sealed class ChatPane : Grid {
                 () => _ = controller.SetMessagePinned(item.Id, !pinned), Icon: "pin"));
         }
 
+        if (Forward.Content(item) is not null)
+            items.Add(new MenuItem(T("forward"), () => {
+                Forwarding.Show(window, [item]);
+            }, Icon: "forward"));
         if (item.Image is { } picture && controller.CanStickers
                                       && picture.Source.StartsWith("mxc://",
                                           StringComparison.Ordinal))
             items.Add(new MenuItem(T("sticker.add"), () => AskStickerGroup(window, item),
                 Icon: "sticker"));
+        items.Add(new MenuItem(T("select.multi"), () => StartSelect(item), Icon: "multiSelect"));
         if (item.IsOwn && item.EventId is not null && !item.Failed)
             items.Add(new MenuItem(T("delete"), () => AskDelete(window, item), Icon: "trash",
                 Danger: true));
