@@ -426,6 +426,9 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                         : null,
                     SenderId = e.Sender,
                     SenderName = name,
+                    ReadBy = [
+                        .. e.ReadReceipts.Keys.Where(u => u != e.Sender)
+                    ],
                     IsOwn = e.IsOwn,
                     Read = e.IsOwn &&
                            e.ReadReceipts.Keys.Any(u => u != e.Sender),

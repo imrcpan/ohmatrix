@@ -75,6 +75,28 @@ public sealed class ImageViewer {
         };
         ThemeScope.SetColors(saveButton, Themes.Resolve("dark", null).Colors);
         shade.Children.Add(saveButton);
+        var tools = new StackPanel {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 16),
+        };
+        foreach (var (glyph, name, act) in new (string, string, Action)[] {
+                     ("zoomOut", "Zoom out", () => ZoomBy(0.8, Center())),
+                     ("zoomIn", "Zoom in", () => ZoomBy(1.25, Center())),
+                     ("minimize", "Fit", Reset),
+                 }) {
+            var button = new IconButton(glyph, name, 24, 40) {
+                Tint = Colors.White
+            };
+            ThemeScope.SetColors(button, Themes.Resolve("dark", null).Colors);
+            var run = act;
+            button.Click += (_, _) => run();
+            tools.Children.Add(button);
+        }
+
+        shade.Children.Add(tools);
         title.Margin = new Thickness(20, 12, 110, 0);
         title.VerticalAlignment = VerticalAlignment.Top;
         title.Height = 36;

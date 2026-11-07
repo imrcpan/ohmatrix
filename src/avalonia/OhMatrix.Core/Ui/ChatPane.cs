@@ -359,6 +359,22 @@ public sealed class ChatPane : Grid {
     {
         var c = ThemeScope.GetColors(this);
         overlay.Background = new SolidColorBrush(c.ChatBg);
+        var c0 = ThemeScope.GetColors(this);
+        dropHint.Background = new SolidColorBrush(Color.FromArgb(200,
+            c0.Bg.R, c0.Bg.G, c0.Bg.B));
+        dropHint.BorderBrush = new SolidColorBrush(c0.Accent);
+        if (dropHint.Child is TextBlock hint) {
+            hint.Text = T("drop.hint");
+            hint.Foreground = new SolidColorBrush(c0.Accent);
+        }
+
+        // A chat that is not in the list once it is loaded: it was deleted,
+        // or I am not in it any more.
+        var missing = s.SelectedRoomId is { } wanted && s.RoomsSettled &&
+                      s.Rooms.All(r => r.Id != wanted);
+        notFound.IsVisible = missing;
+        if (missing)
+            BuildNotFound(c0);
         if (s.SelectedRoomId is null || s.TimelineReady) {
             overlayTimer?.Dispose();
             overlay.IsVisible = false;
@@ -401,6 +417,10 @@ public sealed class ChatPane : Grid {
         body.Children.Add(scroller);
         Grid.SetRow(overlay, 2);
         body.Children.Add(overlay);
+        Grid.SetRow(notFound, 2);
+        body.Children.Add(notFound);
+        Grid.SetRow(dropHint, 2);
+        body.Children.Add(dropHint);
         Grid.SetRow(latest, 2);
         latest.HorizontalAlignment = HorizontalAlignment.Right;
         latest.VerticalAlignment = VerticalAlignment.Bottom;
@@ -474,6 +494,12 @@ public sealed class ChatPane : Grid {
             }
         };
         DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragEnterEvent,
+            (_, _) => dropHint.IsVisible = true);
+        AddHandler(DragDrop.DragLeaveEvent,
+            (_, _) => dropHint.IsVisible = false);
+        AddHandler(DragDrop.DropEvent, (_, _) => dropHint.IsVisible = false,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel);
         AddHandler(DragDrop.DropEvent, (_, e) => {
             var files = DataTransferExtensions.TryGetFiles(e.DataTransfer)?
                 .Select(f =>
@@ -552,6 +578,73 @@ public sealed class ChatPane : Grid {
     private string T(string key, params (string, object)[] values)
     {
         return Strings.T(controller.Store.Value.Locale, key, values);
+    }
+
+    /// <summary>The name a person goes by in the open chat, or the start of their id.</summary>
+    private string NameOfUser(string id)
+    {
+        var known = controller.Store.Value.Details?.Members
+            .FirstOrDefault(m => m.UserId == id)?.Name;
+        return known ?? ServiceText.PersonName(null, id);
+    }
+
+    // "Drop files to send", over the chat while files are dragged over it.
+    private readonly Border dropHint = new() {
+        IsVisible = false,
+        IsHitTestVisible = false,
+        CornerRadius = new CornerRadius(16),
+        Margin = new Thickness(12),
+        BorderThickness = new Thickness(2),
+        Child = new TextBlock {
+            FontSize = 18,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = Fonts.System,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        },
+    };
+
+    public Border DropHint => dropHint;
+
+    private readonly Border notFound = new() {
+        IsVisible = false
+    };
+
+    public Border NotFound => notFound;
+
+    private void BuildNotFound(ColorTokens c)
+    {
+        notFound.Background = new SolidColorBrush(c.ChatBg);
+        var stack = new StackPanel {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Spacing = 8,
+            MaxWidth = 360,
+        };
+        stack.Children.Add(new TextBlock {
+            Text = T("chatNotFound"),
+            FontSize = 20,
+            FontWeight = FontWeight.Bold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Text),
+            TextAlignment = TextAlignment.Center,
+        });
+        stack.Children.Add(new TextBlock {
+            Text = T("chatNotFound.body"),
+            FontSize = 15,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        var back = new TextButton {
+            Title = T("backToChats"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        ThemeScope.SetColors(back, c);
+        back.Click += (_, _) => controller.SelectRoom(null);
+        stack.Children.Add(back);
+        notFound.Child = stack;
     }
 
     private bool revealing;
@@ -915,7 +1008,10 @@ public sealed class ChatPane : Grid {
                 item.FormattedBody,
                 null,
                 item.Read,
-                T("read"),
+                item.ReadBy.Count > 0
+                    ? T("readBy", ("names", string.Join(", ",
+                        item.ReadBy.Select(NameOfUser))))
+                    : T("read"),
                 OpenFile,
                 controller.LinkPreview,
                 controller.DownloadFile

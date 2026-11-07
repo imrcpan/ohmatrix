@@ -95,8 +95,8 @@ public sealed class PeoplePicker {
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
         Render();
-        dialog.Show(window, colors, title, message, search, scroller, error,
-            confirm, cancel);
+        dialog.Show(window, colors, title, message, chips, search, scroller,
+            error, confirm, cancel);
     }
 
     private async Task Search()
@@ -127,6 +127,10 @@ public sealed class PeoplePicker {
 
     private void Render()
     {
+        chips.Children.Clear();
+        foreach (var p in chosen.Values)
+            chips.Children.Add(Chip(p));
+        chips.IsVisible = multi && chosen.Count > 0;
         list.Children.Clear();
         foreach (var p in found)
             list.Children.Add(Row(p));
@@ -144,6 +148,54 @@ public sealed class PeoplePicker {
         confirm.Title = confirmLabel?.Invoke(chosen.Count) ?? "";
         confirm.Loading = busy;
         confirm.Disabled = chosen.Count == 0;
+    }
+
+    // The people chosen, as chips that take the choice back when pressed.
+    private readonly WrapPanel chips = new() {
+        IsVisible = false
+    };
+
+    /// <summary>The chips of the people chosen so far.</summary>
+    public WrapPanel Chips => chips;
+
+    private Control Chip(PersonInfo p)
+    {
+        var line = new StackPanel {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6
+        };
+        var avatar = new Avatar(p.UserId, p.Name, 22);
+        controller.Pictures.Attach(avatar, p.AvatarUrl, 22);
+        line.Children.Add(avatar);
+        line.Children.Add(new TextBlock {
+            Text = p.Name,
+            FontSize = 14,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(colors.Text),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        line.Children.Add(new Icon {
+            Glyph = "close",
+            Size = 12,
+            Color = new SolidColorBrush(colors.TextSecondary),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var chip = new Border {
+            Height = 30,
+            CornerRadius = new CornerRadius(15),
+            Padding = new Thickness(4, 0, 10, 0),
+            Margin = new Thickness(0, 0, 6, 6),
+            Background = new SolidColorBrush(colors.BgSecondary),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = line,
+        };
+        chip.PointerPressed += (_, e) => {
+            e.Handled = true;
+            Toggle(p);
+        };
+        Avalonia.Automation.AutomationProperties.SetName(chip,
+            Strings.T(locale, "removePerson", ("name", p.Name)));
+        return chip;
     }
 
     private Control Row(PersonInfo p)
