@@ -62,8 +62,30 @@ public sealed class ChatPane : Grid {
         }
 
         var s = controller.Store.Value;
+        // With a sticker pack the picker is the stickers alone, as in the React Native app; without one it is the emoji.
+        if (controller.CanStickers) {
+            _ = Quietly(controller.LoadStickers);
+            emojiPicker.ShowStickers(emojiButton, window, ThemeScope.GetColors(this),
+                stickerPane ??= new StickerPane(controller, emojiPicker.Close));
+            return;
+        }
+
         emojiPicker.Show(emojiButton, window, ThemeScope.GetColors(this), s.Prefs.RecentEmoji,
             T("emoji.search"), InsertEmoji);
+    }
+
+    private StickerPane? stickerPane;
+
+    /// <summary>The sticker pane of the picker, once it has been opened.</summary>
+    public StickerPane? Stickers => stickerPane;
+
+    private static async Task Quietly(Func<Task> work)
+    {
+        try {
+            await work();
+        } catch (Exception) {
+            // The stickers shown stay as they were.
+        }
     }
 
     /// <summary>Puts an emoji into the draft at the caret, and remembers it as the latest used.</summary>
