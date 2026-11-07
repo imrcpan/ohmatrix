@@ -32,3 +32,7 @@ src/apps/mobile/ios/
 src/apps/tauri/src-tauri/target/
 src/apps/tauri/src-tauri/gen/
 src/apps/tauri/src-tauri/icons/
+
+# scratch directories: working copies and temporary files that are not kept
+work/
+temp/
