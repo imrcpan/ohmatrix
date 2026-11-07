@@ -257,13 +257,22 @@ public sealed partial class ChatPane {
         }
 
         var present = messageEntries.ToHashSet();
+        var positions = new Dictionary<MessageEntry, int>();
+        for (var i = 0; i < messageEntries.Count; i++)
+            positions[messageEntries[i]] = i;
         for (var i = 0; i < wanted.Count; i++) {
             if (i < messageEntries.Count && messageEntries[i] == wanted[i])
                 continue;
-            if (present.Contains(wanted[i]))
-                messageEntries.Move(messageEntries.IndexOf(wanted[i]), i);
-            else
+            if (present.Contains(wanted[i])) {
+                var from = positions[wanted[i]];
+                messageEntries.Move(from, i);
+                for (var j = Math.Min(from, i); j <= Math.Max(from, i); j++)
+                    positions[messageEntries[j]] = j;
+            } else {
                 messageEntries.Insert(i, wanted[i]);
+                for (var j = i; j < messageEntries.Count; j++)
+                    positions[messageEntries[j]] = j;
+            }
         }
     }
 
