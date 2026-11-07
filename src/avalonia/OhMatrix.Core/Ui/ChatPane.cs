@@ -17,7 +17,7 @@ namespace OhMatrix.Core.Ui;
 /// The open chat (<c>ChatPane</c>): the bar with the picture, name and member count (and Back when the list is not beside it), the messages with
 /// their date dividers, and the input to write in. The view stays at the bottom while new messages come, unless the person has scrolled up.
 /// </summary>
-public sealed class ChatPane : Grid {
+public sealed partial class ChatPane : Grid {
     public const double HeaderHeight = 64;
 
     private readonly AppController controller;
@@ -29,7 +29,7 @@ public sealed class ChatPane : Grid {
         BorderThickness = new Thickness(0, 0, 0, 1)
     };
 
-    private readonly StackPanel list = new() {
+    private readonly ItemsControl list = new() {
         Margin = new Thickness(12, 8)
     };
 
@@ -73,7 +73,7 @@ public sealed class ChatPane : Grid {
         Selecting = true;
         chosen.Clear();
         chosen.Add(first.Id);
-        Rebuild();
+        RefreshSelection();
         Apply();
     }
 
@@ -82,7 +82,7 @@ public sealed class ChatPane : Grid {
     {
         if (!chosen.Remove(id))
             chosen.Add(id);
-        Rebuild();
+        RefreshSelection();
         Apply();
     }
 
@@ -91,7 +91,7 @@ public sealed class ChatPane : Grid {
     {
         Selecting = false;
         chosen.Clear();
-        Rebuild();
+        RefreshSelection();
         Apply();
     }
 
@@ -402,12 +402,12 @@ public sealed class ChatPane : Grid {
         this.onBack = onBack;
         this.time = time ?? TimeProvider.System;
         RowDefinitions = new RowDefinitions("Auto,*,Auto");
-        scroller.Content = new StackPanel {
-            Children = {
-                olderHost,
-                list
-            }
-        };
+        InitializeMessages();
+        scroller.Content = list;
+        olderHost.VerticalAlignment = VerticalAlignment.Top;
+        olderHost.HorizontalAlignment = HorizontalAlignment.Center;
+        olderHost.IsHitTestVisible = false;
+        Grid.SetRow(olderHost, 2);
         overlay.Child = overlaySkeleton;
         Grid.SetRow(body, 1);
         Grid.SetRow(composer, 2);
@@ -415,6 +415,7 @@ public sealed class ChatPane : Grid {
         Grid.SetRow(scroller, 2);
         Grid.SetRow(searchBar, 1);
         body.Children.Add(scroller);
+        body.Children.Add(olderHost);
         Grid.SetRow(overlay, 2);
         body.Children.Add(overlay);
         Grid.SetRow(notFound, 2);
@@ -429,7 +430,8 @@ public sealed class ChatPane : Grid {
         latest.PointerPressed += (_, e) => {
             e.Handled = true;
             newWhileAway = 0;
-            scroller.ScrollToEnd();
+            stickToBottom = true;
+            ScrollToEnd();
         };
         body.Children.Add(latest);
         searchBar.IsVisible = false;
@@ -514,15 +516,13 @@ public sealed class ChatPane : Grid {
                 OfferFiles(files);
             }
         });
-        scroller.ScrollChanged += (_, _) => OnScroll();
+        scroller.ScrollChanged += (_, e) => OnScroll(e);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<ChatPane>((p, _) =>
-            p.Rebuild());
-        SizeChanged += (_, _) => Rebuild();
+        SizeChanged += (_, _) => ResizeMessages();
         Apply();
     }
 
-    public StackPanel Messages => list;
+    public ItemsControl Messages => list;
     public TextBox Input => input;
     public Border Header => header;
 
@@ -586,9 +586,12 @@ public sealed class ChatPane : Grid {
     /// <summary>The name a person goes by in the open chat, or the start of their id.</summary>
     private string NameOfUser(string id)
     {
-        var known = controller.Store.Value.Details?.Members
-            .FirstOrDefault(m => m.UserId == id)?.Name;
-        return known ?? ServiceText.PersonName(null, id);
+        if (!memberNames.TryGetValue(id, out var name)) {
+            name = ServiceText.PersonName(null, id);
+            memberNames.Add(id, name);
+        }
+
+        return name;
     }
 
     // "Drop files to send", over the chat while files are dragged over it.
@@ -651,6 +654,8 @@ public sealed class ChatPane : Grid {
     }
 
     private bool revealing;
+    private int revealRoomVersion;
+    private Notice? revealNotice;
 
     /// <summary>
     /// Goes to a message and marks it for a moment, reading older history
@@ -659,51 +664,82 @@ public sealed class ChatPane : Grid {
     /// </summary>
     public async Task Reveal(string eventId)
     {
-        if (revealing)
+        var generation = roomVersion;
+        if (revealing && revealRoomVersion == generation)
             return;
         revealing = true;
+        revealRoomVersion = generation;
         try {
             TimelineItem? Find() => controller.Store.Value.Timeline
                 .FirstOrDefault(i => i.EventId == eventId);
 
             if (Find() is null) {
                 controller.ShowNotice(T("jump.looking"), NoticeKind.Progress);
-                // Older pages are read until it is there or the room starts.
+                revealNotice = controller.Store.Value.Notice;
                 for (var n = 0; n < 40 && Find() is null; n++) {
+                    if (generation != roomVersion)
+                        return;
                     var before = controller.Store.Value.Timeline.Count;
-                    if (await controller.LoadOlder() && Find() is null)
+                    var atStart = await controller.LoadOlder();
+                    if (generation != roomVersion)
+                        return;
+                    if (atStart && Find() is null)
                         break;
                     for (var w = 0;
                          w < 20 && Find() is null &&
                          controller.Store.Value.Timeline.Count == before;
-                         w++)
+                         w++) {
                         await Task.Delay(50);
+                        if (generation != roomVersion)
+                            return;
+                    }
+
                     if (controller.Store.Value.Timeline.Count == before)
                         break;
                 }
             }
 
             await Task.Yield();
+            if (generation != roomVersion)
+                return;
             Dispatcher.UIThread.RunJobs();
-            if (Find() is not { } hit ||
-                !rowsById.TryGetValue(hit.Id, out var row)) {
+            if (generation != roomVersion)
+                return;
+            if (Find() is not { } hit || !ScrollToMessage(hit.Id)) {
                 controller.ShowNotice(T("jump.notFound"), NoticeKind.Error);
+                revealNotice = controller.Store.Value.Notice;
                 return;
             }
 
-            controller.Store.Update(x => x with {
-                Notice = null
-            });
-            row.BringIntoView();
+            ClearRevealNotice();
             highlightId = hit.Id;
-            Mark();
+            Mark(false);
             await Task.Delay(3000);
+            if (generation != roomVersion)
+                return;
             if (highlightId == hit.Id)
                 highlightId = null;
-            Mark();
+            Mark(false);
         } finally {
-            revealing = false;
+            if (revealRoomVersion == generation) {
+                if (revealNotice?.Kind == NoticeKind.Progress)
+                    ClearRevealNotice();
+                revealing = false;
+            }
         }
+    }
+
+    private void ClearRevealNotice()
+    {
+        var owned = revealNotice;
+        revealNotice = null;
+        if (owned is not null &&
+            ReferenceEquals(controller.Store.Value.Notice, owned))
+            controller.Store.Update(s => ReferenceEquals(s.Notice, owned)
+                ? s with {
+                    Notice = null
+                }
+                : s);
     }
 
     private string? highlightId;
@@ -726,35 +762,55 @@ public sealed class ChatPane : Grid {
             ToolTip.SetTip(latest, label);
     }
 
-    private void OnScroll()
+    private void OnScroll(ScrollChangedEventArgs change)
     {
+        if (adjustingScroll || updatingMessages)
+            return;
+        var offsetChanged = Math.Abs(change.OffsetDelta.Y) > 0.01;
+        var layoutChanged = change.ExtentDelta != default ||
+                            change.ViewportDelta != default;
+        if (!offsetChanged) {
+            if (stickToBottom && layoutChanged)
+                ScrollToEnd();
+            return;
+        }
+
+        var userMovement = scrollInputPending || !layoutChanged;
+        if (userMovement)
+            scrollVersion++;
         var atBottom = scroller.Offset.Y >=
                        scroller.Extent.Height - scroller.Viewport.Height - 40;
+        if (!atBottom && stickToBottom && layoutChanged && !userMovement &&
+            change.OffsetDelta.Y >= 0) {
+            ScrollToEnd();
+            return;
+        }
+
         stickToBottom = atBottom;
         if (atBottom)
             newWhileAway = 0;
         ShowLatest();
-        // Near the top: older messages are asked for.
-        if (scroller.Offset.Y < 80 && !loadingOlder &&
+        // Extent corrections do not request history. A real move near the
+        // top does; the stable visible item anchors any inserted messages.
+        if (userMovement && scroller.Offset.Y < 80 &&
+            !loadingOlder && !historyStart &&
             scroller.Extent.Height > scroller.Viewport.Height) {
             loadingOlder = true;
-            var before = scroller.Extent.Height;
-            // Shown only if the answer is not quick (at the start of a chat it is, and nothing is coming).
+            var generation = roomVersion;
             olderTimer?.Dispose();
             olderTimer = After(TimeSpan.FromMilliseconds(250), () => {
-                if (loadingOlder)
+                if (generation == roomVersion && loadingOlder)
                     ShowOlder(true);
             });
-            _ = controller.LoadOlder().ContinueWith(_ =>
+            _ = controller.LoadOlder().ContinueWith(result =>
                 Dispatcher.UIThread.Post(() => {
+                    if (generation != roomVersion)
+                        return;
                     loadingOlder = false;
+                    historyStart = result.IsCompletedSuccessfully &&
+                                   result.Result;
                     olderTimer?.Dispose();
                     ShowOlder(false);
-                    // Keep what was being read where it was while the older lines are put above it.
-                    scroller.Offset =
-                        new Vector(0,
-                            scroller.Offset.Y + scroller.Extent.Height -
-                            before);
                 }));
         }
     }
@@ -825,8 +881,7 @@ public sealed class ChatPane : Grid {
         }
 
         if (!ReferenceEquals(shownItems, s.Timeline) ||
-            shownRoom != s.SelectedRoomId) {
-            shownRoom = s.SelectedRoomId;
+            MessagePresentationChanged(s, c)) {
             Rebuild();
         } else
             BuildHeader(c, s);
@@ -968,163 +1023,7 @@ public sealed class ChatPane : Grid {
         header.Child = bar;
     }
 
-    private void Rebuild()
-    {
-        var c = ThemeScope.GetColors(this);
-        var s = controller.Store.Value;
-        shownItems = s.Timeline;
-        BuildHeader(c, s);
-        var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
-        var group = room is not null && !room.IsDirect;
-        var width = Bounds.Width > 0 ? Bounds.Width : 800;
-        var maxBubble = Math.Min(560, (width - 24) * 0.8);
-        var now = time.GetUtcNow();
-        list.Children.Clear();
-        rowsById.Clear();
-        var items = s.Timeline;
-        for (var i = 0; i < items.Count; i++) {
-            var item = items[i];
-            if (item.Kind == TimelineKind.Date) {
-                // A day with nothing to show under it (only room events that are not drawn) gets no divider.
-                if (i + 1 >= items.Count ||
-                    items[i + 1].Kind == TimelineKind.Date)
-                    continue;
-                list.Children.Add(DateChip(c,
-                    Format.DayLabel(item.Ts, now, s.Locale, k => T(k))));
-                continue;
-            }
-
-            if (item.Kind == TimelineKind.Service) {
-                list.Children.Add(DateChip(c,
-                    item.Body == TimelineItem.Undecryptable
-                        ? T("undecryptable")
-                        : item.Body));
-                continue;
-            }
-
-            var above = i > 0 && SameRun(items[i - 1], item);
-            var below = i + 1 < items.Count && SameRun(item, items[i + 1]);
-            var bubble = new Bubble(
-                c,
-                item.Body,
-                Format.Clock(item.Ts, s.Locale),
-                item.IsOwn,
-                group ? item.SenderName : null,
-                item.SenderId,
-                above,
-                below,
-                item.Sending,
-                item.Failed,
-                item.Edited ? T("edited") : null,
-                s.Prefs.OwnBubbleAccent,
-                item.Reply,
-                item.Image,
-                controller.Pictures,
-                item.File,
-                img => OpenViewer(item, img),
-                item.FormattedBody,
-                null,
-                item.Read,
-                item.ReadBy.Count > 0
-                    ? T("readBy", ("names", string.Join(", ",
-                        item.ReadBy.Select(NameOfUser))))
-                    : T("read"),
-                OpenFile,
-                controller.LinkPreview,
-                controller.DownloadFile
-            );
-            if (bubble.Quote is { } quote &&
-                item.Reply?.EventId is { } quoted) {
-                quote.Cursor = new Cursor(StandardCursorType.Hand);
-                quote.PointerPressed += (_, e) => {
-                    if (!e.GetCurrentPoint(quote).Properties
-                            .IsLeftButtonPressed)
-                        return;
-                    e.Handled = true;
-                    _ = Reveal(quoted);
-                };
-            }
-
-            bubble.PointerPressed += (_, e) => {
-                if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
-                    e.Handled = true;
-                    OpenActions(bubble, item,
-                        e.GetPosition(TopLevel.GetTopLevel(bubble)));
-                }
-            };
-            var column = new StackPanel {
-                MaxWidth = maxBubble,
-                HorizontalAlignment =
-                    item.IsOwn
-                        ? HorizontalAlignment.Right
-                        : HorizontalAlignment.Left,
-                Margin = new Thickness(0, above ? 2 : 6, 0, 0),
-            };
-            column.Children.Add(bubble);
-            if (item.Reactions.Count > 0)
-                column.Children.Add(Chips(c, item, s.Prefs.OwnBubbleAccent));
-            var frame = new Border {
-                Child = column,
-                CornerRadius = new CornerRadius(Radius.Bubble + 2),
-                BorderThickness = new Thickness(2),
-                BorderBrush = Brushes.Transparent,
-                HorizontalAlignment =
-                    item.IsOwn
-                        ? HorizontalAlignment.Right
-                        : HorizontalAlignment.Left,
-            };
-            if (Selecting) {
-                var on = chosen.Contains(item.Id);
-                var id = item.Id;
-                // The whole row is the target while choosing, and a chosen row is shaded across the chat.
-                var row = new Border {
-                    Background = on
-                        ? new SolidColorBrush(
-                            Color.FromArgb(46, c.Accent.R, c.Accent.G,
-                                c.Accent.B))
-                        : Brushes.Transparent,
-                    Cursor = new Cursor(StandardCursorType.Hand),
-                    Child = new Grid {
-                        ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-                        Children = {
-                            SelectMark(c, on),
-                            frame
-                        }
-                    },
-                };
-                Grid.SetColumn(frame, 1);
-                frame.IsHitTestVisible = false;
-                row.PointerPressed += (_, e) => {
-                    e.Handled = true;
-                    ToggleChosen(id);
-                };
-                list.Children.Add(row);
-            } else
-                list.Children.Add(frame);
-
-            rowsById[item.Id] = frame;
-        }
-
-        // A new last message from someone else while the view is up in the history counts for the button.
-        var lastItem = items.Count > 0 ? items[^1] : null;
-        if (lastSeenId is not null && lastItem is not null &&
-            lastItem.Id != lastSeenId
-            && !lastItem.IsOwn && !stickToBottom)
-            newWhileAway++;
-        lastSeenId = lastItem?.Id;
-        ShowLatest();
-        if (s.JumpToEventId is { } target && s.TimelineReady) {
-            controller.Store.Update(x => x with {
-                JumpToEventId = null
-            });
-            stickToBottom = false;
-            _ = Reveal(target);
-        } else if (searching)
-            Search();
-        else if (stickToBottom)
-            Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(),
-                DispatcherPriority.Background);
-    }
+    private void Rebuild() => RefreshMessages();
 
     private static Control SelectMark(ColorTokens c, bool on)
     {
@@ -1370,10 +1269,8 @@ public sealed class ChatPane : Grid {
             line.PointerPressed += (_, e) => {
                 e.Handled = true;
                 pinnedDialog.Close();
-                if (target is not null &&
-                    rowsById.TryGetValue(target.Id, out var row))
-                    Dispatcher.UIThread.Post(() => row.BringIntoView(),
-                        DispatcherPriority.Background);
+                if (target is not null)
+                    ScrollToMessage(target.Id);
             };
             rowsList.Children.Add(line);
         }
@@ -1400,9 +1297,8 @@ public sealed class ChatPane : Grid {
         var item =
             controller.Store.Value.Timeline.FirstOrDefault(i =>
                 i.EventId == id);
-        if (item is not null && rowsById.TryGetValue(item.Id, out var row))
-            Dispatcher.UIThread.Post(() => row.BringIntoView(),
-                DispatcherPriority.Background);
+        if (item is not null)
+            ScrollToMessage(item.Id);
         pinnedAt = (pinnedAt + 1) % ids.Count;
         BuildPinnedBar(ThemeScope.GetColors(this), controller.Store.Value);
     }
@@ -1534,24 +1430,13 @@ public sealed class ChatPane : Grid {
     }
 
     // The matches get a ring; the one in view a stronger one, and it is brought into view.
-    private void Mark()
+    private void Mark(bool scroll = true)
     {
-        var c = ThemeScope.GetColors(this);
-        foreach (var (id, frame) in rowsById) {
-            var index = matches.IndexOf(id);
-            frame.BorderBrush = id == highlightId
-                ? new SolidColorBrush(c.Accent)
-                : index < 0
-                    ? Brushes.Transparent
-                    : index == current
-                        ? new SolidColorBrush(c.Accent)
-                        : new SolidColorBrush(c.MentionHighlight);
-        }
-
-        if (current >= 0 && current < matches.Count &&
-            rowsById.TryGetValue(matches[current], out var shown))
-            Dispatcher.UIThread.Post(() => shown.BringIntoView(),
-                DispatcherPriority.Background);
+        var colors = ThemeScope.GetColors(this);
+        foreach (var (id, frame) in rowsById)
+            PaintMessage(id, frame, colors);
+        if (scroll && current >= 0 && current < matches.Count)
+            ScrollToMessage(matches[current]);
     }
 
     public ImageViewer Viewer => viewer;

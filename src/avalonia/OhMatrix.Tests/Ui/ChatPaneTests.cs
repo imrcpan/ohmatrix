@@ -14,7 +14,7 @@ using Xunit;
 
 namespace OhMatrix.Tests.Ui;
 
-public class ChatPaneTests {
+public partial class ChatPaneTests {
     private static readonly long Now =
         new DateTimeOffset(2026, 11, 7, 12, 30, 0, TimeSpan.Zero)
             .ToUnixTimeMilliseconds();
@@ -1409,7 +1409,10 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        var picture = FindPane(screen).Messages.GetVisualDescendants()
+        var pane = FindPane(screen);
+        Assert.True(pane.ScrollToMessage("img"));
+        LayoutTimeline(window);
+        var picture = pane.Messages.GetVisualDescendants()
             .OfType<Image>().First();
         for (var i = 0; i < 20 && picture.Source is null; i++) {
             await Task.Delay(50);
@@ -2207,6 +2210,8 @@ public class ChatPaneTests {
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
+        Assert.True(pane.ScrollToMessage("img"));
+        LayoutTimeline(window);
         var picture = pane.Messages.GetVisualDescendants().OfType<Image>()
             .First();
         for (var i = 0; i < 20 && picture.Source is null; i++) {
@@ -2309,6 +2314,8 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
+        Assert.True(FindPane(screen).ScrollToMessage("3"));
+        LayoutTimeline(window);
         var glyphs = screen.GetVisualDescendants().OfType<Icon>()
             .Select(i => i.Glyph).ToList();
         Assert.Single(glyphs, "checks");
@@ -2353,6 +2360,8 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
+        Assert.True(FindPane(screen).ScrollToMessage("voice"));
+        LayoutTimeline(window);
         var texts = screen.GetVisualDescendants().OfType<TextBlock>()
             .Select(t => t.Text).ToList();
         // An audio message plays in its own card: the name, a bar and its length.
