@@ -57,6 +57,16 @@ public sealed class MatrixVerificationEngine(MatrixAuthEngine auth)
         }
     }
 
+    public async Task RequestUser(string userId)
+    {
+        try {
+            incoming = false;
+            await (await Controller()).RequestUserVerification(userId);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
     public async Task Accept()
     {
         try {

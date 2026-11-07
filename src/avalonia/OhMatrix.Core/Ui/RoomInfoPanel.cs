@@ -174,6 +174,11 @@ public sealed class RoomInfoPanel : Grid {
             content.Children.Add(ProfilePage.NavRow(c, "chat",
                 T("member.message"),
                 () => AskMessage(m), 8, chevron: false));
+            if (controller.CanVerifyUser)
+                content.Children.Add(ProfilePage.NavRow(c, "lock",
+                    T("member.verify"),
+                    () => _ = controller.VerifyUser(m.UserId), 8,
+                    chevron: false));
             content.Children.Add(ProfilePage.NavRow(c, "close",
                 T("member.block"),
                 () => AskBlock(m), 8, chevron: false, danger: true));
@@ -321,12 +326,85 @@ public sealed class RoomInfoPanel : Grid {
                 Icon: "user"));
         }
 
+        if (controller.Store.Value.Details?.Can.ChangeRoles == true)
+            items.Add(new MenuItem(T("setLevel"), () => AskLevel(room, m),
+                Icon: "edit"));
         items.Add(new MenuItem(T("removeMember"), () => AskRemove(room, m),
             Icon: "trash",
             Danger: true));
         items.Add(new MenuItem(T("ban"), () => AskBan(room, m), Icon: "lock",
             Danger: true));
         MemberMenu.Show(anchor, window, items);
+    }
+
+    /// <summary>Asks for the power level of a person, from 0 to the highest I hold.</summary>
+    public void AskLevel(RoomSummary room, RoomMemberInfo m)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var details = controller.Store.Value.Details;
+        var mine = details?.Members.FirstOrDefault(x =>
+            x.UserId == controller.Store.Value.UserId);
+        var max = mine?.Power ?? 100;
+        MemberPrompt.Show(window, ThemeScope.GetColors(this),
+            controller.Store.Value.Locale,
+            T("setLevel"), T("level.custom.body", ("max", max)),
+            [new PromptField(T("level.field"), "info")], T("save"), v => {
+                if (!int.TryParse(v[0].Trim(), out var n) || n < 0 || n > max)
+                    throw new InvalidOperationException(T("level.invalid",
+                        ("max", max)));
+                return controller.SetMemberPower(room.Id, m.UserId, n);
+            });
+        MemberPrompt.Fields[0].Text = (m.Power ?? max).ToString();
+    }
+
+    public Menu BannedMenu { get; } = new();
+
+    /// <summary>The people banned from the room; pressing one offers to lift the ban.</summary>
+    private void AddBanned(ColorTokens c, RoomSummary room, RoomDetails details)
+    {
+        content.Children.Add(Section(c,
+            $"{T("banned.title")} · {details.Banned.Count}"));
+        foreach (var b in details.Banned) {
+            var line = new StackPanel {
+                Margin = new Thickness(20, 6),
+                Background = Brushes.Transparent,
+                Cursor = details.Can.Ban
+                    ? new Cursor(StandardCursorType.Hand)
+                    : null,
+            };
+            line.Children.Add(new TextBlock {
+                Text = b.Name,
+                FontSize = 16,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.Text),
+            });
+            var sub = string.Join(" · ", new[] {
+                b.Name != b.UserId ? b.UserId : "", b.Reason ?? ""
+            }.Where(x => x.Length > 0));
+            if (sub.Length > 0)
+                line.Children.Add(new TextBlock {
+                    Text = sub,
+                    FontSize = 13,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(c.TextSecondary),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                });
+            var banned = b;
+            if (details.Can.Ban)
+                line.PointerPressed += (_, e) => {
+                    e.Handled = true;
+                    if (TopLevel.GetTopLevel(this) is { } window)
+                        BannedMenu.Show(line, window, [
+                            new MenuItem(T("unban"),
+                                () => _ =
+                                    Run(controller.UnbanMember(room.Id,
+                                        banned.UserId)),
+                                Icon: "user")
+                        ]);
+                };
+            content.Children.Add(line);
+        }
     }
 
     /// <summary>Asks before a person is made an admin or moderator; a member is made at once.</summary>
@@ -554,6 +632,12 @@ public sealed class RoomInfoPanel : Grid {
             }
         }
 
+        if (!room.IsSpace) {
+            content.Children.Add(SettingRow(c, T("encryption"),
+                T(details.IsEncrypted ? "room.encrypted" : "room.notEncrypted"),
+                details.IsEncrypted ? "lock" : "info", null));
+        }
+
         InviteButton = null;
         if (!room.IsDirect) {
             InviteButton = new TextButton {
@@ -570,6 +654,8 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         AddShared(c, s.Timeline);
+        if (!room.IsDirect && details.Banned.Count > 0)
+            AddBanned(c, room, details);
         content.Children.Add(Section(c, T("membersTitle")));
         foreach (var member in details.Members)
             content.Children.Add(MemberRow(c, member, room));

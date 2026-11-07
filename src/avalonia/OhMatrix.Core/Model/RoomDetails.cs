@@ -12,7 +12,16 @@ public sealed record RoomMemberInfo(
     string Name,
     string? AvatarUrl,
     MemberRole Role
-);
+) {
+    /// <summary>The power level; null for a room creator, who has no limit.</summary>
+    public int? Power { get; init; }
+}
+
+/// <summary>A person who is banned from a room, with the reason if one was given.</summary>
+public sealed record BannedMemberInfo(
+    string UserId,
+    string Name,
+    string? Reason);
 
 /// <summary>Who can read the room's history: from now on for new members (joined), from their invite, all of it, or anyone.</summary>
 public enum HistoryVisibility {
@@ -63,4 +72,7 @@ public sealed record RoomDetails(
     PowerThresholds Levels,
     RoomPermissions Can,
     bool IsDirect
-);
+) {
+    public bool IsEncrypted { get; init; }
+    public IReadOnlyList<BannedMemberInfo> Banned { get; init; } = [];
+}

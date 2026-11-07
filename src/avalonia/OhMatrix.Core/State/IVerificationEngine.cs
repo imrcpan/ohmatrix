@@ -13,6 +13,9 @@ public interface IVerificationEngine {
     /// <summary>Asks my other sessions to verify this one.</summary>
     Task Request();
 
+    /// <summary>Asks another person to verify with me.</summary>
+    Task RequestUser(string userId);
+
     /// <summary>Accepts the request that came in.</summary>
     Task Accept();
 

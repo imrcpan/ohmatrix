@@ -22,22 +22,30 @@ public sealed class Mentions {
     }
 
     /// <summary>Up to six people whose name or id has the query in it, those whose name starts with it first.</summary>
-    public static IReadOnlyList<RoomMemberInfo> Suggest(IReadOnlyList<RoomMemberInfo> members,
+    public static IReadOnlyList<RoomMemberInfo> Suggest(
+        IReadOnlyList<RoomMemberInfo> members,
         string query)
     {
         var q = query.ToLowerInvariant();
         return [
             .. members
-                .Where(m => q.Length == 0 || m.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
-                            || m.UserId.Contains(q, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(m => m.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .Where(m =>
+                    q.Length == 0 || m.Name.Contains(q,
+                                      StringComparison.OrdinalIgnoreCase)
+                                  || m.UserId.Contains(q,
+                                      StringComparison.OrdinalIgnoreCase))
+                .OrderBy(m =>
+                    m.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase)
+                        ? 0
+                        : 1)
                 .ThenBy(m => m.Name, StringComparer.CurrentCultureIgnoreCase)
                 .Take(6)
         ];
     }
 
     /// <summary>Puts the person's name in place of the <c>@token</c> and remembers them for the send; returns the new text and the caret.</summary>
-    public (string Text, int Caret) Apply(RoomMemberInfo who, string text, int caret)
+    public (string Text, int Caret) Apply(RoomMemberInfo who, string text,
+        int caret)
     {
         if (TokenAt(text, caret) is not { } token)
             return (text, caret);
@@ -47,11 +55,13 @@ public sealed class Mentions {
     }
 
     /// <summary>The ids whose <c>@name</c> is still in the text, plus any full id typed by hand.</summary>
-    public IReadOnlyList<string> Resolve(string text, IReadOnlyList<RoomMemberInfo> members)
+    public IReadOnlyList<string> Resolve(string text,
+        IReadOnlyList<RoomMemberInfo> members)
     {
         var found = new HashSet<string>();
         foreach (var m in members) {
-            if (picked.Contains(m.UserId) && text.Contains("@" + m.Name, StringComparison.Ordinal))
+            if (picked.Contains(m.UserId) &&
+                text.Contains("@" + m.Name, StringComparison.Ordinal))
                 found.Add(m.UserId);
             if (text.Contains(m.UserId, StringComparison.Ordinal))
                 found.Add(m.UserId);
