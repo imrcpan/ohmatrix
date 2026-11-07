@@ -12,6 +12,7 @@ namespace OhMatrix.Core.Storage;
 )]
 [JsonSerializable(typeof(Session))]
 [JsonSerializable(typeof(Preferences))]
+[JsonSerializable(typeof(StoredAccounts))]
 internal sealed partial class StorageJson : JsonSerializerContext;
 
 /// <summary>Keeps one value as a JSON file, written through a temporary file so that a crash never leaves half of it.</summary>
@@ -83,5 +84,20 @@ public sealed class FilePreferencesStore(string directory) : IPreferencesStore {
     public Task Save(Preferences preferences)
     {
         return JsonFile.Write(Path, preferences, StorageJson.Default.Preferences);
+    }
+}
+
+/// <summary>The accounts in <c>accounts.json</c> of a data directory.</summary>
+public sealed class FileAccountsStore(string directory) : IAccountsStore {
+    private string Path => System.IO.Path.Combine(directory, "accounts.json");
+
+    public Task<StoredAccounts?> Load()
+    {
+        return JsonFile.Read(Path, StorageJson.Default.StoredAccounts);
+    }
+
+    public Task Save(StoredAccounts accounts)
+    {
+        return JsonFile.Write(Path, accounts, StorageJson.Default.StoredAccounts);
     }
 }

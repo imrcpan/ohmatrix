@@ -22,54 +22,63 @@ public class App : Application {
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "OhMatrix"
             );
-            var (auth, rooms, chats, media, profiles, devices, links, security, verification, calls,
+            AccountManager? manager = null;
+            // Each account has its own folder, engines and controller; the preferences are shared.
+            AppController Create(string dir)
+            {
+                var (auth, rooms, chats, media, profiles, devices, links, security, verification,
+                        calls, stickers) = Engines.Create(dir);
+                return new AppController(
+                    auth,
+                    new FileSessionStore(dir),
+                    new FilePreferencesStore(data),
+                    null,
+                    rooms,
+                    chats,
+                    media,
+                    profiles,
+                    devices,
+                    links,
+                    security,
+                    new DesktopNotifier(() => desktop.MainWindow?.IsActive == true, id => {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                            desktop.MainWindow?.Activate();
+                            manager?.Current.SelectRoom(id);
+                        });
+                    }),
+                    verification,
+                    calls,
+                    new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
+                    new OhMatrix.Core.Calls.VlcCallSounds(),
                     stickers
-                    ) =
-                Engines.Create(data);
-            AppController? opened = null;
-            var controller = new AppController(
-                auth,
-                new FileSessionStore(data),
-                new FilePreferencesStore(data),
-                null,
-                rooms,
-                chats,
-                media,
-                profiles,
-                devices,
-                links,
-                security,
-                new DesktopNotifier(() => desktop.MainWindow?.IsActive == true, id => {
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                        desktop.MainWindow?.Activate();
-                        opened?.SelectRoom(id);
-                    });
-                }),
-                verification,
-                calls,
-                new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
-                new OhMatrix.Core.Calls.VlcCallSounds(),
-                stickers
-            );
-            opened = controller;
-            var root = new AppRoot(
-                controller,
-                "matrix.org",
-                () => PlatformSettings?.GetColorValues().ThemeVariant switch {
-                    PlatformThemeVariant.Dark => true,
-                    PlatformThemeVariant.Light => false,
-                    _ => null,
-                }
-            );
+                );
+            }
+
+            manager = new AccountManager(data, Create, new FileAccountsStore(data));
+            AppRoot? root = null;
             desktop.MainWindow = new Window {
                 Title = "OhMatrix",
                 Width = 1000,
                 Height = 700,
                 MinWidth = 360,
                 MinHeight = 480,
-                Content = root,
             };
-            _ = controller.Bootstrap();
+            _ = Start();
+
+            async Task Start()
+            {
+                await manager.Start();
+                root = new AppRoot(
+                    manager,
+                    "matrix.org",
+                    () => PlatformSettings?.GetColorValues().ThemeVariant switch {
+                        PlatformThemeVariant.Dark => true,
+                        PlatformThemeVariant.Light => false,
+                        _ => null,
+                    }
+                );
+                desktop.MainWindow.Content = root;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

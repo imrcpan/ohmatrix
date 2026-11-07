@@ -38,6 +38,7 @@ public sealed class MainScreen : Grid {
     private readonly ExplorePage explorePage;
     private readonly SettingsPage settingsPage;
     private readonly SessionsPage sessionsPage;
+    private readonly AccountsPage accountsPage;
     private readonly AdvancedPage advancedPage;
     private readonly LogPage logPage;
     private readonly EncryptionPage encryptionPage;
@@ -83,6 +84,7 @@ public sealed class MainScreen : Grid {
         explorePage = new ExplorePage(controller);
         settingsPage = new SettingsPage(controller);
         sessionsPage = new SessionsPage(controller);
+        accountsPage = new AccountsPage(controller);
         advancedPage = new AdvancedPage(controller);
         logPage = new LogPage(controller);
         encryptionPage = new EncryptionPage(controller);
@@ -212,6 +214,7 @@ public sealed class MainScreen : Grid {
             SidebarPage.Space => spacePage,
             SidebarPage.Advanced => advancedPage,
             SidebarPage.Logs => logPage,
+            SidebarPage.Accounts => accountsPage,
             _ => strip ? rail ??= new RoomListPane(controller, true) : list,
         };
         detail.Child = split && open ? wideChat : chip;

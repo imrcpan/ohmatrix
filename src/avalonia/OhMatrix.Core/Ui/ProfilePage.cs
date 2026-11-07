@@ -245,6 +245,9 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "lock", T("encryption"),
             () => controller.OpenSidebarPage(SidebarPage.Encryption), 6,
             EncryptionPage.Words(s.Security, k => T(k))));
+        if (controller.Accounts is not null)
+            content.Children.Add(NavRow(c, "user", T("switchAccount"),
+                () => controller.OpenSidebarPage(SidebarPage.Accounts), 6));
         content.Children.Add(NavRow(c, "gear", T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 20));
     }
