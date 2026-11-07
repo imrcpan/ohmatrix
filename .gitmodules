@@ -1,3 +1,0 @@
-[submodule "src/apps/desktop/linux/react-native-skia-linux"]
-	path = src/apps/desktop/linux/react-native-skia-linux
-	url = git@github.com:imrcpan/react-native-skia-linux.git

@@ -11,7 +11,6 @@ export default tseslint.config(
       "**/build/**",
       "**/.expo/**",
       "src/apps/mobile/.generated/**", // made at build time from the logo, not written by hand
-      "src/apps/desktop/linux/react-native-skia-linux/**", // a submodule: someone else's code, checked by its own rules
       "src/e2e/.out/**",
       "src/e2e/test-results/**",
       "src/dev/synapse/data/**",
