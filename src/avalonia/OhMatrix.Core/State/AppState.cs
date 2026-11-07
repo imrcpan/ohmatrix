@@ -51,6 +51,9 @@ public sealed record AppState {
     /// <summary>Why the last join failed, until it is dismissed.</summary>
     public string? JoinError { get; init; }
 
+    /// <summary>A message the open chat is to scroll to once it has it (from a search result).</summary>
+    public string? JumpToEventId { get; init; }
+
     /// <summary>The chat list, in the order it is shown: pinned first, then the latest activity first.</summary>
     public IReadOnlyList<RoomSummary> Rooms { get; init; } = [];
 

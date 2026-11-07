@@ -224,6 +224,13 @@ public sealed class ChatPane : Grid {
     };
 
     private readonly Dictionary<string, Border> rowsById = [];
+    private MessageResultsView? hits;
+    private string? hitsRoom;
+
+    // The messages of this chat the server finds, in place of the chat while a search is typed.
+    private readonly ScrollViewer hitsHost = new() {
+        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+    };
     private List<string> matches = [];
     private int current;
     private bool searching;
@@ -358,6 +365,9 @@ public sealed class ChatPane : Grid {
         };
         body.Children.Add(pinnedBar);
         body.Children.Add(searchBar);
+        Grid.SetRow(hitsHost, 2);
+        hitsHost.IsVisible = false;
+        body.Children.Add(hitsHost);
         Children.Add(body);
         Children.Add(composer);
 
@@ -753,7 +763,18 @@ public sealed class ChatPane : Grid {
             rowsById[item.Id] = frame;
         }
 
-        if (searching)
+        if (s.JumpToEventId is { } target && s.TimelineReady) {
+            var hit = items.FirstOrDefault(i => i.EventId == target);
+            Dispatcher.UIThread.Post(() => {
+                // A message older than what is loaded cannot be shown; the chat stays where it is.
+                if (hit is not null && rowsById.TryGetValue(hit.Id, out var row))
+                    row.BringIntoView();
+                controller.Store.Update(x => x with {
+                    JumpToEventId = null
+                });
+            }, DispatcherPriority.Background);
+            stickToBottom = false;
+        } else if (searching)
             Search();
         else if (stickToBottom)
             Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
@@ -1038,6 +1059,23 @@ public sealed class ChatPane : Grid {
                              i.Body.Contains(query, StringComparison.CurrentCultureIgnoreCase))
                 .Select(i => i.Id)
                 .ToList();
+        if (searching && query.Length >= 2 && controller.CanSearchMessages
+            && controller.Store.Value.SelectedRoomId is { } roomId) {
+            if (hits is null || hitsRoom != roomId) {
+                hits = new MessageResultsView(controller, roomId, false);
+                hitsRoom = roomId;
+                hitsHost.Content = hits;
+                hits.Picked += () => ToggleSearch();
+            }
+
+            hitsHost.Background = new SolidColorBrush(c.Bg);
+            hits.SetTerm(query);
+            hitsHost.IsVisible = true;
+        } else {
+            hits?.SetTerm("");
+            hitsHost.IsVisible = false;
+        }
+
         current = matches.Count - 1;
         searchCount.Text = query.Length < 2 ? "" :
             matches.Count == 0 ? T("search.empty") : $"{current + 1}/{matches.Count}";

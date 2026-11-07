@@ -27,7 +27,7 @@ public class App : Application {
             AppController Create(string dir)
             {
                 var (auth, rooms, chats, media, profiles, devices, links, security, verification,
-                        calls, stickers) = Engines.Create(dir);
+                        calls, stickers, search) = Engines.Create(dir);
                 return new AppController(
                     auth,
                     new FileSessionStore(dir),
@@ -50,7 +50,8 @@ public class App : Application {
                     calls,
                     new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
                     new OhMatrix.Core.Calls.VlcCallSounds(),
-                    stickers
+                    stickers,
+                    search
                 );
             }
 
