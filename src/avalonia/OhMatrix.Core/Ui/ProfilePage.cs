@@ -107,6 +107,8 @@ public sealed class ProfilePage : Grid {
         NamePrompt.Fields[0].Text = s.Profile?.DisplayName ?? "";
     }
 
+    public ImageViewer Viewer { get; } = new();
+
     internal static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
         double top, string? value = null, bool chevron = true, bool danger = false)
     {
@@ -196,6 +198,15 @@ public sealed class ProfilePage : Grid {
             HorizontalAlignment = HorizontalAlignment.Center
         };
         controller.Pictures.Attach(mine, s.Profile?.AvatarUrl, 72);
+        if (s.Profile?.AvatarUrl is { Length: > 0 } own) {
+            mine.Cursor = new Cursor(StandardCursorType.Hand);
+            mine.PointerPressed += (_, e) => {
+                e.Handled = true;
+                if (TopLevel.GetTopLevel(this) is { } window)
+                    Viewer.Show(window, controller.Pictures, own, shown, null,
+                        () => controller.SavePicture(window, own, shown));
+            };
+        }
         head.Children.Add(mine);
         head.Children.Add(new TextBlock {
             Text = shown,

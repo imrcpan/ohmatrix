@@ -32,6 +32,9 @@ public sealed record Preferences {
     /// <summary>The name of an installed font for the interface; null is the system's own.</summary>
     public string? Font { get; init; }
 
+    /// <summary>The folder files are kept in when saved; null asks each time.</summary>
+    public string? DownloadFolder { get; init; }
+
     public string? StickerGroup { get; init; }
 
     /// <summary>The emoji used last, newest first (at most 24): the picker shows them first.</summary>

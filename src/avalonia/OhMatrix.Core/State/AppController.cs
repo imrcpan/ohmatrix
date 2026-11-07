@@ -52,10 +52,12 @@ public sealed class AppController(
         try {
             if (preferences is not null) {
                 var saved = await Quietly(preferences.Load);
-                if (saved is not null)
+                if (saved is not null) {
+                    Ui.Fonts.Use(saved.Font);
                     Store.Update(s => s with {
                         Prefs = saved
                     });
+                }
             }
 
             var session = await sessions.Load();
@@ -698,6 +700,13 @@ public sealed class AppController(
             var path = await media.Download(source, name, "");
             if (path is null)
                 throw new IOException();
+            if (Store.Value.Prefs.DownloadFolder is { Length: > 0 } folder && Directory.Exists(folder)) {
+                var kept = Path.Combine(folder, Path.GetFileName(name));
+                File.Copy(path, kept, true);
+                ShowNotice(Strings.T(Store.Value.Locale, "viewer.saved"));
+                return;
+            }
+
             var target = await window.StorageProvider.SaveFilePickerAsync(
                 new Avalonia.Platform.Storage.FilePickerSaveOptions {
                     SuggestedFileName = name
@@ -996,6 +1005,9 @@ public sealed class AppController(
     /// <summary>Changes the preferences and keeps them.</summary>
     public void SetPreferences(Func<Preferences, Preferences> change)
     {
+        var font = change(Store.Value.Prefs).Font;
+        if (font != Store.Value.Prefs.Font)
+            Ui.Fonts.Use(font);
         Store.Update(s => s with {
             Prefs = change(s.Prefs)
         });

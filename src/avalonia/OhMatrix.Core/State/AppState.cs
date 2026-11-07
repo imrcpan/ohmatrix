@@ -17,6 +17,7 @@ public enum SidebarPage {
     Advanced,
     Logs,
     Accounts,
+    Font,
 }
 
 public enum AuthStatus {

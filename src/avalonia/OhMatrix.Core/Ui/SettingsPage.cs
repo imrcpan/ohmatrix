@@ -65,6 +65,35 @@ public sealed class SettingsPage : Grid {
         return Strings.T(controller.Store.Value.Locale, key, values);
     }
 
+    public Border? DownloadRow { get; private set; }
+    public Menu DownloadMenu { get; } = new();
+
+    /// <summary>The menu of the download location: the Downloads folder of the system, or a folder chosen.</summary>
+    public void OpenDownloadMenu()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window || DownloadRow is null)
+            return;
+        var folder = controller.Store.Value.Prefs.DownloadFolder;
+        DownloadMenu.Show(DownloadRow, window, [
+            new MenuItem(T("downloadFolder.default"), () => controller.SetPreferences(p => p with {
+                DownloadFolder = null
+            }), Checked: string.IsNullOrEmpty(folder)),
+            new MenuItem(T("downloadFolder.choose"), () => _ = ChooseFolder(window),
+                Checked: !string.IsNullOrEmpty(folder)),
+        ]);
+    }
+
+    private async Task ChooseFolder(TopLevel window)
+    {
+        var picked = await window.StorageProvider.OpenFolderPickerAsync(
+            new Avalonia.Platform.Storage.FolderPickerOpenOptions());
+        if (picked.Count > 0
+            && Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(picked[0]) is { } path)
+            controller.SetPreferences(p => p with {
+                DownloadFolder = path
+            });
+    }
+
     /// <summary>Asks whether to sign out; the answer is in the buttons of the dialog.</summary>
     public void AskSignOut()
     {
@@ -145,6 +174,13 @@ public sealed class SettingsPage : Grid {
             ZoomPicker.Percent(s.Prefs.UiScale));
         zoomAnchor = zoomRow;
         content.Children.Add(zoomRow);
+        content.Children.Add(ProfilePage.NavRow(c, "font", T("font"),
+            () => controller.OpenSidebarPage(SidebarPage.Font), 12,
+            s.Prefs.Font ?? T("font.system")));
+        DownloadRow = ProfilePage.NavRow(c, "download", T("downloadFolder"), OpenDownloadMenu, 12,
+            s.Prefs.DownloadFolder is { Length: > 0 } dl ? Path.GetFileName(dl.TrimEnd('/', '\\'))
+                : T("downloadFolder.default"));
+        content.Children.Add(DownloadRow);
         var themeName = s.Prefs.Theme == Themes.System
             ? T("theme.system")
             : Themes.Get(s.Prefs.Theme)?.LabelFor(s.Locale) ?? s.Prefs.Theme;
