@@ -1439,6 +1439,41 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_font_page_lists_fonts_and_choosing_one_is_kept()
+    {
+        var (_, controller, _, _) = await Open("light", 1000);
+        var page = new FontPage(controller);
+        var host = new Window {
+            Content = page,
+            Width = 400,
+            Height = 600
+        };
+        ThemeScope.SetColors(host, OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
+        host.Show();
+        Assert.True(page.Rows.Children.Count >= 2);
+        controller.SetPreferences(p => p with {
+            Font = "Serif"
+        });
+        Assert.Equal("Serif", controller.Store.Value.Prefs.Font);
+        controller.SetPreferences(p => p with {
+            Font = null
+        });
+        Assert.Null(controller.Store.Value.Prefs.Font);
+    }
+
+    [AvaloniaFact]
+    public async Task The_pinned_list_opens_from_the_bar()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        pane.OpenPinnedList();
+        Assert.True(pane.PinnedDialog.IsOpen);
+        pane.PinnedDialog.Close();
+    }
+
+    [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
         var (window, controller, _, screen) = await Open("light", 1000);

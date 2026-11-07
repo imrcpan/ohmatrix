@@ -915,7 +915,7 @@ public sealed class ChatPane : Grid {
         pinnedBar.Background = new SolidColorBrush(c.Bg);
         pinnedBar.BorderBrush = new SolidColorBrush(c.Separator);
         var grid = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*")
+            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto")
         };
         grid.Children.Add(new Icon {
             Glyph = "pin",
@@ -952,8 +952,73 @@ public sealed class ChatPane : Grid {
         });
         Grid.SetColumn(words, 2);
         grid.Children.Add(words);
+        var all = new IconButton("more", T("pinned.all"), 20, 32) {
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        all.Click += (_, _) => OpenPinnedList();
+        Grid.SetColumn(all, 3);
+        grid.Children.Add(all);
         pinnedBar.Child = grid;
         pinnedBar.Cursor = new Cursor(StandardCursorType.Hand);
+    }
+
+    private readonly Dialog pinnedDialog = new();
+    public Dialog PinnedDialog => pinnedDialog;
+
+    /// <summary>All the pinned messages of the chat, newest first, in a dialog; pressing one goes to it (<c>PinnedPage</c>).</summary>
+    public void OpenPinnedList()
+    {
+        if (TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        var c = ThemeScope.GetColors(this);
+        var ids = PinnedIds().Reverse().ToList();
+        var rowsList = new StackPanel();
+        foreach (var id in ids) {
+            var item = controller.Store.Value.Timeline.FirstOrDefault(i => i.EventId == id);
+            var text = item is null ? "…"
+                : item.Body.Length > 0 ? item.Body : item.File?.Name ?? item.Image?.FileName ?? "";
+            var line = new StackPanel {
+                Margin = new Thickness(4, 6),
+                Background = Brushes.Transparent,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            if (item is not null)
+                line.Children.Add(new TextBlock {
+                    Text = item.SenderName,
+                    FontSize = 13,
+                    FontWeight = FontWeight.SemiBold,
+                    FontFamily = Fonts.System,
+                    Foreground = new SolidColorBrush(c.Accent),
+                });
+            line.Children.Add(new TextBlock {
+                Text = text,
+                FontSize = 15,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.Text),
+                MaxLines = 2,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.Wrap,
+            });
+            var target = item;
+            line.PointerPressed += (_, e) => {
+                e.Handled = true;
+                pinnedDialog.Close();
+                if (target is not null && rowsById.TryGetValue(target.Id, out var row))
+                    Dispatcher.UIThread.Post(() => row.BringIntoView(), DispatcherPriority.Background);
+            };
+            rowsList.Children.Add(line);
+        }
+
+        var close = new TextButton {
+            Title = T("viewer.close")
+        };
+        ThemeScope.SetColors(close, c);
+        close.Click += (_, _) => pinnedDialog.Close();
+        pinnedDialog.Show(window, c, $"{T("pinned.title")} · {ids.Count}", null,
+            new ScrollViewer {
+                Content = rowsList,
+                MaxHeight = 360
+            }, close);
     }
 
     /// <summary>Goes to the pinned message shown, and moves the bar on to the next one.</summary>

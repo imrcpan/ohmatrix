@@ -69,6 +69,20 @@ public sealed class RoomInfoPanel : Grid {
         Apply();
     }
 
+    /// <summary>Makes a picture open full size when pressed, when it has one (<c>AvatarViewer</c>).</summary>
+    private void AttachViewer(Avatar avatar, string? source, string name)
+    {
+        if (string.IsNullOrEmpty(source))
+            return;
+        avatar.Cursor = new Cursor(StandardCursorType.Hand);
+        avatar.PointerPressed += (_, e) => {
+            e.Handled = true;
+            if (TopLevel.GetTopLevel(this) is { } window)
+                Viewer.Show(window, controller.Pictures, source, name, null,
+                    () => controller.SavePicture(window, source, name));
+        };
+    }
+
     private bool gallery;
 
     /// <summary>The whole gallery when its page is open, or null.</summary>
@@ -129,6 +143,7 @@ public sealed class RoomInfoPanel : Grid {
             HorizontalAlignment = HorizontalAlignment.Center
         };
         controller.Pictures.Attach(avatar, m.AvatarUrl, 72);
+        AttachViewer(avatar, m.AvatarUrl, m.Name);
         head.Children.Add(avatar);
         head.Children.Add(new TextBlock {
             Text = m.Name,
@@ -442,6 +457,7 @@ public sealed class RoomInfoPanel : Grid {
             HorizontalAlignment = HorizontalAlignment.Center
         };
         controller.Pictures.Attach(avatar, room.AvatarUrl, 96);
+        AttachViewer(avatar, room.AvatarUrl, room.Name);
         head.Children.Add(avatar);
         head.Children.Add(new TextBlock {
             Text = room.Name,
