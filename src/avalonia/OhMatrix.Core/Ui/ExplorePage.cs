@@ -146,13 +146,14 @@ public sealed class ExplorePage : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        confirm.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
-            T("explore.confirm", ("name", room.Name)), room.Topic ?? "", [], T("join"), values => {
-                _ = controller.JoinPublicRoom(room);
-                controller.OpenSidebarPage(SidebarPage.Chats);
-                return Task.CompletedTask;
-            });
+        JoinCard.Show(window, room, () => {
+            _ = controller.JoinPublicRoom(room);
+            controller.OpenSidebarPage(SidebarPage.Chats);
+        });
     }
+
+    private RoomCardDialog? card;
+    public RoomCardDialog JoinCard => card ??= new RoomCardDialog(controller);
 
     private void Apply()
     {

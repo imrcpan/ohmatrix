@@ -68,7 +68,7 @@ public sealed class SharePage : Grid {
 
     /// <summary>The chats that can be posted in, in the order of the list.</summary>
     public IReadOnlyList<RoomSummary> Postable =>
-        [.. controller.Store.Value.Rooms.Where(r => r.Inviter is null && !r.IsSpace)];
+        [.. controller.Store.Value.Rooms.Where(r => !r.Invite && !r.IsSpace)];
 
     public void Toggle(string id)
     {

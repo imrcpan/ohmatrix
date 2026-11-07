@@ -1053,8 +1053,8 @@ public class ChatPaneTests {
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s", null, 1200));
-        Assert.True(page.Confirm.Dialog.IsOpen);
-        page.Confirm.Confirm();
+        Assert.True(page.JoinCard.Dialog.IsOpen);
+        page.JoinCard.JoinButton!.RaiseClick();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
@@ -1070,7 +1070,7 @@ public class ChatPaneTests {
         var page = screen.ExploreScreen;
         engine.JoinGate = new TaskCompletionSource<string>();
         page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s", null, 1200));
-        page.Confirm.Confirm();
+        page.JoinCard.JoinButton!.RaiseClick();
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
@@ -1418,8 +1418,8 @@ public class ChatPaneTests {
             return Task.CompletedTask;
         });
         Assert.True(viewer.SaveButton.IsVisible);
-        viewer.SaveButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(
-            Avalonia.Controls.Button.ClickEvent));
+        viewer.SaveButton.RaiseClick();
+        Assert.Equal(1, saved);
         viewer.Close();
         viewer.Show(window, controller.Pictures, "mxc://x", "a.png", null);
         Assert.False(viewer.SaveButton.IsVisible);
@@ -1471,6 +1471,24 @@ public class ChatPaneTests {
         pane.OpenPinnedList();
         Assert.True(pane.PinnedDialog.IsOpen);
         pane.PinnedDialog.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Dropped_files_are_listed_before_they_are_sent()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        var file = Path.Combine(Path.GetTempPath(), "drop-" + Guid.NewGuid().ToString("N") + ".pdf");
+        File.WriteAllText(file, "x");
+        pane.OfferFiles([file]);
+        Assert.True(pane.SendFiles.Dialog.IsOpen);
+        Assert.NotNull(pane.SendFiles.SendButton);
+        pane.SendFiles.Dialog.Close();
+        Assert.Equal("send.files.file", SendFilesDialog.KindOf(file));
+        Assert.Equal("photo", SendFilesDialog.KindOf("a.png"));
+        File.Delete(file);
     }
 
     [AvaloniaFact]
@@ -2141,8 +2159,8 @@ public class ChatPaneTests {
         Assert.Contains("Demo team", texts);
         Save(window, "space");
         page.AskJoin(page.Children_[1]);
-        Assert.True(page.Confirm.Dialog.IsOpen);
-        page.Confirm.Confirm();
+        Assert.True(page.Card.Dialog.IsOpen);
+        page.Card.JoinButton!.RaiseClick();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
