@@ -109,6 +109,7 @@ public sealed class AppController(
         Store.Update(s => s with {
             SelectedRoomId = roomId,
             Timeline = [],
+            TimelineReady = false,
             Typing = [],
             ReplyTo = null,
             Editing = null,
@@ -651,6 +652,7 @@ public sealed class AppController(
                 if (ReferenceEquals(chat, session))
                     Store.Update(s => s with {
                         Timeline = items,
+                        TimelineReady = true,
                         Rooms = WithPreview(s.Rooms, roomId, items),
                     });
             });
@@ -663,6 +665,7 @@ public sealed class AppController(
             var now = session.Items;
             Store.Update(s => s with {
                 Timeline = now,
+                TimelineReady = true,
                 Rooms = WithPreview(s.Rooms, roomId, now),
             });
             _ = Quietly(session.MarkRead);
@@ -920,13 +923,58 @@ public sealed class AppController(
                     Rooms = Order(list)
                 });
                 Announce(before, Store.Value.Rooms);
+                if (Store.Value is { SyncState: SyncState.Syncing, RoomsSettled: false })
+                    Settle(false);
             });
-            rooms.SyncChanged += state => Post(() => Store.Update(s => s with {
-                SyncState = state
-            }));
+            rooms.SyncChanged += state => Post(() => {
+                Store.Update(s => s with {
+                    SyncState = state
+                });
+                if (state == SyncState.Syncing && !Store.Value.RoomsSettled)
+                    Settle(true);
+            });
         }
 
         _ = Quietly(rooms.StartSync);
+    }
+
+    private CancellationTokenSource? settleQuiet;
+    private CancellationTokenSource? settleCap;
+
+    /// <summary>The first load is over when the list has been still for 700 ms once syncing, or after 6 s at most.</summary>
+    private void Settle(bool start)
+    {
+        settleQuiet?.Cancel();
+        settleQuiet = new CancellationTokenSource();
+        _ = SettleAfter(TimeSpan.FromMilliseconds(700), settleQuiet.Token);
+        if (start && settleCap is null) {
+            settleCap = new CancellationTokenSource();
+            _ = SettleAfter(TimeSpan.FromSeconds(6), settleCap.Token);
+        }
+    }
+
+    private void Unsettle()
+    {
+        settleQuiet?.Cancel();
+        settleCap?.Cancel();
+        settleQuiet = null;
+        settleCap = null;
+    }
+
+    private async Task SettleAfter(TimeSpan wait, CancellationToken token)
+    {
+        try {
+            await Task.Delay(wait, time, token);
+        } catch (OperationCanceledException) {
+            return;
+        }
+
+        Post(() => {
+            if (!Store.Value.RoomsSettled)
+                Store.Update(s => s with {
+                    RoomsSettled = true
+                });
+        });
     }
 
     /// <summary>
@@ -975,8 +1023,11 @@ public sealed class AppController(
 
     private void SignedOut(string? error = null, EngineErrorCode? code = null)
     {
+        Unsettle();
         Store.Update(s => s with {
             Rooms = [],
+            RoomsSettled = false,
+            TimelineReady = false,
             RoomInfoOpen = false,
             Details = null,
             Profile = null,

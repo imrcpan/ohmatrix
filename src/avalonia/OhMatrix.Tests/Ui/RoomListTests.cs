@@ -247,6 +247,32 @@ public class RoomListTests {
     }
 
     [AvaloniaFact]
+    public async Task Grey_rows_stand_in_until_the_first_load_is_over()
+    {
+        var (window, controller, engine, screen) = Open("dark", 1000);
+        await controller.Login("matrix.org", "me", "pw");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(12, screen.List.Rows.Children.OfType<RoomRowSkeleton>().Count());
+        Save(window, "skeleton");
+        engine.Push(Rooms());
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Empty(screen.List.Rows.Children.OfType<RoomRowSkeleton>());
+        Assert.True(screen.List.Rows.Children.OfType<RoomRow>().Any());
+    }
+
+    [AvaloniaFact]
+    public async Task The_list_settles_when_it_has_been_still_once_syncing()
+    {
+        var (_, controller, engine, _) = Open("light", 1000);
+        await controller.Login("matrix.org", "me", "pw");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.False(controller.Store.Value.RoomsSettled);
+        await Task.Delay(1000);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.True(controller.Store.Value.RoomsSettled);
+    }
+
+    [AvaloniaFact]
     public async Task Selecting_a_row_opens_the_chat_and_marks_it()
     {
         var (window, controller, engine, screen) = Open("dark", 1000);

@@ -136,19 +136,84 @@ public sealed class ChatPane : Grid {
     private bool stickToBottom = true;
     private bool loadingOlder;
 
+    // Over the place of the list while the messages of a chat come in; shown only if they take more than a moment.
+    private readonly Border overlay = new() {
+        IsVisible = false,
+        IsHitTestVisible = false,
+        ClipToBounds = true,
+    };
+
+    private readonly Panel overlaySkeleton = new() {
+        VerticalAlignment = VerticalAlignment.Bottom,
+    };
+
+    private ITimer? overlayTimer;
+
+    private readonly Border olderHost = new();
+
+    private ITimer? olderTimer;
+
+    /// <summary>Runs <paramref name="action"/> on the UI thread after <paramref name="wait"/>; the timer is kept to be stopped.</summary>
+    private ITimer After(TimeSpan wait, Action action)
+    {
+        return time.CreateTimer(_ => Dispatcher.UIThread.Post(action), null, wait,
+            Timeout.InfiniteTimeSpan);
+    }
+
+    private string? overlayRoom;
+
+    private void ShowOlder(bool on)
+    {
+        var s = controller.Store.Value;
+        var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
+        olderHost.Child = on ? new ChatSkeleton(4, room is not null && !room.IsDirect) : null;
+    }
+
+    /// <summary>Grey bubbles over the list while a chat is being opened.</summary>
+    private void UpdateOverlay(AppState s)
+    {
+        var c = ThemeScope.GetColors(this);
+        overlay.Background = new SolidColorBrush(c.ChatBg);
+        if (s.SelectedRoomId is null || s.TimelineReady) {
+            overlayTimer?.Dispose();
+            overlay.IsVisible = false;
+            overlayRoom = null;
+            return;
+        }
+
+        if (overlayRoom == s.SelectedRoomId)
+            return;
+        overlayRoom = s.SelectedRoomId;
+        overlay.IsVisible = false;
+        var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
+        overlaySkeleton.Children.Clear();
+        overlaySkeleton.Children.Add(new ChatSkeleton(12, room is not null && !room.IsDirect));
+        overlayTimer?.Dispose();
+        overlayTimer = After(TimeSpan.FromMilliseconds(150),
+            () => overlay.IsVisible = !controller.Store.Value.TimelineReady);
+    }
+
     public ChatPane(AppController controller, Action? onBack = null, TimeProvider? time = null)
     {
         this.controller = controller;
         this.onBack = onBack;
         this.time = time ?? TimeProvider.System;
         RowDefinitions = new RowDefinitions("Auto,*,Auto");
-        scroller.Content = list;
+        scroller.Content = new StackPanel {
+            Children = {
+                olderHost,
+                list
+            }
+        };
+        overlay.Child = overlaySkeleton;
         Grid.SetRow(body, 1);
         Grid.SetRow(composer, 2);
         Children.Add(header);
         Grid.SetRow(scroller, 2);
         Grid.SetRow(searchBar, 1);
         body.Children.Add(scroller);
+        Grid.SetRow(overlay, 2);
+        body.Children.Add(overlay);
         searchBar.IsVisible = false;
         pinnedBar.PointerPressed += (_, e) => {
             e.Handled = true;
@@ -229,8 +294,16 @@ public sealed class ChatPane : Grid {
             scroller.Extent.Height > scroller.Viewport.Height) {
             loadingOlder = true;
             var before = scroller.Extent.Height;
+            // Shown only if the answer is not quick (at the start of a chat it is, and nothing is coming).
+            olderTimer?.Dispose();
+            olderTimer = After(TimeSpan.FromMilliseconds(250), () => {
+                if (loadingOlder)
+                    ShowOlder(true);
+            });
             _ = controller.LoadOlder().ContinueWith(_ => Dispatcher.UIThread.Post(() => {
                 loadingOlder = false;
+                olderTimer?.Dispose();
+                ShowOlder(false);
                 // Keep what was being read where it was while the older lines are put above it.
                 scroller.Offset =
                     new Vector(0, scroller.Offset.Y + scroller.Extent.Height - before);
@@ -262,6 +335,7 @@ public sealed class ChatPane : Grid {
         Avalonia.Automation.AutomationProperties.SetName(attach, T("attach.label"));
 
         var s = controller.Store.Value;
+        UpdateOverlay(s);
         BuildPinnedBar(c, s);
         replyHost.Child = ReplyBanner(c, s);
         // Starting to edit puts the text of the message in the field, once.

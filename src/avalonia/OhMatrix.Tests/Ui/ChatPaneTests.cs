@@ -686,6 +686,7 @@ public class ChatPaneTests {
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(11, controller.Store.Value.Timeline.Count);
+        Assert.True(controller.Store.Value.TimelineReady);
         Assert.Single(engine.Opened);
         Save(window, "light");
     }
@@ -706,6 +707,40 @@ public class ChatPaneTests {
         Assert.NotEmpty(titles);
         Assert.All(titles, t => Assert.Equal(colors.Text, ((SolidColorBrush)t.Foreground!).Color));
         Save(window, "dark-wide");
+    }
+
+    [AvaloniaFact]
+    public async Task Grey_bubbles_stand_over_a_chat_that_is_opening()
+    {
+        var (window, controller, _, _) = await Open("dark", 1000);
+        // The chat is chosen but its messages have not come: the state says so, and after a moment the bubbles show.
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        controller.Store.Update(s => s with {
+            TimelineReady = false
+        });
+        Dispatcher.UIThread.RunJobs();
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var pane = window.GetVisualDescendants().OfType<ChatPane>()
+            .First(p => p.IsEffectivelyVisible);
+        var all = pane.GetVisualDescendants().OfType<ChatSkeleton>().ToList();
+        Assert.True(all.Count == 1,
+            $"count {all.Count} room {controller.Store.Value.SelectedRoomId} ready {controller.Store.Value.TimelineReady}");
+        Assert.True(all[0].IsEffectivelyVisible,
+            "hidden: " +
+            string.Join(" < ",
+                all[0].GetVisualAncestors().Take(4)
+                    .Select(a => a.GetType().Name + (a.IsVisible ? "" : "(off)"))) + " pane " +
+            pane.IsEffectivelyVisible);
+        Save(window, "skeleton");
+        controller.Store.Update(s => s with {
+            TimelineReady = true
+        });
+        Dispatcher.UIThread.RunJobs();
+        Assert.Empty(pane.GetVisualDescendants().OfType<ChatSkeleton>()
+            .Where(k => k.IsEffectivelyVisible));
     }
 
     [AvaloniaFact]
