@@ -488,9 +488,12 @@ public sealed class ChatPane : Grid {
         };
         input.PropertyChanged += (_, e) => {
             if (e.Property == TextBox.TextProperty) {
+                // Only what the text changes is done for a key: the rest of
+                // the pane (the header, the bars, the colours) does not
+                // depend on it and is done when the state or the theme does.
                 controller.SetTyping((input.Text ?? "").Trim().Length > 0);
                 SuggestMentions();
-                Apply();
+                UpdateSend(ThemeScope.GetColors(this), false);
             }
         };
         DragDrop.SetAllowDrop(this, true);
@@ -756,6 +759,23 @@ public sealed class ChatPane : Grid {
         }
     }
 
+    private bool? sendReady;
+
+    /// <summary>The send button is in the accent when there is text to send. Without <paramref name="force"/> nothing is made while the answer stays the same.</summary>
+    private void UpdateSend(ColorTokens c, bool force)
+    {
+        var ready = (input.Text ?? "").Trim().Length > 0;
+        if (!force && sendReady == ready)
+            return;
+        sendReady = ready;
+        send.Background = new SolidColorBrush(ready ? c.Accent : c.Separator);
+        sendIcon.Color =
+            new SolidColorBrush(ready ? c.OnAccent : c.TextSecondary);
+    }
+
+    /// <summary>The background of the send button now: the accent with text to send.</summary>
+    public IBrush? SendBackground => send.Background;
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
@@ -776,10 +796,7 @@ public sealed class ChatPane : Grid {
         input.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
         input.Resources["TextControlBorderBrushPointerOver"] =
             Brushes.Transparent;
-        var ready = (input.Text ?? "").Trim().Length > 0;
-        send.Background = new SolidColorBrush(ready ? c.Accent : c.Separator);
-        sendIcon.Color =
-            new SolidColorBrush(ready ? c.OnAccent : c.TextSecondary);
+        UpdateSend(c, true);
         Avalonia.Automation.AutomationProperties.SetName(send,
             T("send.files.send"));
         Avalonia.Automation.AutomationProperties.SetName(attach,

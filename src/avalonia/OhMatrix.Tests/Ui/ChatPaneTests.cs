@@ -1716,6 +1716,30 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_key_in_the_message_box_does_not_rebuild_the_pane()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        var header = pane.Header.Child;
+        var idle = pane.SendBackground;
+        pane.Input.Text = "h";
+        var ready = pane.SendBackground;
+        // The send button takes the accent with the first character...
+        Assert.NotSame(idle, ready);
+        pane.Input.Text = "he";
+        pane.Input.Text = "hel";
+        // ...and nothing is made again while it stays so; the header is the
+        // one the state made, not a new one for every key.
+        Assert.Same(ready, pane.SendBackground);
+        Assert.Same(header, pane.Header.Child);
+        Assert.Equal([true], engine.Opened[0].Typed);
+        pane.Input.Text = "";
+        Assert.NotSame(ready, pane.SendBackground);
+    }
+
+    [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
