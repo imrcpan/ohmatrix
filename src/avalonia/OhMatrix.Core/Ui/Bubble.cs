@@ -41,6 +41,15 @@ public sealed class Bubble : Border {
     private Icon? mark;
     private readonly AudioCard? audio;
 
+    public Bubble(BubbleParams p) : this(
+        p.Colors, p.Text, p.Time, p.Own, p.SenderName, p.SenderId,
+        p.StuckAbove, p.StuckBelow, p.Sending, p.Failed, p.EditedLabel,
+        p.Accent, p.Reply, p.Image, p.Pictures, p.File, p.OpenImage,
+        p.Formatted, p.OpenLink, p.Read, p.ReadLabel, p.OpenFile, p.Preview,
+        p.Fetch)
+    {
+    }
+
     public Bubble(
         ColorTokens colors,
         string text,
