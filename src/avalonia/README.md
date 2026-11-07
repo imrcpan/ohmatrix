@@ -9,6 +9,11 @@ Native desktop and mobile client using Avalonia UI and the Rust SDK.
 - `OhMatrix.MatrixSdk/` — FFI to the Rust Matrix SDK (`src/rust`), nothing else
 - Additional platform projects will be added as needed
 
+The chat list retains rows by room ID and updates their existing controls when
+visible data changes. Reordering and filtering preserve surviving rows and
+loaded avatars; rows are discarded when their rooms leave the state. Unrelated
+state changes skip the list, and the joining timer updates only waiting rows.
+
 ## Build
 
 ```bash

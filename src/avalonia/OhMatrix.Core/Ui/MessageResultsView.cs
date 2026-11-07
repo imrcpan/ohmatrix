@@ -97,6 +97,9 @@ public sealed class MessageResultsView : StackPanel {
         Render();
     }
 
+    /// <summary>Rewords retained results without starting another search.</summary>
+    public void RefreshPresentation() => Render();
+
     private void Render()
     {
         var c = ThemeScope.GetColors(this);

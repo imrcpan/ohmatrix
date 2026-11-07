@@ -1,4 +1,9 @@
+using System.Collections.Specialized;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.VisualTree;
+using Microsoft.Extensions.Time.Testing;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
@@ -310,6 +315,356 @@ public class RoomListTests {
         await controller.Login("matrix.org", "me", "pw");
         engine.Push(Rooms());
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+    }
+
+    private static (Window Window, AppController Controller, RoomListPane List)
+        OpenList(IReadOnlyList<RoomSummary> rooms, bool rail = false,
+            TimeProvider? time = null, ISearchEngine? searchEngine = null)
+    {
+        var engine = new Engine();
+        var controller = new AppController(engine, new NoSessions(),
+            rooms: engine, searchEngine: searchEngine);
+        controller.Store.Update(s => s with {
+            Auth = AuthStatus.SignedIn,
+            SyncState = SyncState.Syncing,
+            UserId = "@me:localhost",
+            Profile = new Profile("@me:localhost", "Me", null),
+            Rooms = rooms,
+            RoomsSettled = true,
+            Prefs = s.Prefs with {
+                Locale = "en"
+            },
+        });
+        var list = new RoomListPane(controller, rail, time);
+        var window = new Window {
+            Content = list,
+            Width = 340,
+            Height = 700
+        };
+        window.Show();
+        window.UpdateLayout();
+        return (window, controller, list);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_message_in_500_rooms_keeps_rows_subtrees_and_other_previews(
+        bool rail)
+    {
+        var rooms = Enumerable.Range(0, 500).Select(i => new RoomSummary {
+            Id = $"!room{i}",
+            Name = $"Room {i}",
+            LastMessage = $"Message  {i}",
+            LastSender = "Alice",
+            LastActivityTs = Now,
+        }).ToArray();
+        var (window, controller, list) = OpenList(rooms, rail);
+        try {
+            var rows = list.Rows.Children.Cast<RoomRow>().ToArray();
+            var children = rows.Select(r => r.Child).ToArray();
+            var previews = rows.Select(r => r.Preview).ToArray();
+            var avatars = rows.Select(r => r.GetVisualDescendants()
+                .OfType<Avatar>().Single()).ToArray();
+            var profile = list.GetVisualDescendants().OfType<Avatar>().First();
+            var mutations = 0;
+            list.Rows.Children.CollectionChanged += (_, _) => mutations++;
+            // SDK snapshots may contain new summaries for unchanged rooms.
+            var changed = rooms.Select(r => r with {
+            }).ToArray();
+            changed[250] = changed[250] with {
+                LastMessage = "A new message",
+                UnreadCount = 4
+            };
+            controller.Store.Update(s => s with {
+                Rooms = changed
+            });
+            controller.Store.Update(s => s with {
+                Typing = ["Alice"]
+            });
+            Assert.Equal(0, mutations);
+            for (var i = 0; i < rows.Length; i++) {
+                Assert.Same(rows[i], list.Rows.Children[i]);
+                Assert.Same(children[i], rows[i].Child);
+                Assert.Same(avatars[i], rows[i].GetVisualDescendants()
+                    .OfType<Avatar>().Single());
+                if (i != 250)
+                    Assert.Same(previews[i], rows[i].Preview);
+            }
+
+            Assert.Equal("Alice: A new message", rows[250].Preview);
+            Assert.Equal(4, rows[250].Unread);
+            Assert.Same(profile,
+                list.GetVisualDescendants().OfType<Avatar>().First());
+            list.Search.Text = "not a room";
+            if (!rail) {
+                Assert.Empty(list.Rows.Children);
+                list.Search.Text = "";
+                for (var i = 0; i < rows.Length; i++)
+                    Assert.Same(rows[i], list.Rows.Children[i]);
+            }
+        } finally {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Reordering_filtering_and_removal_preserve_surviving_rows()
+    {
+        var initial = Rooms();
+        var (window, controller, list) = OpenList(initial);
+        try {
+            var rows = list.Rows.Children.Cast<RoomRow>()
+                .ToDictionary(r => r.RoomId);
+            var resets = 0;
+            list.Rows.Children.CollectionChanged += (_, e) => {
+                if (e.Action == NotifyCollectionChangedAction.Reset)
+                    resets++;
+            };
+            var added = new RoomSummary {
+                Id = "!new",
+                Name = "New room"
+            };
+            controller.Store.Update(s => s with {
+                Rooms = [initial[2], initial[0], added, initial[1]]
+            });
+            Assert.Equal(["!c", "!a", "!new", "!b"],
+                list.Rows.Children.Cast<RoomRow>().Select(r => r.RoomId));
+            foreach (var id in new[] {
+                         "!a", "!b", "!c"
+                     })
+                Assert.Contains(rows[id], list.Rows.Children);
+            list.Search.Text = "team";
+            Assert.Same(rows["!b"], Assert.Single(list.Rows.Children));
+            list.Search.Text = "";
+            Assert.Same(rows["!a"], list.Rows.Children[1]);
+            Assert.Same(rows["!b"], list.Rows.Children[3]);
+            controller.Store.Update(s => s with {
+                Rooms = initial
+            });
+            Assert.NotSame(rows["!d"], list.Rows.Children[3]);
+            Assert.Equal(0, resets);
+        } finally {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Selection_and_localization_update_existing_rows()
+    {
+        var (window, controller, list) = OpenList(Rooms());
+        try {
+            var rows = list.Rows.Children.Cast<RoomRow>().ToArray();
+            var children = rows.Select(r => r.Child).ToArray();
+            var otherPreview = rows[2].Preview;
+            rows[0].RaiseClick();
+            Assert.True(rows[0].Selected);
+            rows[1].RaiseClick();
+            Assert.False(rows[0].Selected);
+            Assert.True(rows[1].Selected);
+            Assert.Same(otherPreview, rows[2].Preview);
+            controller.SetPreferences(p => p with {
+                Locale = "de"
+            });
+            Assert.Equal(OhMatrix.Core.I18n.Strings.T("de", "noMessages"),
+                rows[3].Preview);
+            Assert.Equal(OhMatrix.Core.I18n.Strings.T("de", "accept"),
+                rows[4].Invite!.Value.Accept);
+            ThemeScope.SetColors(window, Themes.Get("dark")!.Colors);
+            for (var i = 0; i < rows.Length; i++) {
+                Assert.Same(rows[i], list.Rows.Children[i]);
+                Assert.Same(children[i], rows[i].Child);
+            }
+        } finally {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_reused_row_uses_current_invitation_space_and_menu_state()
+    {
+        var room = new RoomSummary {
+            Id = "!room",
+            Name = "Room",
+            Inviter = "Alice"
+        };
+        var (window, controller, list) = OpenList([room]);
+        try {
+            var row = Assert.IsType<RoomRow>(Assert.Single(list.Rows.Children));
+            row.RaiseClick();
+            Assert.Null(controller.Store.Value.SelectedRoomId);
+            room = room with {
+                Inviter = null,
+                Pinned = true,
+                Muted = true
+            };
+            controller.Store.Update(s => s with {
+                Rooms = [room]
+            });
+            Assert.Same(row, Assert.Single(list.Rows.Children));
+            Assert.Null(row.Invite);
+            row.RaiseClick();
+            Assert.Equal(room.Id, controller.Store.Value.SelectedRoomId);
+            window.UpdateLayout();
+            var point = row.TranslatePoint(new Point(20, 20), window)!.Value;
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseUp(point, MouseButton.Right);
+            Assert.True(list.RowMenu.IsOpen);
+            var labels = list.RowMenu.Surface.GetVisualDescendants()
+                .OfType<TextBlock>().Select(t => t.Text).ToArray();
+            Assert.Contains(OhMatrix.Core.I18n.Strings.T("en", "unpin"),
+                labels);
+            Assert.Contains(OhMatrix.Core.I18n.Strings.T("en", "unmute"),
+                labels);
+            list.RowMenu.Close();
+            room = room with {
+                IsSpace = true
+            };
+            controller.Store.Update(s => s with {
+                Rooms = [room]
+            });
+            row.RaiseClick();
+            Assert.Equal(SidebarPage.Space, controller.Store.Value.SidebarPage);
+            Assert.Equal(room.Id, controller.Store.Value.OpenSpaceId);
+            room = room with {
+                IsSpace = false,
+                Inviter = "Bob"
+            };
+            controller.Store.Update(s => s with {
+                Rooms = [room],
+                SelectedRoomId = null
+            });
+            Assert.NotNull(row.Invite);
+            row.RaiseClick();
+            Assert.Null(controller.Store.Value.SelectedRoomId);
+        } finally {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Joining_ticks_only_update_the_waiting_row()
+    {
+        var clock = new FakeTimeProvider(
+            DateTimeOffset.FromUnixTimeMilliseconds(Now));
+        var (window, controller, list) = OpenList(Rooms(), time: clock);
+        try {
+            var rows = list.Rows.Children.Cast<RoomRow>().ToArray();
+            var children = rows.Select(r => r.Child).ToArray();
+            var previews = rows.Select(r => r.Preview).ToArray();
+            controller.Store.Update(s => s with {
+                Joining = [
+                    new JoiningRoom("!waiting", "Waiting", null,
+                        clock.GetUtcNow())
+                ]
+            });
+            var joining = Assert.IsType<RoomRow>(list.Rows.Children[0]);
+            var child = joining.Child;
+            Assert.EndsWith("(0s)", joining.Preview);
+            var mutations = 0;
+            list.Rows.Children.CollectionChanged += (_, _) => mutations++;
+            clock.Advance(TimeSpan.FromSeconds(5));
+            await Task.Delay(1200);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.Same(joining, list.Rows.Children[0]);
+            Assert.Same(child, joining.Child);
+            Assert.EndsWith("(5s)", joining.Preview);
+            Assert.Equal(0, mutations);
+            for (var i = 0; i < rows.Length; i++) {
+                Assert.Same(rows[i], list.Rows.Children[i + 1]);
+                Assert.Same(children[i], rows[i].Child);
+                Assert.Same(previews[i], rows[i].Preview);
+            }
+
+            var at = rows[0].Time;
+            clock.Advance(TimeSpan.FromDays(1));
+            await Task.Delay(1200);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.NotEqual(at, rows[0].Time);
+            Assert.Equal(Format.ListTime(Rooms()[0].LastActivityTs,
+                clock.GetUtcNow(), "en"), rows[0].Time);
+            Assert.Equal(0, mutations);
+            controller.Store.Update(s => s with {
+                Joining = [],
+                JoinError = "Cannot join"
+            });
+            Assert.IsType<TextBlock>(list.Rows.Children[0]);
+            controller.DismissJoinError();
+            Assert.Same(rows[0], list.Rows.Children[0]);
+        } finally {
+            window.Close();
+        }
+    }
+
+    private sealed class SearchEngine : ISearchEngine {
+        public int Requests;
+
+        public Task<SearchPage> Messages(string term, string? roomId,
+            string? from)
+        {
+            Requests++;
+            return Task.FromResult(new SearchPage([], null));
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Cached_search_results_refresh_language_and_font()
+    {
+        var search = new SearchEngine();
+        var (window, controller, list) =
+            OpenList(Rooms(), searchEngine: search);
+        try {
+            list.Search.Text = "missing";
+            var hits = list.GetVisualDescendants()
+                .OfType<MessageResultsView>().Single();
+            await hits.Load(null);
+            var requests = search.Requests;
+            controller.SetPreferences(p => p with {
+                Locale = "de"
+            });
+            Assert.Equal(OhMatrix.Core.I18n.Strings.T("de", "search.empty"),
+                hits.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+            controller.SetPreferences(p => p with {
+                Font = "monospace"
+            });
+            Assert.All(hits.GetVisualDescendants().OfType<TextBlock>(),
+                text => Assert.Equal(Fonts.System, text.FontFamily));
+            Assert.Equal(requests, search.Requests);
+            Assert.Same(hits, list.GetVisualDescendants()
+                .OfType<MessageResultsView>().Single());
+        } finally {
+            list.Search.Text = "";
+            Fonts.Use(null);
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Cached_times_refresh_when_the_local_date_changes()
+    {
+        var clock = new FakeTimeProvider(
+            DateTimeOffset.FromUnixTimeMilliseconds(Now));
+        var room = new RoomSummary {
+            Id = "!time",
+            Name = "Clock",
+            LastActivityTs = Now
+        };
+        var (window, controller, list) = OpenList([room], time: clock);
+        try {
+            var row = Assert.IsType<RoomRow>(Assert.Single(list.Rows.Children));
+            var before = row.Time;
+            var child = row.Child;
+            clock.Advance(TimeSpan.FromDays(1));
+            controller.Store.Update(s => s with {
+                Typing = ["Alice"]
+            });
+            Assert.NotEqual(before, row.Time);
+            Assert.Equal(Format.ListTime(Now, clock.GetUtcNow(), "en"),
+                row.Time);
+            Assert.Same(child, row.Child);
+        } finally {
+            window.Close();
+        }
     }
 
     [AvaloniaFact]

@@ -45,6 +45,20 @@ public sealed class RoomListPane : Grid {
     private readonly StackPanel rows = new();
     private readonly StackPanel messageHits = new();
     private MessageResultsView? hits;
+    private readonly Dictionary<string, RoomEntry> roomRows = new();
+    private readonly Dictionary<string, RoomRow> joiningRows = new();
+    private AppState? applied;
+    private ColorTokens? colors;
+    private string? filter;
+    private DateTime day;
+    private RoomRowSkeleton[]? skeletons;
+    private TextBlock? joinFailure;
+    private TextBlock? messagesLabel;
+
+    private sealed class RoomEntry(RoomSummary room, RoomRow row) {
+        public RoomSummary Room = room;
+        public RoomRow Row { get; } = row;
+    }
 
     private readonly TextBlock empty = new() {
         FontSize = 15,
@@ -125,7 +139,15 @@ public sealed class RoomListPane : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
 
-        ticker.Tick += (_, _) => Apply();
+        ticker.Tick += (_, _) => {
+            var now = this.time.GetUtcNow();
+            if (day != now.LocalDateTime.Date)
+                Apply();
+            UpdateJoining(now);
+        };
+        AttachedToVisualTree += (_, _) =>
+            ticker.IsEnabled = controller.Store.Value.Joining.Count > 0;
+        DetachedFromVisualTree += (_, _) => ticker.Stop();
         plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
@@ -227,27 +249,147 @@ public sealed class RoomListPane : Grid {
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
+        var before = applied;
+        var now = time.GetUtcNow();
+        var query = Rail ? "" : search.Text.Trim();
+        var language = before?.Locale != s.Locale;
+        var font = before?.Prefs.Font != s.Prefs.Font;
+        var dates = day != now.LocalDateTime.Date;
+        var theme = colors != c;
+        var roomsChanged = !ReferenceEquals(before?.Rooms, s.Rooms);
+        var joiningChanged = !ReferenceEquals(before?.Joining, s.Joining);
+        var layout = roomsChanged || joiningChanged || filter != query ||
+                     before?.JoinError != s.JoinError ||
+                     before?.RoomsSettled != s.RoomsSettled;
+        applied = s;
+        colors = c;
+        filter = query;
+        day = now.LocalDateTime.Date;
+
+        if (before is null || theme || language || font ||
+            before.Profile != s.Profile || before.UserId != s.UserId ||
+            before.SyncState != s.SyncState)
+            ApplyHeader(s, before, c, font);
+
+        // A timeline, typing or notice update does not walk the room list.
+        if (roomsChanged || language || font || dates) {
+            foreach (var room in s.Rooms) {
+                var added = !roomRows.TryGetValue(room.Id, out var entry);
+                if (added) {
+                    entry = MakeRow(room);
+                    roomRows.Add(room.Id, entry);
+                }
+
+                UpdateRow(entry!, room, s, now, added, language, font, dates);
+            }
+
+            if (roomsChanged) {
+                var kept = s.Rooms.Select(r => r.Id).ToHashSet();
+                foreach (var id in roomRows.Keys.Where(id => !kept.Contains(id))
+                             .ToArray())
+                    roomRows.Remove(id);
+            }
+        }
+
+        if (before?.SelectedRoomId != s.SelectedRoomId) {
+            Select(before?.SelectedRoomId, false);
+            Select(s.SelectedRoomId, true);
+        }
+
+        if (joiningChanged) {
+            var kept = s.Joining.Select(j => j.Id).ToHashSet();
+            foreach (var id in joiningRows.Keys.Where(id => !kept.Contains(id))
+                         .ToArray())
+                joiningRows.Remove(id);
+            foreach (var joining in s.Joining) {
+                if (!joiningRows.ContainsKey(joining.Id))
+                    joiningRows.Add(joining.Id, new RoomRow {
+                        RoomId = joining.Id,
+                        Compact = Rail,
+                        Pictures = controller.Pictures,
+                        IsEnabled = false,
+                    });
+            }
+
+            ticker.IsEnabled = s.Joining.Count > 0 &&
+                               TopLevel.GetTopLevel(this) is not null;
+        }
+
+        if (joiningChanged || language || font)
+            UpdateJoining(now, font);
+
+        if (layout) {
+            var wanted = new List<Control>();
+            if (s.JoinError is { } failed && !Rail)
+                wanted.Add(JoinFailure(c, failed));
+            foreach (var joining in s.Joining)
+                wanted.Add(joiningRows[joining.Id]);
+            foreach (var room in s.Rooms) {
+                if (query.Length == 0 || room.Name.Contains(query,
+                        StringComparison.CurrentCultureIgnoreCase))
+                    wanted.Add(roomRows[room.Id].Row);
+            }
+
+            if (!s.RoomsSettled && s.Rooms.Count == 0 && query.Length == 0) {
+                skeletons ??= Enumerable.Range(0, 12)
+                    .Select(i => new RoomRowSkeleton(i, Rail)).ToArray();
+                wanted.AddRange(skeletons);
+            }
+
+            Reconcile(wanted);
+        }
+
+        var searchMessages = query.Length >= 2 && controller.CanSearchMessages;
+        if (layout || theme || language || font || before is null ||
+            before.SyncState != s.SyncState) {
+            ApplySearch(query, searchMessages, c, language || font);
+            var loading = !s.RoomsSettled && s.Rooms.Count == 0 &&
+                          query.Length == 0;
+            empty.IsVisible = !rows.Children.OfType<RoomRow>()
+                                  .Any(r => r.IsEnabled) && !searchMessages &&
+                              s.SyncState == SyncState.Syncing && !Rail &&
+                              !loading;
+            empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
+            empty.Foreground = new SolidColorBrush(c.TextSecondary);
+            empty.FontFamily = Fonts.System;
+            if (joinFailure is not null) {
+                joinFailure.Foreground = new SolidColorBrush(c.Danger);
+                joinFailure.FontFamily = Fonts.System;
+            }
+        }
+    }
+
+    private void ApplyHeader(AppState s, AppState? before, ColorTokens c,
+        bool font)
+    {
         Background = new SolidColorBrush(c.Bg);
         if (s.SyncState == SyncState.Syncing)
             connectedOnce = true;
         search.Placeholder = T("search");
         search.IsVisible = !Rail;
         name.Foreground = new SolidColorBrush(c.Text);
+        name.FontFamily = Fonts.System;
         var me = s.UserId ?? "";
         var shown = s.Profile?.DisplayName is { Length: > 0 } dn
             ? dn
             : me.TrimStart('@').Split(':')[0];
         var size = Rail ? 44 : 34;
-        if (s.Profile is null) {
-            avatarHolder.Child = new Pulse {
-                Children = {
-                    new SkeletonBlock(size, size, true)
-                }
-            };
-        } else {
-            var mine = new Avatar(me, shown.Length == 0 ? "?" : shown, size);
-            controller.Pictures.Attach(mine, s.Profile.AvatarUrl, size);
-            avatarHolder.Child = mine;
+        if (before is null || font || before.UserId != s.UserId ||
+            (before.Profile is null) != (s.Profile is null) ||
+            before.Profile?.DisplayName != s.Profile?.DisplayName ||
+            before.Profile?.AvatarUrl != s.Profile?.AvatarUrl) {
+            if (s.Profile is null) {
+                avatarHolder.Child = new Pulse {
+                    Children = {
+                        new SkeletonBlock(size, size, true)
+                    }
+                };
+            } else {
+                var mine = new Avatar(me, shown.Length == 0 ? "?" : shown,
+                    size);
+                controller.Pictures.Attach(mine, s.Profile.AvatarUrl, size);
+                avatarHolder.Child = mine;
+            }
         }
 
         var waiting = s.SyncState == SyncState.Syncing && s.Profile is null;
@@ -262,91 +404,102 @@ public sealed class RoomListPane : Grid {
             : new Thickness(12, 10, 12, 8);
         Avalonia.Automation.AutomationProperties.SetName(plus,
             T("newChat.menu"));
+    }
 
-        var query = Rail ? "" : search.Text.Trim();
-        var shownRooms = query.Length == 0
-            ? s.Rooms
-            : s.Rooms.Where(r =>
-                    r.Name.Contains(query,
-                        StringComparison.CurrentCultureIgnoreCase))
-                .ToList();
-        rows.Children.Clear();
-        var now = time.GetUtcNow();
-        if (s.JoinError is { } failed && !Rail)
-            rows.Children.Add(JoinFailure(c, failed));
-        foreach (var joining in s.Joining)
-            rows.Children.Add(JoiningRow(joining, s, now));
-        ticker.IsEnabled = s.Joining.Count > 0;
-        foreach (var room in shownRooms)
-            rows.Children.Add(MakeRow(room, s, now));
-        // Until the first load is over, grey rows stand where the chats will be.
-        var loading =
-            !s.RoomsSettled && s.Rooms.Count == 0 && query.Length == 0;
-        if (loading) {
-            for (var i = 0; i < 12; i++)
-                rows.Children.Add(new RoomRowSkeleton(i, Rail));
+    private void Select(string? id, bool selected)
+    {
+        if (id is null || !roomRows.TryGetValue(id, out var entry) ||
+            entry.Row.Selected == selected)
+            return;
+        entry.Row.Selected = selected;
+        entry.Row.Update();
+    }
+
+    // Keep controls in place when their order is unchanged; a moved chat keeps
+    // its subtree and loaded picture too.
+    private void Reconcile(IReadOnlyList<Control> wanted)
+    {
+        var kept = wanted.ToHashSet();
+        var attached = rows.Children.ToHashSet();
+        for (var i = rows.Children.Count - 1; i >= 0; i--) {
+            if (!kept.Contains(rows.Children[i]))
+                rows.Children.RemoveAt(i);
         }
 
-        // The messages with the typed words come under the chats, as in the React Native list.
-        var searchMessages = query.Length >= 2 && controller.CanSearchMessages;
-        messageHits.Children.Clear();
-        if (searchMessages) {
-            hits ??= new MessageResultsView(controller, null, true);
-            hits.SetTerm(query);
-            messageHits.Children.Add(new TextBlock {
-                Text = T("search.messages"),
+        for (var i = 0; i < wanted.Count; i++) {
+            if (i < rows.Children.Count && rows.Children[i] == wanted[i])
+                continue;
+            if (attached.Contains(wanted[i]))
+                rows.Children.Move(rows.Children.IndexOf(wanted[i]), i);
+            else
+                rows.Children.Insert(i, wanted[i]);
+        }
+    }
+
+    private void ApplySearch(string query, bool active, ColorTokens c,
+        bool presentation)
+    {
+        if (active && hits is null) {
+            hits = new MessageResultsView(controller, null, true);
+            messagesLabel = new TextBlock {
                 FontSize = 13,
                 FontWeight = FontWeight.SemiBold,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.TextSecondary),
                 Margin = new Thickness(20, 12, 20, 4),
-            });
+            };
+            messageHits.Children.Add(messagesLabel);
             messageHits.Children.Add(hits);
-        } else
-            hits?.SetTerm("");
+        }
 
-        empty.IsVisible = shownRooms.Count == 0 && !searchMessages &&
-                          s.SyncState == SyncState.Syncing && !Rail
-                          && !loading;
-        empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
-        empty.Foreground = new SolidColorBrush(c.TextSecondary);
+        messageHits.IsVisible = active;
+        hits?.SetTerm(active ? query : "");
+        if (active && presentation)
+            hits?.RefreshPresentation();
+        if (messagesLabel is not null) {
+            messagesLabel.Text = T("search.messages");
+            messagesLabel.Foreground = new SolidColorBrush(c.TextSecondary);
+            messagesLabel.FontFamily = Fonts.System;
+        }
     }
 
     private readonly Avalonia.Threading.DispatcherTimer ticker = new() {
         Interval = TimeSpan.FromSeconds(1)
     };
 
-    /// <summary>The row of a room still being joined, with the seconds it has taken.</summary>
-    private RoomRow JoiningRow(JoiningRoom joining, AppState s,
-        DateTimeOffset now)
+    /// <summary>Only waiting rows need the elapsed seconds on each tick.</summary>
+    private void UpdateJoining(DateTimeOffset time, bool font = false)
     {
-        var seconds = Math.Max(0, (int)(now - joining.Since).TotalSeconds);
-        var row = new RoomRow {
-            RoomId = joining.Id,
-            Title = joining.Name,
-            Preview = $"{T("explore.joining.item")} ({seconds}s)",
-            Compact = Rail,
-            AvatarUrl = joining.AvatarUrl,
-            Pictures = controller.Pictures,
-            IsEnabled = false,
-        };
-        row.Update();
-        return row;
+        foreach (var joining in controller.Store.Value.Joining) {
+            if (!joiningRows.TryGetValue(joining.Id, out var row))
+                continue;
+            var seconds = Math.Max(0, (int)(time - joining.Since).TotalSeconds);
+            var preview = $"{T("explore.joining.item")} ({seconds}s)";
+            if (!font && row.Title == joining.Name && row.Preview == preview &&
+                row.AvatarUrl == joining.AvatarUrl)
+                continue;
+            row.Title = joining.Name;
+            row.Preview = preview;
+            row.AvatarUrl = joining.AvatarUrl;
+            row.Update();
+        }
     }
 
     /// <summary>Why a join failed; a press dismisses it.</summary>
     private Control JoinFailure(ColorTokens c, string message)
     {
-        var text = new TextBlock {
-            Text = message,
-            FontSize = 14,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Danger),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(18, 6),
-        };
-        text.PointerPressed += (_, _) => controller.DismissJoinError();
-        return text;
+        if (joinFailure is null) {
+            joinFailure = new TextBlock {
+                FontSize = 14,
+                FontFamily = Fonts.System,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(18, 6),
+            };
+            joinFailure.PointerPressed += (_, _) =>
+                controller.DismissJoinError();
+        }
+
+        joinFailure.Text = message;
+        joinFailure.Foreground = new SolidColorBrush(c.Danger);
+        return joinFailure;
     }
 
     public Menu RowMenu { get; } = new();
@@ -378,39 +531,75 @@ public sealed class RoomListPane : Grid {
         );
     }
 
-    private RoomRow MakeRow(RoomSummary room, AppState s, DateTimeOffset now)
+    private RoomEntry MakeRow(RoomSummary room)
     {
         var row = new RoomRow {
             RoomId = room.Id,
-            Title = room.Name,
-            Preview = PreviewOf(room, (key, values) => T(key, values)),
-            Time = Format.ListTime(room.LastActivityTs, now, s.Locale),
-            Unread = room.UnreadCount,
-            Selected = s.SelectedRoomId == room.Id,
-            Pinned = room.Pinned,
-            MarkedUnread = room.MarkedUnread,
-            Muted = room.Muted,
-            IsSpace = room.IsSpace,
             Compact = Rail,
-            AvatarUrl = room.AvatarUrl,
             Pictures = controller.Pictures,
         };
-        if (room.Invite) {
-            row.Invite = (T("accept"), T("decline"),
-                () => _ = controller.AcceptInvite(room.Id),
-                () => _ = controller.DeclineInvite(room.Id));
-        } else
-            row.MenuRequested += (_, _) => OpenRowMenu(row, room);
-
-        row.Click += (_, _) => {
-            if (room.Invite)
-                return;
-            if (room.IsSpace)
-                controller.OpenSpace(room.Id);
-            else
-                controller.SelectRoom(room.Id);
+        var entry = new RoomEntry(room, row);
+        // A reused row must act on the latest summary, not the one that made it.
+        row.MenuRequested += (_, _) => {
+            if (!entry.Room.Invite)
+                OpenRowMenu(row, entry.Room);
         };
+        row.Click += (_, _) => {
+            var current = entry.Room;
+            if (current.Invite)
+                return;
+            if (current.IsSpace)
+                controller.OpenSpace(current.Id);
+            else
+                controller.SelectRoom(current.Id);
+        };
+        return entry;
+    }
+
+    private void UpdateRow(RoomEntry entry, RoomSummary room, AppState s,
+        DateTimeOffset now, bool added, bool language, bool font, bool dates)
+    {
+        var old = entry.Room;
+        var row = entry.Row;
+        entry.Room = room;
+        var preview = row.Preview;
+        if (added || language || old.Inviter != room.Inviter ||
+            old.LastMessage != room.LastMessage ||
+            old.LastSender != room.LastSender ||
+            old.LastIsLine != room.LastIsLine || old.IsDirect != room.IsDirect)
+            preview = PreviewOf(room, (key, values) => T(key, values));
+        var at = row.Time;
+        if (added || language || dates ||
+            old.LastActivityTs != room.LastActivityTs)
+            at = Format.ListTime(room.LastActivityTs, now, s.Locale);
+        var selected = s.SelectedRoomId == room.Id;
+        var invitation = added || language || old.Invite != room.Invite;
+        if (!added && !font && !invitation && row.Title == room.Name &&
+            row.Preview == preview && row.Time == at &&
+            row.Unread == room.UnreadCount && row.Selected == selected &&
+            row.Pinned == room.Pinned &&
+            row.MarkedUnread == room.MarkedUnread &&
+            row.Muted == room.Muted && row.IsSpace == room.IsSpace &&
+            row.AvatarUrl == room.AvatarUrl)
+            return;
+        row.Title = room.Name;
+        row.Preview = preview;
+        row.Time = at;
+        row.Unread = room.UnreadCount;
+        row.Selected = selected;
+        row.Pinned = room.Pinned;
+        row.MarkedUnread = room.MarkedUnread;
+        row.Muted = room.Muted;
+        row.IsSpace = room.IsSpace;
+        row.AvatarUrl = room.AvatarUrl;
+        if (invitation) {
+            row.Invite = room.Invite
+                ? (T("accept"), T("decline"),
+                    () => _ = controller.AcceptInvite(room.Id),
+                    () => _ = controller.DeclineInvite(room.Id))
+                : null;
+        }
+
         row.Update();
-        return row;
     }
 }
