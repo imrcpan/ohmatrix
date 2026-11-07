@@ -79,7 +79,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                         m.DisplayName ?? m.UserId.TrimStart('@').Split(':')[0],
                         m.AvatarUrl,
                         m.SuggestedRoleForPowerLevel switch {
-                            RoomMemberRole.Administrator or RoomMemberRole.Creator => MemberRole.Admin,
+                            RoomMemberRole.Administrator or RoomMemberRole.Creator => MemberRole
+                                .Admin,
                             RoomMemberRole.Moderator => MemberRole.Moderator,
                             _ => MemberRole.Member,
                         }
@@ -132,15 +133,15 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             var me = Signed().UserId();
             var can = new RoomPermissions(
                 EditInfo: !isDirect &&
-                    levels.CanUserSendState(me, new StateEventType.RoomName()),
+                          levels.CanUserSendState(me, new StateEventType.RoomName()),
                 Invite: !isDirect && levels.CanUserInvite(me),
                 Kick: !isDirect && levels.CanUserKick(me),
                 Ban: !isDirect && levels.CanUserBan(me),
                 ChangeRoles: !isDirect &&
-                    levels.CanUserSendState(me, new StateEventType.RoomPowerLevels()),
+                             levels.CanUserSendState(me, new StateEventType.RoomPowerLevels()),
                 Pin: !isDirect && levels.CanUserPinUnpin(me),
                 ChangeSettings: !isDirect &&
-                    levels.CanUserSendState(me, new StateEventType.RoomJoinRules())
+                                levels.CanUserSendState(me, new StateEventType.RoomJoinRules())
             );
 
             return new RoomDetails(
@@ -174,7 +175,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             using var search = Signed().RoomDirectorySearch();
             var listener = new DirectoryListener();
             using var handle = await search.Results(listener);
-            await search.Search(string.IsNullOrWhiteSpace(filter) ? null : filter.Trim(), 30, server);
+            await search.Search(string.IsNullOrWhiteSpace(filter) ? null : filter.Trim(), 30,
+                server);
             // The entries come through the listener; the list is taken once it has stopped changing.
             var last = -1;
             for (var i = 0; i < 40; i++) {
@@ -200,8 +202,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         public IReadOnlyList<PublicRoom> Rooms()
         {
             lock (rooms) {
-                return
-                [
+                return [
                     .. rooms.Select(r => new PublicRoom(
                         r.RoomId,
                         r.Name ?? r.Alias ?? r.RoomId,
@@ -276,8 +277,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             }
 
             var rooms = await list.Rooms();
-            return
-            [
+            return [
                 .. rooms.Where(r => r.RoomId != spaceId).Select(r => new SpaceChild(
                     r.RoomId,
                     r.DisplayName,
@@ -315,8 +315,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     {
         try {
             var found = await Signed().SearchUsers(term, 20);
-            return
-            [
+            return [
                 .. found.Results.Select(u => new PersonInfo(
                     u.UserId,
                     string.IsNullOrWhiteSpace(u.DisplayName)
@@ -665,8 +664,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         if (latest is LatestEventValue.Remote remote) {
             ts = (long)remote.Timestamp;
             if (remote.Content is TimelineItemContent.MsgLike {
-                    Content.Kind: MsgLikeKind.Message m
-                })
+                Content.Kind: MsgLikeKind.Message m
+            })
                 text = m.Content.Body;
             else
                 text = ServiceLines.For(
@@ -700,7 +699,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             LastMessage = text,
             LastSender = sender,
             LastIsLine =
- latest is LatestEventValue.Remote { Content: not TimelineItemContent.MsgLike },
+                latest is LatestEventValue.Remote { Content: not TimelineItemContent.MsgLike },
             LastActivityTs = ts,
             PinnedEventIds = info.PinnedEventIds,
         };

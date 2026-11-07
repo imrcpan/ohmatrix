@@ -180,7 +180,7 @@ public static class StickerPack {
             baseName = "sticker";
         if (!taken.Contains(baseName))
             return baseName;
-        for (var n = 2;; n++) {
+        for (var n = 2; ; n++) {
             if (!taken.Contains($"{baseName} {n}"))
                 return $"{baseName} {n}";
         }

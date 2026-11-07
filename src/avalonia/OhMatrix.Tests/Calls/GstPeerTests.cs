@@ -94,14 +94,14 @@ public class GstPeerTests {
 
         // The picture of each reaches the other.
         var seen = await Within(() => {
-                (int, int)? size = null;
-                b.TryTakeFrame((data, w, h) => size = (w, h));
-                return size is { } s
-                    ? new[] {
+            (int, int)? size = null;
+            b.TryTakeFrame((data, w, h) => size = (w, h));
+            return size is { } s
+                ? new[] {
                         s.Item1, s.Item2
-                    }
-                    : null;
-            },
+                }
+                : null;
+        },
             "picture at b; log: " +
             string.Join(" | ", OhMatrix.Core.State.AppLog.Snapshot().Select(l => l.Text)));
         Assert.Equal(640, seen[0]);

@@ -189,7 +189,7 @@ public sealed class SettingsPage : Grid {
         content.Children.Add(ProfilePage.NavRow(c, "external", "GitHub", OpenRepository, 6,
             Repository.Replace("https://github.com/", "")));
         content.Children.Add(ProfilePage.NavRow(c, "about", "OhMatrix", () => {
-            }, 12,
+        }, 12,
             $"{T("version")} {Version}", false));
         content.Children.Add(new Border {
             Height = 24
