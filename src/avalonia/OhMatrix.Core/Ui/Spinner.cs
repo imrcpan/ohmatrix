@@ -4,7 +4,6 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
-using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
 

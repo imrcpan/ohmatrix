@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Headless.XUnit;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using OhMatrix.Core.State;

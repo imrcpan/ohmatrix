@@ -1,4 +1,3 @@
-using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using OhMatrix.Core.Audio;

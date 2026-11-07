@@ -1,11 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui;
 using Xunit;

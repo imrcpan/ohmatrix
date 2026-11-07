@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace OhMatrix.Core.Model;
 
 /// <summary>Mentions in the message box (<c>useMentionSuggest</c> of the TypeScript app): <c>@</c> offers the people of the room, and the ones picked are sent as <c>m.mentions</c>, which is what notifies them.</summary>

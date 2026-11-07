@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Headless;
-using Avalonia.Media;
 using OhMatrix.Tests.Ui;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
