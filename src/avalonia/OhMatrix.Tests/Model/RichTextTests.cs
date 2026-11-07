@@ -105,4 +105,20 @@ public class RichTextTests {
         Assert.Equal("@ann:localhost", Mark(runs, "@ann")!.UserId);
         Assert.Null(Mark(runs, "@bob")!.UserId);
     }
+
+    [Fact]
+    public void Pieces_of_one_style_join_into_one_run_in_order()
+    {
+        var html = string.Concat(Enumerable.Range(0, 3000)
+            .Select(n => "<b>" + n % 10 + "</b>"));
+        var runs = RichText.ParseFormatted(html);
+        var run = Assert.Single(runs);
+        Assert.True(run.Bold);
+        Assert.Equal(3000, run.Text.Length);
+        Assert.StartsWith("0123456789", run.Text);
+        // A break or another style ends the run, and the text stays in order.
+        var mixed =
+            RichText.ParseFormatted("<b>a</b><b>b</b><br><i>c</i><b>d</b>x");
+        Assert.Equal(["ab", "\n", "c", "d", "x"], mixed.Select(r => r.Text));
+    }
 }
