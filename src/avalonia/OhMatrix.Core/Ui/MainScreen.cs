@@ -102,9 +102,23 @@ public sealed class MainScreen : Grid {
         chip.Child = row;
         detail.Child = chip;
         Grid.SetColumn(divider, 1);
+        resizer.HorizontalAlignment = HorizontalAlignment.Center;
+        resizer.Margin = new Thickness(-4, 0);
+        resizer.ZIndex = 5;
+        resizer.Current = SidebarWidth;
+        resizer.Clamp = w => Layout.ClampSidebar(w, Bounds.Width);
+        resizer.Live = w => {
+            live = w;
+            Apply();
+        };
+        resizer.Commit = w => controller.SetPreferences(p => p with {
+            SidebarWidth = w
+        });
+        Grid.SetColumn(resizer, 1);
         Grid.SetColumn(detail, 2);
         Children.Add(listHost);
         Children.Add(divider);
+        Children.Add(resizer);
         Children.Add(detail);
         Children.Add(infoDockHost);
         Grid.SetColumnSpan(narrowChat, 4);
@@ -146,8 +160,24 @@ public sealed class MainScreen : Grid {
     /// <summary>The width of the chat list in the two-pane layout: a third of the window, between 280 and 420.</summary>
     public static double AutoSidebar(double width)
     {
-        return Math.Clamp(Math.Round(width * 0.3), 280, 420);
+        return Layout.AutoSidebar(width);
     }
+
+    private double? live;
+    private readonly SidebarResizer resizer = new();
+    private RoomListPane? rail;
+
+    /// <summary>The width of the chat list now: the one dragged to, the one kept, or the automatic one.</summary>
+    public double SidebarWidth()
+    {
+        var width = Bounds.Width;
+        return live ?? (controller.Store.Value.Prefs.SidebarWidth is { } kept
+            ? Layout.ClampSidebar(kept, width)
+            : Layout.AutoSidebar(width));
+    }
+
+    /// <summary>The divider that can be dragged.</summary>
+    public SidebarResizer Resizer => resizer;
 
     private void Apply()
     {
@@ -159,7 +189,10 @@ public sealed class MainScreen : Grid {
         divider.Background = new SolidColorBrush(c.Separator);
         divider.IsVisible = split;
         detail.IsVisible = split;
-        listHost.Width = split ? AutoSidebar(Bounds.Width) : Bounds.Width;
+        var sidebar = split ? SidebarWidth() : Bounds.Width;
+        listHost.Width = sidebar;
+        resizer.IsVisible = split;
+        var strip = split && Layout.IsRail(sidebar);
         var open = s.SelectedRoomId is not null;
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
@@ -179,7 +212,7 @@ public sealed class MainScreen : Grid {
             SidebarPage.Space => spacePage,
             SidebarPage.Advanced => advancedPage,
             SidebarPage.Logs => logPage,
-            _ => list,
+            _ => strip ? rail ??= new RoomListPane(controller, true) : list,
         };
         detail.Child = split && open ? wideChat : chip;
         detail.Background = new SolidColorBrush(c.ChatBg);

@@ -272,6 +272,46 @@ public class RoomListTests {
         Assert.True(controller.Store.Value.RoomsSettled);
     }
 
+    [Xunit.Theory]
+    [Xunit.InlineData(0, 1280, 72)]
+    [Xunit.InlineData(166, 1280, 260)]
+    [Xunit.InlineData(165, 1280, 72)]
+    [Xunit.InlineData(900, 1280, 520)]
+    [Xunit.InlineData(900, 800, 400)]
+    [Xunit.InlineData(400, 1280, 400)]
+    public void The_sidebar_width_is_kept_between_the_strip_and_the_most(double width,
+        double window,
+        double expected)
+    {
+        Xunit.Assert.Equal(expected, Layout.ClampSidebar(width, window));
+        Xunit.Assert.Equal(Layout.ClampSidebar(Math.Round(window * 0.3), window),
+            Layout.AutoSidebar(window));
+    }
+
+    [AvaloniaFact]
+    public async Task A_dragged_width_is_kept_and_a_narrow_one_is_the_strip()
+    {
+        var (window, controller, engine, screen) = Open("light", 1000);
+        await SignedIn(controller, engine);
+        Assert.Equal(300, screen.SidebarWidth());
+        screen.Resizer.Live(400);
+        Assert.Equal(400, screen.SidebarWidth());
+        screen.Resizer.Live(null);
+        screen.Resizer.Commit(420);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(420, controller.Store.Value.Prefs.SidebarWidth);
+        Assert.Equal(420, screen.SidebarWidth());
+        Save(window, "wide");
+        screen.Resizer.Commit(Layout.ClampSidebar(50, 1000));
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(Layout.SidebarRail, screen.SidebarWidth());
+        Save(window, "strip");
+        // A double click on the divider goes back to the automatic width.
+        screen.Resizer.Commit(null);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(300, screen.SidebarWidth());
+    }
+
     [AvaloniaFact]
     public async Task Selecting_a_row_opens_the_chat_and_marks_it()
     {
