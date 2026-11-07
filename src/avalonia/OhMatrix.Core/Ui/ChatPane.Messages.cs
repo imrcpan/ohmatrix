@@ -414,15 +414,31 @@ public sealed partial class ChatPane {
     private Bubble MakeBubble(MessageEntry entry, ColorTokens colors)
     {
         var item = entry.Item;
-        var bubble = new Bubble(colors, item.Body,
-            Format.Clock(item.Ts, messageLocale!), item.IsOwn,
-            messageGroup ? item.SenderName : null, item.SenderId,
-            entry.Above, entry.Below, item.Sending, item.Failed,
-            item.Edited ? T("edited") : null, messageAccent,
-            item.Reply, item.Image, controller.Pictures, item.File,
-            image => OpenViewer(entry.Item, image), item.FormattedBody, null,
-            item.Read, ReadLabel(item), OpenFile,
-            controller.LinkPreview, controller.DownloadFile);
+        var bubble = new Bubble(new BubbleParams {
+            Colors = colors,
+            Text = item.Body,
+            Time = Format.Clock(item.Ts, messageLocale!),
+            Own = item.IsOwn,
+            SenderName = messageGroup ? item.SenderName : null,
+            SenderId = item.SenderId,
+            StuckAbove = entry.Above,
+            StuckBelow = entry.Below,
+            Sending = item.Sending,
+            Failed = item.Failed,
+            EditedLabel = item.Edited ? T("edited") : null,
+            Accent = messageAccent,
+            Reply = item.Reply,
+            Image = item.Image,
+            Pictures = controller.Pictures,
+            File = item.File,
+            OpenImage = image => OpenViewer(entry.Item, image),
+            Formatted = item.FormattedBody,
+            Read = item.Read,
+            ReadLabel = ReadLabel(item),
+            OpenFile = OpenFile,
+            Preview = controller.LinkPreview,
+            Fetch = controller.DownloadFile
+        });
         if (bubble.Quote is { } quote) {
             quote.Cursor = new Cursor(StandardCursorType.Hand);
             quote.PointerPressed += (_, e) => {
