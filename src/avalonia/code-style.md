@@ -73,5 +73,7 @@ Action a = () => {
 Func<int> f = () => 3;
 ```
 
+- A `using` nothing uses is an error (IDE0005): the build fails on it, `./format.sh` removes it, and `./format.sh --check` (the pre-commit
+  check) lists the file. `Directory.Build.props` turns on what the analyzer needs to see it.
 - A namespace is file-scoped (`namespace OhMatrix.Core;`). A namespace with braces is an error.
 - An auto property may be written on one line (`{ get; init; }`) or over several; the formatter keeps either.

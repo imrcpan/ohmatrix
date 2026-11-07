@@ -3,5 +3,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-git diff --cached --name-only --diff-filter=ACMR | grep -qE '^src/avalonia/.*(\.cs|\.editorconfig|dotnet-tools\.json|format\.sh)$' || exit 0
+git diff --cached --name-only --diff-filter=ACMR | grep -qE '^src/avalonia/.*(\.cs|\.editorconfig|Directory\.Build\.props|dotnet-tools\.json|format\.sh)$' || exit 0
 exec src/avalonia/format.sh --check

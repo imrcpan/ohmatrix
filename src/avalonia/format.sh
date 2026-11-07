@@ -8,8 +8,9 @@ cd "$(dirname "$0")"
 dotnet tool restore >/dev/null
 
 format() {
-    # A namespace becomes file-scoped, then braces and statements are split, then ReSharper lays the rest out.
-    dotnet format style OhMatrix.slnx --diagnostics IDE0161 --severity error >/dev/null
+    # A namespace becomes file-scoped, and the usings nothing uses are removed (Directory.Build.props lets the analyzer see them).
+    dotnet format style OhMatrix.slnx --diagnostics IDE0161 IDE0005 --severity error >/dev/null
+    # Then braces and statements are split, then ReSharper lays the rest out.
     dotnet format whitespace OhMatrix.slnx >/dev/null
     dotnet jb cleanupcode OhMatrix.slnx --profile='Built-in: Reformat Code' --no-build >/dev/null
 }
@@ -25,6 +26,7 @@ trap 'rm -rf "$work"' EXIT
 sources="$(find . -type f -name '*.cs' -not -path '*/bin/*' -not -path '*/obj/*')"
 files="$sources
 ./.editorconfig
+./Directory.Build.props
 ./dotnet-tools.json
 ./format.sh
 ./OhMatrix.slnx"
