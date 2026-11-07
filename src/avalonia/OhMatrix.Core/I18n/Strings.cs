@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Globalization;
-using System.Reflection;
+using System.Text;
 
 namespace OhMatrix.Core.I18n;
 
@@ -10,20 +12,44 @@ namespace OhMatrix.Core.I18n;
 public static class Strings {
     public const string Fallback = "en";
 
+    // Texts are read for every row and line that is drawn, so reading takes
+    // no lock and does as little as it can: a loaded catalog is frozen (it
+    // never changes, and a frozen dictionary finds a key faster), the one
+    // used last and the English one are kept at hand, and the lock is only
+    // for loading.
     private static readonly Lock Gate = new();
 
     private static readonly
-        Dictionary<string, IReadOnlyDictionary<string, string>>
+        ConcurrentDictionary<string, FrozenDictionary<string, string>?>
         Catalogs = new();
 
-    private static IReadOnlyList<Language>? languages;
+    private sealed record Last(
+        string Locale,
+        FrozenDictionary<string, string>? Catalog);
+
+    private static volatile Last? last;
+    private static volatile FrozenDictionary<string, string>? english;
+
+    private static volatile IReadOnlyList<Language>? languages;
 
     /// <summary>The languages of the list, in the order of the picker; English first.</summary>
     public static IReadOnlyList<Language> Languages {
         get {
-            lock (Gate) {
-                return languages ??= LoadLanguages();
-            }
+            return languages ?? LoadedLanguages();
+        }
+    }
+
+    // A value for a {name} of a text, as the text it is put in as.
+    private readonly record struct Arg(string Name, string Value) {
+        public static implicit operator Arg((string Name, string Value) pair)
+        {
+            return new Arg(pair.Name, pair.Value);
+        }
+
+        public static implicit operator Arg((string Name, long Value) pair)
+        {
+            return new Arg(pair.Name,
+                pair.Value.ToString(CultureInfo.InvariantCulture));
         }
     }
 
@@ -60,24 +86,94 @@ public static class Strings {
     }
 
     /// <summary>Translates <paramref name="key"/>; <c>{name}</c> in the text is replaced by the value of the same name.</summary>
+    public static string T(string locale, string key)
+    {
+        return TextOf(locale, key);
+    }
+
+    // The calls with one or two values of a text or a number neither make
+    // an array nor box the number; anything else takes the general form.
+    public static string T(string locale, string key,
+        (string Name, string Value) a)
+    {
+        return Fill(TextOf(locale, key), [a]);
+    }
+
+    public static string T(string locale, string key,
+        (string Name, long Value) a)
+    {
+        return Fill(TextOf(locale, key), [a]);
+    }
+
+    public static string T(string locale, string key,
+        (string Name, string Value) a, (string Name, string Value) b)
+    {
+        return Fill(TextOf(locale, key), [a, b]);
+    }
+
+    public static string T(string locale, string key,
+        (string Name, string Value) a, (string Name, long Value) b)
+    {
+        return Fill(TextOf(locale, key), [a, b]);
+    }
+
+    public static string T(string locale, string key,
+        (string Name, long Value) a, (string Name, string Value) b)
+    {
+        return Fill(TextOf(locale, key), [a, b]);
+    }
+
+    public static string T(string locale, string key,
+        (string Name, long Value) a, (string Name, long Value) b)
+    {
+        return Fill(TextOf(locale, key), [a, b]);
+    }
+
+    /// <summary>The general form, for values of any type; the ones above avoid the array and the boxing.</summary>
     public static string T(string locale, string key,
         params (string Name, object Value)[] values)
     {
-        var text = Catalog(locale)?.GetValueOrDefault(key) ??
-                   Catalog(Fallback)?.GetValueOrDefault(key) ?? key;
-        return values.Length == 0 ? text : Fill(text, values);
+        var text = TextOf(locale, key);
+        if (values.Length == 0)
+            return text;
+        var args = new Arg[values.Length];
+        for (var i = 0; i < values.Length; i++)
+            args[i] = new Arg(values[i].Name,
+                Convert.ToString(values[i].Value,
+                    CultureInfo.InvariantCulture) ?? "");
+        return Fill(text, args);
+    }
+
+    private static string TextOf(string locale, string key)
+    {
+        if (Catalog(locale)?.TryGetValue(key, out var text) == true)
+            return text!;
+        // A text a language does not have yet is shown in English.
+        if (English().TryGetValue(key, out text))
+            return text;
+        return key;
+    }
+
+    private static FrozenDictionary<string, string> English()
+    {
+        return english ??= Catalog(Fallback)!;
     }
 
     /// <summary>Whether English has the key; the other languages are checked against these.</summary>
     public static IReadOnlyCollection<string> Keys()
     {
-        return Catalog(Fallback)!.Keys.ToList();
+        return English().Keys.ToList();
     }
 
-    private static string Fill(string text,
-        (string Name, object Value)[] values)
+    [ThreadStatic] private static StringBuilder? builder;
+
+    private static string Fill(string text, ReadOnlySpan<Arg> values)
     {
-        var sb = new System.Text.StringBuilder(text.Length + 16);
+        // Most texts have nothing to put in.
+        if (!text.Contains('{'))
+            return text;
+        var sb = builder ??= new StringBuilder(256);
+        sb.Clear();
         var i = 0;
         while (i < text.Length) {
             var open = text[i];
@@ -85,11 +181,10 @@ public static class Strings {
                 var close = text.IndexOf('}', i + 1);
                 if (close > i + 1 &&
                     IsName(text.AsSpan(i + 1, close - i - 1))) {
-                    var name = text.Substring(i + 1, close - i - 1);
-                    foreach (var (n, v) in values) {
-                        if (n == name)
-                            sb.Append(Convert.ToString(v,
-                                CultureInfo.InvariantCulture));
+                    var name = text.AsSpan(i + 1, close - i - 1);
+                    foreach (var v in values) {
+                        if (name.SequenceEqual(v.Name))
+                            sb.Append(v.Value);
                     }
 
                     i = close + 1;
@@ -115,17 +210,34 @@ public static class Strings {
         return s.Length > 0;
     }
 
-    private static IReadOnlyDictionary<string, string>? Catalog(string locale)
+    private static FrozenDictionary<string, string>? Catalog(string locale)
+    {
+        // The same language is asked for again and again.
+        if (last is { } kept && (ReferenceEquals(kept.Locale, locale) ||
+                                 kept.Locale == locale))
+            return kept.Catalog;
+        FrozenDictionary<string, string>? loaded;
+        if (!Catalogs.TryGetValue(locale, out loaded)) {
+            lock (Gate) {
+                if (!Catalogs.TryGetValue(locale, out loaded)) {
+                    // Only the languages of the list are read, so that an id from outside never names a resource.
+                    loaded = LoadedLanguages().Any(l => l.Id == locale)
+                        ? TomlLite.Parse(Read($"i18n/{locale}.toml")).Root
+                            .ToFrozenDictionary()
+                        : null;
+                    Catalogs[locale] = loaded;
+                }
+            }
+        }
+
+        last = new Last(locale, loaded);
+        return loaded;
+    }
+
+    private static IReadOnlyList<Language> LoadedLanguages()
     {
         lock (Gate) {
-            if (Catalogs.TryGetValue(locale, out var loaded))
-                return loaded;
-            // Only the languages of the list are read, so that an id from outside never names a resource.
-            if (!(languages ??= LoadLanguages()).Any(l => l.Id == locale))
-                return null;
-            var catalog = TomlLite.Parse(Read($"i18n/{locale}.toml")).Root;
-            Catalogs[locale] = catalog;
-            return catalog;
+            return languages ??= LoadLanguages();
         }
     }
 
