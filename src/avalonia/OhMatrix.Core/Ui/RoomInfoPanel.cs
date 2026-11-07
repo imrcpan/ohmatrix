@@ -69,6 +69,28 @@ public sealed class RoomInfoPanel : Grid {
         Apply();
     }
 
+    private bool gallery;
+
+    /// <summary>The whole gallery when its page is open, or null.</summary>
+    public SharedMediaView? Gallery { get; private set; }
+
+    /// <summary>Opens the page with all the media of the chat.</summary>
+    public void OpenGallery()
+    {
+        gallery = true;
+        viewingRoom = controller.Store.Value.SelectedRoomId;
+        Gallery = null;
+        Apply();
+    }
+
+    /// <summary>Goes back from the gallery to the info of the chat.</summary>
+    public void LeaveGallery()
+    {
+        gallery = false;
+        Gallery = null;
+        Apply();
+    }
+
     /// <summary>Goes back from the page of a person to the info of the chat.</summary>
     public void LeaveMember()
     {
@@ -401,6 +423,16 @@ public sealed class RoomInfoPanel : Grid {
             return;
         }
 
+        if (gallery && viewingRoom == room.Id) {
+            PageBar.Fill(bar, c, T("sharedMedia"), T("chatInfo"), LeaveGallery);
+            // Kept while the page is open, so a rebuild (a theme change, a sync) does not ask the server again.
+            Gallery ??= new SharedMediaView(controller, room.Id, Viewer);
+            content.Children.Add(Gallery);
+            return;
+        }
+
+        gallery = false;
+
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(16, 16, 16, 8),
@@ -614,6 +646,7 @@ public sealed class RoomInfoPanel : Grid {
         var pictures = timeline.Where(i => i.Image is not null).Reverse().Take(MediaShown).ToList();
         var files = timeline.Where(i => i.File is not null).Reverse().Take(FilesShown).ToList();
         content.Children.Add(Section(c, T("sharedMedia")));
+        content.Children.Add(ProfilePage.NavRow(c, "image", T("viewAll"), OpenGallery, 0));
         if (pictures.Count == 0 && files.Count == 0) {
             content.Children.Add(new TextBlock {
                 Text = T("media.none"),
