@@ -165,6 +165,11 @@ public sealed class RoomListPane : Grid {
                                 ? []
                                 : v[1].Split([',', ' '], StringSplitOptions.RemoveEmptyEntries))),
                     Icon: "users"),
+                .. controller.CanManageSpaces
+                    ? [new MenuItem(T("newSpace"), () => Ask(window, "space.new",
+                        [new PromptField(T("space.name"), "users")], T("create"),
+                        v => controller.CreateSpace(v[0])), Icon: "users")]
+                    : Array.Empty<MenuItem>(),
                 new MenuItem(T("joinRoom"), () => Ask(window, "joinRoom",
                     [new PromptField(T("roomIdOrAlias"), "hash")], T("join"),
                     v => controller.JoinRoom(v[0])), Icon: "hash"),

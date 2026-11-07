@@ -23,7 +23,8 @@ public sealed class AppController(
     ICallPlatform? callPlatform = null,
     Calls.ICallSounds? callSounds = null,
     IStickersEngine? stickersEngine = null,
-    ISearchEngine? searchEngine = null
+    ISearchEngine? searchEngine = null,
+    ISpacesEngine? spacesEngine = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -755,6 +756,31 @@ public sealed class AppController(
 
             await session.SendAttachment(path, mime, width, height);
         }
+    }
+
+    /// <summary>Whether spaces can be made and arranged.</summary>
+    public bool CanManageSpaces => spacesEngine is not null;
+
+    /// <summary>Creates a space and opens it.</summary>
+    public async Task CreateSpace(string name)
+    {
+        var id = await spacesEngine!.CreateSpace(name.Trim());
+        OpenSpace(id);
+    }
+
+    public Task AddSpaceChild(string spaceId, string roomId) => spacesEngine!.AddChild(spaceId, roomId);
+
+    public Task RemoveSpaceChild(string spaceId, string roomId) =>
+        spacesEngine!.RemoveChild(spaceId, roomId);
+
+    public Task MoveSpaceChild(string spaceId, string roomId, bool first) =>
+        spacesEngine!.MoveChild(spaceId, roomId, first);
+
+    /// <summary>Creates a room and lists it in a space.</summary>
+    public async Task CreateRoomInSpace(string spaceId, string name)
+    {
+        var id = await rooms!.CreateRoom(name.Trim(), false, []);
+        await spacesEngine!.AddChild(spaceId, id);
     }
 
     /// <summary>Whether messages can be searched through the server.</summary>

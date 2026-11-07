@@ -415,6 +415,16 @@ public sealed class ChatPane : Grid {
             if (e.Property == TextBox.TextProperty)
                 Apply();
         };
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DropEvent, (_, e) => {
+            var files = DataTransferExtensions.TryGetFiles(e.DataTransfer)?
+                .Select(f => Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(f))
+                .OfType<string>().ToList();
+            if (files is { Count: > 0 }) {
+                e.Handled = true;
+                OfferFiles(files);
+            }
+        });
         scroller.ScrollChanged += (_, _) => OnScroll();
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<ChatPane>((p, _) => p.Rebuild());
@@ -1204,6 +1214,28 @@ public sealed class ChatPane : Grid {
             return;
         viewer.Show(window, controller.Pictures, image.Source, image.FileName, shown.Source,
             () => controller.SavePicture(window, image.Source, image.FileName));
+    }
+
+    private SendFilesDialog? sendFiles;
+    public SendFilesDialog SendFiles => sendFiles ??= new SendFilesDialog(controller);
+
+    /// <summary>Asks before files dropped on the chat are sent, then sends each.</summary>
+    public void OfferFiles(IReadOnlyList<string> paths)
+    {
+        if (controller.Store.Value.SelectedRoomId is null || TopLevel.GetTopLevel(this) is not { } window)
+            return;
+        SendFiles.Show(window, paths, () => _ = SendPaths(paths));
+    }
+
+    private async Task SendPaths(IReadOnlyList<string> paths)
+    {
+        foreach (var path in paths) {
+            try {
+                await controller.SendAttachment(path);
+            } catch (Exception) {
+                // The file stays unsent; the person can try again.
+            }
+        }
     }
 
     private RecordingDialog? recordingDialog;
