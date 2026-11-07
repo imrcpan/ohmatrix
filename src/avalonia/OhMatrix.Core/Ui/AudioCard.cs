@@ -11,8 +11,8 @@ using OhMatrix.Core.Theming;
 namespace OhMatrix.Core.Ui;
 
 /// <summary>
-/// The card of an audio message that plays in the app: a play or pause button, the name, a bar to see and change where it is, and the time. The
-/// chat is drawn again whenever it changes, so the players are kept by the message and the card finds its player again.
+/// An audio message with playback controls, progress and time. Players are
+/// kept by message, so playback survives its card leaving the visual tree.
 /// </summary>
 public sealed class AudioCard : Grid {
     private static readonly Dictionary<string, MediaPlayer> Players = new();
@@ -54,6 +54,23 @@ public sealed class AudioCard : Grid {
         FontFamily = Fonts.System,
     };
 
+    private readonly TextBlock name = new() {
+        FontSize = 16,
+        FontWeight = FontWeight.Medium,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+    };
+
+    private readonly Border back = new() {
+        Height = 4,
+        CornerRadius = new CornerRadius(2),
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly SolidColorBrush discFill = new();
+    private readonly SolidColorBrush glyphFill = new();
+    private readonly SolidColorBrush trackFill = new();
+    private readonly SolidColorBrush metaFill = new();
+
     private readonly DispatcherTimer timer = new() {
         Interval = TimeSpan.FromMilliseconds(250)
     };
@@ -75,31 +92,16 @@ public sealed class AudioCard : Grid {
         this.fallback = fallback;
         ColumnDefinitions = new ColumnDefinitions("Auto,*");
         MinWidth = 220;
-        disc.Background =
-            new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent);
-        glyph.Color =
-            new SolidColorBrush(mine ? colors.BubbleOut : colors.OnAccent);
+        disc.Background = discFill;
+        glyph.Color = glyphFill;
+        back.Background = trackFill;
         disc.Child = glyph;
         var words = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center,
             Spacing = 3
         };
-        words.Children.Add(new TextBlock {
-            Text = file.Name,
-            FontSize = 16,
-            FontWeight = FontWeight.Medium,
-            FontFamily = Fonts.System,
-            Foreground = fg,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-        });
-        var back = new Border {
-            Height = 4,
-            CornerRadius = new CornerRadius(2),
-            Background =
-                new SolidColorBrush(Color.FromArgb(70, meta.R, meta.G, meta.B)),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        fill.Background = fg;
+        name.Text = file.Name;
+        words.Children.Add(name);
         var bar = new Grid {
             Height = 14
         };
@@ -107,7 +109,7 @@ public sealed class AudioCard : Grid {
         bar.Children.Add(fill);
         bar.Children.Add(track);
         words.Children.Add(bar);
-        time.Foreground = new SolidColorBrush(meta);
+        time.Foreground = metaFill;
         words.Children.Add(time);
         SetColumn(words, 1);
         Children.Add(disc);
@@ -131,7 +133,22 @@ public sealed class AudioCard : Grid {
             timer.Start();
         };
         DetachedFromVisualTree += (_, _) => timer.Stop();
+        UpdatePresentation(colors, mine, fg, meta);
         Refresh();
+    }
+
+    /// <summary>Updates colors and fonts without changing playback.</summary>
+    public void UpdatePresentation(ColorTokens colors, bool mine, IBrush fg,
+        Color meta)
+    {
+        discFill.Color = mine ? colors.BubbleOutText : colors.Accent;
+        glyphFill.Color = mine ? colors.BubbleOut : colors.OnAccent;
+        trackFill.Color = Color.FromArgb(70, meta.R, meta.G, meta.B);
+        metaFill.Color = meta;
+        name.Foreground = fg;
+        name.FontFamily = Fonts.System;
+        time.FontFamily = Fonts.System;
+        fill.Background = fg;
     }
 
     /// <summary>What the button shows now; "play" or "pause".</summary>
