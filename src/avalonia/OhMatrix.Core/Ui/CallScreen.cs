@@ -275,29 +275,29 @@ public sealed class CallScreen : Grid {
     {
         // My own camera, in the corner, while it is on.
         if (controller.TakeLocalCallFrame((data, width, height) => {
-                localPicture = Fill(localPicture, data, width, height);
-                local.Source = localPicture;
-            }))
+            localPicture = Fill(localPicture, data, width, height);
+            local.Source = localPicture;
+        }))
             local.InvalidateVisual();
         localFrame.IsVisible = localPicture is not null &&
                                controller.Store.Value.Call is { CameraOff: false };
         if (!controller.TakeCallFrame((data, width, height) => {
-                if (picture is null || picture.PixelSize.Width != width
-                                    || picture.PixelSize.Height != height) {
-                    picture = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
-                        PixelFormat.Bgra8888, AlphaFormat.Opaque);
-                    remote.Source = picture;
-                }
+            if (picture is null || picture.PixelSize.Width != width
+                                || picture.PixelSize.Height != height) {
+                picture = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
+                    PixelFormat.Bgra8888, AlphaFormat.Opaque);
+                remote.Source = picture;
+            }
 
-                using var frame = picture.Lock();
-                unsafe {
-                    for (var y = 0; y < height; y++)
-                        Buffer.MemoryCopy((byte*)data + y * width * 4,
-                            (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
-                }
+            using var frame = picture.Lock();
+            unsafe {
+                for (var y = 0; y < height; y++)
+                    Buffer.MemoryCopy((byte*)data + y * width * 4,
+                        (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
+            }
 
-                pictureShown = true;
-            }))
+            pictureShown = true;
+        }))
             return;
         remote.InvalidateVisual();
         remote.IsVisible = pictureShown;

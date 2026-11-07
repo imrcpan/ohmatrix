@@ -232,7 +232,7 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "hash", T("userId"), () => {
         }, 12, id, false));
         content.Children.Add(NavRow(c, "info", T("homeserver"), () => {
-            }, 12,
+        }, 12,
             s.Homeserver ?? "", false));
         content.Children.Add(new TextBlock {
             Text = T("security"),

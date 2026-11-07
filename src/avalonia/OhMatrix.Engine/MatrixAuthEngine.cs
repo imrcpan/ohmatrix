@@ -136,23 +136,23 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
     {
         switch (e) {
             case ClientException.MatrixApi api: {
-                var kind = api.kind switch {
-                    ErrorKind.UnknownToken => "UnknownToken",
-                    ErrorKind.MissingToken => "MissingToken",
-                    ErrorKind.Forbidden => "Forbidden",
-                    ErrorKind.LimitExceeded => "LimitExceeded",
-                    ErrorKind.NotFound => "NotFound",
-                    ErrorKind.UserInUse => "UserInUse",
-                    ErrorKind.RoomInUse => "RoomInUse",
-                    ErrorKind.Unrecognized => "Unrecognized",
-                    _ => null,
-                };
-                return new EngineException(
-                    ErrorMapping.Map(kind, api.code, true, api.msg),
-                    api.msg,
-                    e
-                );
-            }
+                    var kind = api.kind switch {
+                        ErrorKind.UnknownToken => "UnknownToken",
+                        ErrorKind.MissingToken => "MissingToken",
+                        ErrorKind.Forbidden => "Forbidden",
+                        ErrorKind.LimitExceeded => "LimitExceeded",
+                        ErrorKind.NotFound => "NotFound",
+                        ErrorKind.UserInUse => "UserInUse",
+                        ErrorKind.RoomInUse => "RoomInUse",
+                        ErrorKind.Unrecognized => "Unrecognized",
+                        _ => null,
+                    };
+                    return new EngineException(
+                        ErrorMapping.Map(kind, api.code, true, api.msg),
+                        api.msg,
+                        e
+                    );
+                }
             case ClientException.Generic generic:
                 return new EngineException(
                     ErrorMapping.Map(null, null, false, $"{generic.msg} {generic.details}"),

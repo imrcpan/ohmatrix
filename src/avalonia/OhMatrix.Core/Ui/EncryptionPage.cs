@@ -213,7 +213,7 @@ public sealed class EncryptionPage : Grid {
             Margin = new Thickness(26, 18, 12, 0),
         });
         content.Children.Add(ProfilePage.NavRow(c, "lock", T("encryption"), () => {
-            }, 6,
+        }, 6,
             Words(s.Security, k => T(k)), false));
         RecoveryRow = null;
         VerifyRow = null;

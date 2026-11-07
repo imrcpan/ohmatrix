@@ -202,22 +202,22 @@ public static partial class RichText {
                     top.List = name;
                     break;
                 case "a": {
-                    var m = HrefRegex().Match(attrs);
-                    var url = m.Success
-                        ? Decode(m.Groups[1].Success ? m.Groups[1].Value
-                            : m.Groups[2].Success ? m.Groups[2].Value
-                            : m.Groups[3].Value)
-                        : "";
-                    if (url.Length > 0) {
-                        var uid = PermalinkRegex().Match(url);
-                        frame.Style = frame.Style with {
-                            Href = url,
-                            UserId = uid.Success ? uid.Groups[1].Value : frame.Style.UserId,
-                        };
-                    }
+                        var m = HrefRegex().Match(attrs);
+                        var url = m.Success
+                            ? Decode(m.Groups[1].Success ? m.Groups[1].Value
+                                : m.Groups[2].Success ? m.Groups[2].Value
+                                : m.Groups[3].Value)
+                            : "";
+                        if (url.Length > 0) {
+                            var uid = PermalinkRegex().Match(url);
+                            frame.Style = frame.Style with {
+                                Href = url,
+                                UserId = uid.Success ? uid.Groups[1].Value : frame.Style.UserId,
+                            };
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case "span" when SpoilerRegex().IsMatch(attrs):
                     frame.Style = frame.Style with {
                         Spoiler = true
