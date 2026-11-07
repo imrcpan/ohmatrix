@@ -655,6 +655,20 @@ public sealed class AppController(
         return code;
     }
 
+    /// <summary>Puts the picture of a message in my pack, in a group.</summary>
+    public async Task AddStickerFrom(TimelineItem item, string groupId)
+    {
+        var picture = item.Image ?? throw new EngineException(EngineErrorCode.Unsupported,
+            "Not a picture.");
+        if (!picture.Source.StartsWith("mxc://", StringComparison.Ordinal))
+            throw new EngineException(EngineErrorCode.Unsupported,
+                "A picture in a private room cannot be added without downloading it.");
+        var mime = StickerPack.Mime(picture.FileName, MimeTypes.For(picture.FileName));
+        await stickersEngine!.AddExisting(new Sticker(picture.FileName, picture.Source, mime,
+            picture.Width, picture.Height), groupId);
+        await LoadStickers();
+    }
+
     private static StickerUpload ReadUpload(string path)
     {
         var name = Path.GetFileName(path);

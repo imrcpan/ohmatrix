@@ -869,6 +869,62 @@ public sealed class StickerPane : Grid {
         };
     }
 
+    /// <summary>My sticker groups as tiles to choose one from (the default group first), each with its cover and its name.</summary>
+    public Control GroupChoice(Action<string> pick)
+    {
+        var c = ThemeScope.GetColors(this);
+        var s = controller.Store.Value;
+        var groups = StickerPack.WithDefault(s.StickerGroups, s.Stickers);
+        var wrap = new WrapPanel {
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        for (var i = 0; i < groups.Count; i++) {
+            var g = groups[i];
+            Control face = g.Id == StickerPack.DefaultGroup
+                ? new Icon {
+                    Glyph = "sticker",
+                    Size = GroupIcon - 6,
+                    Color = new SolidColorBrush(c.TextSecondary),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                }
+                : IconOf(StickerPack.CoverOf(g, s.Stickers), GroupIcon);
+            var name = Label(g, i);
+            var tile = new Border {
+                Width = 84,
+                Margin = new Thickness(4),
+                Padding = new Thickness(0, 8),
+                CornerRadius = new CornerRadius(12),
+                Background = new SolidColorBrush(c.BgSecondary),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                Child = new StackPanel {
+                    Spacing = 4,
+                    Children = {
+                        face,
+                        new TextBlock {
+                            Text = name,
+                            FontSize = 13,
+                            FontFamily = Fonts.System,
+                            Foreground = new SolidColorBrush(c.Text),
+                            MaxWidth = 76,
+                            TextAlignment = TextAlignment.Center,
+                            TextTrimming = TextTrimming.CharacterEllipsis,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                        },
+                    },
+                },
+            };
+            var id = g.Id;
+            tile.PointerPressed += (_, e) => {
+                e.Handled = true;
+                pick(id);
+            };
+            Avalonia.Automation.AutomationProperties.SetName(tile, name);
+            wrap.Children.Add(tile);
+        }
+
+        return wrap;
+    }
+
     /// <summary>A group's icon: its emoji, or its picture.</summary>
     public Control IconOf(StickerIcon icon, double size)
     {
