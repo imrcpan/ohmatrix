@@ -1013,32 +1013,34 @@ public sealed class RoomInfoPanel : Grid {
             Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
-        var text = new TextBlock {
+        // The value goes under the name: the panel is narrow, and a value
+        // beside a name would cut the name short.
+        var words = new StackPanel {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 6),
+        };
+        words.Children.Add(new TextBlock {
             Text = label,
             FontSize = 16,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        Grid.SetColumn(text, 1);
-        grid.Children.Add(text);
-        var valueText = new TextBlock {
-            Text = value,
-            FontSize = 15,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(12, 0, 6, 0),
-            MaxWidth = 170,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        Grid.SetColumn(valueText, 2);
-        grid.Children.Add(valueText);
+        });
+        if (value.Length > 0)
+            words.Children.Add(new TextBlock {
+                Text = value,
+                FontSize = 14,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+        Grid.SetColumn(words, 1);
+        grid.Children.Add(words);
 
         var row = new Border {
             Margin = new Thickness(12, 4, 12, 0),
             Padding = new Thickness(14, 0),
-            Height = 48,
+            MinHeight = 48,
             CornerRadius = new CornerRadius(Radius.Control),
             Background = new SolidColorBrush(c.BgSecondary),
             Cursor = new Cursor(StandardCursorType.Hand),

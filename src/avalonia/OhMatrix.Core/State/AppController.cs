@@ -274,14 +274,18 @@ public sealed class AppController(
     public async Task SetJoinRule(string roomId, JoinRule rule)
     {
         await rooms!.SetJoinRule(roomId, rule);
-        await LoadDetails(roomId);
+        await Changed(roomId, d => d with {
+            JoinRule = rule
+        });
     }
 
     public async Task SetHistoryVisibility(string roomId,
         HistoryVisibility visibility)
     {
         await rooms!.SetHistoryVisibility(roomId, visibility);
-        await LoadDetails(roomId);
+        await Changed(roomId, d => d with {
+            HistoryVisibility = visibility
+        });
     }
 
     /// <summary>Whether the address (<c>#name:server</c>) is free to take.</summary>
@@ -291,38 +295,38 @@ public sealed class AppController(
     public async Task AddRoomAlias(string roomId, string alias)
     {
         await rooms!.AddRoomAlias(roomId, alias);
-        await LoadDetails(roomId);
+        await Changed(roomId);
     }
 
     public async Task RemoveRoomAlias(string roomId, string alias)
     {
         await rooms!.RemoveRoomAlias(roomId, alias);
-        await LoadDetails(roomId);
+        await Changed(roomId);
     }
 
     public async Task SetMainAlias(string roomId, string alias)
     {
         await rooms!.SetMainAlias(roomId, alias);
-        await LoadDetails(roomId);
+        await Changed(roomId);
     }
 
     public async Task SetPowerThresholds(string roomId,
         PowerThresholds thresholds)
     {
         await rooms!.SetPowerThresholds(roomId, thresholds);
-        await LoadDetails(roomId);
+        await Changed(roomId);
     }
 
     public async Task SetMemberPower(string roomId, string userId, int level)
     {
         await rooms!.SetMemberPower(roomId, userId, level);
-        await LoadDetails(roomId);
+        await Changed(roomId);
     }
 
     public async Task UnbanMember(string roomId, string userId)
     {
         await rooms!.UnbanMember(roomId, userId);
-        await LoadDetails(roomId);
+        await Changed(roomId);
     }
 
     /// <summary>Removes a person from a group.</summary>
@@ -698,6 +702,24 @@ public sealed class AppController(
         });
         if (open && Store.Value.SelectedRoomId is { } id)
             _ = LoadDetails(id);
+    }
+
+    /// <summary>
+    /// Shows a change of the room in the info panel at once (the SDK keeps
+    /// the old value for a moment after the server has taken the new one),
+    /// reads the room again, and once more a little later.
+    /// </summary>
+    private async Task Changed(string roomId,
+        Func<RoomDetails, RoomDetails>? shown = null)
+    {
+        if (shown is not null)
+            Store.Update(s => s.Details is null || s.SelectedRoomId != roomId
+                ? s
+                : s with {
+                    Details = shown(s.Details)
+                });
+        await LoadDetails(roomId);
+        _ = Task.Delay(1500).ContinueWith(_ => LoadDetails(roomId));
     }
 
     public async Task LoadDetails(string roomId)
