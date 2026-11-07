@@ -391,7 +391,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     public async Task<bool> IsAliasAvailable(string alias)
     {
         try {
-            return await Signed().RoomAliasExists(alias);
+            return !await Signed().RoomAliasExists(alias);
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
@@ -399,7 +399,18 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
     public Task AddRoomAlias(string roomId, string alias)
     {
-        return Act(roomId, room => room.PublishRoomAliasInRoomDirectory(alias));
+        return Act(roomId, async room => {
+            await room.PublishRoomAliasInRoomDirectory(alias);
+            // It is listed with the room: as the main address when there is none, otherwise as another one.
+            var canonical = room.CanonicalAlias();
+            var alt = room.AlternativeAliases().Where(a => a != alias).ToList();
+            if (canonical is null)
+                await room.UpdateCanonicalAlias(alias, [.. alt]);
+            else if (canonical != alias) {
+                alt.Add(alias);
+                await room.UpdateCanonicalAlias(canonical, [.. alt]);
+            }
+        });
     }
 
     public Task RemoveRoomAlias(string roomId, string alias)
