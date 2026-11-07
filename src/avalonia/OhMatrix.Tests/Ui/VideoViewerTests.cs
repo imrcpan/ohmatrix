@@ -28,7 +28,11 @@ public class VideoViewerTests {
             TimeSpan.FromSeconds(3));
         await viewer.Show(window, file, _ => Task.FromResult<string?>(path));
         Assert.True(viewer.IsOpen);
-        for (var i = 0; i < 100 && viewer.Picture.Source is null; i++) {
+        // The first frame can come before the player says it is playing.
+        for (var i = 0;
+             i < 100 && (viewer.Picture.Source is null ||
+                         viewer.Glyph != "pause");
+             i++) {
             await Task.Delay(50, TestContext.Current.CancellationToken);
             viewer.Tick();
         }
