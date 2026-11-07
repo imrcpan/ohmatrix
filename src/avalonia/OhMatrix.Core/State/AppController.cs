@@ -90,6 +90,9 @@ public sealed class AppController(
         return SignIn(homeserver, () => engine.Register(homeserver, username, password, token));
     }
 
+    /// <summary>The accounts this one is among, when the app keeps several; null otherwise.</summary>
+    public AccountManager? Accounts { get; set; }
+
     public async Task Logout()
     {
         try {

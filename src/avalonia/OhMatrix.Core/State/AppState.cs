@@ -16,6 +16,7 @@ public enum SidebarPage {
     Space,
     Advanced,
     Logs,
+    Accounts,
 }
 
 public enum AuthStatus {
