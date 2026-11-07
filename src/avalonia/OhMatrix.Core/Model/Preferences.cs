@@ -33,4 +33,7 @@ public sealed record Preferences {
     public string? Font { get; init; }
 
     public string? StickerGroup { get; init; }
+
+    /// <summary>The emoji used last, newest first (at most 24): the picker shows them first.</summary>
+    public IReadOnlyList<string> RecentEmoji { get; init; } = [];
 }
