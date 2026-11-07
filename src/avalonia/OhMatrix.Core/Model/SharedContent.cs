@@ -7,10 +7,15 @@ public sealed record SharedContent(string? Text, IReadOnlyList<string> Files) {
     {
         var parts = new List<string>();
         if (Files.Count > 0)
-            parts.Add(Files.Count == 1 ? t("share.file", []) : t("share.files", [("count", Files.Count)]));
-        var text = System.Text.RegularExpressions.Regex.Replace(Text ?? "", @"\s+", " ").Trim();
+            parts.Add(Files.Count == 1
+                ? t("share.file", [])
+                : t("share.files", [("count", Files.Count)]));
+        var text = System.Text.RegularExpressions.Regex
+            .Replace(Text ?? "", @"\s+", " ").Trim();
         if (text.Length > 0)
             parts.Add(text.Length > 60 ? text[..60] + "…" : text);
-        return parts.Count == 0 ? t("share.text", []) : string.Join(" · ", parts);
+        return parts.Count == 0
+            ? t("share.text", [])
+            : string.Join(" · ", parts);
     }
 }

@@ -56,15 +56,19 @@ public sealed class MessageMenu {
     public IReadOnlyList<Control> Emojis => emojiButtons;
 
     /// <summary>Opens at <paramref name="at"/> (a point of <paramref name="window"/>).</summary>
-    public void Show(TopLevel window, ColorTokens colors, Point at, IReadOnlyList<string> emojis,
-        IReadOnlyCollection<string> active, Action<string> onEmoji, IReadOnlyList<MenuItem> actions)
+    public void Show(TopLevel window, ColorTokens colors, Point at,
+        IReadOnlyList<string> emojis,
+        IReadOnlyCollection<string> active, Action<string> onEmoji,
+        IReadOnlyList<MenuItem> actions)
     {
         Close();
         layer = OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
         var dark = colors.Bg.R < 128;
-        var hover = dark ? Color.FromArgb(26, 255, 255, 255) : Color.FromArgb(15, 0, 0, 0);
+        var hover = dark
+            ? Color.FromArgb(26, 255, 255, 255)
+            : Color.FromArgb(15, 0, 0, 0);
         var shadow = dark
             ? new BoxShadows(new BoxShadow {
                 OffsetY = 6,
@@ -84,25 +88,32 @@ public sealed class MessageMenu {
 
         var barWidth = emojis.Count * EmojiSize + 8;
         var width = Math.Max(MenuWidth, barWidth);
-        var height = (emojis.Count > 0 ? EmojiSize + 8 + Gap : 0) + actions.Count * Row + 8;
+        var height = (emojis.Count > 0 ? EmojiSize + 8 + Gap : 0) +
+                     actions.Count * Row + 8;
         var size = window.ClientSize;
         // Opens at the pointer, towards the free side: right/down by default, left/up when it would not fit.
         var toLeft = at.X + width > size.Width - Margin;
-        var above = at.Y + height > size.Height - Margin && at.Y - height >= Margin;
+        var above = at.Y + height > size.Height - Margin &&
+                    at.Y - height >= Margin;
         var left = Math.Max(Margin, toLeft ? at.X - width : at.X);
         var top = Math.Max(Margin,
-            Math.Min(above ? at.Y - height : at.Y, size.Height - height - Margin));
+            Math.Min(above ? at.Y - height : at.Y,
+                size.Height - height - Margin));
         column.Width = width;
         column.HorizontalAlignment = HorizontalAlignment.Left;
 
         // The corner at the pointer stays tight.
         CornerRadius Tight(CornerRadius round) => above
             ? toLeft
-                ? new CornerRadius(round.TopLeft, round.TopRight, 5, round.BottomLeft)
-                : new CornerRadius(round.TopLeft, round.TopRight, round.BottomRight, 5)
+                ? new CornerRadius(round.TopLeft, round.TopRight, 5,
+                    round.BottomLeft)
+                : new CornerRadius(round.TopLeft, round.TopRight,
+                    round.BottomRight, 5)
             : toLeft
-                ? new CornerRadius(round.TopLeft, 5, round.BottomRight, round.BottomLeft)
-                : new CornerRadius(5, round.TopRight, round.BottomRight, round.BottomLeft);
+                ? new CornerRadius(round.TopLeft, 5, round.BottomRight,
+                    round.BottomLeft)
+                : new CornerRadius(5, round.TopRight, round.BottomRight,
+                    round.BottomLeft);
 
         if (emojis.Count > 0) {
             var bar = new StackPanel {
@@ -125,16 +136,19 @@ public sealed class MessageMenu {
                     },
                 };
                 var e = emoji;
-                button.PointerEntered += (_, _) => button.Background = new SolidColorBrush(hover);
-                button.PointerExited += (_, _) => button.Background = active.Contains(e)
-                    ? new SolidColorBrush(hover)
-                    : Brushes.Transparent;
+                button.PointerEntered += (_, _) =>
+                    button.Background = new SolidColorBrush(hover);
+                button.PointerExited += (_, _) => button.Background =
+                    active.Contains(e)
+                        ? new SolidColorBrush(hover)
+                        : Brushes.Transparent;
                 button.PointerReleased += (_, ev) => {
                     ev.Handled = true;
                     Close();
                     onEmoji(e);
                 };
-                Avalonia.Automation.AutomationProperties.SetName(button, $"React {emoji}");
+                Avalonia.Automation.AutomationProperties.SetName(button,
+                    $"React {emoji}");
                 emojiButtons.Add(button);
                 bar.Children.Add(button);
             }
@@ -146,7 +160,9 @@ public sealed class MessageMenu {
                     : new CornerRadius(EmojiSize / 2 + 4),
                 Background = surface,
                 BoxShadow = shadow,
-                HorizontalAlignment = toLeft ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                HorizontalAlignment = toLeft
+                    ? HorizontalAlignment.Right
+                    : HorizontalAlignment.Left,
                 Child = bar,
             };
             column.Children.Add(pill);
@@ -184,15 +200,18 @@ public sealed class MessageMenu {
                     Cursor = new Cursor(StandardCursorType.Hand),
                     Child = line,
                 };
-                row.PointerEntered += (_, _) => row.Background = new SolidColorBrush(hover);
-                row.PointerExited += (_, _) => row.Background = Brushes.Transparent;
+                row.PointerEntered += (_, _) =>
+                    row.Background = new SolidColorBrush(hover);
+                row.PointerExited += (_, _) =>
+                    row.Background = Brushes.Transparent;
                 var press = item.OnPress;
                 row.PointerReleased += (_, ev) => {
                     ev.Handled = true;
                     Close();
                     press();
                 };
-                Avalonia.Automation.AutomationProperties.SetName(row, item.Label);
+                Avalonia.Automation.AutomationProperties.SetName(row,
+                    item.Label);
                 rows.Add(row);
                 list.Children.Add(row);
             }
@@ -203,7 +222,10 @@ public sealed class MessageMenu {
                 ClipToBounds = true,
                 Background = surface,
                 BoxShadow = shadow,
-                HorizontalAlignment = toLeft ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                HorizontalAlignment =
+                    toLeft
+                        ? HorizontalAlignment.Right
+                        : HorizontalAlignment.Left,
                 Child = list,
             });
         }

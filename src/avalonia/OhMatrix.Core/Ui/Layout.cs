@@ -12,14 +12,16 @@ public static class Layout {
     public const double SidebarRail = 72;
 
     /// <summary>Dragged narrower than this the list is the strip; wider, it is a list (at least <see cref="SidebarMin"/>). Nothing in between: the width jumps.</summary>
-    public static readonly double SidebarSnap = Math.Round((SidebarRail + SidebarMin) / 2);
+    public static readonly double SidebarSnap =
+        Math.Round((SidebarRail + SidebarMin) / 2);
 
     /// <summary>Keeps the chat list usable and leaves at least half the window for the conversation. Below the snap width it is the strip.</summary>
     public static double ClampSidebar(double width, double windowWidth)
     {
         if (width < SidebarSnap)
             return SidebarRail;
-        var max = Math.Max(SidebarMin, Math.Min(SidebarMax, Math.Floor(windowWidth / 2)));
+        var max = Math.Max(SidebarMin,
+            Math.Min(SidebarMax, Math.Floor(windowWidth / 2)));
         return Math.Round(Math.Min(max, Math.Max(SidebarMin, width)));
     }
 

@@ -49,14 +49,16 @@ public sealed class ExplorePage : Grid {
         search.TextChanged += (_, _) => _ = Load();
         // A card is 320 wide, or the width of the page when that is narrower.
         SizeChanged += (_, e) => {
-            var width = Math.Min(CardWidth, Math.Max(200, e.NewSize.Width - 24));
+            var width = Math.Min(CardWidth,
+                Math.Max(200, e.NewSize.Width - 24));
             if (Math.Abs(width - cardWidth) < 1)
                 return;
             cardWidth = width;
             Apply();
         };
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<ExplorePage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<ExplorePage>((p, _) =>
+            p.Apply());
         Apply();
     }
 
@@ -69,7 +71,9 @@ public sealed class ExplorePage : Grid {
     public IReadOnlyList<(string? Server, string Name)> Servers()
     {
         var s = controller.Store.Value;
-        var own = s.UserId?.Split(':', 2) is { Length: 2 } parts ? parts[1] : s.Homeserver ?? "";
+        var own = s.UserId?.Split(':', 2) is { Length: 2 } parts
+            ? parts[1]
+            : s.Homeserver ?? "";
         var list = new List<(string?, string)>();
         if (own != "matrix.org")
             list.Add(("matrix.org", "matrix.org"));
@@ -84,7 +88,8 @@ public sealed class ExplorePage : Grid {
 
     /// <summary>The server whose directory is shown (null: the homeserver's own).</summary>
     public string? Server =>
-        chosen is null ? Servers()[0].Server : chosen.Length == 0 ? null : chosen;
+        chosen is null ? Servers()[0].Server :
+        chosen.Length == 0 ? null : chosen;
 
     /// <summary>Shows the directory of another server.</summary>
     public void ChooseServer(string? server)
@@ -98,12 +103,15 @@ public sealed class ExplorePage : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        AddPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+        AddPrompt.Show(window, ThemeScope.GetColors(this),
+            controller.Store.Value.Locale,
             T("explore.add.title"), T("explore.add.body"),
-            [new PromptField(T("explore.add.server"), "globe")], T("explore.add"), v => {
+            [new PromptField(T("explore.add.server"), "globe")],
+            T("explore.add"), v => {
                 var name = ServerName.Parse(v[0]);
                 if (name is null)
-                    throw new InvalidOperationException(T("explore.add.invalid"));
+                    throw new InvalidOperationException(
+                        T("explore.add.invalid"));
                 if (Servers().All(x => x.Name != name))
                     controller.SetPreferences(p => p with {
                         ExploreServers = [.. p.ExploreServers, name]
@@ -129,7 +137,8 @@ public sealed class ExplorePage : Grid {
         Apply();
         IReadOnlyList<PublicRoom> result = [];
         try {
-            result = await controller.SearchPublicRooms(search.Text.Trim(), Server);
+            result =
+                await controller.SearchPublicRooms(search.Text.Trim(), Server);
         } catch (Exception) {
             // The list stays empty; searching again tries again.
         }
@@ -202,7 +211,8 @@ public sealed class ExplorePage : Grid {
             Margin = new Thickness(6, 4),
         };
         foreach (var room in found)
-            cards.Children.Add(Card(c, room, s.Rooms.Any(r => r.Id == room.RoomId)));
+            cards.Children.Add(Card(c, room,
+                s.Rooms.Any(r => r.Id == room.RoomId)));
         rows.Children.Add(cards);
     }
 
@@ -211,13 +221,16 @@ public sealed class ExplorePage : Grid {
         servers.Children.Clear();
         var current = Server;
         foreach (var (server, name) in Servers()) {
-            servers.Children.Add(Chip(c, name, server == current, () => ChooseServer(server)));
+            servers.Children.Add(Chip(c, name, server == current,
+                () => ChooseServer(server)));
         }
 
-        servers.Children.Add(Chip(c, "+ " + T("explore.add"), false, AskAddServer));
+        servers.Children.Add(Chip(c, "+ " + T("explore.add"), false,
+            AskAddServer));
     }
 
-    private static Border Chip(ColorTokens c, string text, bool on, Action press)
+    private static Border Chip(ColorTokens c, string text, bool on,
+        Action press)
     {
         var chip = new Border {
             Margin = new Thickness(0, 0, 6, 6),
@@ -279,10 +292,12 @@ public sealed class ExplorePage : Grid {
     private static string Flat(string? text)
     {
         return string.Join(" ",
-            (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            (text ?? "").Split((char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries));
     }
 
-    private StackPanel Face(ColorTokens c, PublicRoom room, bool joined, bool full)
+    private StackPanel Face(ColorTokens c, PublicRoom room, bool joined,
+        bool full)
     {
         var face = new StackPanel {
             Spacing = 10
@@ -355,7 +370,8 @@ public sealed class ExplorePage : Grid {
         };
         actions.Children.Add(copy);
         if (joined)
-            actions.Children.Add(Pill(c, T("explore.in"), c.Hover, c.TextSecondary));
+            actions.Children.Add(Pill(c, T("explore.in"), c.Hover,
+                c.TextSecondary));
         else {
             var join = Pill(c, T("join"), c.Accent, c.OnAccent);
             join.PointerPressed += (_, e) => {
@@ -363,7 +379,8 @@ public sealed class ExplorePage : Grid {
                 Full.Close();
                 AskJoin(room);
             };
-            Avalonia.Automation.AutomationProperties.SetName(join, $"{T("join")} {room.Name}");
+            Avalonia.Automation.AutomationProperties.SetName(join,
+                $"{T("join")} {room.Name}");
             actions.Children.Add(join);
         }
 
@@ -371,7 +388,8 @@ public sealed class ExplorePage : Grid {
         return face;
     }
 
-    private static Border Pill(ColorTokens c, string text, Color background, Color foreground)
+    private static Border Pill(ColorTokens c, string text, Color background,
+        Color foreground)
     {
         return new Border {
             Margin = new Thickness(0, 0, 8, 0),

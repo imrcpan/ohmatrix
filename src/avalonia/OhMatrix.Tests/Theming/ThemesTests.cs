@@ -9,8 +9,10 @@ public class ThemesTests {
     [Fact]
     public void Mix_interpolates_colours()
     {
-        Assert.Equal(Color.FromRgb(0x80, 0x80, 0x80), ThemeColor.Mix("#000000", "#ffffff", 0.5));
-        Assert.Equal(Color.FromRgb(0xff, 0, 0), ThemeColor.Mix("#ff0000", "#0000ff", 0));
+        Assert.Equal(Color.FromRgb(0x80, 0x80, 0x80),
+            ThemeColor.Mix("#000000", "#ffffff", 0.5));
+        Assert.Equal(Color.FromRgb(0xff, 0, 0),
+            ThemeColor.Mix("#ff0000", "#0000ff", 0));
     }
 
     [Fact]
@@ -18,7 +20,8 @@ public class ThemesTests {
     {
         var ids = Themes.All().Select(t => t.Id).ToList();
         string[] expected = [
-            "light", "dark", "midnight", "ocean", "forest", "dark-green", "dark-pink",
+            "light", "dark", "midnight", "ocean", "forest", "dark-green",
+            "dark-pink",
             "dark-yellow", "dark-violet", "light-violet", "sakura",
         ];
         foreach (var id in expected)
@@ -37,13 +40,15 @@ public class ThemesTests {
             Dark = true,
             Accent = "#FFB300",
         }));
-        Assert.Equal(Color.FromRgb(0xFF, 0xB3, 0), Themes.Get("amber")!.Colors.Accent);
+        Assert.Equal(Color.FromRgb(0xFF, 0xB3, 0),
+            Themes.Get("amber")!.Colors.Accent);
         Assert.Equal("amber", Themes.All()[^1].Id);
         Assert.Equal("Amber", Themes.Get("amber")!.LabelFor("zh-CN"));
     }
 
     [Fact]
-    public void System_follows_the_OS_scheme_and_unknown_ids_fall_back_to_light()
+    public void
+        System_follows_the_OS_scheme_and_unknown_ids_fall_back_to_light()
     {
         Assert.Equal("dark", Themes.Resolve("system", true).Id);
         Assert.Equal("light", Themes.Resolve("system", null).Id);

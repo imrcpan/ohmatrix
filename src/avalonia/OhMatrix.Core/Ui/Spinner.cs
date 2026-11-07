@@ -50,7 +50,8 @@ public sealed class Spinner : Control {
         return new Size(Size, Size);
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         turning = new CancellationTokenSource();
@@ -76,7 +77,8 @@ public sealed class Spinner : Control {
         _ = animation.RunAsync(this, turning.Token);
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         turning?.Cancel();
@@ -86,7 +88,8 @@ public sealed class Spinner : Control {
 
     public override void Render(DrawingContext context)
     {
-        var brush = Color ?? new SolidColorBrush(ThemeScope.GetColors(this).Accent);
+        var brush = Color ??
+                    new SolidColorBrush(ThemeScope.GetColors(this).Accent);
         var thickness = Math.Max(2, Size / 12);
         var radius = (Size - thickness) / 2;
         var centre = new Point(Size / 2, Size / 2);
@@ -106,9 +109,10 @@ public sealed class Spinner : Control {
         var geometry = new PathGeometry();
         geometry.Figures!.Add(figure);
         var pen = new Pen(brush, thickness, lineCap: PenLineCap.Round);
-        using (context.PushTransform(Matrix.CreateTranslation(-centre.X, -centre.Y) *
-                                     Matrix.CreateRotation(Angle * Math.PI / 180) *
-                                     Matrix.CreateTranslation(centre.X, centre.Y))) {
+        using (context.PushTransform(
+                   Matrix.CreateTranslation(-centre.X, -centre.Y) *
+                   Matrix.CreateRotation(Angle * Math.PI / 180) *
+                   Matrix.CreateTranslation(centre.X, centre.Y))) {
             context.DrawGeometry(null, pen, geometry);
         }
     }

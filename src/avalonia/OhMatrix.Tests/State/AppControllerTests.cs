@@ -11,12 +11,14 @@ public class AppControllerTests {
         public Func<Session, Task>? OnRestore;
         public int Logouts;
 
-        public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
         {
             return Task.FromResult(Make(homeserver, username));
         }
 
-        public Task<Session> Register(string homeserver, string username, string password,
+        public Task<Session> Register(string homeserver, string username,
+            string password,
             string? token)
         {
             return OnRegister is null
@@ -95,10 +97,12 @@ public class AppControllerTests {
     }
 
     [Fact]
-    public async Task The_server_signed_in_to_is_remembered_and_only_saved_when_it_changes()
+    public async Task
+        The_server_signed_in_to_is_remembered_and_only_saved_when_it_changes()
     {
         var prefs = new MemoryPreferences();
-        var app = new AppController(new FakeEngine(), new MemorySessions(), prefs);
+        var app =
+            new AppController(new FakeEngine(), new MemorySessions(), prefs);
         await app.Bootstrap();
         Assert.Null(app.Store.Value.Prefs.LastHomeserver);
         await app.Login(" chat.example.org ", "test", "123456");
@@ -116,7 +120,8 @@ public class AppControllerTests {
     }
 
     [Fact]
-    public async Task A_failed_registration_stays_signed_out_with_the_reason_and_forgets_nothing()
+    public async Task
+        A_failed_registration_stays_signed_out_with_the_reason_and_forgets_nothing()
     {
         var engine = new FakeEngine {
             OnRegister = (_, _) => throw new EngineException(
@@ -133,13 +138,15 @@ public class AppControllerTests {
     }
 
     [Fact]
-    public async Task The_sign_in_goes_through_signing_in_and_clears_the_last_error()
+    public async Task
+        The_sign_in_goes_through_signing_in_and_clears_the_last_error()
     {
         var seen = new List<AuthStatus>();
         var engine = new FakeEngine();
         var app = new AppController(engine, new MemorySessions());
         app.Store.Changed += s => seen.Add(s.Auth);
-        engine.OnRegister = (_, _) => throw new EngineException(EngineErrorCode.Conflict, "taken");
+        engine.OnRegister = (_, _) =>
+            throw new EngineException(EngineErrorCode.Conflict, "taken");
         await app.Register("a.org", "x", "1");
         Assert.Equal(EngineErrorCode.Conflict, app.Store.Value.AuthErrorCode);
         await app.Login("a.org", "x", "1");
@@ -161,7 +168,8 @@ public class AppControllerTests {
     public async Task Bootstrap_restores_a_saved_session()
     {
         var session = new Session("a.org", "@x:a.org", "D", "t");
-        var app = new AppController(new FakeEngine(), new MemorySessions(session));
+        var app =
+            new AppController(new FakeEngine(), new MemorySessions(session));
         await app.Bootstrap();
         Assert.Equal(AuthStatus.SignedIn, app.Store.Value.Auth);
         Assert.Equal("@x:a.org", app.Store.Value.UserId);
@@ -170,10 +178,12 @@ public class AppControllerTests {
     [Fact]
     public async Task A_dead_token_clears_the_session_and_shows_no_error()
     {
-        var sessions = new MemorySessions(new Session("a.org", "@x:a.org", "D", "t"));
+        var sessions =
+            new MemorySessions(new Session("a.org", "@x:a.org", "D", "t"));
         var engine = new FakeEngine {
             OnRestore = _ =>
-                throw new EngineException(EngineErrorCode.Unauthorized, "M_UNKNOWN_TOKEN"),
+                throw new EngineException(EngineErrorCode.Unauthorized,
+                    "M_UNKNOWN_TOKEN"),
         };
         var app = new AppController(engine, sessions);
         await app.Bootstrap();
@@ -185,9 +195,12 @@ public class AppControllerTests {
     [Fact]
     public async Task Lost_keys_clear_the_session_and_say_why()
     {
-        var sessions = new MemorySessions(new Session("a.org", "@x:a.org", "D", "t"));
+        var sessions =
+            new MemorySessions(new Session("a.org", "@x:a.org", "D", "t"));
         var engine = new FakeEngine {
-            OnRestore = _ => throw new EngineException(EngineErrorCode.KeysLost, "keys lost"),
+            OnRestore = _ =>
+                throw new EngineException(EngineErrorCode.KeysLost,
+                    "keys lost"),
         };
         var app = new AppController(engine, sessions);
         await app.Bootstrap();
@@ -199,9 +212,11 @@ public class AppControllerTests {
     [Fact]
     public async Task A_network_failure_while_restoring_keeps_the_session()
     {
-        var sessions = new MemorySessions(new Session("a.org", "@x:a.org", "D", "t"));
+        var sessions =
+            new MemorySessions(new Session("a.org", "@x:a.org", "D", "t"));
         var engine = new FakeEngine {
-            OnRestore = _ => throw new EngineException(EngineErrorCode.Network, "offline"),
+            OnRestore = _ =>
+                throw new EngineException(EngineErrorCode.Network, "offline"),
         };
         var app = new AppController(engine, sessions);
         await app.Bootstrap();
@@ -221,9 +236,11 @@ public class AppControllerTests {
     }
 
     private sealed class FailingLogoutEngine : IAuthEngine {
-        public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
         {
-            return Task.FromResult(new Session(homeserver, $"@{username}:{homeserver}", "D", "t"));
+            return Task.FromResult(new Session(homeserver,
+                $"@{username}:{homeserver}", "D", "t"));
         }
 
         public Task<Session> Register(string h, string u, string p, string? t)
@@ -249,7 +266,8 @@ public class AppControllerTests {
     {
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
         var prefs = new MemoryPreferences();
-        var app = new AppController(new FakeEngine(), new MemorySessions(), prefs, clock);
+        var app = new AppController(new FakeEngine(), new MemorySessions(),
+            prefs, clock);
         await app.Bootstrap();
 
         app.TryZoom(2);
@@ -266,7 +284,8 @@ public class AppControllerTests {
 
         // Not kept: it goes back by itself when the time is up, and nothing more was written.
         var saves = prefs.Saves;
-        clock.Advance(AppController.ZoomTrialTime + TimeSpan.FromMilliseconds(10));
+        clock.Advance(AppController.ZoomTrialTime +
+                      TimeSpan.FromMilliseconds(10));
         Assert.Null(app.Store.Value.ZoomTrial);
         Assert.Equal(saves, prefs.Saves);
 
@@ -291,7 +310,8 @@ public class AppControllerTests {
     public async Task A_new_trial_replaces_the_one_before_and_its_timer()
     {
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
-        var app = new AppController(new FakeEngine(), new MemorySessions(), null, clock);
+        var app = new AppController(new FakeEngine(), new MemorySessions(),
+            null, clock);
         await app.Bootstrap();
         app.TryZoom(2);
         clock.Advance(TimeSpan.FromSeconds(10));
@@ -304,7 +324,8 @@ public class AppControllerTests {
     }
 
     [Fact]
-    public void An_opened_chat_gives_its_row_the_newest_message_when_the_engine_had_none()
+    public void
+        An_opened_chat_gives_its_row_the_newest_message_when_the_engine_had_none()
     {
         IReadOnlyList<RoomSummary> rooms = [
             new RoomSummary {
@@ -341,7 +362,8 @@ public class AppControllerTests {
         Assert.Equal("!b", done[0].Id);
         Assert.Equal(("newest", "Ann", 300L),
             (done[0].LastMessage, done[0].LastSender, done[0].LastActivityTs));
-        Assert.Equal("kept", AppController.WithPreview(rooms, "!a", items)[0].LastMessage);
+        Assert.Equal("kept",
+            AppController.WithPreview(rooms, "!a", items)[0].LastMessage);
         Assert.Same(rooms, AppController.WithPreview(rooms, "!b", []));
         var joined = AppController.WithPreview(rooms, "!b", [
             new TimelineItem {
@@ -351,6 +373,7 @@ public class AppControllerTests {
                 Ts = 400
             },
         ]);
-        Assert.Equal(("Ann joined", true), (joined[0].LastMessage, joined[0].LastIsLine));
+        Assert.Equal(("Ann joined", true),
+            (joined[0].LastMessage, joined[0].LastIsLine));
     }
 }

@@ -14,7 +14,8 @@ public static class Failure {
             return t("sticker.reason.large");
         if (e is EngineException { Code: EngineErrorCode.UnsupportedType })
             return t("sticker.reason.type");
-        if (Regex.IsMatch(said, @"too.?large|payload too large|\b413\b|exceeds? .*(size|limit)",
+        if (Regex.IsMatch(said,
+                @"too.?large|payload too large|\b413\b|exceeds? .*(size|limit)",
                 RegexOptions.IgnoreCase))
             return t("avatar.reason.large");
         if (e is EngineException engine) {
@@ -34,6 +35,8 @@ public static class Failure {
             }
         }
 
-        return said.Length > 0 ? said[..Math.Min(160, said.Length)] : t("avatar.reason.unknown");
+        return said.Length > 0
+            ? said[..Math.Min(160, said.Length)]
+            : t("avatar.reason.unknown");
     }
 }

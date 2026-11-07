@@ -42,7 +42,8 @@ public sealed class SearchField : Border {
             if (e.Property == TextBox.TextProperty)
                 TextChanged?.Invoke(this, EventArgs.Empty);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SearchField>((f, _) => f.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SearchField>((f, _) =>
+            f.Apply());
     }
 
     public event EventHandler? TextChanged;
@@ -60,7 +61,8 @@ public sealed class SearchField : Border {
         }
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Apply();
@@ -74,12 +76,14 @@ public sealed class SearchField : Border {
         box.Foreground = new SolidColorBrush(c.Text);
         box.CaretBrush = new SolidColorBrush(c.Text);
         box.SelectionBrush = new SolidColorBrush(c.Accent, 0.4);
-        box.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(c.TextSecondary);
+        box.Resources["TextControlPlaceholderForeground"] =
+            new SolidColorBrush(c.TextSecondary);
         box.Resources["TextControlPlaceholderForegroundFocused"] =
             new SolidColorBrush(c.TextSecondary);
         box.Resources["TextControlBackgroundFocused"] = Brushes.Transparent;
         box.Resources["TextControlBackgroundPointerOver"] = Brushes.Transparent;
         box.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
-        box.Resources["TextControlBorderBrushPointerOver"] = Brushes.Transparent;
+        box.Resources["TextControlBorderBrushPointerOver"] =
+            Brushes.Transparent;
     }
 }

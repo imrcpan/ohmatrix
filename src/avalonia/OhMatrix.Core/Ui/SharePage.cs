@@ -47,7 +47,8 @@ public sealed class SharePage : Grid {
         Children.Add(scroller);
         filter.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharePage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharePage>((p, _) =>
+            p.Apply());
         Apply();
     }
 
@@ -147,13 +148,15 @@ public sealed class SharePage : Grid {
     /// <summary>Sends to each kept chat in turn; the ones that failed stay chosen.</summary>
     public async Task Send()
     {
-        if (controller.Store.Value.Share is not { } share || sending || keep.Count == 0)
+        if (controller.Store.Value.Share is not { } share || sending ||
+            keep.Count == 0)
             return;
         sending = true;
         if (TopLevel.GetTopLevel(this) is { } window)
             ShowConfirm(window);
         var left = new HashSet<string>();
-        foreach (var id in Postable.Select(r => r.Id).Where(keep.Contains).ToList()) {
+        foreach (var id in Postable.Select(r => r.Id).Where(keep.Contains)
+                     .ToList()) {
             try {
                 await controller.SendShared(id, share);
             } catch (Exception) {
@@ -177,7 +180,8 @@ public sealed class SharePage : Grid {
         Apply();
     }
 
-    private Control Row(ColorTokens c, RoomSummary r, bool on, Action<string> toggle)
+    private Control Row(ColorTokens c, RoomSummary r, bool on,
+        Action<string> toggle)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
@@ -206,7 +210,8 @@ public sealed class SharePage : Grid {
             CornerRadius = new CornerRadius(11),
             BorderThickness = new Thickness(2),
             BorderBrush = new SolidColorBrush(on ? c.Accent : c.TextSecondary),
-            Background = new SolidColorBrush(on ? c.Accent : Colors.Transparent),
+            Background =
+                new SolidColorBrush(on ? c.Accent : Colors.Transparent),
             Margin = new Thickness(0, 0, 8, 0),
             Child = on
                 ? new Icon {
@@ -241,7 +246,9 @@ public sealed class SharePage : Grid {
         };
         close.Click += (_, _) => Cancel();
         var next = new TextButton {
-            Title = picked.Count > 0 ? $"{T("send.files.send")} ({picked.Count})" : T("send.files.send"),
+            Title = picked.Count > 0
+                ? $"{T("send.files.send")} ({picked.Count})"
+                : T("send.files.send"),
             IsEnabled = picked.Count > 0,
         };
         next.Click += (_, _) => Confirm();
@@ -269,7 +276,8 @@ public sealed class SharePage : Grid {
         list.Children.Clear();
         var query = filter.Text.Trim();
         foreach (var r in Postable.Where(r =>
-                     query.Length == 0 || r.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)))
+                     query.Length == 0 || r.Name.Contains(query,
+                         StringComparison.CurrentCultureIgnoreCase)))
             list.Children.Add(Row(c, r, picked.Contains(r.Id), Toggle));
     }
 }

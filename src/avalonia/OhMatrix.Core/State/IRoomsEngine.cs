@@ -22,7 +22,8 @@ public interface IRoomsEngine {
     /// <summary>
     /// Makes a room and gives its id. A direct one is a one-to-one chat with <paramref name="invite"/>[0]; a group has a name and may invite people.
     /// </summary>
-    Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite);
+    Task<string> CreateRoom(string? name, bool direct,
+        IReadOnlyList<string> invite);
 
     Task AcceptInvite(string roomId);
     Task DeclineInvite(string roomId);
@@ -43,7 +44,8 @@ public interface IRoomsEngine {
     Task SetRoomAvatar(string roomId, string mimeType, byte[] data);
 
     /// <summary>The public rooms of a server's directory (the homeserver's own when <paramref name="server"/> is null) that match the text.</summary>
-    Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server);
+    Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter,
+        string? server);
 
     /// <summary>The rooms and spaces a space lists, joined or not (the first pages of it).</summary>
     Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId);

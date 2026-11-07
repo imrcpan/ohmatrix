@@ -1,7 +1,10 @@
 namespace OhMatrix.Core.Ui;
 
 /// <summary>Where a menu goes and how tall it is shown (<c>placeMenu</c> of menuPlace.ts).</summary>
-public readonly record struct MenuPlace(double Top, double Height, bool Scrolls);
+public readonly record struct MenuPlace(
+    double Top,
+    double Height,
+    bool Scrolls);
 
 public static class MenuPlacement {
     /// <summary>The least of a menu that is shown when it has to scroll: a few rows, so that it is still a menu.</summary>

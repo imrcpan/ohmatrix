@@ -42,7 +42,8 @@ public class AudioCardTests {
             "mxc://s/" + Guid.NewGuid().ToString("N"),
             "audio/wav", FileKind.Audio, TimeSpan.FromSeconds(10));
         var colors = Themes.Get("light")!.Colors;
-        var card = new AudioCard(file, colors, false, Brushes.Black, Colors.Gray,
+        var card = new AudioCard(file, colors, false, Brushes.Black,
+            Colors.Gray,
             _ => Task.FromResult<string?>(path), () => opened++);
         Assert.Equal("play", card.Glyph);
         await card.Toggle();

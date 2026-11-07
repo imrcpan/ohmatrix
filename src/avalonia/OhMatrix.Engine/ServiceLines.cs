@@ -13,10 +13,12 @@ public static class ServiceLines {
             case TimelineItemContent.RoomMembership m:
                 return ServiceText.ForMembership(
                     m.Change switch {
-                        MembershipChange.Joined or MembershipChange.InvitationAccepted =>
+                        MembershipChange.Joined
+                            or MembershipChange.InvitationAccepted =>
                             MembershipKind.Joined,
                         MembershipChange.Left => MembershipKind.Left,
-                        MembershipChange.Kicked or MembershipChange.KickedAndBanned =>
+                        MembershipChange.Kicked
+                            or MembershipChange.KickedAndBanned =>
                             MembershipKind.Kicked,
                         MembershipChange.Invited => MembershipKind.Invited,
                         _ => MembershipKind.None,

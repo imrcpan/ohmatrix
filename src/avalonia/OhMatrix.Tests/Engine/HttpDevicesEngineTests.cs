@@ -7,7 +7,8 @@ using Xunit;
 namespace OhMatrix.Tests.Engine;
 
 public class HttpDevicesEngineTests {
-    private sealed class Handler(Func<HttpRequestMessage, string, (HttpStatusCode, string)> answer)
+    private sealed class Handler(
+        Func<HttpRequestMessage, string, (HttpStatusCode, string)> answer)
         : HttpMessageHandler {
         public readonly List<string> Seen = [];
 
@@ -19,16 +20,20 @@ public class HttpDevicesEngineTests {
             var body = request.Content is null
                 ? ""
                 : await request.Content.ReadAsStringAsync(cancellationToken);
-            Seen.Add($"{request.Method} {request.RequestUri!.AbsolutePath} {body}");
-            Assert.Equal("Bearer tok", request.Headers.Authorization!.ToString());
+            Seen.Add(
+                $"{request.Method} {request.RequestUri!.AbsolutePath} {body}");
+            Assert.Equal("Bearer tok",
+                request.Headers.Authorization!.ToString());
             var (status, text) = answer(request, body);
             return new HttpResponseMessage(status) {
-                Content = new StringContent(text, Encoding.UTF8, "application/json")
+                Content = new StringContent(text, Encoding.UTF8,
+                    "application/json")
             };
         }
     }
 
-    private static readonly Session Me = new("https://hs.example/", "@me:hs", "D1", "tok");
+    private static readonly Session Me = new("https://hs.example/", "@me:hs",
+        "D1", "tok");
 
     private static HttpDevicesEngine Make(Handler handler)
     {
@@ -72,7 +77,8 @@ public class HttpDevicesEngineTests {
             ? (HttpStatusCode.Unauthorized,
                 """{"errcode":"M_FORBIDDEN","error":"Invalid password"}""")
             : (HttpStatusCode.Unauthorized, """{"session":"S1"}""")));
-        var e = await Assert.ThrowsAsync<EngineException>(() => engine.RemoveDevices(["A"], "bad"));
+        var e = await Assert.ThrowsAsync<EngineException>(() =>
+            engine.RemoveDevices(["A"], "bad"));
         Assert.Equal(EngineErrorCode.Forbidden, e.Code);
     }
 }

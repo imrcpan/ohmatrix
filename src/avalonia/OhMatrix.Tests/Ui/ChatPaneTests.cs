@@ -15,10 +15,12 @@ using Xunit;
 namespace OhMatrix.Tests.Ui;
 
 public class ChatPaneTests {
-    private static readonly long Now = new DateTimeOffset(2026, 11, 7, 12, 30, 0, TimeSpan.Zero)
-        .ToUnixTimeMilliseconds();
+    private static readonly long Now =
+        new DateTimeOffset(2026, 11, 7, 12, 30, 0, TimeSpan.Zero)
+            .ToUnixTimeMilliseconds();
 
-    private sealed class FakeChat(IReadOnlyList<TimelineItem> first) : IChatSession {
+    private sealed class FakeChat(IReadOnlyList<TimelineItem> first)
+        : IChatSession {
         public event Action<IReadOnlyList<TimelineItem>>? Changed;
         public IReadOnlyList<TimelineItem> Items { get; private set; } = first;
         public readonly List<string> Sent = [];
@@ -35,9 +37,11 @@ public class ChatPaneTests {
 
         public readonly List<string> Attached = [];
 
-        public Task SendAttachment(string path, string mimeType, int? width, int? height)
+        public Task SendAttachment(string path, string mimeType, int? width,
+            int? height)
         {
-            Attached.Add($"{Path.GetFileName(path)} {mimeType} {width}x{height}");
+            Attached.Add(
+                $"{Path.GetFileName(path)} {mimeType} {width}x{height}");
             return Task.CompletedTask;
         }
 
@@ -123,7 +127,8 @@ public class ChatPaneTests {
     private sealed class Media : IMediaEngine {
         public readonly List<string> Asked = [];
 
-        public Task<string?> Download(string source, string fileName, string mimeType)
+        public Task<string?> Download(string source, string fileName,
+            string mimeType)
         {
             Asked.Add($"download {source} {fileName} {mimeType}");
             return Task.FromResult<string?>("/tmp/" + fileName);
@@ -159,7 +164,8 @@ public class ChatPaneTests {
                 ? [new DeviceInfo("D1", "This laptop", Now, null, true)]
                 : [
                     new DeviceInfo("D1", "This laptop", Now, null, true),
-                    new DeviceInfo("D2", "Phone", Now - 3 * 86_400_000L, "10.0.0.7", false),
+                    new DeviceInfo("D2", "Phone", Now - 3 * 86_400_000L,
+                        "10.0.0.7", false),
                     new DeviceInfo("D3", "Old tablet", null, null, false),
                 ];
             return Task.FromResult(all);
@@ -168,7 +174,8 @@ public class ChatPaneTests {
         public Task RemoveDevices(IReadOnlyList<string> ids, string password)
         {
             if (password != "pw")
-                throw new EngineException(EngineErrorCode.Forbidden, "Invalid password");
+                throw new EngineException(EngineErrorCode.Forbidden,
+                    "Invalid password");
             Removed.AddRange(ids);
             gone = true;
             return Task.CompletedTask;
@@ -184,7 +191,8 @@ public class ChatPaneTests {
         public Task<string> SetUp(string password)
         {
             if (password != "pw")
-                throw new EngineException(EngineErrorCode.Forbidden, "Wrong password");
+                throw new EngineException(EngineErrorCode.Forbidden,
+                    "Wrong password");
             Current = SecurityState.Ready;
             return Task.FromResult("EsTc new key");
         }
@@ -192,7 +200,8 @@ public class ChatPaneTests {
         public Task RestoreWithRecoveryKey(string key)
         {
             if (key != "EsTc good key")
-                throw new EngineException(EngineErrorCode.Forbidden, "Wrong recovery key");
+                throw new EngineException(EngineErrorCode.Forbidden,
+                    "Wrong recovery key");
             Keys.Add(key);
             Current = SecurityState.Ready;
             return Task.CompletedTask;
@@ -211,17 +220,22 @@ public class ChatPaneTests {
         public IReadOnlyList<StickerGroup> Groups = [];
         public readonly List<string> Calls = [];
 
-        public Task<(IReadOnlyList<Sticker> Stickers, IReadOnlyList<StickerGroup> Groups)> Load()
+        public Task<(IReadOnlyList<Sticker> Stickers,
+            IReadOnlyList<StickerGroup> Groups)> Load()
         {
-            return Task.FromResult<(IReadOnlyList<Sticker>, IReadOnlyList<StickerGroup>)>((Pack,
-                Groups));
+            return Task
+                .FromResult<(IReadOnlyList<Sticker>, IReadOnlyList<StickerGroup>
+                    )>((Pack,
+                    Groups));
         }
 
         public Task<string> Add(StickerUpload file, string? groupId)
         {
             var code =
-                StickerPack.NewShortcode(file.Name, Pack.Select(p => p.Shortcode).ToHashSet());
-            Pack.Add(new Sticker(code, "mxc://s/" + code, file.MimeType, file.Width, file.Height));
+                StickerPack.NewShortcode(file.Name,
+                    Pack.Select(p => p.Shortcode).ToHashSet());
+            Pack.Add(new Sticker(code, "mxc://s/" + code, file.MimeType,
+                file.Width, file.Height));
             Calls.Add("add " + code);
             return Task.FromResult(code);
         }
@@ -254,7 +268,8 @@ public class ChatPaneTests {
 
         public Task<StickerIcon> UploadGroupIcon(StickerUpload file)
         {
-            return Task.FromResult(StickerIcon.OfImage("mxc://s/icon", file.MimeType));
+            return Task.FromResult(StickerIcon.OfImage("mxc://s/icon",
+                file.MimeType));
         }
 
         public Task Send(string roomId, string shortcode)
@@ -270,7 +285,8 @@ public class ChatPaneTests {
     private sealed class CallsFake : ICallsEngine {
         public event Action<OhMatrix.Core.Calls.CallEvent>? CallEvent;
 
-        public readonly List<(string Room, string Type, System.Text.Json.Nodes.JsonObject Content)>
+        public readonly List<(string Room, string Type,
+                System.Text.Json.Nodes.JsonObject Content)>
             Sent = [];
 
         public Task Listen() => Task.CompletedTask;
@@ -279,17 +295,20 @@ public class ChatPaneTests {
             System.Text.Json.Nodes.JsonObject content)
         {
             Sent.Add((roomId, type,
-                System.Text.Json.Nodes.JsonNode.Parse(content.ToJsonString())!.AsObject()));
+                System.Text.Json.Nodes.JsonNode.Parse(content.ToJsonString())!
+                    .AsObject()));
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<OhMatrix.Core.Calls.IceServer>> TurnServers() =>
+        public Task<IReadOnlyList<OhMatrix.Core.Calls.IceServer>>
+            TurnServers() =>
             Task.FromResult<IReadOnlyList<OhMatrix.Core.Calls.IceServer>>([]);
 
         public void Deliver(string type, string sender,
             System.Text.Json.Nodes.JsonObject content) =>
             CallEvent?.Invoke(
-                new OhMatrix.Core.Calls.CallEvent("!d", type, sender, "$e", 0, content));
+                new OhMatrix.Core.Calls.CallEvent("!d", type, sender, "$e", 0,
+                    content));
     }
 
     private sealed class PlatformFake : ICallPlatform {
@@ -317,7 +336,8 @@ public class ChatPaneTests {
                 ],
                 [new CallDevice("c1", "Webcam", true)]);
 
-            public void UseDevice(bool camera, string id) => log.Add($"use {camera} {id}");
+            public void UseDevice(bool camera, string id) =>
+                log.Add($"use {camera} {id}");
 
             public Task Start(OhMatrix.Core.Calls.IPeer peer, bool video)
             {
@@ -337,27 +357,34 @@ public class ChatPaneTests {
 
             public Task<OhMatrix.Core.Calls.SessionDescription> CreateOffer() =>
                 Task.FromResult(
-                    new OhMatrix.Core.Calls.SessionDescription("offer", "v=0\nm=audio"));
+                    new OhMatrix.Core.Calls.SessionDescription("offer",
+                        "v=0\nm=audio"));
 
-            public Task<OhMatrix.Core.Calls.SessionDescription> CreateAnswer() =>
+            public Task<OhMatrix.Core.Calls.SessionDescription>
+                CreateAnswer() =>
                 Task.FromResult(
-                    new OhMatrix.Core.Calls.SessionDescription("answer", "v=0\nm=audio"));
+                    new OhMatrix.Core.Calls.SessionDescription("answer",
+                        "v=0\nm=audio"));
 
-            public Task SetLocalDescription(OhMatrix.Core.Calls.SessionDescription d)
+            public Task SetLocalDescription(
+                OhMatrix.Core.Calls.SessionDescription d)
             {
                 local = true;
                 Check();
                 return Task.CompletedTask;
             }
 
-            public Task SetRemoteDescription(OhMatrix.Core.Calls.SessionDescription d)
+            public Task SetRemoteDescription(
+                OhMatrix.Core.Calls.SessionDescription d)
             {
                 remote = true;
                 Check();
                 return Task.CompletedTask;
             }
 
-            public Task AddIceCandidate(OhMatrix.Core.Calls.IceCandidate c) => Task.CompletedTask;
+            public Task AddIceCandidate(OhMatrix.Core.Calls.IceCandidate c) =>
+                Task.CompletedTask;
+
             public void Close() { }
 
             private void Check()
@@ -371,7 +398,8 @@ public class ChatPaneTests {
     private sealed class SoundsFake : ICallSounds {
         public readonly List<string> Log = [];
 
-        public void Ring(bool incoming) => Log.Add(incoming ? "ring" : "ringback");
+        public void Ring(bool incoming) =>
+            Log.Add(incoming ? "ring" : "ringback");
 
         public void Stop() => Log.Add("stop");
 
@@ -453,12 +481,15 @@ public class ChatPaneTests {
         public event Action<SyncState>? SyncChanged;
         public readonly List<FakeChat> Opened = [];
 
-        public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
         {
-            return Task.FromResult(new Session(homeserver, "@" + username, "D", "T"));
+            return Task.FromResult(new Session(homeserver, "@" + username, "D",
+                "T"));
         }
 
-        public Task<Session> Register(string homeserver, string username, string password,
+        public Task<Session> Register(string homeserver, string username,
+            string password,
             string? token)
         {
             return LoginWithPassword(homeserver, username, password);
@@ -485,10 +516,12 @@ public class ChatPaneTests {
 
         public List<string> Created = [];
 
-        public Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite)
+        public Task<string> CreateRoom(string? name, bool direct,
+            IReadOnlyList<string> invite)
         {
             if (name == "bad")
-                return Task.FromException<string>(new EngineException(EngineErrorCode.Forbidden,
+                return Task.FromException<string>(new EngineException(
+                    EngineErrorCode.Forbidden,
                     "Not allowed"));
             Created.Add($"{name}|{direct}|{string.Join(",", invite)}");
             return Task.FromResult("!made");
@@ -501,9 +534,12 @@ public class ChatPaneTests {
             return Task.FromResult(new RoomDetails(
                 "We plan the demo here.",
                 [
-                    new RoomMemberInfo("@me:s", "Mia Example", null, MemberRole.Admin),
-                    new RoomMemberInfo("@alice:s", "Alice", null, MemberRole.Moderator),
-                    new RoomMemberInfo("@bob:s", "Bob", null, MemberRole.Member),
+                    new RoomMemberInfo("@me:s", "Mia Example", null,
+                        MemberRole.Admin),
+                    new RoomMemberInfo("@alice:s", "Alice", null,
+                        MemberRole.Moderator),
+                    new RoomMemberInfo("@bob:s", "Bob", null,
+                        MemberRole.Member),
                 ],
                 [],
                 JoinRule.Invite,
@@ -516,12 +552,24 @@ public class ChatPaneTests {
 
         public Task AcceptInvite(string roomId) => Log("accept " + roomId);
         public Task DeclineInvite(string roomId) => Log("decline " + roomId);
-        public Task SetPinned(string roomId, bool pinned) => Log($"pin {roomId} {pinned}");
-        public Task SetMuted(string roomId, bool muted) => Log($"mute {roomId} {muted}");
-        public Task SetMarkedUnread(string roomId, bool unread) => Log($"unread {roomId} {unread}");
+
+        public Task SetPinned(string roomId, bool pinned) =>
+            Log($"pin {roomId} {pinned}");
+
+        public Task SetMuted(string roomId, bool muted) =>
+            Log($"mute {roomId} {muted}");
+
+        public Task SetMarkedUnread(string roomId, bool unread) =>
+            Log($"unread {roomId} {unread}");
+
         public Task MarkRoomRead(string roomId) => Log("read " + roomId);
-        public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
-        public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
+
+        public Task SetRoomName(string roomId, string name) =>
+            Log($"name {roomId} {name}");
+
+        public Task SetRoomTopic(string roomId, string topic) =>
+            Log($"topic {roomId} {topic}");
+
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
         public Task BlockUser(string userId) => Log("block " + userId);
 
@@ -530,30 +578,39 @@ public class ChatPaneTests {
             Actions.Add("space " + spaceId);
             return Task.FromResult<IReadOnlyList<SpaceChild>>([
                 new SpaceChild("!d", "Alice", null, null, 2, false),
-                new SpaceChild("!out", "Not joined room", "Come in", null, 40, false),
+                new SpaceChild("!out", "Not joined room", "Come in", null, 40,
+                    false),
                 new SpaceChild("!sub", "Sub space", null, null, 5, true),
             ]);
         }
 
-        public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
+        public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter,
+            string? server)
         {
             Actions.Add($"explore {filter} {server}");
             IReadOnlyList<PublicRoom> all = [
-                new PublicRoom("!pub1:s", "Public Chat", "Talk about anything", "#pub:s", null,
+                new PublicRoom("!pub1:s", "Public Chat", "Talk about anything",
+                    "#pub:s", null,
                     1200),
                 new PublicRoom("!pub2:s", "Rust Fans", null, null, null, 1),
             ];
             return Task.FromResult<IReadOnlyList<PublicRoom>>(
-                [.. all.Where(r => r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))]);
+            [
+                .. all.Where(r =>
+                    r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            ]);
         }
 
-        public Task SetRoomAvatar(string roomId, string mimeType, byte[] data) =>
+        public Task SetRoomAvatar(string roomId, string mimeType,
+            byte[] data) =>
             Log($"avatar {roomId} {mimeType} {data.Length}");
 
-        public Task SetMemberRole(string roomId, string userId, MemberRole role) =>
+        public Task SetMemberRole(string roomId, string userId,
+            MemberRole role) =>
             Log($"role {roomId} {userId} {role}");
 
-        public Task RemoveMember(string roomId, string userId) => Log($"remove {roomId} {userId}");
+        public Task RemoveMember(string roomId, string userId) =>
+            Log($"remove {roomId} {userId}");
 
         public Task BanMember(string roomId, string userId, string? reason) =>
             Log($"ban {roomId} {userId} {reason}");
@@ -561,10 +618,12 @@ public class ChatPaneTests {
         public Task SetJoinRule(string roomId, JoinRule rule) =>
             Log($"joinRule {roomId} {rule}");
 
-        public Task SetHistoryVisibility(string roomId, HistoryVisibility visibility) =>
+        public Task SetHistoryVisibility(string roomId,
+            HistoryVisibility visibility) =>
             Log($"history {roomId} {visibility}");
 
-        public Task<bool> IsAliasAvailable(string alias) => Task.FromResult(true);
+        public Task<bool> IsAliasAvailable(string alias) =>
+            Task.FromResult(true);
 
         public Task AddRoomAlias(string roomId, string alias) =>
             Log($"addAlias {roomId} {alias}");
@@ -575,19 +634,25 @@ public class ChatPaneTests {
         public Task SetMainAlias(string roomId, string? alias) =>
             Log($"mainAlias {roomId} {alias}");
 
-        public Task SetPowerThresholds(string roomId, PowerThresholds thresholds) =>
+        public Task SetPowerThresholds(string roomId,
+            PowerThresholds thresholds) =>
             Log($"thresholds {roomId}");
 
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {
             IReadOnlyList<PersonInfo> all = [
-                new PersonInfo("@ann:s", "Ann Lee", null), new PersonInfo("@anna:s", "Anna K", null)
+                new PersonInfo("@ann:s", "Ann Lee", null),
+                new PersonInfo("@anna:s", "Anna K", null)
             ];
             return Task.FromResult<IReadOnlyList<PersonInfo>>(
-                [.. all.Where(p => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))]);
+            [
+                .. all.Where(p =>
+                    p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+            ]);
         }
 
-        public Task InviteToRoom(string roomId, IReadOnlyList<string> userIds) =>
+        public Task InviteToRoom(string roomId,
+            IReadOnlyList<string> userIds) =>
             Log($"invite {roomId} {string.Join(",", userIds)}");
 
         private Task Log(string action)
@@ -614,17 +679,21 @@ public class ChatPaneTests {
 
         public readonly List<string> Forwarded = [];
 
-        public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset,
+        public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind,
+            int offset,
             int want)
         {
-            var all = Opened.LastOrDefault()?.Items.Where(i => MediaKinds.Of(i) == kind)
+            var all = Opened.LastOrDefault()?.Items
+                .Where(i => MediaKinds.Of(i) == kind)
                 .Reverse().ToList() ?? [];
             var more = all.Count > offset + want;
-            return Task.FromResult(new SharedMediaPage([.. all.Skip(offset).Take(want)],
+            return Task.FromResult(new SharedMediaPage(
+                [.. all.Skip(offset).Take(want)],
                 more ? offset + want : null));
         }
 
-        public Task SendMessageContent(string roomId, System.Text.Json.Nodes.JsonObject content)
+        public Task SendMessageContent(string roomId,
+            System.Text.Json.Nodes.JsonObject content)
         {
             if (roomId == "!bad")
                 throw new EngineException(EngineErrorCode.Network, "offline");
@@ -668,9 +737,12 @@ public class ChatPaneTests {
                 new TimelineItem {
                     Id = "3",
                     EventId = "$3",
-                    Reply = new ReplyQuote("Alice", "Are we still on for the demo tomorrow?", "$2"),
-                    Reactions =
-                        [new ReactionCount("👍", 2, true), new ReactionCount("❤️", 1, false)],
+                    Reply = new ReplyQuote("Alice",
+                        "Are we still on for the demo tomorrow?", "$2"),
+                    Reactions = [
+                        new ReactionCount("👍", 2, true),
+                        new ReactionCount("❤️", 1, false)
+                    ],
                     Body = "Yes!",
                     SenderId = "@me",
                     IsOwn = true,
@@ -683,7 +755,8 @@ public class ChatPaneTests {
                     SenderId = "@alice",
                     SenderName = "Alice",
                     Ts = Now - 900_000,
-                    Image = new ImageAttachment("mxc://s/pic", 1600, 900, "pic.jpg"),
+                    Image = new ImageAttachment("mxc://s/pic", 1600, 900,
+                        "pic.jpg"),
                 },
                 new TimelineItem {
                     Id = "doc",
@@ -691,7 +764,8 @@ public class ChatPaneTests {
                     SenderId = "@me",
                     IsOwn = true,
                     Ts = Now - 700_000,
-                    File = new FileAttachment("budget-2026.pdf", 1_450_000, "mxc://s/doc",
+                    File = new FileAttachment("budget-2026.pdf", 1_450_000,
+                        "mxc://s/doc",
                         "application/pdf"),
                 },
                 new TimelineItem {
@@ -700,7 +774,8 @@ public class ChatPaneTests {
                     SenderId = "@alice",
                     SenderName = "Alice",
                     Ts = Now - 650_000,
-                    File = new FileAttachment("voice.ogg", 48_000, "mxc://s/voice", "audio/ogg",
+                    File = new FileAttachment("voice.ogg", 48_000,
+                        "mxc://s/voice", "audio/ogg",
                         FileKind.Audio, TimeSpan.FromSeconds(75)),
                 },
                 new TimelineItem {
@@ -709,7 +784,8 @@ public class ChatPaneTests {
                     SenderId = "@alice",
                     SenderName = "Alice",
                     Ts = Now - 640_000,
-                    File = new FileAttachment("demo.mp4", 9_000_000, "mxc://s/clip", "video/mp4",
+                    File = new FileAttachment("demo.mp4", 9_000_000,
+                        "mxc://s/clip", "video/mp4",
                         FileKind.Video, TimeSpan.FromSeconds(3725)),
                 },
                 new TimelineItem {
@@ -755,13 +831,16 @@ public class ChatPaneTests {
 
     private static readonly Devices Sessions = new();
 
-    private static async Task<(Window Window, AppController Controller, Engine Engine, MainScreen
+    private static async Task<(Window Window, AppController Controller, Engine
+            Engine, MainScreen
             Screen)>
         Open(string theme, double width, bool withStickers = false)
     {
         var engine = new Engine();
-        var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
-            new Media(), new Profiles(), Sessions, null, Keys, CallNotes, Verify, CallLine,
+        var controller = new AppController(engine, new NoSessions(), null, null,
+            engine, engine,
+            new Media(), new Profiles(), Sessions, null, Keys, CallNotes,
+            Verify, CallLine,
             CallMedia, CallSound, withStickers ? Stickers : null);
         controller.SetPreferences(p => p with {
             Locale = "en",
@@ -804,7 +883,8 @@ public class ChatPaneTests {
         window.UpdateLayout();
         var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
-        frame.Save(path.Replace(".png", $"-{name}.png"), new PngBitmapEncoderOptions());
+        frame.Save(path.Replace(".png", $"-{name}.png"),
+            new PngBitmapEncoderOptions());
     }
 
     [AvaloniaFact]
@@ -834,7 +914,9 @@ public class ChatPaneTests {
             .Where(t => t.FontWeight == FontWeight.SemiBold && t.FontSize == 16)
             .ToList();
         Assert.NotEmpty(titles);
-        Assert.All(titles, t => Assert.Equal(colors.Text, ((SolidColorBrush)t.Foreground!).Color));
+        Assert.All(titles,
+            t => Assert.Equal(colors.Text,
+                ((SolidColorBrush)t.Foreground!).Color));
         Save(window, "dark-wide");
     }
 
@@ -861,7 +943,9 @@ public class ChatPaneTests {
             "hidden: " +
             string.Join(" < ",
                 all[0].GetVisualAncestors().Take(4)
-                    .Select(a => a.GetType().Name + (a.IsVisible ? "" : "(off)"))) + " pane " +
+                    .Select(a =>
+                        a.GetType().Name + (a.IsVisible ? "" : "(off)"))) +
+            " pane " +
             pane.IsEffectivelyVisible);
         Save(window, "skeleton");
         controller.Store.Update(s => s with {
@@ -951,7 +1035,8 @@ public class ChatPaneTests {
         page.AskSignOut();
         Assert.True(page.Confirm.IsOpen);
         Save(window, "signout-dialog");
-        var yes = page.Confirm.Card.GetVisualDescendants().OfType<PrimaryButton>().First();
+        var yes = page.Confirm.Card.GetVisualDescendants()
+            .OfType<PrimaryButton>().First();
         yes.RaiseClick();
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
@@ -987,7 +1072,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task People_are_searched_and_chosen_for_a_new_chat_and_for_an_invitation()
+    public async Task
+        People_are_searched_and_chosen_for_a_new_chat_and_for_an_invitation()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
         screen.List.OpenAddMenu();
@@ -1013,7 +1099,8 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(true);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
         panel.AskInvite(controller.Store.Value.Rooms.First(r => r.Id == "!g"));
         panel.Invite.Field.Text = "@zed:s";
         await Task.Delay(50);
@@ -1041,7 +1128,8 @@ public class ChatPaneTests {
         Save(window, "explore");
         Assert.IsType<Avalonia.Controls.WrapPanel>(page.Rows.Children[0]);
         page.OpenFull(
-            new PublicRoom("!pub1:s", "Public Chat", "Talk\n\nmore", "#pub:s", null, 1200), false);
+            new PublicRoom("!pub1:s", "Public Chat", "Talk\n\nmore", "#pub:s",
+                null, 1200), false);
         Assert.True(page.Full.IsOpen);
         Save(window, "explore-full");
         page.Full.Close();
@@ -1052,7 +1140,8 @@ public class ChatPaneTests {
         page.Field.Text = "public";
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s", null, 1200));
+        page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s",
+            null, 1200));
         Assert.True(page.JoinCard.Dialog.IsOpen);
         page.JoinCard.JoinButton!.RaiseClick();
         await Task.Delay(100);
@@ -1062,14 +1151,16 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task A_room_being_joined_shows_in_the_list_until_the_join_ends()
+    public async Task
+        A_room_being_joined_shows_in_the_list_until_the_join_ends()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Explore);
         Dispatcher.UIThread.RunJobs();
         var page = screen.ExploreScreen;
         engine.JoinGate = new TaskCompletionSource<string>();
-        page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s", null, 1200));
+        page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s",
+            null, 1200));
         page.JoinCard.JoinButton!.RaiseClick();
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
@@ -1079,7 +1170,8 @@ public class ChatPaneTests {
         Assert.Equal("Public Chat", first.Title);
         Assert.StartsWith("Joining", first.Preview);
         Save(window, "joining");
-        engine.JoinGate.SetException(new EngineException(EngineErrorCode.Forbidden, "No access"));
+        engine.JoinGate.SetException(
+            new EngineException(EngineErrorCode.Forbidden, "No access"));
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         Assert.Empty(controller.Store.Value.Joining);
@@ -1155,7 +1247,8 @@ public class ChatPaneTests {
         var (window, controller, _, screen) = await Open("light", 1000);
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("Mia Example", controller.Store.Value.Profile!.DisplayName);
+        Assert.Equal("Mia Example",
+            controller.Store.Value.Profile!.DisplayName);
         Save(window, "named");
         controller.OpenSidebarPage(SidebarPage.Profile);
         Save(window, "profile-named");
@@ -1173,7 +1266,9 @@ public class ChatPaneTests {
         var press = (Control)cards[3];
         var target = Themes.All()[2].Id;
         press.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
-            press, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), press,
+            press,
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true), press,
             new Avalonia.Point(10, 10), 0,
             new Avalonia.Input.PointerPointProperties(
                 Avalonia.Input.RawInputModifiers.LeftMouseButton,
@@ -1251,7 +1346,8 @@ public class ChatPaneTests {
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
-        controller.StartEdit(controller.Store.Value.Timeline.First(i => i.Id == "3"));
+        controller.StartEdit(
+            controller.Store.Value.Timeline.First(i => i.Id == "3"));
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("Yes!", pane.Input.Text);
         Save(window, "editing");
@@ -1271,13 +1367,15 @@ public class ChatPaneTests {
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
-        pane.OpenActions(pane.Messages, controller.Store.Value.Timeline.First(i => i.Id == "3"));
+        pane.OpenActions(pane.Messages,
+            controller.Store.Value.Timeline.First(i => i.Id == "3"));
         // The Delete row is the last of the menu: Copy, Reply, Edit, Pin, Forward, Select, Delete.
         var row = (Border)pane.Actions.Rows[6];
         row.RaiseEvent(Release(row));
         Assert.True(pane.DeleteDialog.IsOpen);
         Save(window, "delete-dialog");
-        var yes = pane.DeleteDialog.Card.GetVisualDescendants().OfType<PrimaryButton>().First();
+        var yes = pane.DeleteDialog.Card.GetVisualDescendants()
+            .OfType<PrimaryButton>().First();
         yes.RaiseClick();
         await Task.Delay(50);
         Assert.Equal(["3"], engine.Opened[0].Deleted);
@@ -1291,7 +1389,8 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        var picture = FindPane(screen).Messages.GetVisualDescendants().OfType<Image>().First();
+        var picture = FindPane(screen).Messages.GetVisualDescendants()
+            .OfType<Image>().First();
         for (var i = 0; i < 20 && picture.Source is null; i++) {
             await Task.Delay(50);
             Dispatcher.UIThread.RunJobs();
@@ -1312,10 +1411,13 @@ public class ChatPaneTests {
         var rows = screen.LanguageScreen.Rows.Children;
         Assert.Equal(OhMatrix.Core.I18n.Strings.Languages.Count, rows.Count);
         Save(window, "languages");
-        var zh = OhMatrix.Core.I18n.Strings.Languages.ToList().FindIndex(l => l.Id == "zh-CN");
+        var zh = OhMatrix.Core.I18n.Strings.Languages.ToList()
+            .FindIndex(l => l.Id == "zh-CN");
         var press = (Control)rows[zh];
         press.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
-            press, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), press,
+            press,
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true), press,
             new Avalonia.Point(10, 10), 0,
             new Avalonia.Input.PointerPointProperties(
                 Avalonia.Input.RawInputModifiers.LeftMouseButton,
@@ -1348,7 +1450,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_settings_rows_change_the_room_through_menus_and_prompts()
+    public async Task
+        The_settings_rows_change_the_room_through_menus_and_prompts()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
@@ -1356,8 +1459,10 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(true);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
-        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
         Assert.Contains("Who can join", texts);
         Assert.Contains("Permissions", texts);
         Assert.Contains("Who can send messages", texts);
@@ -1366,7 +1471,8 @@ public class ChatPaneTests {
         await controller.AddRoomAlias("!g", "#new:s");
         Assert.Contains("joinRule !g Public", engine.Actions);
         Assert.Contains("addAlias !g #new:s", engine.Actions);
-        panel.AskAddAlias(controller.Store.Value.Rooms.First(r => r.Id == "!g"));
+        panel.AskAddAlias(
+            controller.Store.Value.Rooms.First(r => r.Id == "!g"));
         Assert.Single(panel.MemberPrompt.Fields);
         Save(window, "settings");
     }
@@ -1381,10 +1487,12 @@ public class ChatPaneTests {
             Width = 600,
             Height = 600
         };
-        ThemeScope.SetColors(host, OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
+        ThemeScope.SetColors(host,
+            OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
         host.Show();
         Assert.False(page.IsVisible);
-        controller.SetIncomingShare(new SharedContent("hello there", ["/tmp/a.txt"]));
+        controller.SetIncomingShare(new SharedContent("hello there",
+            ["/tmp/a.txt"]));
         Dispatcher.UIThread.RunJobs();
         Assert.True(page.IsVisible);
         var room = page.Postable[0];
@@ -1402,8 +1510,11 @@ public class ChatPaneTests {
     [Fact]
     public void A_share_is_described_by_its_files_and_text()
     {
-        string T(string k, (string, object)[] v) => OhMatrix.Core.I18n.Strings.T("en", k, v);
-        Assert.Equal("2 files · hi", new SharedContent("hi", ["a", "b"]).Describe(T));
+        string T(string k, (string, object)[] v) =>
+            OhMatrix.Core.I18n.Strings.T("en", k, v);
+
+        Assert.Equal("2 files · hi",
+            new SharedContent("hi", ["a", "b"]).Describe(T));
         Assert.Equal("Text", new SharedContent(null, []).Describe(T));
     }
 
@@ -1413,10 +1524,11 @@ public class ChatPaneTests {
         var (window, controller, _, _) = await Open("light", 1000);
         var viewer = new ImageViewer();
         var saved = 0;
-        viewer.Show(window, controller.Pictures, "mxc://x", "a.png", null, () => {
-            saved++;
-            return Task.CompletedTask;
-        });
+        viewer.Show(window, controller.Pictures, "mxc://x", "a.png", null,
+            () => {
+                saved++;
+                return Task.CompletedTask;
+            });
         Assert.True(viewer.SaveButton.IsVisible);
         viewer.SaveButton.RaiseClick();
         Assert.Equal(1, saved);
@@ -1427,7 +1539,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_recording_dialog_opens_and_says_so_when_there_is_no_device()
+    public async Task
+        The_recording_dialog_opens_and_says_so_when_there_is_no_device()
     {
         var (window, controller, _, _) = await Open("light", 1000);
         var dialog = new RecordingDialog(controller);
@@ -1448,7 +1561,8 @@ public class ChatPaneTests {
             Width = 400,
             Height = 600
         };
-        ThemeScope.SetColors(host, OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
+        ThemeScope.SetColors(host,
+            OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
         host.Show();
         Assert.True(page.Rows.Children.Count >= 2);
         controller.SetPreferences(p => p with {
@@ -1480,7 +1594,8 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         var pane = FindPane(screen);
-        var file = Path.Combine(Path.GetTempPath(), "drop-" + Guid.NewGuid().ToString("N") + ".pdf");
+        var file = Path.Combine(Path.GetTempPath(),
+            "drop-" + Guid.NewGuid().ToString("N") + ".pdf");
         File.WriteAllText(file, "x");
         pane.OfferFiles([file]);
         Assert.True(pane.SendFiles.Dialog.IsOpen);
@@ -1500,7 +1615,8 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(true);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
         panel.OpenGallery();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
@@ -1510,7 +1626,8 @@ public class ChatPaneTests {
         gallery.Select(MediaKind.File);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("budget-2026.pdf", Assert.Single(gallery.Shown).File!.Name);
+        Assert.Equal("budget-2026.pdf",
+            Assert.Single(gallery.Shown).File!.Name);
         Save(window, "gallery");
         panel.LeaveGallery();
         Assert.Null(panel.Gallery);
@@ -1526,12 +1643,14 @@ public class ChatPaneTests {
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(3, controller.Store.Value.Details!.Members.Count);
-        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
         Assert.Contains("We plan the demo here.", texts);
         Assert.Contains("Admin", texts);
         Assert.Contains("Moderator", texts);
         Save(window, "info-wide");
-        var panelShared = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var panelShared = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
         Assert.Single(panelShared.MediaThumbnails);
         Assert.Contains("budget-2026.pdf", texts);
         Assert.Contains("Shared media", texts);
@@ -1549,7 +1668,8 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(true);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
         Assert.NotNull(panel.EditNameButton);
         var room = controller.Store.Value.Rooms.First(r => r.Id == "!g");
         panel.AskName(room);
@@ -1568,14 +1688,16 @@ public class ChatPaneTests {
         panel.AskLeave(room);
         Dispatcher.UIThread.RunJobs();
         Assert.True(panel.LeaveDialog.IsOpen);
-        var yes = panel.LeaveDialog.Card.GetVisualDescendants().OfType<PrimaryButton>().Single();
+        var yes = panel.LeaveDialog.Card.GetVisualDescendants()
+            .OfType<PrimaryButton>().Single();
         yes.RaiseClick();
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(
             ["name !g Demo crew", "topic !g New topic", "leave !g"],
-            engine.Actions.Where(a => a.StartsWith("name") || a.StartsWith("topic")
-                                                           || a.StartsWith("leave")));
+            engine.Actions.Where(a => a.StartsWith("name") ||
+                                      a.StartsWith("topic")
+                                      || a.StartsWith("leave")));
         Assert.Null(controller.Store.Value.SelectedRoomId);
     }
 
@@ -1588,8 +1710,10 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(true);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
-        var bob = controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
+        var bob =
+            controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
         panel.ViewMember(bob);
         Assert.Equal(bob, panel.Viewing);
         // Copy link, copy address, write, block.
@@ -1601,7 +1725,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task Members_get_a_role_are_removed_or_banned_from_the_info_panel()
+    public async Task
+        Members_get_a_role_are_removed_or_banned_from_the_info_panel()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
@@ -1609,10 +1734,13 @@ public class ChatPaneTests {
         controller.OpenRoomInfo(true);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First();
         var room = controller.Store.Value.Rooms.First(r => r.Id == "!g");
-        var bob = controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
-        var anchor = panel.Content.Children.OfType<Border>().First(b => b.Cursor is not null);
+        var bob =
+            controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
+        var anchor = panel.Content.Children.OfType<Border>()
+            .First(b => b.Cursor is not null);
         panel.OpenMemberMenu(anchor, room, bob);
         Assert.True(panel.MemberMenu.IsOpen);
         Assert.Equal(5, panel.MemberMenu.Rows.Count);
@@ -1629,9 +1757,13 @@ public class ChatPaneTests {
         panel.MemberPrompt.Confirm();
         await Task.Delay(50);
         Assert.Equal(
-            ["role !g @bob:s Moderator", "remove !g @bob:s", "ban !g @bob:s spam"],
-            engine.Actions.Where(a => a.StartsWith("role") || a.StartsWith("remove")
-                                                           || a.StartsWith("ban")));
+            [
+                "role !g @bob:s Moderator", "remove !g @bob:s",
+                "ban !g @bob:s spam"
+            ],
+            engine.Actions.Where(a => a.StartsWith("role") ||
+                                      a.StartsWith("remove")
+                                      || a.StartsWith("ban")));
     }
 
     [AvaloniaFact]
@@ -1647,16 +1779,19 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task A_picture_from_disk_is_sent_with_its_size_and_a_file_without()
+    public async Task
+        A_picture_from_disk_is_sent_with_its_size_and_a_file_without()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
         await Task.Delay(50);
-        var dir = Path.Combine(Path.GetTempPath(), "ohm-att-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(),
+            "ohm-att-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var png = Path.Combine(dir, "pic.png");
         using (var target =
-               new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(40, 20)))
+               new Avalonia.Media.Imaging.RenderTargetBitmap(
+                   new Avalonia.PixelSize(40, 20)))
         using (var stream = File.Create(png))
             target.Save(stream);
         var doc = Path.Combine(dir, "notes.pdf");
@@ -1667,13 +1802,16 @@ public class ChatPaneTests {
             engine.Opened[0].Attached);
         var pane = FindPane(screen);
         pane.OpenAttach();
-        Assert.Equal(2 + (RecordingDialog.Available(false) ? 1 : 0) + (RecordingDialog.Available(true) ? 1 : 0),
+        Assert.Equal(
+            2 + (RecordingDialog.Available(false) ? 1 : 0) +
+            (RecordingDialog.Available(true) ? 1 : 0),
             pane.AttachMenu.Rows.Count);
         Save(window, "attach");
     }
 
     [AvaloniaFact]
-    public async Task The_emoji_button_opens_a_picker_that_fills_the_draft_and_remembers()
+    public async Task
+        The_emoji_button_opens_a_picker_that_fills_the_draft_and_remembers()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
@@ -1713,7 +1851,8 @@ public class ChatPaneTests {
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, name);
         using var target =
-            new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(w, h));
+            new Avalonia.Media.Imaging.RenderTargetBitmap(
+                new Avalonia.PixelSize(w, h));
         using var stream = File.Create(path);
         target.Save(stream);
         return path;
@@ -1756,7 +1895,8 @@ public class ChatPaneTests {
         ((Avalonia.Controls.Border)stickers.Tiles[2]).RaiseEvent(
             new Avalonia.Input.PointerPressedEventArgs(
                 stickers.Tiles[2],
-                new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true),
+                new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                    true),
                 (Avalonia.Visual)stickers.Tiles[2], default, 0,
                 new Avalonia.Input.PointerPointProperties(
                     Avalonia.Input.RawInputModifiers.LeftMouseButton,
@@ -1785,7 +1925,8 @@ public class ChatPaneTests {
         // The picture was added; the other is not a picture the pack takes.
         Assert.Equal(["add fox", "groups 1"], Stickers.Calls);
         Assert.Equal(4, controller.Store.Value.Stickers.Count);
-        Assert.Contains("fox", controller.Store.Value.StickerGroups.SelectMany(g => g.Stickers));
+        Assert.Contains("fox",
+            controller.Store.Value.StickerGroups.SelectMany(g => g.Stickers));
         Assert.Equal(NoticeKind.Error, controller.Store.Value.Notice!.Kind);
         Save(window, "stickers-added");
         // Choosing and deleting.
@@ -1813,14 +1954,19 @@ public class ChatPaneTests {
         pane.EmojiButton.RaiseClick();
         await Settle();
         var stickers = pane.Stickers!;
-        Assert.Equal(["Select to delete", "Reorder", "Set group name"], stickers.SettingsLabels);
+        Assert.Equal(["Select to delete", "Reorder", "Set group name"],
+            stickers.SettingsLabels);
         await controller.SetStickerGroups([new("g1", "Pets", null, ["owl"])]);
         await Settle();
         stickers.Show("g1");
         await Settle();
         Assert.Equal("g1", stickers.CurrentId);
         Assert.Equal("g1", controller.Store.Value.Prefs.StickerGroup);
-        Assert.Equal(["Select to delete", "Set group name", "Set group cover", "Delete group"],
+        Assert.Equal(
+            [
+                "Select to delete", "Set group name", "Set group cover",
+                "Delete group"
+            ],
             stickers.SettingsLabels);
         Assert.Equal(2, stickers.Tiles.Count);
         Save(window, "stickers-group");
@@ -1829,15 +1975,18 @@ public class ChatPaneTests {
         stickers.Show("default");
         await stickers.Move(0, 1);
         await Settle();
-        var order = StickerPack.WithDefault(controller.Store.Value.StickerGroups,
+        var order = StickerPack.WithDefault(
+            controller.Store.Value.StickerGroups,
             controller.Store.Value.Stickers)[0].Stickers;
         Assert.Equal(["dog", "cat"], order);
         // Deleting the group takes its stickers with it.
         stickers.Show("g1");
         await stickers.DeleteGroup();
         await Settle();
-        Assert.DoesNotContain(controller.Store.Value.Stickers, s => s.Shortcode == "owl");
-        Assert.DoesNotContain(controller.Store.Value.StickerGroups, g => g.Id == "g1");
+        Assert.DoesNotContain(controller.Store.Value.Stickers,
+            s => s.Shortcode == "owl");
+        Assert.DoesNotContain(controller.Store.Value.StickerGroups,
+            g => g.Id == "g1");
         Assert.Equal("default", stickers.CurrentId);
     }
 
@@ -1850,13 +1999,15 @@ public class ChatPaneTests {
         var pane = FindPane(screen);
         var items = controller.Store.Value.Timeline;
         var first = items.First(i =>
-            i.Kind == TimelineKind.Message && i.Image is null && i.File is null);
+            i.Kind == TimelineKind.Message && i.Image is null &&
+            i.File is null);
         pane.StartSelect(first);
         Assert.True(pane.Selecting);
         Assert.Equal(["" + first.Id], pane.Chosen);
         Save(window, "selecting");
         var second = items.Last(i =>
-            i.Kind == TimelineKind.Message && i.Image is null && i.File is null);
+            i.Kind == TimelineKind.Message && i.Image is null &&
+            i.File is null);
         pane.ToggleChosen(second.Id);
         Assert.Equal(2, pane.Chosen.Count);
         // Forward: the first step ticks chats, the second asks again.
@@ -1900,7 +2051,8 @@ public class ChatPaneTests {
         var drop = (Border)pane.Actions.Rows[1];
         drop.RaiseEvent(Release(drop));
         await Settle();
-        Assert.Equal([$"resend {failed.Id}", $"discard {failed.Id}"], engine.Opened[0].Retried);
+        Assert.Equal([$"resend {failed.Id}", $"discard {failed.Id}"],
+            engine.Opened[0].Retried);
     }
 
     [Xunit.Theory]
@@ -1914,21 +2066,25 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task Pressing_a_picture_opens_the_viewer_that_zooms_and_closes()
+    public async Task
+        Pressing_a_picture_opens_the_viewer_that_zooms_and_closes()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         var pane = FindPane(screen);
-        var picture = pane.Messages.GetVisualDescendants().OfType<Image>().First();
+        var picture = pane.Messages.GetVisualDescendants().OfType<Image>()
+            .First();
         for (var i = 0; i < 20 && picture.Source is null; i++) {
             await Task.Delay(50);
             Dispatcher.UIThread.RunJobs();
         }
 
         picture.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
-            picture, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), picture,
+            picture,
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true), picture,
             new Avalonia.Point(10, 10), 0,
             new Avalonia.Input.PointerPointProperties(
                 Avalonia.Input.RawInputModifiers.LeftMouseButton,
@@ -1939,7 +2095,8 @@ public class ChatPaneTests {
         Assert.True(pane.Viewer.IsOpen);
         window.UpdateLayout();
         Save(window, "viewer");
-        var centre = new Avalonia.Point(window.ClientSize.Width / 2, window.ClientSize.Height / 2);
+        var centre = new Avalonia.Point(window.ClientSize.Width / 2,
+            window.ClientSize.Height / 2);
         pane.Viewer.ZoomBy(2, centre);
         pane.Viewer.ZoomBy(2, centre);
         Assert.Equal(4, pane.Viewer.Zoom, 3);
@@ -1948,7 +2105,8 @@ public class ChatPaneTests {
         Assert.Equal(ImageViewer.MaxZoom, pane.Viewer.Zoom);
         pane.Viewer.ZoomBy(0.001, centre);
         Assert.Equal(1, pane.Viewer.Zoom);
-        window.KeyPress(Avalonia.Input.Key.Escape, Avalonia.Input.RawInputModifiers.None,
+        window.KeyPress(Avalonia.Input.Key.Escape,
+            Avalonia.Input.RawInputModifiers.None,
             Avalonia.Input.PhysicalKey.Escape, null);
         Assert.False(pane.Viewer.IsOpen);
     }
@@ -1993,7 +2151,8 @@ public class ChatPaneTests {
         string Text()
         {
             return string.Join("|",
-                pane.PinnedBar.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+                pane.PinnedBar.GetVisualDescendants().OfType<TextBlock>()
+                    .Select(t => t.Text));
         }
 
         Assert.Contains("Pinned messages 1/2", Text());
@@ -2017,7 +2176,8 @@ public class ChatPaneTests {
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        var glyphs = screen.GetVisualDescendants().OfType<Icon>().Select(i => i.Glyph).ToList();
+        var glyphs = screen.GetVisualDescendants().OfType<Icon>()
+            .Select(i => i.Glyph).ToList();
         Assert.Single(glyphs, "checks");
         Assert.Contains("check", glyphs);
         Save(window, "read");
@@ -2033,16 +2193,19 @@ public class ChatPaneTests {
         try {
             controller.OpenSidebarPage(SidebarPage.Profile);
             Dispatcher.UIThread.RunJobs();
-            var page = screen.GetVisualDescendants().OfType<ProfilePage>().Single();
+            var page = screen.GetVisualDescendants().OfType<ProfilePage>()
+                .Single();
             await page.ChangePhoto(path);
             controller.SelectRoom("!g");
             await Task.Delay(50);
             controller.OpenRoomInfo(true);
             await Task.Delay(100);
             Dispatcher.UIThread.RunJobs();
-            var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+            var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+                .First();
             Assert.NotNull(panel.PhotoButton);
-            await panel.ChangePhoto(controller.Store.Value.Rooms.First(r => r.Id == "!g"), path);
+            await panel.ChangePhoto(
+                controller.Store.Value.Rooms.First(r => r.Id == "!g"), path);
             Assert.Contains("avatar !g image/png 4", engine.Actions);
         } finally {
             File.Delete(path);
@@ -2050,29 +2213,34 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task Audio_and_video_messages_show_their_length_and_files_are_fetched()
+    public async Task
+        Audio_and_video_messages_show_their_length_and_files_are_fetched()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
         // An audio message plays in its own card: the name, a bar and its length.
         Assert.Contains("1:15", texts);
         Assert.Single(screen.GetVisualDescendants().OfType<AudioCard>());
         Assert.Contains(texts, t => t is not null && t.EndsWith("· 1:02:05"));
-        var icons = screen.GetVisualDescendants().OfType<Icon>().Select(i => i.Glyph).ToList();
+        var icons = screen.GetVisualDescendants().OfType<Icon>()
+            .Select(i => i.Glyph).ToList();
         Assert.Contains("play", icons);
         Assert.Contains("video", icons);
         Save(window, "audio-video");
         var path = await controller.DownloadFile(
             new FileAttachment("a.pdf", 1, "mxc://s/a", "application/pdf"));
         Assert.Equal("/tmp/a.pdf", path);
-        Assert.Null(await controller.DownloadFile(new FileAttachment("b.pdf", 1)));
+        Assert.Null(
+            await controller.DownloadFile(new FileAttachment("b.pdf", 1)));
     }
 
     [AvaloniaFact]
-    public async Task The_settings_toggle_puts_my_messages_in_the_accent_colour_or_not()
+    public async Task
+        The_settings_toggle_puts_my_messages_in_the_accent_colour_or_not()
     {
         var (_, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Settings);
@@ -2080,7 +2248,9 @@ public class ChatPaneTests {
         var toggle = screen.SettingsScreen.AccentToggle;
         Assert.True(toggle.IsOn);
         toggle.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
-            toggle, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), toggle,
+            toggle,
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true), toggle,
             new Avalonia.Point(5, 5), 0,
             new Avalonia.Input.PointerPointProperties(
                 Avalonia.Input.RawInputModifiers.LeftMouseButton,
@@ -2098,11 +2268,13 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task New_unread_messages_are_announced_except_at_start_up_when_muted_or_off()
+    public async Task
+        New_unread_messages_are_announced_except_at_start_up_when_muted_or_off()
     {
         var engine = new Engine();
         var notes = new Notes();
-        var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
+        var controller = new AppController(engine, new NoSessions(), null, null,
+            engine, engine,
             new Media(), new Profiles(), Sessions, null, Keys, notes);
         controller.SetPreferences(p => p with {
             Locale = "en",
@@ -2110,7 +2282,8 @@ public class ChatPaneTests {
         });
         await controller.Login("matrix.org", "me", "pw");
 
-        RoomSummary Room(string id, int unread, string text, bool muted = false) => new() {
+        RoomSummary Room(string id, int unread, string text,
+            bool muted = false) => new() {
             Id = id,
             Name = "Room " + id,
             UnreadCount = unread,
@@ -2120,25 +2293,30 @@ public class ChatPaneTests {
             Muted = muted,
         };
 
-        engine.Push(Room("!a", 1, "first"), Room("!b", 0, "x"), Room("!m", 0, "x", true));
+        engine.Push(Room("!a", 1, "first"), Room("!b", 0, "x"),
+            Room("!m", 0, "x", true));
         Dispatcher.UIThread.RunJobs();
         Assert.Empty(notes.Sent);
-        engine.Push(Room("!a", 2, "hello   there"), Room("!b", 0, "x"), Room("!m", 3, "loud", true),
+        engine.Push(Room("!a", 2, "hello   there"), Room("!b", 0, "x"),
+            Room("!m", 3, "loud", true),
             Room("!new", 4, "unknown before"));
         Dispatcher.UIThread.RunJobs();
         var one = Assert.Single(notes.Sent);
-        Assert.Equal(("!a", "Room !a", "Ann: hello there"), (one.RoomId, one.Title, one.Body));
+        Assert.Equal(("!a", "Room !a", "Ann: hello there"),
+            (one.RoomId, one.Title, one.Body));
         controller.SetPreferences(p => p with {
             NotificationPreview = false
         });
-        engine.Push(Room("!a", 3, "secret"), Room("!b", 0, "x"), Room("!m", 3, "loud", true),
+        engine.Push(Room("!a", 3, "secret"), Room("!b", 0, "x"),
+            Room("!m", 3, "loud", true),
             Room("!new", 4, "unknown before"));
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("New message", notes.Sent[1].Body);
         controller.SetPreferences(p => p with {
             Notifications = false
         });
-        engine.Push(Room("!a", 4, "more"), Room("!b", 0, "x"), Room("!m", 3, "loud", true),
+        engine.Push(Room("!a", 4, "more"), Room("!b", 0, "x"),
+            Room("!m", 3, "loud", true),
             Room("!new", 4, "unknown before"));
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(2, notes.Sent.Count);
@@ -2153,8 +2331,10 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SidebarPage.Space, controller.Store.Value.SidebarPage);
         var page = screen.SpaceScreen;
-        Assert.Equal(["Alice", "Not joined room", "Sub space"], page.Children_.Select(c => c.Name));
-        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        Assert.Equal(["Alice", "Not joined room", "Sub space"],
+            page.Children_.Select(c => c.Name));
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
         Assert.Contains("Not joined yet", texts);
         Assert.Contains("Demo team", texts);
         Save(window, "space");
@@ -2168,17 +2348,20 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_encryption_page_unlocks_the_history_with_the_recovery_key()
+    public async Task
+        The_encryption_page_unlocks_the_history_with_the_recovery_key()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         Keys.Current = SecurityState.NeedsRecovery;
         await controller.RefreshSecurity();
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(SecurityState.NeedsRecovery, controller.Store.Value.Security);
+        Assert.Equal(SecurityState.NeedsRecovery,
+            controller.Store.Value.Security);
         controller.OpenSidebarPage(SidebarPage.Profile);
         Dispatcher.UIThread.RunJobs();
         Assert.Contains("Verify device",
-            screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+            screen.GetVisualDescendants().OfType<TextBlock>()
+                .Select(t => t.Text));
         controller.OpenSidebarPage(SidebarPage.Encryption);
         Dispatcher.UIThread.RunJobs();
         var page = screen.EncryptionScreen;
@@ -2199,7 +2382,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_encryption_page_sets_the_keys_up_and_shows_the_recovery_key_once()
+    public async Task
+        The_encryption_page_sets_the_keys_up_and_shows_the_recovery_key_once()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         Keys.Current = SecurityState.NeedsSetup;
@@ -2225,7 +2409,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task A_call_is_placed_from_a_direct_chat_rings_connects_and_ends()
+    public async Task
+        A_call_is_placed_from_a_direct_chat_rings_connects_and_ends()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         CallLine.Sent.Clear();
@@ -2247,17 +2432,19 @@ public class ChatPaneTests {
         var invite = CallLine.Sent.Single(x => x.Type == "m.call.invite");
         Save(window, "call-calling");
 
-        CallLine.Deliver("m.call.answer", "@alice:s", new System.Text.Json.Nodes.JsonObject {
-            ["call_id"] = (string?)invite.Content["call_id"],
-            ["party_id"] = "alice-1",
-            ["answer"] = new System.Text.Json.Nodes.JsonObject {
-                ["type"] = "answer",
-                ["sdp"] = "v=0"
-            },
-        });
+        CallLine.Deliver("m.call.answer", "@alice:s",
+            new System.Text.Json.Nodes.JsonObject {
+                ["call_id"] = (string?)invite.Content["call_id"],
+                ["party_id"] = "alice-1",
+                ["answer"] = new System.Text.Json.Nodes.JsonObject {
+                    ["type"] = "answer",
+                    ["sdp"] = "v=0"
+                },
+            });
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected, controller.Store.Value.Call!.Phase);
+        Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected,
+            controller.Store.Value.Call!.Phase);
         Assert.Matches(@"^\d\d:\d\d$", screen.Call.Status);
         Assert.Contains("call.mic", screen.Call.Buttons.Keys);
         controller.SetCallMuted(true);
@@ -2298,15 +2485,16 @@ public class ChatPaneTests {
         controller.SetPreferences(p => p with {
             Notifications = true
         });
-        CallLine.Deliver("m.call.invite", "@alice:s", new System.Text.Json.Nodes.JsonObject {
-            ["call_id"] = "in-1",
-            ["party_id"] = "alice-1",
-            ["lifetime"] = 60000,
-            ["offer"] = new System.Text.Json.Nodes.JsonObject {
-                ["type"] = "offer",
-                ["sdp"] = "v=0\nm=audio"
-            },
-        });
+        CallLine.Deliver("m.call.invite", "@alice:s",
+            new System.Text.Json.Nodes.JsonObject {
+                ["call_id"] = "in-1",
+                ["party_id"] = "alice-1",
+                ["lifetime"] = 60000,
+                ["offer"] = new System.Text.Json.Nodes.JsonObject {
+                    ["type"] = "offer",
+                    ["sdp"] = "v=0\nm=audio"
+                },
+            });
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.True(screen.Call.IsVisible);
@@ -2319,7 +2507,8 @@ public class ChatPaneTests {
         await controller.AnswerCall();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected, controller.Store.Value.Call!.Phase);
+        Assert.Equal(OhMatrix.Core.Calls.CallPhase.Connected,
+            controller.Store.Value.Call!.Phase);
         Assert.Contains(CallLine.Sent, x => x.Type == "m.call.answer");
         Assert.Contains("stop", CallSound.Log);
         await controller.HangupCall();
@@ -2330,7 +2519,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_log_is_reached_from_settings_and_follows_what_is_logged()
+    public async Task
+        The_log_is_reached_from_settings_and_follows_what_is_logged()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Settings);
@@ -2369,7 +2559,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task A_device_is_verified_by_comparing_pictures_with_another_session()
+    public async Task
+        A_device_is_verified_by_comparing_pictures_with_another_session()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         Keys.Current = SecurityState.NeedsRecovery;
@@ -2387,7 +2578,8 @@ public class ChatPaneTests {
         Verify.Tell(new VerifyFlow(VerifyPhase.Waiting, false));
         Verify.Tell(new VerifyFlow(VerifyPhase.Emojis, false, null,
         [
-            new("🐶", "Dog"), new("🔥", "Fire"), new("🎩", "Hat"), new("🌹", "Rose"),
+            new("🐶", "Dog"), new("🔥", "Fire"), new("🎩", "Hat"),
+            new("🌹", "Rose"),
             new("🍎", "Apple"), new("🚀", "Rocket"), new("🔑", "Key")
         ]));
         await Task.Delay(50);
@@ -2401,7 +2593,8 @@ public class ChatPaneTests {
         Verify.Tell(new VerifyFlow(VerifyPhase.Done, false));
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(VerifyPhase.Done, controller.Store.Value.Verification!.Phase);
+        Assert.Equal(VerifyPhase.Done,
+            controller.Store.Value.Verification!.Phase);
         Keys.Current = SecurityState.Ready;
         await controller.DismissVerification();
         Dispatcher.UIThread.RunJobs();
@@ -2434,11 +2627,15 @@ public class ChatPaneTests {
     public void An_ended_verification_stays_until_dismissed()
     {
         var done = new VerifyFlow(VerifyPhase.Done, false);
-        Assert.Same(done, VerifyFlow.After(done, new VerifyFlow(VerifyPhase.Cancelled, false)));
+        Assert.Same(done,
+            VerifyFlow.After(done,
+                new VerifyFlow(VerifyPhase.Cancelled, false)));
         var cancelled = new VerifyFlow(VerifyPhase.Cancelled, true, "X");
         Assert.Same(cancelled,
-            VerifyFlow.After(cancelled, new VerifyFlow(VerifyPhase.Waiting, true)));
-        Assert.Null(VerifyFlow.After(null, new VerifyFlow(VerifyPhase.Waiting, false)));
+            VerifyFlow.After(cancelled,
+                new VerifyFlow(VerifyPhase.Waiting, true)));
+        Assert.Null(VerifyFlow.After(null,
+            new VerifyFlow(VerifyPhase.Waiting, false)));
         var next = VerifyFlow.After(
             new VerifyFlow(VerifyPhase.Requested, true, "X"),
             new VerifyFlow(VerifyPhase.Waiting, false)
@@ -2449,16 +2646,23 @@ public class ChatPaneTests {
     [Fact]
     public void The_security_state_follows_what_the_sdk_says()
     {
-        Assert.Equal(SecurityState.Unavailable, new RawSecurity("Unknown", null, false).State());
-        Assert.Equal(SecurityState.Ready, new RawSecurity("Enabled", true, true).State());
-        Assert.Equal(SecurityState.NeedsSetup, new RawSecurity("Disabled", true, false).State());
-        Assert.Equal(SecurityState.NeedsRecovery, new RawSecurity("Enabled", false, false).State());
-        Assert.Equal(SecurityState.NeedsRecovery, new RawSecurity("Disabled", false, true).State());
-        Assert.Equal(SecurityState.NeedsSetup, new RawSecurity("Disabled", false, false).State());
+        Assert.Equal(SecurityState.Unavailable,
+            new RawSecurity("Unknown", null, false).State());
+        Assert.Equal(SecurityState.Ready,
+            new RawSecurity("Enabled", true, true).State());
+        Assert.Equal(SecurityState.NeedsSetup,
+            new RawSecurity("Disabled", true, false).State());
+        Assert.Equal(SecurityState.NeedsRecovery,
+            new RawSecurity("Enabled", false, false).State());
+        Assert.Equal(SecurityState.NeedsRecovery,
+            new RawSecurity("Disabled", false, true).State());
+        Assert.Equal(SecurityState.NeedsSetup,
+            new RawSecurity("Disabled", false, false).State());
     }
 
     [AvaloniaFact]
-    public async Task The_sessions_page_lists_devices_and_signs_one_out_with_the_password()
+    public async Task
+        The_sessions_page_lists_devices_and_signs_one_out_with_the_password()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Sessions);
@@ -2466,7 +2670,8 @@ public class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         var page = screen.SessionsScreen;
         Assert.Equal(["D1", "D2", "D3"], page.Devices.Select(d => d.Id));
-        var texts = screen.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        var texts = screen.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
         Assert.Contains("This device", texts);
         Assert.Contains("Other sessions", texts);
         Assert.Contains("No recent activity", texts);
@@ -2485,7 +2690,8 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_profile_page_sets_a_status_and_tells_when_the_server_cannot()
+    public async Task
+        The_profile_page_sets_a_status_and_tells_when_the_server_cannot()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Profile);
@@ -2496,7 +2702,8 @@ public class ChatPaneTests {
         page.StatusPrompt.Fields[0].Text = "refused";
         page.StatusPrompt.Confirm();
         await Task.Delay(50);
-        Assert.Equal("This server does not support statuses.", page.StatusPrompt.ErrorText);
+        Assert.Equal("This server does not support statuses.",
+            page.StatusPrompt.ErrorText);
         page.StatusPrompt.Fields[0].Text = "  Coding  ";
         page.StatusPrompt.Confirm();
         await Task.Delay(50);
@@ -2512,7 +2719,8 @@ public class ChatPaneTests {
         controller.OpenSidebarPage(SidebarPage.Profile);
         Dispatcher.UIThread.RunJobs();
         var page = screen.GetVisualDescendants().OfType<ProfilePage>().Single();
-        Assert.Equal("Mia Example", controller.Store.Value.Profile!.DisplayName);
+        Assert.Equal("Mia Example",
+            controller.Store.Value.Profile!.DisplayName);
         page.AskName();
         Dispatcher.UIThread.RunJobs();
         var prompt = page.NamePrompt;
@@ -2528,9 +2736,12 @@ public class ChatPaneTests {
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
     {
         return new Avalonia.Input.PointerReleasedEventArgs(
-            row, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), row,
+            row,
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true), row,
             new Avalonia.Point(10, 10), 0,
-            new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.None,
+            new Avalonia.Input.PointerPointProperties(
+                Avalonia.Input.RawInputModifiers.None,
                 Avalonia.Input.PointerUpdateKind.LeftButtonReleased),
             Avalonia.Input.KeyModifiers.None, Avalonia.Input.MouseButton.Left) {
             RoutedEvent = Avalonia.Input.InputElement.PointerReleasedEvent,

@@ -40,7 +40,8 @@ public sealed class Toggle : Border {
             e.Handled = true;
             Changed?.Invoke(!isOn);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<Toggle>((t, _) => t.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<Toggle>((t, _) =>
+            t.Apply());
         Apply();
     }
 
@@ -55,7 +56,8 @@ public sealed class Toggle : Border {
         }
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Apply();

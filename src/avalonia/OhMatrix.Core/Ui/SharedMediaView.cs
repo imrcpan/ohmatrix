@@ -33,14 +33,16 @@ public sealed class SharedMediaView : StackPanel {
     private readonly Func<string, string> t;
     private MediaKind kind = MediaKind.Image;
 
-    public SharedMediaView(AppController controller, string roomId, ImageViewer viewer)
+    public SharedMediaView(AppController controller, string roomId,
+        ImageViewer viewer)
     {
         this.controller = controller;
         this.roomId = roomId;
         this.viewer = viewer;
         var locale = controller.Store.Value.Prefs.Locale;
         t = key => Strings.T(locale, key);
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharedMediaView>((v, _) => v.Render());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharedMediaView>((v,
+            _) => v.Render());
         Render();
         _ = More(kind);
     }
@@ -71,7 +73,9 @@ public sealed class SharedMediaView : StackPanel {
         tab.Failed = false;
         Render();
         try {
-            var page = await controller.SharedMedia(roomId, k, tab.Items.Count, PageSize);
+            var page =
+                await controller.SharedMedia(roomId, k, tab.Items.Count,
+                    PageSize);
             var seen = tab.Items.Select(i => i.Id).ToHashSet();
             tab.Items.AddRange(page.Items.Where(i => seen.Add(i.Id)));
             tab.Next = page.Next;
@@ -117,10 +121,12 @@ public sealed class SharedMediaView : StackPanel {
                     FontSize = 13,
                     FontWeight = FontWeight.SemiBold,
                     FontFamily = Fonts.System,
-                    Foreground = new SolidColorBrush(on ? c.OnAccent : c.TextSecondary),
+                    Foreground =
+                        new SolidColorBrush(on ? c.OnAccent : c.TextSecondary),
                     HorizontalAlignment = HorizontalAlignment.Center,
                 },
-                Background = new SolidColorBrush(on ? c.Accent : Colors.Transparent),
+                Background =
+                    new SolidColorBrush(on ? c.Accent : Colors.Transparent),
                 CornerRadius = new CornerRadius(8),
                 Height = 30,
                 Padding = new Thickness(0),
@@ -189,7 +195,9 @@ public sealed class SharedMediaView : StackPanel {
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,
             Background = new SolidColorBrush(c.BgSecondary),
-            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            Cursor =
+                new Avalonia.Input.Cursor(
+                    Avalonia.Input.StandardCursorType.Hand),
         };
         if (item.Image is { } picture) {
             var image = new Image {
@@ -200,8 +208,11 @@ public sealed class SharedMediaView : StackPanel {
             cell.PointerPressed += (_, e) => {
                 e.Handled = true;
                 if (TopLevel.GetTopLevel(this) is { } window)
-                    viewer.Show(window, controller.Pictures, picture.Source, picture.FileName,
-                        image.Source, () => controller.SavePicture(window, picture.Source, picture.FileName));
+                    viewer.Show(window, controller.Pictures, picture.Source,
+                        picture.FileName,
+                        image.Source,
+                        () => controller.SavePicture(window, picture.Source,
+                            picture.FileName));
             };
         } else {
             cell.Child = new Icon {
@@ -228,7 +239,9 @@ public sealed class SharedMediaView : StackPanel {
             Margin = new Thickness(18, 0),
             MinHeight = 60,
             Background = Brushes.Transparent,
-            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            Cursor =
+                new Avalonia.Input.Cursor(
+                    Avalonia.Input.StandardCursorType.Hand),
         };
         row.Children.Add(new Border {
             Width = 44,
@@ -274,7 +287,8 @@ public sealed class SharedMediaView : StackPanel {
     /// <summary>Opens a video in the app's player where there is one, any other file with the system's program for it.</summary>
     public async Task Open(TimelineItem item)
     {
-        if (item.File is not { } file || TopLevel.GetTopLevel(this) is not { } window)
+        if (item.File is not { } file || TopLevel.GetTopLevel(this) is not
+                { } window)
             return;
         try {
             if (file.Kind == FileKind.Video && Audio.MediaPlayer.Available) {
@@ -285,7 +299,8 @@ public sealed class SharedMediaView : StackPanel {
             var path = await controller.DownloadFile(file);
             if (path is null)
                 return;
-            var stored = await window.StorageProvider.TryGetFileFromPathAsync(path);
+            var stored =
+                await window.StorageProvider.TryGetFileFromPathAsync(path);
             if (stored is not null)
                 await window.Launcher.LaunchFileAsync(stored);
         } catch (Exception) {

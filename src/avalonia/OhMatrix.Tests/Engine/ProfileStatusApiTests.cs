@@ -7,7 +7,8 @@ using Xunit;
 namespace OhMatrix.Tests.Engine;
 
 public class ProfileStatusApiTests {
-    private sealed class Handler(Func<HttpMethod, (HttpStatusCode, string)> answer)
+    private sealed class Handler(
+        Func<HttpMethod, (HttpStatusCode, string)> answer)
         : HttpMessageHandler {
         public readonly List<string> Seen = [];
 
@@ -19,15 +20,18 @@ public class ProfileStatusApiTests {
             var body = request.Content is null
                 ? ""
                 : await request.Content.ReadAsStringAsync(cancellationToken);
-            Seen.Add($"{request.Method} {request.RequestUri!.AbsolutePath} {body}");
+            Seen.Add(
+                $"{request.Method} {request.RequestUri!.AbsolutePath} {body}");
             var (status, text) = answer(request.Method);
             return new HttpResponseMessage(status) {
-                Content = new StringContent(text, Encoding.UTF8, "application/json")
+                Content = new StringContent(text, Encoding.UTF8,
+                    "application/json")
             };
         }
     }
 
-    private static readonly Session Me = new("https://hs.example", "@me:hs", "D", "tok");
+    private static readonly Session Me = new("https://hs.example", "@me:hs",
+        "D", "tok");
 
     private static ProfileStatusApi Make(Handler h)
     {
@@ -40,7 +44,8 @@ public class ProfileStatusApiTests {
         var api = Make(new Handler(_ => (HttpStatusCode.OK,
             """{"displayname":"Me","com.ohmatrix.status":"Coding"}""")));
         Assert.Equal("Coding", await api.Read());
-        var none = Make(new Handler(_ => (HttpStatusCode.OK, """{"displayname":"Me"}""")));
+        var none = Make(new Handler(_ =>
+            (HttpStatusCode.OK, """{"displayname":"Me"}""")));
         Assert.Null(await none.Read());
     }
 
@@ -54,7 +59,8 @@ public class ProfileStatusApiTests {
         Assert.Equal(
             "PUT /_matrix/client/v3/profile/%40me%3Ahs/com.ohmatrix.status {\"com.ohmatrix.status\":\"Busy\"}",
             h.Seen[0]);
-        Assert.StartsWith("DELETE /_matrix/client/v3/profile/%40me%3Ahs/com.ohmatrix.status",
+        Assert.StartsWith(
+            "DELETE /_matrix/client/v3/profile/%40me%3Ahs/com.ohmatrix.status",
             h.Seen[1]);
     }
 
@@ -63,7 +69,8 @@ public class ProfileStatusApiTests {
     {
         var api = Make(new Handler(_ => (HttpStatusCode.BadRequest,
             """{"errcode":"M_UNRECOGNIZED","error":"x"}""")));
-        var e = await Assert.ThrowsAsync<EngineException>(() => api.Write("hi"));
+        var e = await Assert.ThrowsAsync<EngineException>(() =>
+            api.Write("hi"));
         Assert.Equal(EngineErrorCode.Unsupported, e.Code);
     }
 }

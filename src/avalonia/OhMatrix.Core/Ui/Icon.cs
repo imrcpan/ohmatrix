@@ -23,7 +23,8 @@ public sealed class Icon : Control {
 
     static Icon()
     {
-        AffectsRender<Icon>(GlyphProperty, SizeProperty, ColorProperty, StrokeWidthProperty);
+        AffectsRender<Icon>(GlyphProperty, SizeProperty, ColorProperty,
+            StrokeWidthProperty);
         AffectsMeasure<Icon>(SizeProperty);
     }
 
@@ -63,7 +64,8 @@ public sealed class Icon : Control {
             : solid ? 1.6
             : StrokeWidth ?? IconData.Weight.GetValueOrDefault(Glyph, 2);
         var pen = width > 0
-            ? new Pen(Color, width, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round)
+            ? new Pen(Color, width, lineCap: PenLineCap.Round,
+                lineJoin: PenLineJoin.Round)
             : null;
         var geometry = Geometry.Parse(data);
         var scale = Size / Grid;

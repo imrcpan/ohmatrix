@@ -38,7 +38,8 @@ public static partial class ErrorMapping {
     /// An answer of the homeserver is mapped by its Matrix error (<paramref name="kind"/> is the name of the variant, <paramref name="code"/> the
     /// <c>M_...</c> code); anything else that looks like a failure to reach it is <c>Network</c>; the rest is <c>Unknown</c>.
     /// </summary>
-    public static EngineErrorCode Map(string? kind, string? code, bool fromServer, string text)
+    public static EngineErrorCode Map(string? kind, string? code,
+        bool fromServer, string text)
     {
         if (kind is not null && ByKind.TryGetValue(kind, out var byKind))
             return byKind;

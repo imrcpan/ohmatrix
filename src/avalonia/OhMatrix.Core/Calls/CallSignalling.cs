@@ -15,7 +15,8 @@ public sealed partial class CallSignalling {
     /// <summary>How long an invitation lasts: after this the one called no longer rings, and the caller gives up.</summary>
     public static readonly TimeSpan InviteLifetime = TimeSpan.FromSeconds(60);
 
-    private static readonly TimeSpan CandidateBatch = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan CandidateBatch =
+        TimeSpan.FromMilliseconds(150);
 
     private sealed class Live {
         public required CallInfo Info { get; set; }
@@ -35,7 +36,8 @@ public sealed partial class CallSignalling {
     private readonly Action<CallInfo?> onChange;
     private Live? call;
 
-    public CallSignalling(ICallTransport transport, Func<string> me, Action<CallInfo?> onChange)
+    public CallSignalling(ICallTransport transport, Func<string> me,
+        Action<CallInfo?> onChange)
     {
         this.transport = transport;
         this.me = me;
@@ -91,7 +93,8 @@ public sealed partial class CallSignalling {
             }
 
             c.Outgoing.Add(cand);
-            c.StopBatch ??= transport.Later(() => FlushCandidates(c), CandidateBatch);
+            c.StopBatch ??=
+                transport.Later(() => FlushCandidates(c), CandidateBatch);
         };
         peer.Connection += state => {
             if (call != c || c.Info.Phase == CallPhase.Ended)
@@ -130,7 +133,8 @@ public sealed partial class CallSignalling {
         c.StopBatch?.Invoke();
         c.StopBatch = null;
         // Sent once the other side's session is known (an answer for a call I placed): until then they wait, so none is lost.
-        if (c.Outgoing.Count == 0 || (!c.Info.Incoming && c.RemoteParty is null))
+        if (c.Outgoing.Count == 0 ||
+            (!c.Info.Incoming && c.RemoteParty is null))
             return;
         var list = new JsonArray();
         foreach (var x in c.Outgoing) {
@@ -225,7 +229,8 @@ public sealed partial class CallSignalling {
     public async Task Answer(bool video)
     {
         var c = call;
-        if (c is null || !c.Info.Incoming || c.Info.Phase != CallPhase.Ringing || c.Offer is null)
+        if (c is null || !c.Info.Incoming ||
+            c.Info.Phase != CallPhase.Ringing || c.Offer is null)
             return;
         c.StopTimer?.Invoke();
         c.StopTimer = null;
@@ -340,16 +345,19 @@ public sealed partial class CallSignalling {
 
     private static bool CameraOnIn(JsonObject content)
     {
-        return content["org.matrix.msc3077.sdp_stream_metadata"] is JsonObject meta
-               && meta.Any(m => m.Value is JsonObject o && (string?)o["purpose"] == "m.usermedia"
-                                                        && o["video_muted"] is JsonValue v &&
-                                                        v.TryGetValue<bool>(out var muted) &&
-                                                        !muted);
+        return content["org.matrix.msc3077.sdp_stream_metadata"] is JsonObject
+                   meta
+               && meta.Any(m => m.Value is JsonObject o &&
+                                (string?)o["purpose"] == "m.usermedia"
+                                && o["video_muted"] is JsonValue v &&
+                                v.TryGetValue<bool>(out var muted) &&
+                                !muted);
     }
 
     private static SessionDescription? ReadDescription(JsonNode? node)
     {
-        if (node is JsonObject o && (string?)o["sdp"] is { } sdp && (string?)o["type"] is { } type)
+        if (node is JsonObject o && (string?)o["sdp"] is { } sdp &&
+            (string?)o["type"] is { } type)
             return new SessionDescription(type, sdp);
         return null;
     }
@@ -383,12 +391,13 @@ public sealed partial class CallSignalling {
                 call = null;
             if (call is not null && call.Info.CallId != callId) {
                 try {
-                    await transport.Send(e.RoomId, "m.call.reject", new JsonObject {
-                        ["call_id"] = callId,
-                        ["party_id"] = transport.NewId(),
-                        ["version"] = Version,
-                        ["reason"] = "user_busy",
-                    });
+                    await transport.Send(e.RoomId, "m.call.reject",
+                        new JsonObject {
+                            ["call_id"] = callId,
+                            ["party_id"] = transport.NewId(),
+                            ["version"] = Version,
+                            ["reason"] = "user_busy",
+                        });
                 } catch (Exception) {
                     // The caller learns by the timeout.
                 }
@@ -401,7 +410,8 @@ public sealed partial class CallSignalling {
                 return;
             if (ReadDescription(e.Content["offer"]) is not { } offer)
                 return;
-            var next = Make(e.RoomId, e.Sender, VideoLine().IsMatch(offer.Sdp), true, callId);
+            var next = Make(e.RoomId, e.Sender, VideoLine().IsMatch(offer.Sdp),
+                true, callId);
             next.Offer = offer;
             next.RemoteParty = (string?)e.Content["party_id"];
             call = next;
@@ -424,14 +434,17 @@ public sealed partial class CallSignalling {
             case "m.call.candidates":
                 if (mine)
                     return;
-                foreach (var node in e.Content["candidates"] as JsonArray ?? []) {
-                    if (node is not JsonObject o || (string?)o["candidate"] is not
+                foreach (var node in
+                         e.Content["candidates"] as JsonArray ?? []) {
+                    if (node is not JsonObject o ||
+                        (string?)o["candidate"] is not
                         { Length: > 0 } text)
                         continue;
                     var cand = new IceCandidate(
                         text,
                         (string?)o["sdpMid"],
-                        o["sdpMLineIndex"] is JsonValue iv && iv.TryGetValue<int>(out var index)
+                        o["sdpMLineIndex"] is JsonValue iv &&
+                        iv.TryGetValue<int>(out var index)
                             ? index
                             : null
                     );
@@ -458,7 +471,9 @@ public sealed partial class CallSignalling {
                 End(c, reason switch {
                     "user_busy" => EndReason.Busy,
                     "invite_timeout" => EndReason.Unanswered,
-                    _ when wasRinging => c.Info.Incoming ? EndReason.Cancelled : EndReason.Rejected,
+                    _ when wasRinging => c.Info.Incoming
+                        ? EndReason.Cancelled
+                        : EndReason.Rejected,
                     _ => EndReason.Hangup,
                 }, true);
                 break;
@@ -484,7 +499,8 @@ public sealed partial class CallSignalling {
         c.Info = c.Info with {
             Phase = CallPhase.Connecting
         };
-        if (ReadDescription(e.Content["answer"]) is not { } answer || c.Peer is null) {
+        if (ReadDescription(e.Content["answer"]) is not { } answer ||
+            c.Peer is null) {
             End(c, EndReason.Failed, true);
             return;
         }

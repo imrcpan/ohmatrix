@@ -31,7 +31,8 @@ public sealed class ZoomPicker {
         Interval = TimeSpan.FromMilliseconds(250)
     };
 
-    public ZoomPicker(AppController controller, Control host, bool up, TimeProvider? time = null)
+    public ZoomPicker(AppController controller, Control host, bool up,
+        TimeProvider? time = null)
     {
         this.controller = controller;
         this.host = host;
@@ -89,8 +90,10 @@ public sealed class ZoomPicker {
             return;
         }
 
-        var left = Math.Max(0, (int)Math.Ceiling((trial.Until - time.GetUtcNow()).TotalSeconds));
-        var message = T("zoom.confirm.body", ("n", left.ToString()), ("from", Percent(trial.From)));
+        var left = Math.Max(0,
+            (int)Math.Ceiling((trial.Until - time.GetUtcNow()).TotalSeconds));
+        var message = T("zoom.confirm.body", ("n", left.ToString()),
+            ("from", Percent(trial.From)));
         if (dialog.IsOpen) {
             dialog.SetMessage(message);
             return;
@@ -100,7 +103,8 @@ public sealed class ZoomPicker {
             return;
         keep.Title = T("zoom.confirm.keep");
         revert.Title = T("zoom.confirm.revert");
-        dialog.Show(window, ThemeScope.GetColors(host), T("zoom.confirm.title"), message, keep,
+        dialog.Show(window, ThemeScope.GetColors(host), T("zoom.confirm.title"),
+            message, keep,
             revert);
         countdown.Start();
     }

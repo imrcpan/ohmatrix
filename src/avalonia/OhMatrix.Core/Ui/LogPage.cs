@@ -67,7 +67,8 @@ public sealed class LogPage : Grid {
             }, DispatcherPriority.Background);
         };
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<LogPage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<LogPage>((p, _) =>
+            p.Apply());
         Apply();
     }
 
@@ -118,6 +119,7 @@ public sealed class LogPage : Grid {
         }
 
         if (all.Count > 0)
-            Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(),
+                DispatcherPriority.Background);
     }
 }

@@ -21,7 +21,8 @@ public sealed class AppRoot : Border {
     private AuthStatus? shown;
     private Control? page;
 
-    public AppRoot(AppController controller, string defaultHomeserver, Func<bool?> systemDark)
+    public AppRoot(AppController controller, string defaultHomeserver,
+        Func<bool?> systemDark)
     {
         this.controller = controller;
         this.defaultHomeserver = defaultHomeserver;
@@ -33,11 +34,13 @@ public sealed class AppRoot : Border {
     }
 
     /// <summary>The root of an app with several accounts: it shows the one in use, and what is shown follows when another is.</summary>
-    public AppRoot(AccountManager accounts, string defaultHomeserver, Func<bool?> systemDark)
+    public AppRoot(AccountManager accounts, string defaultHomeserver,
+        Func<bool?> systemDark)
         : this(accounts.Current, defaultHomeserver, systemDark)
     {
         this.accounts = accounts;
-        accounts.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(Rebind);
+        accounts.Changed += () =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(Rebind);
     }
 
     private void Rebind()
@@ -74,7 +77,8 @@ public sealed class AppRoot : Border {
         ThemeScope.SetColors(this, colors);
         Background = new SolidColorBrush(colors.Bg);
         var scale = s.ZoomTrial?.To ?? s.Prefs.UiScale;
-        zoom.LayoutTransform = scale == 1 ? null : new ScaleTransform(scale, scale);
+        zoom.LayoutTransform =
+            scale == 1 ? null : new ScaleTransform(scale, scale);
         if (shown == s.Auth)
             return;
         shown = s.Auth;
@@ -87,10 +91,13 @@ public sealed class AppRoot : Border {
                 VerticalAlignment = VerticalAlignment.Center,
             },
             AuthStatus.SignedIn => new MainScreen(controller),
-            _ => page is LoginScreen ? page : new LoginScreen(controller, defaultHomeserver,
-                accounts is { Adding: true, Accounts.Count: > 0 }
-                    ? (OhMatrix.Core.I18n.Strings.T(s.Locale, "cancel"), accounts.CancelAdd)
-                    : null),
+            _ => page is LoginScreen
+                ? page
+                : new LoginScreen(controller, defaultHomeserver,
+                    accounts is { Adding: true, Accounts.Count: > 0 }
+                        ? (OhMatrix.Core.I18n.Strings.T(s.Locale, "cancel"),
+                            accounts.CancelAdd)
+                        : null),
         };
         host.Child = page is MainScreen ? WithShare(page) : page;
     }

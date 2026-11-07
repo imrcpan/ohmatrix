@@ -26,7 +26,8 @@ public sealed record VerifyFlow(
     IReadOnlyList<VerifyEmoji>? Emojis = null
 ) {
     /// <summary>It is over, one way or the other.</summary>
-    public bool Ended => Phase is VerifyPhase.Done or VerifyPhase.Cancelled or VerifyPhase.Failed;
+    public bool Ended => Phase is VerifyPhase.Done or VerifyPhase.Cancelled
+        or VerifyPhase.Failed;
 
     /// <summary>The flow after an event of the engine, as <c>flowAfter</c> of the TypeScript core: an ended flow stays until the screen forgets it.</summary>
     public static VerifyFlow? After(VerifyFlow? flow, VerifyFlow next)

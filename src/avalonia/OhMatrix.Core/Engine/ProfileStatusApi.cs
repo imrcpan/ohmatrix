@@ -8,7 +8,9 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Engine;
 
 /// <summary>My status line, kept in a custom field of the profile (<c>account.ts</c> of the Rust engine package); the same field the web app uses.</summary>
-public sealed class ProfileStatusApi(Func<Session?> session, HttpClient? http = null) {
+public sealed class ProfileStatusApi(
+    Func<Session?> session,
+    HttpClient? http = null) {
     /// <summary>The custom profile field the status line lives in.</summary>
     public const string Field = "com.ohmatrix.status";
 
@@ -28,10 +30,12 @@ public sealed class ProfileStatusApi(Func<Session?> session, HttpClient? http = 
     )
     {
         var request = new HttpRequestMessage(method, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", a.AccessToken);
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", a.AccessToken);
         if (body is not null)
             request.Content =
-                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+                new StringContent(body.ToJsonString(), Encoding.UTF8,
+                    "application/json");
         try {
             using var response = await web.SendAsync(request);
             var text = await response.Content.ReadAsStringAsync();
@@ -56,7 +60,8 @@ public sealed class ProfileStatusApi(Func<Session?> session, HttpClient? http = 
         try {
             var (status, body) = await Send(HttpMethod.Get, Url(a), a);
             return status == HttpStatusCode.OK && body[Field] is JsonValue v
-                                               && v.TryGetValue<string>(out var s) && s.Length > 0
+                                               && v.TryGetValue<string>(
+                                                   out var s) && s.Length > 0
                 ? s
                 : null;
         } catch (EngineException) {
@@ -68,7 +73,8 @@ public sealed class ProfileStatusApi(Func<Session?> session, HttpClient? http = 
     public async Task Write(string status)
     {
         var a = session() ??
-                throw new EngineException(EngineErrorCode.Unauthorized, "Not signed in.");
+                throw new EngineException(EngineErrorCode.Unauthorized,
+                    "Not signed in.");
         var text = status.Trim();
         var url = Url(a) + "/" + Field;
         var (code, body) = text.Length > 0
@@ -78,18 +84,22 @@ public sealed class ProfileStatusApi(Func<Session?> session, HttpClient? http = 
             : await Send(HttpMethod.Delete, url, a);
         if ((int)code is >= 200 and < 300)
             return;
-        var errcode = body["errcode"] is JsonValue e && e.TryGetValue<string>(out var ec)
+        var errcode = body["errcode"] is JsonValue e &&
+                      e.TryGetValue<string>(out var ec)
             ? ec
             : null;
         if (errcode == "M_UNRECOGNIZED" || code is HttpStatusCode.NotFound
                 or HttpStatusCode.MethodNotAllowed)
             throw new EngineException(EngineErrorCode.Unsupported,
                 "This server does not support profile status.");
-        var message = body["error"] is JsonValue m && m.TryGetValue<string>(out var ms)
+        var message = body["error"] is JsonValue m &&
+                      m.TryGetValue<string>(out var ms)
             ? ms
             : "Could not set the status.";
         throw new EngineException(
-            code == HttpStatusCode.Forbidden ? EngineErrorCode.Forbidden : EngineErrorCode.Unknown,
+            code == HttpStatusCode.Forbidden
+                ? EngineErrorCode.Forbidden
+                : EngineErrorCode.Unknown,
             message
         );
     }

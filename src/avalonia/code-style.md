@@ -53,7 +53,7 @@ violation in every configuration.
 Formatting is enforced by tools, not by review. `./format.sh` rewrites the files and `./format.sh --check` fails (exit 1) when
 any `.cs` file is not formatted. The rules are in `.editorconfig`.
 
-- Indent is 4 spaces. A line is at most 100 characters.
+- Indent is 4 spaces. A line is at most 80 characters.
 - A method's opening brace (constructors and local functions too) is on its own line. The opening brace of everything else is at the end of the
   line: `class`, `struct`, `record`, `interface`, `enum`, `if`, `else`, `for`, `while`, `try`, `catch`, `lambda`, initializers.
 - `else`, `catch` and `finally` follow the closing brace on the same line (`} else {`).

@@ -46,10 +46,15 @@ public sealed class Bubble : Border {
             ? new CornerRadius(r, stuckAbove ? t : r, stuckBelow ? t : r, r)
             : new CornerRadius(stuckAbove ? t : r, r, r, stuckBelow ? t : r);
         var mine = own && accent;
-        Background = new SolidColorBrush(mine ? colors.BubbleOut : colors.BubbleIn);
+        Background =
+            new SolidColorBrush(mine ? colors.BubbleOut : colors.BubbleIn);
         Padding = new Thickness(12, 7, 12, 6);
-        var fg = new SolidColorBrush(mine ? colors.BubbleOutText : colors.BubbleInText);
-        var meta = failed ? colors.Danger : mine ? colors.BubbleOutMeta : colors.TextSecondary;
+        var fg =
+            new SolidColorBrush(mine
+                ? colors.BubbleOutText
+                : colors.BubbleInText);
+        var meta = failed ? colors.Danger :
+            mine ? colors.BubbleOutMeta : colors.TextSecondary;
 
         var metaText = (editedLabel is null ? "" : editedLabel + " ") + time;
         // The room the time and the state take on the last line of the text, so that the text wraps before it, as in the React Native bubble.
@@ -66,7 +71,8 @@ public sealed class Bubble : Border {
         var runs = formatted is null
             ? RichText.PlainRuns(text)
             : RichText.ParseFormatted(formatted);
-        var linkColor = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent);
+        var linkColor =
+            new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent);
         var mentionBack = new SolidColorBrush(colors.MentionBg);
         var spans = new List<(int Start, int End, TextRun Run)>();
         var revealed = false;
@@ -84,7 +90,9 @@ public sealed class Bubble : Border {
                 }
 
                 var shown = (run.Prefix ?? "")
-                            + (run.Spoiler && !revealed ? Hidden(run.Text) : run.Text);
+                            + (run.Spoiler && !revealed
+                                ? Hidden(run.Text)
+                                : run.Text);
                 if (shown.Length == 0)
                     continue;
                 var piece = new Run(shown);
@@ -95,9 +103,12 @@ public sealed class Bubble : Border {
                 if (run.Italic)
                     piece.FontStyle = FontStyle.Italic;
                 if (run.Code)
-                    piece.FontFamily = new FontFamily("Cascadia Mono, DejaVu Sans Mono, monospace");
+                    piece.FontFamily =
+                        new FontFamily(
+                            "Cascadia Mono, DejaVu Sans Mono, monospace");
                 var lines = new TextDecorationCollection();
-                if (run.Underline || (run.Href is not null && run.UserId is null))
+                if (run.Underline ||
+                    (run.Href is not null && run.UserId is null))
                     lines.Add(new TextDecoration {
                         Location = TextDecorationLocation.Underline
                     });
@@ -126,26 +137,31 @@ public sealed class Bubble : Border {
 
         Fill();
         var hasSpoiler = runs.Any(r => r.Spoiler);
-        body.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, (_, e) => {
-            if (e.InitialPressMouseButton != Avalonia.Input.MouseButton.Left)
-                return;
-            if (body.SelectionStart != body.SelectionEnd)
-                return;
-            var index = body.TextLayout.HitTestPoint(e.GetPosition(body)).TextPosition;
-            foreach (var (start, end, run) in spans) {
-                if (index < start || index >= end)
-                    continue;
-                if (run.Spoiler && !revealed) {
-                    revealed = true;
-                    Fill();
-                } else if (run.Href is { } href)
-                    (openLink ?? (h => OpenInBrowser(body, h)))(href);
+        body.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent,
+            (_, e) => {
+                if (e.InitialPressMouseButton !=
+                    Avalonia.Input.MouseButton.Left)
+                    return;
+                if (body.SelectionStart != body.SelectionEnd)
+                    return;
+                var index = body.TextLayout.HitTestPoint(e.GetPosition(body))
+                    .TextPosition;
+                foreach (var (start, end, run) in spans) {
+                    if (index < start || index >= end)
+                        continue;
+                    if (run.Spoiler && !revealed) {
+                        revealed = true;
+                        Fill();
+                    } else if (run.Href is { } href)
+                        (openLink ?? (h => OpenInBrowser(body, h)))(href);
 
-                break;
-            }
-        }, handledEventsToo: true);
+                    break;
+                }
+            }, handledEventsToo: true);
         if (hasSpoiler)
-            body.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            body.Cursor =
+                new Avalonia.Input.Cursor(
+                    Avalonia.Input.StandardCursorType.Hand);
 
         var stack = new StackPanel();
         if (senderName is not null && !own) {
@@ -154,7 +170,9 @@ public sealed class Bubble : Border {
                 FontSize = 14,
                 FontWeight = FontWeight.SemiBold,
                 FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(Avatar.PeerColor(senderId ?? senderName)),
+                Foreground =
+                    new SolidColorBrush(
+                        Avatar.PeerColor(senderId ?? senderName)),
                 Margin = new Thickness(0, 0, 0, 2),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
@@ -169,7 +187,10 @@ public sealed class Bubble : Border {
             var bar = new Border {
                 Width = 2,
                 CornerRadius = new CornerRadius(1),
-                Background = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
+                Background =
+                    new SolidColorBrush(mine
+                        ? colors.BubbleOutText
+                        : colors.Accent),
                 Margin = new Thickness(0, 0, 8, 0),
             };
             var lines = new StackPanel();
@@ -179,7 +200,10 @@ public sealed class Bubble : Border {
                     FontSize = 14,
                     FontWeight = FontWeight.SemiBold,
                     FontFamily = Fonts.System,
-                    Foreground = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
+                    Foreground =
+                        new SolidColorBrush(mine
+                            ? colors.BubbleOutText
+                            : colors.Accent),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                 });
             }
@@ -189,7 +213,9 @@ public sealed class Bubble : Border {
                 FontSize = 14,
                 FontFamily = Fonts.System,
                 Foreground =
-                    new SolidColorBrush(mine ? colors.BubbleOutMeta : colors.TextSecondary),
+                    new SolidColorBrush(mine
+                        ? colors.BubbleOutMeta
+                        : colors.TextSecondary),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxLines = 2,
             });
@@ -208,9 +234,12 @@ public sealed class Bubble : Border {
             };
             pictures?.Attach(picture, image.Source, w, h);
             if (openImage is not null) {
-                picture.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                picture.Cursor =
+                    new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType
+                        .Hand);
                 picture.PointerPressed += (_, e) => {
-                    if (e.GetCurrentPoint(picture).Properties.IsLeftButtonPressed) {
+                    if (e.GetCurrentPoint(picture).Properties
+                        .IsLeftButtonPressed) {
                         e.Handled = true;
                         openImage(picture);
                     }
@@ -223,17 +252,21 @@ public sealed class Bubble : Border {
                 CornerRadius = new CornerRadius(Math.Max(0, r - 6)),
                 ClipToBounds = true,
                 Background =
-                    new SolidColorBrush(ThemeColor.Mix(colors.BubbleIn, colors.Separator, 0.5)),
+                    new SolidColorBrush(ThemeColor.Mix(colors.BubbleIn,
+                        colors.Separator, 0.5)),
                 Margin = new Thickness(-6, -3, -6, hasText ? 4 : 14),
                 Child = picture,
             });
-            Avalonia.Automation.AutomationProperties.SetName(picture, image.FileName);
+            Avalonia.Automation.AutomationProperties.SetName(picture,
+                image.FileName);
         }
 
-        if (file is { Kind: Model.FileKind.Audio } clip && fetch is not null && openFile is not null
+        if (file is { Kind: Model.FileKind.Audio } clip && fetch is not null &&
+            openFile is not null
             && clip.Source.Length > 0) {
             // An audio message plays in the card itself.
-            var audio = new AudioCard(clip, colors, mine, fg, meta, fetch, () => openFile(clip));
+            var audio = new AudioCard(clip, colors, mine, fg, meta, fetch,
+                () => openFile(clip));
             audio.Margin = new Thickness(0, 2, 0, hasText ? 4 : 14);
             stack.Children.Add(audio);
         } else if (file is not null) {
@@ -247,7 +280,10 @@ public sealed class Bubble : Border {
                 Width = 40,
                 Height = 40,
                 CornerRadius = new CornerRadius(20),
-                Background = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent),
+                Background =
+                    new SolidColorBrush(mine
+                        ? colors.BubbleOutText
+                        : colors.Accent),
                 Margin = new Thickness(0, 0, 12, 0),
                 Child = new Icon {
                     Glyph = file.Kind switch {
@@ -256,7 +292,9 @@ public sealed class Bubble : Border {
                         _ => "file",
                     },
                     Size = 22,
-                    Color = new SolidColorBrush(mine ? colors.BubbleOut : colors.OnAccent),
+                    Color = new SolidColorBrush(mine
+                        ? colors.BubbleOut
+                        : colors.OnAccent),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 },
@@ -274,7 +312,8 @@ public sealed class Bubble : Border {
             });
             var size = Format.Bytes(file.Size);
             if (file.Duration is { } length)
-                size = (size.Length > 0 ? size + " · " : "") + Format.Duration(length);
+                size = (size.Length > 0 ? size + " · " : "") +
+                       Format.Duration(length);
             if (size.Length > 0) {
                 words.Children.Add(new TextBlock {
                     Text = size,
@@ -289,7 +328,9 @@ public sealed class Bubble : Border {
             card.Children.Add(words);
             if (openFile is not null && file.Source.Length > 0) {
                 card.Background = Brushes.Transparent;
-                card.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                card.Cursor =
+                    new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType
+                        .Hand);
                 card.PointerPressed += (_, e) => {
                     e.Handled = true;
                     openFile(file);
@@ -302,12 +343,15 @@ public sealed class Bubble : Border {
         if (hasText)
             stack.Children.Add(body);
         if (preview is not null && hasText
-                                && runs.FirstOrDefault(r => r.Href is { } h && r.UserId is null
-                                        && (h.StartsWith("http://") || h.StartsWith("https://")))
+                                && runs.FirstOrDefault(r => r.Href is { } h &&
+                                        r.UserId is null
+                                        && (h.StartsWith("http://") ||
+                                            h.StartsWith("https://")))
                                     ?.Href is { } link) {
             var slot = new Border();
             stack.Children.Add(slot);
-            _ = FillPreview(slot, link, preview, colors, mine, pictures, openLink);
+            _ = FillPreview(slot, link, preview, colors, mine, pictures,
+                openLink);
         }
 
         var metaRow = new StackPanel {
@@ -327,7 +371,9 @@ public sealed class Bubble : Border {
         if (own) {
             var seen = read && !failed && !sending;
             var mark = new Icon {
-                Glyph = failed ? "alert" : sending ? "clock" : seen ? "checks" : "check",
+                Glyph = failed ? "alert" :
+                    sending ? "clock" :
+                    seen ? "checks" : "check",
                 Size = seen ? 20 : 18,
                 StrokeWidth = 2,
                 Color = new SolidColorBrush(seen
@@ -336,7 +382,8 @@ public sealed class Bubble : Border {
                 VerticalAlignment = VerticalAlignment.Center,
             };
             if (seen && readLabel is not null)
-                Avalonia.Automation.AutomationProperties.SetName(mark, readLabel);
+                Avalonia.Automation.AutomationProperties.SetName(mark,
+                    readLabel);
             metaRow.Children.Add(mark);
         }
 
@@ -379,7 +426,8 @@ public sealed class Bubble : Border {
         var host = Uri.TryCreate(link, UriKind.Absolute, out var uri)
             ? uri.Host.Replace("www.", "")
             : link;
-        var wide = found.ImageWidth is { } w && found.ImageHeight is { } h && w >= h * 1.6;
+        var wide = found.ImageWidth is { } w && found.ImageHeight is { } h &&
+                   w >= h * 1.6;
         var words = new StackPanel {
             Margin = new Thickness(wide ? 10 : 10, 8, 10, 8),
             VerticalAlignment = VerticalAlignment.Center,
@@ -439,7 +487,8 @@ public sealed class Bubble : Border {
                 card.Children.Add(row);
             }
 
-            pictures.Attach(picture, found.Image, wide ? 560 : 112, wide ? 280 : 112);
+            pictures.Attach(picture, found.Image, wide ? 560 : 112,
+                wide ? 280 : 112);
         } else
             card.Children.Add(words);
 
@@ -447,8 +496,11 @@ public sealed class Bubble : Border {
         slot.CornerRadius = new CornerRadius(10);
         slot.ClipToBounds = true;
         slot.Background =
-            new SolidColorBrush(mine ? Color.FromArgb(36, 255, 255, 255) : colors.BgSecondary);
-        slot.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            new SolidColorBrush(mine
+                ? Color.FromArgb(36, 255, 255, 255)
+                : colors.BgSecondary);
+        slot.Cursor =
+            new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
         slot.MinWidth = 220;
         slot.Child = card;
         slot.PointerPressed += (_, e) => {

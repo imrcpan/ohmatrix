@@ -10,12 +10,14 @@ internal sealed class UnavailableEngine : IAuthEngine {
         "This build has no Matrix SDK (run src/rust/build-native.sh)."
     );
 
-    public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+    public Task<Session> LoginWithPassword(string homeserver, string username,
+        string password)
     {
         return Task.FromException<Session>(Missing);
     }
 
-    public Task<Session> Register(string homeserver, string username, string password,
+    public Task<Session> Register(string homeserver, string username,
+        string password,
         string? token)
     {
         return Task.FromException<Session>(Missing);

@@ -20,7 +20,8 @@ public abstract class PressableButton : Border {
     {
         Cursor = new Cursor(StandardCursorType.Hand);
         Focusable = true;
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<PressableButton>((b, _) => b.Refresh());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<PressableButton>((b,
+            _) => b.Refresh());
     }
 
     public event EventHandler? Click;
@@ -48,7 +49,8 @@ public abstract class PressableButton : Border {
 
     protected abstract void Refresh();
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Refresh();
@@ -139,7 +141,8 @@ public sealed class PrimaryButton : PressableButton {
         var c = Colors;
         var grey = Disabled && !Loading;
         Background = new SolidColorBrush(grey ? c.Separator : c.Accent);
-        label.Foreground = new SolidColorBrush(grey ? c.TextSecondary : c.OnAccent);
+        label.Foreground =
+            new SolidColorBrush(grey ? c.TextSecondary : c.OnAccent);
         label.IsVisible = !Loading;
         spinner.IsVisible = Loading;
         spinner.Color = new SolidColorBrush(c.OnAccent);

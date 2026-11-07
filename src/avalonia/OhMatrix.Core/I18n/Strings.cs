@@ -12,7 +12,8 @@ public static class Strings {
 
     private static readonly Lock Gate = new();
 
-    private static readonly Dictionary<string, IReadOnlyDictionary<string, string>>
+    private static readonly
+        Dictionary<string, IReadOnlyDictionary<string, string>>
         Catalogs = new();
 
     private static IReadOnlyList<Language>? languages;
@@ -47,7 +48,8 @@ public static class Strings {
         var parts = (tag ?? "").ToLowerInvariant().Replace('_', '-').Split('-');
         var language = parts[0];
         if (language == "zh") {
-            var traditional = parts.Contains("hant") || parts.Any(p => p is "tw" or "hk" or "mo");
+            var traditional = parts.Contains("hant") ||
+                              parts.Any(p => p is "tw" or "hk" or "mo");
             return traditional ? "zh-TW" : "zh-CN";
         }
 
@@ -58,7 +60,8 @@ public static class Strings {
     }
 
     /// <summary>Translates <paramref name="key"/>; <c>{name}</c> in the text is replaced by the value of the same name.</summary>
-    public static string T(string locale, string key, params (string Name, object Value)[] values)
+    public static string T(string locale, string key,
+        params (string Name, object Value)[] values)
     {
         var text = Catalog(locale)?.GetValueOrDefault(key) ??
                    Catalog(Fallback)?.GetValueOrDefault(key) ?? key;
@@ -71,7 +74,8 @@ public static class Strings {
         return Catalog(Fallback)!.Keys.ToList();
     }
 
-    private static string Fill(string text, (string Name, object Value)[] values)
+    private static string Fill(string text,
+        (string Name, object Value)[] values)
     {
         var sb = new System.Text.StringBuilder(text.Length + 16);
         var i = 0;
@@ -79,11 +83,13 @@ public static class Strings {
             var open = text[i];
             if (open == '{') {
                 var close = text.IndexOf('}', i + 1);
-                if (close > i + 1 && IsName(text.AsSpan(i + 1, close - i - 1))) {
+                if (close > i + 1 &&
+                    IsName(text.AsSpan(i + 1, close - i - 1))) {
                     var name = text.Substring(i + 1, close - i - 1);
                     foreach (var (n, v) in values) {
                         if (n == name)
-                            sb.Append(Convert.ToString(v, CultureInfo.InvariantCulture));
+                            sb.Append(Convert.ToString(v,
+                                CultureInfo.InvariantCulture));
                     }
 
                     i = close + 1;
@@ -134,9 +140,10 @@ public static class Strings {
 
     private static string Read(string name)
     {
-        using var stream = typeof(Strings).Assembly.GetManifestResourceStream(name)
-                           ?? throw new InvalidOperationException(
-                               $"the resource {name} is missing");
+        using var stream =
+            typeof(Strings).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException(
+                $"the resource {name} is missing");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }

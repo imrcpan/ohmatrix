@@ -10,12 +10,16 @@ internal static class GstDevices {
             return names;
         var monitor = LibGst.gst_device_monitor_new();
         try {
-            LibGst.gst_device_monitor_add_filter(monitor, LibGst.Utf8(deviceClass), IntPtr.Zero);
+            LibGst.gst_device_monitor_add_filter(monitor,
+                LibGst.Utf8(deviceClass), IntPtr.Zero);
             var list = LibGst.gst_device_monitor_get_devices(monitor);
-            for (var node = list; node != IntPtr.Zero; node = *(IntPtr*)((byte*)node + 8)) {
+            for (var node = list;
+                 node != IntPtr.Zero;
+                 node = *(IntPtr*)((byte*)node + 8)) {
                 var device = *(IntPtr*)node;
                 var raw = LibGst.gst_device_get_display_name(device);
-                if (LibGst.Text(raw) is { Length: > 0 } name && !names.Contains(name))
+                if (LibGst.Text(raw) is { Length: > 0 } name &&
+                    !names.Contains(name))
                     names.Add(name);
                 LibGst.g_free(raw);
                 LibGst.g_object_unref(device);
@@ -30,14 +34,18 @@ internal static class GstDevices {
     }
 
     /// <summary>A source element for the device of that name, or zero when it is gone.</summary>
-    public static unsafe IntPtr CreateSource(string deviceClass, string wanted, string elementName)
+    public static unsafe IntPtr CreateSource(string deviceClass, string wanted,
+        string elementName)
     {
         var result = IntPtr.Zero;
         var monitor = LibGst.gst_device_monitor_new();
         try {
-            LibGst.gst_device_monitor_add_filter(monitor, LibGst.Utf8(deviceClass), IntPtr.Zero);
+            LibGst.gst_device_monitor_add_filter(monitor,
+                LibGst.Utf8(deviceClass), IntPtr.Zero);
             var list = LibGst.gst_device_monitor_get_devices(monitor);
-            for (var node = list; node != IntPtr.Zero; node = *(IntPtr*)((byte*)node + 8)) {
+            for (var node = list;
+                 node != IntPtr.Zero;
+                 node = *(IntPtr*)((byte*)node + 8)) {
                 var device = *(IntPtr*)node;
                 var raw = LibGst.gst_device_get_display_name(device);
                 var match = LibGst.Text(raw) == wanted;
@@ -45,7 +53,9 @@ internal static class GstDevices {
                 if (match && result == IntPtr.Zero) {
                     var bytes = LibGst.Utf8(elementName);
                     fixed (byte* name = bytes)
-                        result = LibGst.gst_device_create_element(device, (IntPtr)name);
+                        result =
+                            LibGst.gst_device_create_element(device,
+                                (IntPtr)name);
                 }
 
                 LibGst.g_object_unref(device);

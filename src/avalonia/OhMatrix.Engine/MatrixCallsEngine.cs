@@ -32,7 +32,8 @@ public sealed class MatrixCallsEngine(MatrixAuthEngine auth) : ICallsEngine {
         return Task.CompletedTask;
     }
 
-    public async Task SendCallEvent(string roomId, string type, JsonObject content)
+    public async Task SendCallEvent(string roomId, string type,
+        JsonObject content)
     {
         var client = auth.Client ?? throw new EngineException(
             EngineErrorCode.Unauthorized,
@@ -55,7 +56,8 @@ public sealed class MatrixCallsEngine(MatrixAuthEngine auth) : ICallsEngine {
     }
 
     // The SDK calls from its own threads; a failure inside must not travel back into Rust.
-    private sealed class Listener(MatrixCallsEngine engine) : CallEventListener {
+    private sealed class Listener(MatrixCallsEngine engine)
+        : CallEventListener {
         public void OnCallEvent(
             string roomId,
             string eventType,
@@ -67,7 +69,8 @@ public sealed class MatrixCallsEngine(MatrixAuthEngine auth) : ICallsEngine {
         {
             try {
                 if (JsonNode.Parse(contentJson) is JsonObject content)
-                    engine.CallEvent?.Invoke(new Core.Calls.CallEvent(roomId, eventType, sender,
+                    engine.CallEvent?.Invoke(new Core.Calls.CallEvent(roomId,
+                        eventType, sender,
                         eventId, (long)ageMs, content));
             } catch (Exception) {
                 // An event that cannot be read is not one of a call.

@@ -15,12 +15,15 @@ public class RoomListTests {
         public event Action<IReadOnlyList<RoomSummary>>? RoomsChanged;
         public event Action<SyncState>? SyncChanged;
 
-        public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
         {
-            return Task.FromResult(new Session(homeserver, "@" + username + ":s", "D", "T"));
+            return Task.FromResult(new Session(homeserver,
+                "@" + username + ":s", "D", "T"));
         }
 
-        public Task<Session> Register(string homeserver, string username, string password,
+        public Task<Session> Register(string homeserver, string username,
+            string password,
             string? token)
         {
             return LoginWithPassword(homeserver, username, password);
@@ -41,7 +44,8 @@ public class RoomListTests {
             return Task.FromResult("!joined");
         }
 
-        public Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite)
+        public Task<string> CreateRoom(string? name, bool direct,
+            IReadOnlyList<string> invite)
         {
             return Task.FromResult("!made");
         }
@@ -53,9 +57,12 @@ public class RoomListTests {
             return Task.FromResult(new RoomDetails(
                 "We plan the demo here.",
                 [
-                    new RoomMemberInfo("@me:s", "Mia Example", null, MemberRole.Admin),
-                    new RoomMemberInfo("@alice:s", "Alice", null, MemberRole.Moderator),
-                    new RoomMemberInfo("@bob:s", "Bob", null, MemberRole.Member),
+                    new RoomMemberInfo("@me:s", "Mia Example", null,
+                        MemberRole.Admin),
+                    new RoomMemberInfo("@alice:s", "Alice", null,
+                        MemberRole.Moderator),
+                    new RoomMemberInfo("@bob:s", "Bob", null,
+                        MemberRole.Member),
                 ],
                 [],
                 JoinRule.Invite,
@@ -68,12 +75,24 @@ public class RoomListTests {
 
         public Task AcceptInvite(string roomId) => Log("accept " + roomId);
         public Task DeclineInvite(string roomId) => Log("decline " + roomId);
-        public Task SetPinned(string roomId, bool pinned) => Log($"pin {roomId} {pinned}");
-        public Task SetMuted(string roomId, bool muted) => Log($"mute {roomId} {muted}");
-        public Task SetMarkedUnread(string roomId, bool unread) => Log($"unread {roomId} {unread}");
+
+        public Task SetPinned(string roomId, bool pinned) =>
+            Log($"pin {roomId} {pinned}");
+
+        public Task SetMuted(string roomId, bool muted) =>
+            Log($"mute {roomId} {muted}");
+
+        public Task SetMarkedUnread(string roomId, bool unread) =>
+            Log($"unread {roomId} {unread}");
+
         public Task MarkRoomRead(string roomId) => Log("read " + roomId);
-        public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
-        public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
+
+        public Task SetRoomName(string roomId, string name) =>
+            Log($"name {roomId} {name}");
+
+        public Task SetRoomTopic(string roomId, string topic) =>
+            Log($"topic {roomId} {topic}");
+
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
         public Task BlockUser(string userId) => Log("block " + userId);
 
@@ -82,42 +101,55 @@ public class RoomListTests {
             Actions.Add("space " + spaceId);
             return Task.FromResult<IReadOnlyList<SpaceChild>>([
                 new SpaceChild("!d", "Alice", null, null, 2, false),
-                new SpaceChild("!out", "Not joined room", "Come in", null, 40, false),
+                new SpaceChild("!out", "Not joined room", "Come in", null, 40,
+                    false),
                 new SpaceChild("!sub", "Sub space", null, null, 5, true),
             ]);
         }
 
-        public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
+        public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter,
+            string? server)
         {
             Actions.Add($"explore {filter} {server}");
             IReadOnlyList<PublicRoom> all = [
-                new PublicRoom("!pub1:s", "Public Chat", "Talk about anything", "#pub:s", null,
+                new PublicRoom("!pub1:s", "Public Chat", "Talk about anything",
+                    "#pub:s", null,
                     1200),
                 new PublicRoom("!pub2:s", "Rust Fans", null, null, null, 1),
             ];
             return Task.FromResult<IReadOnlyList<PublicRoom>>(
-                [.. all.Where(r => r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))]);
+            [
+                .. all.Where(r =>
+                    r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            ]);
         }
 
-        public Task SetRoomAvatar(string roomId, string mimeType, byte[] data) =>
+        public Task SetRoomAvatar(string roomId, string mimeType,
+            byte[] data) =>
             Log($"avatar {roomId} {mimeType} {data.Length}");
 
-        public Task SetMemberRole(string roomId, string userId, MemberRole role) =>
+        public Task SetMemberRole(string roomId, string userId,
+            MemberRole role) =>
             Log($"role {roomId} {userId} {role}");
 
-        public Task RemoveMember(string roomId, string userId) => Log($"remove {roomId} {userId}");
+        public Task RemoveMember(string roomId, string userId) =>
+            Log($"remove {roomId} {userId}");
 
         public Task BanMember(string roomId, string userId, string? reason) =>
             Log($"ban {roomId} {userId} {reason}");
 
-        public Task SetJoinRule(string roomId, JoinRule rule) => Log($"joinRule {roomId} {rule}");
+        public Task SetJoinRule(string roomId, JoinRule rule) =>
+            Log($"joinRule {roomId} {rule}");
 
-        public Task SetHistoryVisibility(string roomId, HistoryVisibility visibility) =>
+        public Task SetHistoryVisibility(string roomId,
+            HistoryVisibility visibility) =>
             Log($"history {roomId} {visibility}");
 
-        public Task<bool> IsAliasAvailable(string alias) => Task.FromResult(true);
+        public Task<bool> IsAliasAvailable(string alias) =>
+            Task.FromResult(true);
 
-        public Task AddRoomAlias(string roomId, string alias) => Log($"addAlias {roomId} {alias}");
+        public Task AddRoomAlias(string roomId, string alias) =>
+            Log($"addAlias {roomId} {alias}");
 
         public Task RemoveRoomAlias(string roomId, string alias) =>
             Log($"removeAlias {roomId} {alias}");
@@ -125,19 +157,25 @@ public class RoomListTests {
         public Task SetMainAlias(string roomId, string? alias) =>
             Log($"mainAlias {roomId} {alias}");
 
-        public Task SetPowerThresholds(string roomId, PowerThresholds thresholds) =>
+        public Task SetPowerThresholds(string roomId,
+            PowerThresholds thresholds) =>
             Log($"thresholds {roomId}");
 
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {
             IReadOnlyList<PersonInfo> all = [
-                new PersonInfo("@ann:s", "Ann Lee", null), new PersonInfo("@anna:s", "Anna K", null)
+                new PersonInfo("@ann:s", "Ann Lee", null),
+                new PersonInfo("@anna:s", "Anna K", null)
             ];
             return Task.FromResult<IReadOnlyList<PersonInfo>>(
-                [.. all.Where(p => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))]);
+            [
+                .. all.Where(p =>
+                    p.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+            ]);
         }
 
-        public Task InviteToRoom(string roomId, IReadOnlyList<string> userIds) =>
+        public Task InviteToRoom(string roomId,
+            IReadOnlyList<string> userIds) =>
             Log($"invite {roomId} {string.Join(",", userIds)}");
 
         private Task Log(string action)
@@ -180,8 +218,9 @@ public class RoomListTests {
         }
     }
 
-    private static readonly long Now = new DateTimeOffset(2026, 11, 7, 12, 0, 0, TimeSpan.Zero)
-        .ToUnixTimeMilliseconds();
+    private static readonly long Now =
+        new DateTimeOffset(2026, 11, 7, 12, 0, 0, TimeSpan.Zero)
+            .ToUnixTimeMilliseconds();
 
     private static RoomSummary[] Rooms()
     {
@@ -226,11 +265,13 @@ public class RoomListTests {
         ];
     }
 
-    private static (Window Window, AppController Controller, Engine Engine, MainScreen Screen) Open(
-        string theme, double width)
+    private static (Window Window, AppController Controller, Engine Engine,
+        MainScreen Screen) Open(
+            string theme, double width)
     {
         var engine = new Engine();
-        var controller = new AppController(engine, new NoSessions(), null, null, engine);
+        var controller =
+            new AppController(engine, new NoSessions(), null, null, engine);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -254,7 +295,8 @@ public class RoomListTests {
         window.UpdateLayout();
         var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
-        frame.Save(path.Replace(".png", $"-{name}.png"), new PngBitmapEncoderOptions());
+        frame.Save(path.Replace(".png", $"-{name}.png"),
+            new PngBitmapEncoderOptions());
     }
 
     private static async Task SignedIn(AppController controller, Engine engine)
@@ -269,7 +311,8 @@ public class RoomListTests {
     {
         var (window, controller, engine, screen) = Open("light", 1000);
         await SignedIn(controller, engine);
-        var ids = screen.List.Rows.Children.Cast<RoomRow>().Select(r => r.RoomId).ToArray();
+        var ids = screen.List.Rows.Children.Cast<RoomRow>()
+            .Select(r => r.RoomId).ToArray();
         Assert.Equal(["!c", "!a", "!b", "!d", "!e"], ids);
         Save(window, "light");
     }
@@ -280,7 +323,8 @@ public class RoomListTests {
         var (window, controller, engine, screen) = Open("dark", 1000);
         await controller.Login("matrix.org", "me", "pw");
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-        Assert.Equal(12, screen.List.Rows.Children.OfType<RoomRowSkeleton>().Count());
+        Assert.Equal(12,
+            screen.List.Rows.Children.OfType<RoomRowSkeleton>().Count());
         Save(window, "skeleton");
         engine.Push(Rooms());
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -307,12 +351,14 @@ public class RoomListTests {
     [Xunit.InlineData(900, 1280, 520)]
     [Xunit.InlineData(900, 800, 400)]
     [Xunit.InlineData(400, 1280, 400)]
-    public void The_sidebar_width_is_kept_between_the_strip_and_the_most(double width,
+    public void The_sidebar_width_is_kept_between_the_strip_and_the_most(
+        double width,
         double window,
         double expected)
     {
         Xunit.Assert.Equal(expected, Layout.ClampSidebar(width, window));
-        Xunit.Assert.Equal(Layout.ClampSidebar(Math.Round(window * 0.3), window),
+        Xunit.Assert.Equal(
+            Layout.ClampSidebar(Math.Round(window * 0.3), window),
             Layout.AutoSidebar(window));
     }
 
@@ -345,10 +391,12 @@ public class RoomListTests {
     {
         var (window, controller, engine, screen) = Open("dark", 1000);
         await SignedIn(controller, engine);
-        var row = screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!a");
+        var row = screen.List.Rows.Children.Cast<RoomRow>()
+            .First(r => r.RoomId == "!a");
         row.RaiseClick();
         Assert.Equal("!a", controller.Store.Value.SelectedRoomId);
-        Assert.True(screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!a")
+        Assert.True(screen.List.Rows.Children.Cast<RoomRow>()
+            .First(r => r.RoomId == "!a")
             .Selected);
         Save(window, "dark");
     }
@@ -358,10 +406,12 @@ public class RoomListTests {
     {
         var (window, controller, engine, screen) = Open("light", 1000);
         await SignedIn(controller, engine);
-        screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!e").RaiseClick();
+        screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!e")
+            .RaiseClick();
         Assert.Null(controller.Store.Value.SelectedRoomId);
         screen.List.Search.Text = "team";
-        Assert.Equal(["!b"], screen.List.Rows.Children.Cast<RoomRow>().Select(r => r.RoomId));
+        Assert.Equal(["!b"],
+            screen.List.Rows.Children.Cast<RoomRow>().Select(r => r.RoomId));
         Save(window, "search");
     }
 
@@ -370,7 +420,8 @@ public class RoomListTests {
     {
         var (window, controller, engine, screen) = Open("light", 1000);
         await SignedIn(controller, engine);
-        var row = screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!e");
+        var row = screen.List.Rows.Children.Cast<RoomRow>()
+            .First(r => r.RoomId == "!e");
         Assert.NotNull(row.Invite);
         Assert.Equal("Accept", row.Invite!.Value.Accept);
         Save(window, "invite");
@@ -388,14 +439,16 @@ public class RoomListTests {
         var (window, controller, engine, screen) = Open("light", 1000);
         await SignedIn(controller, engine);
         var room = controller.Store.Value.Rooms.First(r => r.Id == "!a");
-        var row = screen.List.Rows.Children.Cast<RoomRow>().First(r => r.RoomId == "!a");
+        var row = screen.List.Rows.Children.Cast<RoomRow>()
+            .First(r => r.RoomId == "!a");
         screen.List.OpenRowMenu(row, room);
         Assert.Equal(3, screen.List.RowMenu.Rows.Count);
         Save(window, "row-menu");
         await controller.SetPinned("!a", true);
         await controller.SetRoomMuted("!a", true);
         await controller.MarkRoomRead("!a");
-        Assert.Equal(["pin !a True", "mute !a True", "read !a"], engine.Actions);
+        Assert.Equal(["pin !a True", "mute !a True", "read !a"],
+            engine.Actions);
     }
 
     [AvaloniaFact]
@@ -422,14 +475,16 @@ public class RoomListTests {
         Assert.Equal("Bob: ship it", RoomListPane.PreviewOf(rooms[1], T));
         Assert.Equal("You: ok", RoomListPane.PreviewOf(rooms[2], T));
         Assert.Equal("No messages yet", RoomListPane.PreviewOf(rooms[3], T));
-        Assert.Equal("Invitation from Carol", RoomListPane.PreviewOf(rooms[4], T));
+        Assert.Equal("Invitation from Carol",
+            RoomListPane.PreviewOf(rooms[4], T));
     }
 
     [Theory]
     [InlineData(0L, "")]
     public void List_time_is_empty_without_activity(long ts, string expected)
     {
-        Assert.Equal(expected, Format.ListTime(ts, DateTimeOffset.UtcNow, "en"));
+        Assert.Equal(expected,
+            Format.ListTime(ts, DateTimeOffset.UtcNow, "en"));
     }
 
     [Fact]
@@ -438,9 +493,12 @@ public class RoomListTests {
         var now = DateTimeOffset.FromUnixTimeMilliseconds(Now);
         var utc = TimeZoneInfo.Utc;
         Assert.Equal("11:00", Format.ListTime(Now - 3600_000, now, "en", utc));
-        Assert.Equal("Thu", Format.ListTime(Now - 2 * 86400_000L, now, "en", utc));
+        Assert.Equal("Thu",
+            Format.ListTime(Now - 2 * 86400_000L, now, "en", utc));
         Assert.Equal("26/9/28",
-            Format.ListTime(Now - 40 * 86400_000L, now, "en", utc).Length > 0 ? "26/9/28" : "");
+            Format.ListTime(Now - 40 * 86400_000L, now, "en", utc).Length > 0
+                ? "26/9/28"
+                : "");
     }
 
     [Fact]
@@ -450,29 +508,41 @@ public class RoomListTests {
         long Ago(long ms) => now.ToUnixTimeMilliseconds() - ms;
         Assert.Equal("now", Format.Relative(Ago(5_000), now, "en"));
         Assert.Equal("1 minute ago", Format.Relative(Ago(60_000), now, "en"));
-        Assert.Equal("5 minutes ago", Format.Relative(Ago(5 * 60_000), now, "en"));
-        Assert.Equal("2 hours ago", Format.Relative(Ago(2 * 3_600_000L), now, "en"));
-        Assert.Equal("yesterday", Format.Relative(Ago(30 * 3_600_000L), now, "en"));
-        Assert.Equal("3天前", Format.Relative(Ago(3 * 86_400_000L), now, "zh-CN"));
-        Assert.Equal("vor 1 Stunde", Format.Relative(Ago(3_600_000), now, "de"));
-        Assert.Equal("5 минут назад", Format.Relative(Ago(5 * 60_000), now, "ru"));
-        Assert.Equal("2 минуты назад", Format.Relative(Ago(2 * 60_000), now, "ru"));
-        Assert.Equal("Oct 1, 2026", Format.Relative(Ago(37 * 86_400_000L), now, "en"));
+        Assert.Equal("5 minutes ago",
+            Format.Relative(Ago(5 * 60_000), now, "en"));
+        Assert.Equal("2 hours ago",
+            Format.Relative(Ago(2 * 3_600_000L), now, "en"));
+        Assert.Equal("yesterday",
+            Format.Relative(Ago(30 * 3_600_000L), now, "en"));
+        Assert.Equal("3天前",
+            Format.Relative(Ago(3 * 86_400_000L), now, "zh-CN"));
+        Assert.Equal("vor 1 Stunde",
+            Format.Relative(Ago(3_600_000), now, "de"));
+        Assert.Equal("5 минут назад",
+            Format.Relative(Ago(5 * 60_000), now, "ru"));
+        Assert.Equal("2 минуты назад",
+            Format.Relative(Ago(2 * 60_000), now, "ru"));
+        Assert.Equal("Oct 1, 2026",
+            Format.Relative(Ago(37 * 86_400_000L), now, "en"));
     }
 
     [Fact]
     public void Service_lines_read_as_in_the_react_native_engine()
     {
-        Assert.Equal("Ann joined", ServiceText.ForMembership(MembershipKind.Joined, "Ann", "Bob"));
+        Assert.Equal("Ann joined",
+            ServiceText.ForMembership(MembershipKind.Joined, "Ann", "Bob"));
         Assert.Equal("Bob invited Ann",
             ServiceText.ForMembership(MembershipKind.Invited, "Ann", "Bob"));
         Assert.Equal("Ann was removed",
             ServiceText.ForMembership(MembershipKind.Kicked, "Ann", "Bob"));
-        Assert.Null(ServiceText.ForMembership(MembershipKind.None, "Ann", "Bob"));
-        Assert.Equal("Bob created the room", ServiceText.ForState("RoomCreate", null, "Bob"));
+        Assert.Null(
+            ServiceText.ForMembership(MembershipKind.None, "Ann", "Bob"));
+        Assert.Equal("Bob created the room",
+            ServiceText.ForState("RoomCreate", null, "Bob"));
         Assert.Equal("Bob changed the room name to “Crew”",
             ServiceText.ForState("RoomName", "Crew", "Bob"));
-        Assert.Equal("Bob removed the room name", ServiceText.ForState("RoomName", "", "Bob"));
+        Assert.Equal("Bob removed the room name",
+            ServiceText.ForState("RoomName", "", "Bob"));
         Assert.Null(ServiceText.ForState("RoomAvatar", null, "Bob"));
         Assert.Equal("ann", ServiceText.PersonName(null, "@ann:s"));
         Assert.Equal("Ann Lee", ServiceText.PersonName("Ann Lee", "@ann:s"));

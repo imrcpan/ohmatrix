@@ -6,10 +6,12 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Engine;
 
 /// <summary>Who I am on the server, over the Matrix SDK (<c>profile</c> of <c>RustEngineCore</c>).</summary>
-public sealed class MatrixProfileEngine(MatrixAuthEngine auth, ProfileStatusApi? statuses = null)
+public sealed class MatrixProfileEngine(
+    MatrixAuthEngine auth,
+    ProfileStatusApi? statuses = null)
     : IProfileEngine {
     private readonly ProfileStatusApi status =
- statuses ?? new ProfileStatusApi(() => auth.CurrentSession);
+        statuses ?? new ProfileStatusApi(() => auth.CurrentSession);
 
     public async Task<Profile> Load()
     {
@@ -27,7 +29,8 @@ public sealed class MatrixProfileEngine(MatrixAuthEngine auth, ProfileStatusApi?
             }
 
             var avatar = await client.AvatarUrl();
-            return new Profile(id, string.IsNullOrWhiteSpace(name) ? null : name, avatar) {
+            return new Profile(id,
+                string.IsNullOrWhiteSpace(name) ? null : name, avatar) {
                 Status = await status.Read()
             };
         } catch (Exception e) when (e is not EngineException) {

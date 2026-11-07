@@ -22,7 +22,8 @@ public class RichBubbleTests {
     {
         var colors = Themes.Get("light")!.Colors;
         var bubble = new Bubble(
-            colors, text, "12:30", false, formatted: html, openLink: open, senderName: "Ann",
+            colors, text, "12:30", false, formatted: html, openLink: open,
+            senderName: "Ann",
             preview: preview
         ) {
             MaxWidth = 360
@@ -49,26 +50,34 @@ public class RichBubbleTests {
     public void Formatted_text_is_drawn_with_its_styles()
     {
         var (window, bubble) = Make(
-            "x", "<b>bold</b> <i>it</i> <code>c</code> <a href=\"https://e.com\">link</a>");
-        var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>().Single();
+            "x",
+            "<b>bold</b> <i>it</i> <code>c</code> <a href=\"https://e.com\">link</a>");
+        var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .Single();
         var runs = body.Inlines!.OfType<Run>().ToList();
-        Assert.Equal(FontWeight.Bold, runs.First(r => r.Text == "bold").FontWeight);
-        Assert.Equal(FontStyle.Italic, runs.First(r => r.Text == "it").FontStyle);
+        Assert.Equal(FontWeight.Bold,
+            runs.First(r => r.Text == "bold").FontWeight);
+        Assert.Equal(FontStyle.Italic,
+            runs.First(r => r.Text == "it").FontStyle);
         Assert.NotNull(runs.First(r => r.Text == "c").FontFamily);
         Assert.NotNull(runs.First(r => r.Text == "link").TextDecorations);
         var shot = Environment.GetEnvironmentVariable("OHMATRIX_CHAT_SHEET");
         if (shot is not null)
-            window.CaptureRenderedFrame()?.Save(shot.Replace(".png", "-rich.png"));
+            window.CaptureRenderedFrame()
+                ?.Save(shot.Replace(".png", "-rich.png"));
     }
 
     [AvaloniaFact]
     public void Bare_urls_open_when_pressed()
     {
         var opened = new List<string>();
-        var (window, bubble) = Make("go https://example.com/a now", null, opened.Add);
-        var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>().Single();
+        var (window, bubble) =
+            Make("go https://example.com/a now", null, opened.Add);
+        var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .Single();
         var at = body.TextLayout.HitTestTextPosition(6);
-        var point = body.TranslatePoint(new Point(at.X + 2, at.Y + 4), window)!.Value;
+        var point = body.TranslatePoint(new Point(at.X + 2, at.Y + 4), window)!
+            .Value;
         window.MouseDown(point, Avalonia.Input.MouseButton.Left);
         window.MouseUp(point, Avalonia.Input.MouseButton.Left);
         Assert.Equal(["https://example.com/a"], opened);
@@ -77,39 +86,52 @@ public class RichBubbleTests {
     [AvaloniaFact]
     public void A_spoiler_is_hidden_until_pressed()
     {
-        var (window, bubble) = Make("x", "a <span data-mx-spoiler>secret</span>");
-        var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>().Single();
-        Assert.DoesNotContain(body.Inlines!.OfType<Run>(), r => r.Text == "secret");
+        var (window, bubble) =
+            Make("x", "a <span data-mx-spoiler>secret</span>");
+        var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .Single();
+        Assert.DoesNotContain(body.Inlines!.OfType<Run>(),
+            r => r.Text == "secret");
         var at = body.TextLayout.HitTestTextPosition(3);
-        var point = body.TranslatePoint(new Point(at.X + 2, at.Y + 4), window)!.Value;
+        var point = body.TranslatePoint(new Point(at.X + 2, at.Y + 4), window)!
+            .Value;
         window.MouseDown(point, Avalonia.Input.MouseButton.Left);
         window.MouseUp(point, Avalonia.Input.MouseButton.Left);
         Assert.Contains(body.Inlines!.OfType<Run>(), r => r.Text == "secret");
     }
 
     [AvaloniaFact]
-    public async Task A_link_gets_a_card_when_the_server_has_a_preview_and_opens_when_pressed()
+    public async Task
+        A_link_gets_a_card_when_the_server_has_a_preview_and_opens_when_pressed()
     {
         var opened = new List<string>();
         var asked = new List<string>();
-        var (window, bubble) = Make("see https://example.com/a", null, opened.Add, url => {
-            asked.Add(url);
-            return Task.FromResult<LinkPreview?>(new LinkPreview(url, "Example title",
-                "A page about examples", "Example", null, null, null));
-        });
+        var (window, bubble) = Make("see https://example.com/a", null,
+            opened.Add, url => {
+                asked.Add(url);
+                return Task.FromResult<LinkPreview?>(new LinkPreview(url,
+                    "Example title",
+                    "A page about examples", "Example", null, null, null));
+            });
         await Task.Delay(50);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         Assert.Equal(["https://example.com/a"], asked);
-        var texts = bubble.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+        var texts = bubble.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
         Assert.Contains("Example title", texts);
         Assert.Contains("A page about examples", texts);
         var shot = Environment.GetEnvironmentVariable("OHMATRIX_CHAT_SHEET");
         if (shot is not null)
-            window.CaptureRenderedFrame()?.Save(shot.Replace(".png", "-preview.png"));
+            window.CaptureRenderedFrame()
+                ?.Save(shot.Replace(".png", "-preview.png"));
         var card = bubble.GetVisualDescendants().OfType<Border>()
-            .First(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Example title");
+            .First(b =>
+                Avalonia.Automation.AutomationProperties.GetName(b) ==
+                "Example title");
         card.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(
-            card, new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true), card,
+            card,
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true), card,
             new Point(5, 5), 0,
             new Avalonia.Input.PointerPointProperties(
                 Avalonia.Input.RawInputModifiers.LeftMouseButton,

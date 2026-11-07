@@ -130,7 +130,8 @@ public sealed class ImageViewer {
     /// <summary>The button that saves the picture is shown when <paramref name="save"/> is given.</summary>
     public IconButton SaveButton => saveButton;
 
-    public void Show(TopLevel window, Pictures pictures, string source, string name,
+    public void Show(TopLevel window, Pictures pictures, string source,
+        string name,
         IImage? preview, Func<Task>? save = null)
     {
         Close();
@@ -146,7 +147,8 @@ public sealed class ImageViewer {
         shade.Height = window.ClientSize.Height;
         layer.Children.Add(shade);
         shade.Focus();
-        var size = (int)Math.Min(2048, Math.Max(window.ClientSize.Width, window.ClientSize.Height));
+        var size = (int)Math.Min(2048,
+            Math.Max(window.ClientSize.Width, window.ClientSize.Height));
         pictures.Attach(picture, source, size, size);
     }
 

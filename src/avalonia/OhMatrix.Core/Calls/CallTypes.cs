@@ -10,7 +10,10 @@ public sealed record IceServer(
 /// <summary>An SDP offer or answer; <see cref="Type"/> is "offer" or "answer".</summary>
 public sealed record SessionDescription(string Type, string Sdp);
 
-public sealed record IceCandidate(string Candidate, string? SdpMid, int? SdpMLineIndex);
+public sealed record IceCandidate(
+    string Candidate,
+    string? SdpMid,
+    int? SdpMLineIndex);
 
 public enum PeerState {
     Connected,

@@ -67,7 +67,8 @@ public class MediaPlayerTests {
             await Task.Delay(50, TestContext.Current.CancellationToken);
             player.Video!.TryTakeFrame((data, w, h) => {
                 var bytes = new byte[w * h * 4];
-                System.Runtime.InteropServices.Marshal.Copy(data, bytes, 0, bytes.Length);
+                System.Runtime.InteropServices.Marshal.Copy(data, bytes, 0,
+                    bytes.Length);
                 seen = (w, h, bytes.Any(b => b != 0));
             });
         }

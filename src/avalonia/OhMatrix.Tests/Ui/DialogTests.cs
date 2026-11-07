@@ -12,7 +12,8 @@ using Xunit;
 namespace OhMatrix.Tests.Ui;
 
 public class DialogTests {
-    private static Window Open(Dialog dialog, string theme, bool withButtons = true)
+    private static Window Open(Dialog dialog, string theme,
+        bool withButtons = true)
     {
         var colors = Themes.Get(theme)!.Colors;
         var window = new Window {
@@ -33,7 +34,8 @@ public class DialogTests {
                 }
             }
             : [];
-        dialog.Show(window, colors, "Keep this zoom?", "It goes back in 15 seconds.", buttons);
+        dialog.Show(window, colors, "Keep this zoom?",
+            "It goes back in 15 seconds.", buttons);
         window.UpdateLayout();
         return window;
     }
@@ -55,7 +57,8 @@ public class DialogTests {
         var called = false;
         dialog.OnClose = () => called = true;
         var window = Open(dialog, "light");
-        window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape,
+            null);
         Assert.False(dialog.IsOpen);
         Assert.True(called);
     }
@@ -86,9 +89,11 @@ public class DialogTests {
             var window = Open(dialog, theme);
             var frame = window.CaptureRenderedFrame();
             Assert.NotNull(frame);
-            var path = Environment.GetEnvironmentVariable("OHMATRIX_DIALOG_SHEET");
+            var path =
+                Environment.GetEnvironmentVariable("OHMATRIX_DIALOG_SHEET");
             if (!string.IsNullOrEmpty(path))
-                frame.Save(path.Replace(".png", $"-{theme}.png"), new PngBitmapEncoderOptions());
+                frame.Save(path.Replace(".png", $"-{theme}.png"),
+                    new PngBitmapEncoderOptions());
         }
     }
 }

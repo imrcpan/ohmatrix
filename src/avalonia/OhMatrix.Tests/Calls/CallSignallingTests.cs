@@ -7,7 +7,9 @@ namespace OhMatrix.Tests.Calls;
 public class CallSignallingTests {
     private sealed class Clock {
         public DateTimeOffset Now = new(2026, 11, 7, 12, 0, 0, TimeSpan.Zero);
-        private readonly List<(DateTimeOffset At, Action Run, bool[] Cancelled)> timers = [];
+
+        private readonly List<(DateTimeOffset At, Action Run, bool[] Cancelled)>
+            timers = [];
 
         public Action Later(Action run, TimeSpan delay)
         {
@@ -21,7 +23,8 @@ public class CallSignallingTests {
         public void Advance(TimeSpan by)
         {
             Now += by;
-            foreach (var t in timers.Where(t => t.At <= Now && !t.Cancelled[0]).ToList()) {
+            foreach (var t in timers.Where(t => t.At <= Now && !t.Cancelled[0])
+                         .ToList()) {
                 t.Cancelled[0] = true;
                 t.Run();
             }
@@ -51,7 +54,8 @@ public class CallSignallingTests {
         {
             Calls.Add("local " + d.Type);
             local = true;
-            Candidate?.Invoke(new IceCandidate("candidate:" + ++counter, "0", 0));
+            Candidate?.Invoke(
+                new IceCandidate("candidate:" + ++counter, "0", 0));
             Candidate?.Invoke(null);
             Check();
             return Task.CompletedTask;
@@ -89,7 +93,8 @@ public class CallSignallingTests {
 
         public CallDevices Devices() => new([], []);
 
-        public void UseDevice(bool camera, string id) => Log.Add($"use {camera} {id}");
+        public void UseDevice(bool camera, string id) =>
+            Log.Add($"use {camera} {id}");
 
         public Task Start(IPeer peer, bool video)
         {
@@ -130,9 +135,11 @@ public class CallSignallingTests {
 
         public async Task Send(string roomId, string type, JsonObject content)
         {
-            Sent.Add((type, JsonNode.Parse(content.ToJsonString())!.AsObject()));
+            Sent.Add((type,
+                JsonNode.Parse(content.ToJsonString())!.AsObject()));
             if (Other is not null)
-                await Other.Signalling.Receive(new CallEvent(roomId, type, User, "$" + Sent.Count,
+                await Other.Signalling.Receive(new CallEvent(roomId, type, User,
+                    "$" + Sent.Count,
                     0,
                     JsonNode.Parse(content.ToJsonString())!.AsObject()));
         }
@@ -149,7 +156,8 @@ public class CallSignallingTests {
         public Task<IReadOnlyList<IceServer>> IceServers() =>
             Task.FromResult<IReadOnlyList<IceServer>>([]);
 
-        public Action Later(Action action, TimeSpan delay) => Clock.Later(action, delay);
+        public Action Later(Action action, TimeSpan delay) =>
+            Clock.Later(action, delay);
 
         public string NewId() => User + "-" + ++ids;
     }
@@ -212,7 +220,8 @@ public class CallSignallingTests {
     {
         var (caller, callee, _) = Pair();
         await caller.Signalling.Place("!r", "@b:s", false);
-        await callee.Signalling.Receive(new CallEvent("!r", "m.call.candidates", "@a:s", "$c", 0,
+        await callee.Signalling.Receive(new CallEvent("!r", "m.call.candidates",
+            "@a:s", "$c", 0,
             new JsonObject {
                 ["call_id"] = caller.Signalling.Current!.CallId,
                 ["candidates"] = new JsonArray(new JsonObject {
@@ -223,7 +232,8 @@ public class CallSignallingTests {
             }));
         Assert.Empty(callee.Peers);
         await callee.Signalling.Answer(false);
-        Assert.Contains(callee.Peers[0].Added, c => c.Candidate == "candidate:early");
+        Assert.Contains(callee.Peers[0].Added,
+            c => c.Candidate == "candidate:early");
     }
 
     [Fact]
@@ -237,13 +247,16 @@ public class CallSignallingTests {
     }
 
     [Fact]
-    public async Task Nobody_answering_ends_the_call_after_the_invitation_lifetime()
+    public async Task
+        Nobody_answering_ends_the_call_after_the_invitation_lifetime()
     {
         var (caller, callee, clock) = Pair();
         await caller.Signalling.Place("!r", "@b:s", false);
         clock.Advance(TimeSpan.FromSeconds(61));
-        Assert.Equal(EndReason.Unanswered, caller.Signalling.Current!.EndReason);
-        Assert.Equal("invite_timeout", (string?)caller.Sent.Last().Content["reason"]);
+        Assert.Equal(EndReason.Unanswered,
+            caller.Signalling.Current!.EndReason);
+        Assert.Equal("invite_timeout",
+            (string?)caller.Sent.Last().Content["reason"]);
         // The one called stops ringing too: by its own timer or by the hangup, whichever comes first.
         Assert.Equal(CallPhase.Ended, callee.Signalling.Current!.Phase);
     }
@@ -253,7 +266,8 @@ public class CallSignallingTests {
     {
         var (caller, callee, _) = Pair();
         await caller.Signalling.Place("!r", "@b:s", false);
-        await callee.Signalling.Receive(new CallEvent("!x", "m.call.invite", "@c:s", "$i", 0,
+        await callee.Signalling.Receive(new CallEvent("!x", "m.call.invite",
+            "@c:s", "$i", 0,
             new JsonObject {
                 ["call_id"] = "other",
                 ["lifetime"] = 60000,
@@ -264,14 +278,16 @@ public class CallSignallingTests {
             }));
         var reject = callee.Sent.Single(s => s.Type == "m.call.reject");
         Assert.Equal("user_busy", (string?)reject.Content["reason"]);
-        Assert.Equal(caller.Signalling.Current!.CallId, callee.Signalling.Current!.CallId);
+        Assert.Equal(caller.Signalling.Current!.CallId,
+            callee.Signalling.Current!.CallId);
     }
 
     [Fact]
     public async Task An_invitation_found_late_is_not_rung_for()
     {
         var (_, callee, _) = Pair();
-        await callee.Signalling.Receive(new CallEvent("!r", "m.call.invite", "@a:s", "$i", 61_000,
+        await callee.Signalling.Receive(new CallEvent("!r", "m.call.invite",
+            "@a:s", "$i", 61_000,
             new JsonObject {
                 ["call_id"] = "old",
                 ["lifetime"] = 60000,
@@ -284,7 +300,8 @@ public class CallSignallingTests {
     }
 
     [Fact]
-    public async Task A_video_offer_is_a_video_call_and_the_camera_can_be_turned_off()
+    public async Task
+        A_video_offer_is_a_video_call_and_the_camera_can_be_turned_off()
     {
         var (caller, callee, _) = Pair();
         caller.VideoOffer = true;
@@ -311,7 +328,8 @@ public class CallSignallingTests {
     }
 
     [Fact]
-    public async Task A_dropped_connection_is_poor_until_it_returns_and_a_failed_one_ends()
+    public async Task
+        A_dropped_connection_is_poor_until_it_returns_and_a_failed_one_ends()
     {
         var (caller, callee, _) = Pair();
         await caller.Signalling.Place("!r", "@b:s", false);

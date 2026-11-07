@@ -9,7 +9,8 @@ namespace OhMatrix.Core.Ui;
 /// <summary>The bar at the top of a page of the left pane (<c>PageHeader</c>): Back, then the title; 56 high with a line under it.</summary>
 public static class PageBar {
     /// <summary>Fills <paramref name="bar"/> with the back button and the title, and gives it its height and the line under it.</summary>
-    public static void Fill(Border bar, ColorTokens colors, string title, string backLabel,
+    public static void Fill(Border bar, ColorTokens colors, string title,
+        string backLabel,
         Action onBack)
     {
         var back = new IconButton("back", backLabel, 26);

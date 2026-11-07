@@ -15,7 +15,8 @@ using MenuItem = OhMatrix.Core.Ui.MenuItem;
 namespace OhMatrix.Tests.Ui;
 
 public class MenuTests {
-    private static (Window Window, Border Anchor) Setup(string theme, double anchorTop)
+    private static (Window Window, Border Anchor) Setup(string theme,
+        double anchorTop)
     {
         var anchor = new Border {
             Width = 120,
@@ -40,7 +41,9 @@ public class MenuTests {
 
     private static Avalonia.Input.PointerReleasedEventArgs Release(Control row)
     {
-        var pointer = new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true);
+        var pointer =
+            new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse,
+                true);
         return new Avalonia.Input.PointerReleasedEventArgs(
             row,
             pointer,
@@ -138,6 +141,7 @@ public class MenuTests {
         Assert.NotNull(frame);
         var path = Environment.GetEnvironmentVariable("OHMATRIX_MENU_SHEET");
         if (!string.IsNullOrEmpty(path))
-            frame.Save(path.Replace(".png", $"-{theme}.png"), new PngBitmapEncoderOptions());
+            frame.Save(path.Replace(".png", $"-{theme}.png"),
+                new PngBitmapEncoderOptions());
     }
 }

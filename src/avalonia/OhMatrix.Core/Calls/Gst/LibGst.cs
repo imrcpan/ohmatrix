@@ -55,8 +55,10 @@ internal static unsafe partial class LibGst {
             try {
                 gst_init(IntPtr.Zero, IntPtr.Zero);
                 // webrtcbin does nothing without the elements of libnice (a separate package on some systems).
-                ready = Has("webrtcbin") && Has("nicesrc") && Has("opusenc") && Has("vp8enc");
-            } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) {
+                ready = Has("webrtcbin") && Has("nicesrc") && Has("opusenc") &&
+                        Has("vp8enc");
+            } catch (Exception e) when (e is DllNotFoundException
+                                            or EntryPointNotFoundException) {
                 ready = false;
             }
 
@@ -70,8 +72,10 @@ internal static unsafe partial class LibGst {
         try {
             gst_init(IntPtr.Zero, IntPtr.Zero);
             return Has("autoaudiosrc") && Has("opusenc") && Has("oggmux")
-                   && (!video || Has("autovideosrc") && Has("vp8enc") && Has("webmmux"));
-        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) {
+                   && (!video || Has("autovideosrc") && Has("vp8enc") &&
+                       Has("webmmux"));
+        } catch (Exception e) when (e is DllNotFoundException
+                                        or EntryPointNotFoundException) {
             return false;
         }
     }
@@ -102,13 +106,15 @@ internal static unsafe partial class LibGst {
     }
 
     /// <summary>Emits an action signal with the given values after the instance; the return value (if the signal has one) is not read.</summary>
-    public static void Emit(IntPtr instance, string name, params GValue[] arguments)
+    public static void Emit(IntPtr instance, string name,
+        params GValue[] arguments)
     {
         Emit(instance, name, null, arguments);
     }
 
     /// <summary>Emits an action signal; <paramref name="result"/> is a GValue of the return type, for a signal that returns something.</summary>
-    public static void Emit(IntPtr instance, string name, GValue* result, params GValue[] arguments)
+    public static void Emit(IntPtr instance, string name, GValue* result,
+        params GValue[] arguments)
     {
         var values = new GValue[arguments.Length + 1];
         values[0] = default;
@@ -218,9 +224,11 @@ internal static unsafe partial class LibGst {
         return kind;
     }
 
-    public static ulong Connect(IntPtr instance, string signal, IntPtr handler, IntPtr data)
+    public static ulong Connect(IntPtr instance, string signal, IntPtr handler,
+        IntPtr data)
     {
-        return g_signal_connect_data(instance, Utf8(signal), handler, data, IntPtr.Zero, 0);
+        return g_signal_connect_data(instance, Utf8(signal), handler, data,
+            IntPtr.Zero, 0);
     }
 
     // GObject / GLib
@@ -261,7 +269,8 @@ internal static unsafe partial class LibGst {
     public static partial uint g_signal_lookup(byte[] name, nuint type);
 
     [LibraryImport("gobject")]
-    public static partial void g_signal_emitv(GValue* values, uint signalId, uint detail,
+    public static partial void g_signal_emitv(GValue* values, uint signalId,
+        uint detail,
         GValue* result);
 
     [LibraryImport("gobject")]
@@ -275,10 +284,12 @@ internal static unsafe partial class LibGst {
     );
 
     [LibraryImport("gobject")]
-    public static partial void g_object_set_property(IntPtr obj, byte[] name, GValue* value);
+    public static partial void g_object_set_property(IntPtr obj, byte[] name,
+        GValue* value);
 
     [LibraryImport("gobject")]
-    public static partial void g_object_get_property(IntPtr obj, byte[] name, GValue* value);
+    public static partial void g_object_get_property(IntPtr obj, byte[] name,
+        GValue* value);
 
     [LibraryImport("gobject")]
     public static partial void g_object_unref(IntPtr obj);
@@ -300,7 +311,8 @@ internal static unsafe partial class LibGst {
     public static partial IntPtr gst_device_monitor_new();
 
     [LibraryImport("gst")]
-    public static partial uint gst_device_monitor_add_filter(IntPtr monitor, byte[] classes,
+    public static partial uint gst_device_monitor_add_filter(IntPtr monitor,
+        byte[] classes,
         IntPtr caps);
 
     [LibraryImport("gst")]
@@ -310,7 +322,8 @@ internal static unsafe partial class LibGst {
     public static partial IntPtr gst_device_get_display_name(IntPtr device);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_device_create_element(IntPtr device, IntPtr name);
+    public static partial IntPtr gst_device_create_element(IntPtr device,
+        IntPtr name);
 
     [LibraryImport("gst")]
     public static partial int gst_element_link(IntPtr src, IntPtr sink);
@@ -325,10 +338,12 @@ internal static unsafe partial class LibGst {
     public static partial void g_list_free(IntPtr list);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_parse_launch(byte[] description, out IntPtr error);
+    public static partial IntPtr gst_parse_launch(byte[] description,
+        out IntPtr error);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_parse_bin_from_description(byte[] description, int ghostPads,
+    public static partial IntPtr gst_parse_bin_from_description(
+        byte[] description, int ghostPads,
         out IntPtr error);
 
     [LibraryImport("gst")]
@@ -341,23 +356,27 @@ internal static unsafe partial class LibGst {
     public static partial int gst_element_set_state(IntPtr element, int state);
 
     [LibraryImport("gst")]
-    public static partial int gst_element_sync_state_with_parent(IntPtr element);
+    public static partial int
+        gst_element_sync_state_with_parent(IntPtr element);
 
     [LibraryImport("gst")]
     public static partial IntPtr gst_event_new_eos();
 
     [LibraryImport("gst")]
-    public static partial int gst_element_send_event(IntPtr element, IntPtr evt);
+    public static partial int
+        gst_element_send_event(IntPtr element, IntPtr evt);
 
     [LibraryImport("gst")]
     public static partial IntPtr gst_element_get_bus(IntPtr element);
 
     /// <summary>Waits for a message of the kinds in <paramref name="types"/> (bit flags: 1 end of stream, 2 error); zero when none came in time.</summary>
     [LibraryImport("gst")]
-    public static partial IntPtr gst_bus_timed_pop_filtered(IntPtr bus, ulong timeoutNs, int types);
+    public static partial IntPtr gst_bus_timed_pop_filtered(IntPtr bus,
+        ulong timeoutNs, int types);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_element_get_static_pad(IntPtr element, byte[] name);
+    public static partial IntPtr gst_element_get_static_pad(IntPtr element,
+        byte[] name);
 
     [LibraryImport("gst")]
     public static partial int gst_pad_link(IntPtr src, IntPtr sink);
@@ -369,7 +388,8 @@ internal static unsafe partial class LibGst {
     public static partial IntPtr gst_pad_query_caps(IntPtr pad, IntPtr filter);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_caps_get_structure(IntPtr caps, uint index);
+    public static partial IntPtr
+        gst_caps_get_structure(IntPtr caps, uint index);
 
     [LibraryImport("gst")]
     public static partial IntPtr gst_caps_to_string(IntPtr caps);
@@ -378,16 +398,20 @@ internal static unsafe partial class LibGst {
     public static partial IntPtr gst_pad_get_current_caps(IntPtr pad);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_structure_get_string(IntPtr structure, byte[] name);
+    public static partial IntPtr gst_structure_get_string(IntPtr structure,
+        byte[] name);
 
     [LibraryImport("gst")]
-    public static partial int gst_structure_get_int(IntPtr structure, byte[] name, out int value);
+    public static partial int gst_structure_get_int(IntPtr structure,
+        byte[] name, out int value);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_structure_get_value(IntPtr structure, byte[] name);
+    public static partial IntPtr gst_structure_get_value(IntPtr structure,
+        byte[] name);
 
     [LibraryImport("gst")]
-    public static partial IntPtr gst_promise_new_with_change_func(IntPtr func, IntPtr data,
+    public static partial IntPtr gst_promise_new_with_change_func(IntPtr func,
+        IntPtr data,
         IntPtr notify);
 
     [LibraryImport("gst")]
@@ -409,17 +433,20 @@ internal static unsafe partial class LibGst {
     public static partial IntPtr gst_sample_get_caps(IntPtr sample);
 
     [LibraryImport("gst")]
-    public static partial int gst_buffer_map(IntPtr buffer, GstMapInfo* info, int flags);
+    public static partial int gst_buffer_map(IntPtr buffer, GstMapInfo* info,
+        int flags);
 
     [LibraryImport("gst")]
-    public static partial void gst_buffer_unmap(IntPtr buffer, GstMapInfo* info);
+    public static partial void
+        gst_buffer_unmap(IntPtr buffer, GstMapInfo* info);
 
     // SDP and WebRTC
     [LibraryImport("gstsdp")]
     public static partial int gst_sdp_message_new(out IntPtr message);
 
     [LibraryImport("gstsdp")]
-    public static partial int gst_sdp_message_parse_buffer(byte[] data, uint size, IntPtr message);
+    public static partial int gst_sdp_message_parse_buffer(byte[] data,
+        uint size, IntPtr message);
 
     [LibraryImport("gstsdp")]
     public static partial IntPtr gst_sdp_message_as_text(IntPtr message);
@@ -428,14 +455,17 @@ internal static unsafe partial class LibGst {
     public static partial int gst_sdp_message_free(IntPtr message);
 
     [LibraryImport("gstwebrtc")]
-    public static partial IntPtr gst_webrtc_session_description_new(int type, IntPtr sdp);
+    public static partial IntPtr gst_webrtc_session_description_new(int type,
+        IntPtr sdp);
 
     [LibraryImport("gstwebrtc")]
     public static partial nuint gst_webrtc_session_description_get_type();
 
     [LibraryImport("gstwebrtc")]
-    public static partial void gst_webrtc_session_description_free(IntPtr description);
+    public static partial void gst_webrtc_session_description_free(
+        IntPtr description);
 
     [LibraryImport("gstapp")]
-    public static partial IntPtr gst_app_sink_try_pull_sample(IntPtr sink, ulong timeout);
+    public static partial IntPtr gst_app_sink_try_pull_sample(IntPtr sink,
+        ulong timeout);
 }

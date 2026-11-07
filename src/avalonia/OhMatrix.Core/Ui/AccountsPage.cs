@@ -37,7 +37,8 @@ public sealed class AccountsPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<AccountsPage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<AccountsPage>((p, _) => p.Apply());
         Apply();
     }
 
@@ -66,7 +67,8 @@ public sealed class AccountsPage : Grid {
         var manager = controller.Accounts;
         if (manager is not null && !ReferenceEquals(manager, watched)) {
             watched = manager;
-            manager.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(Apply);
+            manager.Changed += () =>
+                Avalonia.Threading.Dispatcher.UIThread.Post(Apply);
         }
 
         var c = ThemeScope.GetColors(this);
@@ -78,7 +80,9 @@ public sealed class AccountsPage : Grid {
         var list = manager?.Accounts ?? [];
         if (list.Count > 1) {
             var sort = new TextButton {
-                Title = T(reordering ? "accounts.reorder.done" : "accounts.reorder"),
+                Title = T(reordering
+                    ? "accounts.reorder.done"
+                    : "accounts.reorder"),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(0, 4, 12, 0),
             };
@@ -166,19 +170,24 @@ public sealed class AccountsPage : Grid {
     private Control AccountRow(ColorTokens c, AccountEntry account, bool grip)
     {
         var state = account.Controller.Store.Value;
-        var name = state.Profile?.DisplayName is { Length: > 0 } dn ? dn : account.UserId;
+        var name = state.Profile?.DisplayName is { Length: > 0 } dn
+            ? dn
+            : account.UserId;
         var current = account.Controller == controller;
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             Height = RowHeight,
             Margin = new Thickness(18, 0),
             Background = Brushes.Transparent,
-            Cursor = new Cursor(grip ? StandardCursorType.SizeAll : StandardCursorType.Hand),
+            Cursor = new Cursor(grip
+                ? StandardCursorType.SizeAll
+                : StandardCursorType.Hand),
         };
         var avatar = new Avatar(account.UserId, name, 44) {
             Margin = new Thickness(0, 0, 14, 0)
         };
-        account.Controller.Pictures.Attach(avatar, state.Profile?.AvatarUrl, 44);
+        account.Controller.Pictures.Attach(avatar, state.Profile?.AvatarUrl,
+            44);
         grid.Children.Add(avatar);
         var text = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center
@@ -222,7 +231,9 @@ public sealed class AccountsPage : Grid {
                 Padding = new Thickness(6, 0),
                 Background = new SolidColorBrush(c.Accent),
                 Child = new TextBlock {
-                    Text = account.Unread > 99 ? "99+" : account.Unread.ToString(),
+                    Text = account.Unread > 99
+                        ? "99+"
+                        : account.Unread.ToString(),
                     FontSize = 13,
                     FontWeight = FontWeight.SemiBold,
                     FontFamily = Fonts.System,
@@ -256,7 +267,8 @@ public sealed class AccountsPage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         menu.Show(anchor, window, [
-            new MenuItem(T("account.signOut"), () => AskSignOut(account), Icon: "signOut",
+            new MenuItem(T("account.signOut"), () => AskSignOut(account),
+                Icon: "signOut",
                 Danger: true)
         ]);
     }
@@ -267,8 +279,10 @@ public sealed class AccountsPage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         var c = ThemeScope.GetColors(this);
-        var name = account.Controller.Store.Value.Profile?.DisplayName is { Length: > 0 } dn
-            ? dn : account.UserId;
+        var name = account.Controller.Store.Value.Profile?.DisplayName is
+            { Length: > 0 } dn
+            ? dn
+            : account.UserId;
         var yes = new PrimaryButton {
             Title = T("signOut")
         };
@@ -282,7 +296,8 @@ public sealed class AccountsPage : Grid {
         no.Click += (_, _) => confirm.Close();
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
-        confirm.Show(window, c, T("account.signOut.title", ("name", name)), T("signOut.body"),
+        confirm.Show(window, c, T("account.signOut.title", ("name", name)),
+            T("signOut.body"),
             yes, no);
     }
 
@@ -309,7 +324,8 @@ public sealed class AccountsPage : Grid {
             };
             row.PointerMoved += (_, e) => {
                 if (dragging)
-                    row.RenderTransform = new TranslateTransform(0, e.GetPosition(host).Y - y0);
+                    row.RenderTransform =
+                        new TranslateTransform(0, e.GetPosition(host).Y - y0);
             };
             row.PointerReleased += (_, e) => {
                 if (!dragging)

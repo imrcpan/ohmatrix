@@ -28,7 +28,10 @@ public sealed class VerifyDialog {
     public Dialog Dialog { get; } = new();
 
     /// <summary>The buttons of the open dialog, by their labels' keys of the language file.</summary>
-    public IReadOnlyDictionary<string, PressableButton> Buttons { get; private set; } =
+    public IReadOnlyDictionary<string, PressableButton> Buttons {
+        get;
+        private set;
+    } =
         new Dictionary<string, PressableButton>();
 
     public IReadOnlyList<string> Symbols { get; private set; } = [];
@@ -80,12 +83,14 @@ public sealed class VerifyDialog {
             case VerifyPhase.Requested when flow.Incoming:
                 title = T("verify.request.title");
                 body = T("verify.request.body", ("who", who));
-                content.Add(Button("verify.accept", true, () => controller.AcceptVerification()));
+                content.Add(Button("verify.accept", true,
+                    () => controller.AcceptVerification()));
                 content.Add(Button("verify.decline", false, close));
                 break;
             case VerifyPhase.Requested:
                 title = T("verify.waiting.title");
-                body = T("verify.waiting.body", ("who", T("verify.ownSession")));
+                body = T("verify.waiting.body",
+                    ("who", T("verify.ownSession")));
                 content.Add(Button("verify.close", false, close));
                 break;
             case VerifyPhase.Waiting:
@@ -99,7 +104,8 @@ public sealed class VerifyDialog {
                 Symbols = flow.Emojis?.Select(e => e.Symbol).ToList() ?? [];
                 content.Add(Pictures(flow.Emojis ?? [], c));
                 content.Add(
-                    Button("verify.match", true, () => controller.ConfirmVerification(true)));
+                    Button("verify.match", true,
+                        () => controller.ConfirmVerification(true)));
                 content.Add(Button("verify.mismatch", false,
                     () => controller.ConfirmVerification(false)));
                 break;
@@ -126,7 +132,8 @@ public sealed class VerifyDialog {
         Dialog.Show(window, c, title, body, content.ToArray());
     }
 
-    private static Control Pictures(IReadOnlyList<VerifyEmoji> emojis, ColorTokens c)
+    private static Control Pictures(IReadOnlyList<VerifyEmoji> emojis,
+        ColorTokens c)
     {
         var panel = new WrapPanel {
             HorizontalAlignment = HorizontalAlignment.Center

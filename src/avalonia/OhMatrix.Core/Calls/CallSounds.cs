@@ -48,7 +48,8 @@ public sealed class VlcCallSounds : ICallSounds {
     }
 
     /// <summary>Tone bursts: for each (frequency pair, on, off) in seconds, repeated to fill <paramref name="seconds"/>.</summary>
-    private static short[] Pattern(double f1, double f2, double on, double off, double seconds)
+    private static short[] Pattern(double f1, double f2, double on, double off,
+        double seconds)
     {
         var data = new short[(int)(seconds * Rate)];
         var cycle = on + off;
@@ -56,7 +57,8 @@ public sealed class VlcCallSounds : ICallSounds {
             var t = (double)i / Rate;
             if (t % cycle >= on)
                 continue;
-            var v = (Math.Sin(2 * Math.PI * f1 * t) + Math.Sin(2 * Math.PI * f2 * t)) * 0.25;
+            var v = (Math.Sin(2 * Math.PI * f1 * t) +
+                     Math.Sin(2 * Math.PI * f2 * t)) * 0.25;
             // A short fade at the edges of each burst keeps it from clicking.
             var inBurst = t % cycle;
             var fade = Math.Min(1.0, Math.Min(inBurst, on - inBurst) / 0.02);
@@ -91,7 +93,8 @@ public sealed class VlcCallSounds : ICallSounds {
         if (!MediaPlayer.Available)
             return;
         ending?.Dispose();
-        ending = new MediaPlayer(File("end", () => Pattern(480, 620, 0.35, 0.05, 0.4)));
+        ending = new MediaPlayer(File("end",
+            () => Pattern(480, 620, 0.35, 0.05, 0.4)));
         ending.Play();
     }
 }

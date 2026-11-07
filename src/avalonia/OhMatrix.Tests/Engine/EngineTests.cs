@@ -7,7 +7,8 @@ using Xunit;
 namespace OhMatrix.Tests.Engine;
 
 public class RegistrationTests {
-    private sealed class Script(params RegisterReply[] replies) : IRegisterTransport {
+    private sealed class Script(params RegisterReply[] replies)
+        : IRegisterTransport {
         public readonly List<JsonObject> Sent = [];
         private int next;
 
@@ -28,7 +29,8 @@ public class RegistrationTests {
         ["password"] = "pw"
     };
 
-    private static async Task<EngineErrorCode> Failure(Script script, string? token = null)
+    private static async Task<EngineErrorCode> Failure(Script script,
+        string? token = null)
     {
         var e = await Assert.ThrowsAsync<EngineException>(() =>
             Registration.Run(script, Base, token)
@@ -37,7 +39,8 @@ public class RegistrationTests {
     }
 
     [Fact]
-    public async Task A_server_that_wants_nothing_more_makes_the_account_at_once()
+    public async Task
+        A_server_that_wants_nothing_more_makes_the_account_at_once()
     {
         var script = new Script(Reply(200, """{"user_id":"@new:s"}"""));
         var res = await Registration.Run(script, Base, null);
@@ -49,7 +52,8 @@ public class RegistrationTests {
     public async Task The_dummy_step_is_answered_with_the_session()
     {
         var script = new Script(
-            Reply(401, """{"session":"S","flows":[{"stages":["m.login.dummy"]}]}"""),
+            Reply(401,
+                """{"session":"S","flows":[{"stages":["m.login.dummy"]}]}"""),
             Reply(200, """{"user_id":"@new:s"}""")
         );
         await Registration.Run(script, Base, null);
@@ -65,7 +69,8 @@ public class RegistrationTests {
         var script = new Script(
             Reply(401,
                 """{"session":"S","flows":[{"stages":["m.login.registration_token","m.login.dummy"]}]}"""),
-            Reply(401, """{"session":"S","completed":["m.login.registration_token"],"flows":[]}"""),
+            Reply(401,
+                """{"session":"S","completed":["m.login.registration_token"],"flows":[]}"""),
             Reply(200, """{"user_id":"@new:s"}""")
         );
         await Registration.Run(script, Base, " tok ");
@@ -76,10 +81,13 @@ public class RegistrationTests {
     [Fact]
     public async Task A_wanted_token_is_told_apart_from_other_demands()
     {
-        var token = """{"flows":[{"stages":["m.login.registration_token","m.login.dummy"]}]}""";
+        var token =
+            """{"flows":[{"stages":["m.login.registration_token","m.login.dummy"]}]}""";
         var captcha = """{"flows":[{"stages":["m.login.recaptcha"]}]}""";
-        Assert.Equal(EngineErrorCode.TokenRequired, await Failure(new Script(Reply(401, token))));
-        Assert.Equal(EngineErrorCode.Unsupported, await Failure(new Script(Reply(401, captcha))));
+        Assert.Equal(EngineErrorCode.TokenRequired,
+            await Failure(new Script(Reply(401, token))));
+        Assert.Equal(EngineErrorCode.Unsupported,
+            await Failure(new Script(Reply(401, captcha))));
         Assert.Equal(EngineErrorCode.Unsupported,
             await Failure(new Script(Reply(401, captcha)), "t"));
     }
@@ -88,7 +96,8 @@ public class RegistrationTests {
     public async Task A_refused_token_is_invalid()
     {
         var script = new Script(
-            Reply(401, """{"session":"S","flows":[{"stages":["m.login.registration_token"]}]}"""),
+            Reply(401,
+                """{"session":"S","flows":[{"stages":["m.login.registration_token"]}]}"""),
             Reply(401, """{"session":"S","error":"bad","flows":[]}""")
         );
         Assert.Equal(EngineErrorCode.TokenInvalid, await Failure(script, "x"));
@@ -98,10 +107,13 @@ public class RegistrationTests {
     public async Task Refusals_are_mapped_by_the_matrix_error()
     {
         Assert.Equal(EngineErrorCode.Conflict,
-            await Failure(new Script(Reply(400, """{"errcode":"M_USER_IN_USE"}"""))));
+            await Failure(new Script(Reply(400,
+                """{"errcode":"M_USER_IN_USE"}"""))));
         Assert.Equal(EngineErrorCode.Forbidden,
-            await Failure(new Script(Reply(403, """{"errcode":"M_FORBIDDEN"}"""))));
-        Assert.Equal(EngineErrorCode.Unknown, await Failure(new Script(Reply(500, "{}"))));
+            await Failure(
+                new Script(Reply(403, """{"errcode":"M_FORBIDDEN"}"""))));
+        Assert.Equal(EngineErrorCode.Unknown,
+            await Failure(new Script(Reply(500, "{}"))));
     }
 }
 
@@ -109,9 +121,12 @@ public class ErrorMappingTests {
     [Theory]
     [InlineData("UnknownToken", null, true, "", EngineErrorCode.Unauthorized)]
     [InlineData("UserInUse", null, true, "", EngineErrorCode.Conflict)]
-    [InlineData(null, "M_LIMIT_EXCEEDED", true, "", EngineErrorCode.RateLimited)]
-    [InlineData(null, null, false, "error sending request for url", EngineErrorCode.Network)]
-    [InlineData(null, null, false, "dns error: failed to lookup", EngineErrorCode.Network)]
+    [InlineData(null, "M_LIMIT_EXCEEDED", true, "",
+        EngineErrorCode.RateLimited)]
+    [InlineData(null, null, false, "error sending request for url",
+        EngineErrorCode.Network)]
+    [InlineData(null, null, false, "dns error: failed to lookup",
+        EngineErrorCode.Network)]
     [InlineData(null, null, true, "timed out", EngineErrorCode.Unknown)]
     [InlineData(null, null, false, "something odd", EngineErrorCode.Unknown)]
     public void Maps(string? kind, string? code, bool fromServer, string text,
@@ -122,11 +137,13 @@ public class ErrorMappingTests {
 }
 
 public class HomeserverAddressTests {
-    private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> answer)
+    private sealed class Handler(
+        Func<HttpRequestMessage, HttpResponseMessage> answer)
         : HttpMessageHandler {
         public readonly List<string> Urls = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             Urls.Add(request.RequestUri!.ToString());
@@ -146,7 +163,8 @@ public class HomeserverAddressTests {
     {
         var handler = new Handler(_ => Json("{}"));
         Assert.Equal("http://localhost:8008",
-            await HomeserverAddress.Resolve(" http://localhost:8008/ ", new HttpClient(handler)));
+            await HomeserverAddress.Resolve(" http://localhost:8008/ ",
+                new HttpClient(handler)));
         Assert.Empty(handler.Urls);
     }
 
@@ -154,18 +172,23 @@ public class HomeserverAddressTests {
     public async Task A_bare_name_follows_the_well_known()
     {
         var handler = new Handler(_ =>
-            Json("""{"m.homeserver":{"base_url":"https://matrix-client.matrix.org/"}}"""));
+            Json(
+                """{"m.homeserver":{"base_url":"https://matrix-client.matrix.org/"}}"""));
         Assert.Equal("https://matrix-client.matrix.org",
-            await HomeserverAddress.Resolve("matrix.org", new HttpClient(handler)));
-        Assert.Equal(["https://matrix.org/.well-known/matrix/client"], handler.Urls);
+            await HomeserverAddress.Resolve("matrix.org",
+                new HttpClient(handler)));
+        Assert.Equal(["https://matrix.org/.well-known/matrix/client"],
+            handler.Urls);
     }
 
     [Fact]
     public async Task Without_a_well_known_the_name_is_used_over_https()
     {
-        var handler = new Handler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var handler = new Handler(_ =>
+            new HttpResponseMessage(HttpStatusCode.NotFound));
         Assert.Equal("https://example.org",
-            await HomeserverAddress.Resolve("https://example.org/", new HttpClient(handler)));
+            await HomeserverAddress.Resolve("https://example.org/",
+                new HttpClient(handler)));
     }
 
     [Fact]

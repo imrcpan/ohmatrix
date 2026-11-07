@@ -46,7 +46,8 @@ public sealed unsafe class VideoOutput : IDisposable {
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static uint Setup(IntPtr* opaque, byte* chroma, uint* width, uint* height,
+    private static uint Setup(IntPtr* opaque, byte* chroma, uint* width,
+        uint* height,
         uint* pitches, uint* lines)
     {
         var output = Of(*opaque);
@@ -67,7 +68,8 @@ public sealed unsafe class VideoOutput : IDisposable {
                 NativeMemory.Free(output.buffer);
             output.Width = (int)*width;
             output.Height = (int)*height;
-            output.buffer = (byte*)NativeMemory.AllocZeroed(*width * *height * 4);
+            output.buffer =
+                (byte*)NativeMemory.AllocZeroed(*width * *height * 4);
         }
 
         pitches[0] = *width * 4;

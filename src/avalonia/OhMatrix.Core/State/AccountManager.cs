@@ -3,14 +3,18 @@ using OhMatrix.Core.Model;
 namespace OhMatrix.Core.State;
 
 /// <summary>An account the app keeps: where its data lives, and the controller that keeps it syncing.</summary>
-public sealed class AccountEntry(string userId, string dir, AppController controller) {
+public sealed class AccountEntry(
+    string userId,
+    string dir,
+    AppController controller) {
     public string UserId { get; } = userId;
     public string Dir { get; } = dir;
     public AppController Controller { get; } = controller;
 
     /// <summary>The unread count of the chats of the account that are not muted.</summary>
     public int Unread =>
-        Controller.Store.Value.Rooms.Where(r => !r.Muted && !r.IsSpace).Sum(r => r.UnreadCount);
+        Controller.Store.Value.Rooms.Where(r => !r.Muted && !r.IsSpace)
+            .Sum(r => r.UnreadCount);
 }
 
 /// <summary>Where the accounts are kept: user ids with their folders, in the order the person put them in, and the one in use.</summary>
@@ -42,13 +46,16 @@ public sealed class AccountManager(
     public IReadOnlyList<AccountEntry> Accounts => accounts;
 
     /// <summary>The controller to show: that of the account in use, or the sign-in of a new one.</summary>
-    public AppController Current => current ?? throw new InvalidOperationException("Not started.");
+    public AppController Current =>
+        current ?? throw new InvalidOperationException("Not started.");
 
     /// <summary>The sign-in of a new account is showing.</summary>
-    public bool Adding => signingIn is not null && ReferenceEquals(current, signingIn);
+    public bool Adding =>
+        signingIn is not null && ReferenceEquals(current, signingIn);
 
     /// <summary>The account in use, null while a new one is being signed in.</summary>
-    public AccountEntry? CurrentAccount => accounts.FirstOrDefault(a => ReferenceEquals(a.Controller, current));
+    public AccountEntry? CurrentAccount =>
+        accounts.FirstOrDefault(a => ReferenceEquals(a.Controller, current));
 
     /// <summary>The accounts, or which one is showing, have changed.</summary>
     public event Action? Changed;
@@ -60,10 +67,15 @@ public sealed class AccountManager(
         if (saved is { Accounts.Length: > 0 }) {
             foreach (var a in saved.Accounts)
                 Add(a.UserId, a.Dir, Make(a.Dir));
-            current = (accounts.FirstOrDefault(a => a.UserId == saved.Current) ?? accounts[0]).Controller;
+            current =
+                (accounts.FirstOrDefault(a => a.UserId == saved.Current) ??
+                 accounts[0]).Controller;
             // All of them restore their sessions and keep syncing; only the one in use is waited for.
-            var starts = accounts.Select(a => a.Controller.Bootstrap()).ToList();
-            await starts[accounts.FindIndex(a => ReferenceEquals(a.Controller, current))];
+            var starts = accounts.Select(a => a.Controller.Bootstrap())
+                .ToList();
+            await starts[
+                accounts.FindIndex(a =>
+                    ReferenceEquals(a.Controller, current))];
             return;
         }
 
@@ -79,7 +91,8 @@ public sealed class AccountManager(
     public void BeginAdd()
     {
         if (signingIn is null) {
-            signingInDir = Path.Combine(dataDirectory, "accounts", Guid.NewGuid().ToString("N"));
+            signingInDir = Path.Combine(dataDirectory, "accounts",
+                Guid.NewGuid().ToString("N"));
             signingIn = Make(signingInDir);
             Watch(signingIn);
             _ = signingIn.Bootstrap();
@@ -121,8 +134,10 @@ public sealed class AccountManager(
     /// <summary>Puts the accounts in this order (user ids); one not named keeps its place after the ones that are.</summary>
     public async Task Reorder(IReadOnlyList<string> ids)
     {
-        var ordered = ids.Select(id => accounts.FirstOrDefault(a => a.UserId == id))
-            .OfType<AccountEntry>().Concat(accounts.Where(a => !ids.Contains(a.UserId))).ToList();
+        var ordered = ids
+            .Select(id => accounts.FirstOrDefault(a => a.UserId == id))
+            .OfType<AccountEntry>()
+            .Concat(accounts.Where(a => !ids.Contains(a.UserId))).ToList();
         accounts.Clear();
         accounts.AddRange(ordered);
         Changed?.Invoke();
@@ -179,7 +194,8 @@ public sealed class AccountManager(
     {
         void OnChanged(AppState s)
         {
-            if (s.Auth != AuthStatus.SignedIn || s.UserId is null || signingIn != controller)
+            if (s.Auth != AuthStatus.SignedIn || s.UserId is null ||
+                signingIn != controller)
                 return;
             controller.Store.Changed -= OnChanged;
             var dir = signingInDir!;
@@ -221,7 +237,8 @@ public sealed class AccountManager(
                 current = accounts[0].Controller;
             else {
                 // The sign-in of the first account again, in a folder of its own.
-                signingInDir = Path.Combine(dataDirectory, "accounts", Guid.NewGuid().ToString("N"));
+                signingInDir = Path.Combine(dataDirectory, "accounts",
+                    Guid.NewGuid().ToString("N"));
                 signingIn = Make(signingInDir);
                 Watch(signingIn);
                 _ = signingIn.Bootstrap();
@@ -236,6 +253,7 @@ public sealed class AccountManager(
     private Task Save()
     {
         return store.Save(new StoredAccounts(
-            [.. accounts.Select(a => new StoredAccount(a.UserId, a.Dir))], CurrentAccount?.UserId));
+            [.. accounts.Select(a => new StoredAccount(a.UserId, a.Dir))],
+            CurrentAccount?.UserId));
     }
 }

@@ -32,7 +32,8 @@ public sealed class CallTransport(
     public Action Later(Action action, TimeSpan delay)
     {
         // The timer fires on a pool thread; what it does belongs to the UI thread, like everything of the conversation.
-        var timer = time.CreateTimer(_ => post(action), null, delay, Timeout.InfiniteTimeSpan);
+        var timer = time.CreateTimer(_ => post(action), null, delay,
+            Timeout.InfiniteTimeSpan);
         return () => timer.Dispose();
     }
 

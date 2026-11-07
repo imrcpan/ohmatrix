@@ -55,7 +55,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
 
     private readonly Dictionary<string, Gallery> galleries = [];
 
-    public async Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset, int want)
+    public async Task<SharedMediaPage> SharedMedia(string roomId,
+        MediaKind kind, int offset, int want)
     {
         Gallery? gallery;
         lock (galleries)
@@ -69,23 +70,31 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 await Task.Delay(100);
         }
 
-        List<TimelineItem> Found() =>
-            [.. gallery.Session.Items.Where(i => MediaKinds.Of(i) == kind).Reverse()];
+        List<TimelineItem> Found() => [
+            .. gallery.Session.Items.Where(i => MediaKinds.Of(i) == kind)
+                .Reverse()
+        ];
 
         // Ask the room for more until it has what the page needs (and one more, to know whether there is a next page).
-        for (var n = 0; Found().Count <= offset + want && !gallery.AtStart && n < 40; n++) {
+        for (var n = 0;
+             Found().Count <= offset + want && !gallery.AtStart && n < 40;
+             n++) {
             gallery.AtStart = await gallery.Session.LoadOlder();
             await Task.Delay(100);
         }
 
         var all = Found();
         var more = all.Count > offset + want || !gallery.AtStart;
-        return new SharedMediaPage([.. all.Skip(offset).Take(want)], more ? offset + want : null);
+        return new SharedMediaPage([.. all.Skip(offset).Take(want)],
+            more ? offset + want : null);
     }
 
     /// <summary>One open chat: the SDK's changes are applied to a list of its items, in order, and the lines are made from them.</summary>
-    private sealed class Session(Timeline timeline, Room room, string me) : IChatSession {
-        private readonly Channel<TimelineDiff[]> diffs = Channel.CreateUnbounded<TimelineDiff[]>();
+    private sealed class Session(Timeline timeline, Room room, string me)
+        : IChatSession {
+        private readonly Channel<TimelineDiff[]> diffs =
+            Channel.CreateUnbounded<TimelineDiff[]>();
+
         private readonly List<SdkTimelineItem> items = [];
         private readonly CancellationTokenSource stop = new();
         private TaskHandle? handle;
@@ -102,7 +111,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         public async Task Start()
         {
             handle = await timeline.AddListener(new Listener(diffs.Writer));
-            typingHandle = room.SubscribeToTypingNotifications(new TypingListener(this));
+            typingHandle =
+                room.SubscribeToTypingNotifications(new TypingListener(this));
             _ = Pump(stop.Token);
             // The first page of history; more is asked for as the person scrolls up.
             _ = Quietly(() => timeline.PaginateBackwards(30));
@@ -111,7 +121,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         public async Task Send(string text, string? replyToEventId = null)
         {
             try {
-                var content = MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
+                var content =
+                    MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
                 if (replyToEventId is null)
                     await timeline.Send(content);
                 else
@@ -121,23 +132,27 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
-        public async Task SendAttachment(string path, string mimeType, int? width, int? height)
+        public async Task SendAttachment(string path, string mimeType,
+            int? width, int? height)
         {
             try {
                 var size = (ulong)new System.IO.FileInfo(path).Length;
                 var upload =
- new UploadParameters(new UploadSource.File(path), null, null, null, null);
+                    new UploadParameters(new UploadSource.File(path), null,
+                        null, null, null);
                 if (mimeType.StartsWith("image/", StringComparison.Ordinal)) {
                     using var handle = timeline.SendImage(
                         upload,
                         null,
-                        new ImageInfo((ulong?)height, (ulong?)width, mimeType, size, null, null, null, null)
+                        new ImageInfo((ulong?)height, (ulong?)width, mimeType,
+                            size, null, null, null, null)
                     );
                     await handle.Join();
                 } else {
                     using var handle = timeline.SendFile(
                         upload,
-                        new uniffi.matrix_sdk_ffi.FileInfo(mimeType, size, null, null)
+                        new uniffi.matrix_sdk_ffi.FileInfo(mimeType, size, null,
+                            null)
                     );
                     await handle.Join();
                 }
@@ -148,7 +163,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
 
         public async Task SetPinned(string itemId, bool pinned)
         {
-            if (Event(itemId)?.EventOrTransactionId is not EventOrTransactionId.EventId id)
+            if (Event(itemId)?.EventOrTransactionId is not
+                EventOrTransactionId.EventId id)
                 return;
             try {
                 if (pinned)
@@ -166,8 +182,10 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             if (e is null)
                 return;
             try {
-                var content = MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
-                await timeline.Edit(e.EventOrTransactionId, new EditedContent.RoomMessage(content));
+                var content =
+                    MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
+                await timeline.Edit(e.EventOrTransactionId,
+                    new EditedContent.RoomMessage(content));
             } catch (Exception ex) when (ex is not EngineException) {
                 throw MatrixAuthEngine.Translate(ex);
             }
@@ -204,7 +222,9 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         private EventTimelineItem? Event(string itemId)
         {
             lock (byId) {
-                return byId.TryGetValue(itemId, out var item) ? item.AsEvent() : null;
+                return byId.TryGetValue(itemId, out var item)
+                    ? item.AsEvent()
+                    : null;
             }
         }
 
@@ -268,7 +288,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                             byId[i.UniqueId().Id] = i;
                     }
 
-                    Items = items.Select(i => Convert(i, me)).OfType<TimelineItem>().ToList();
+                    Items = items.Select(i => Convert(i, me))
+                        .OfType<TimelineItem>().ToList();
                     Changed?.Invoke(Items);
                 }
             } catch (OperationCanceledException) {
@@ -307,7 +328,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     items.RemoveAt((int)r.Index);
                     break;
                 case TimelineDiff.Truncate t:
-                    items.RemoveRange((int)t.Length, items.Count - (int)t.Length);
+                    items.RemoveRange((int)t.Length,
+                        items.Count - (int)t.Length);
                     break;
                 case TimelineDiff.Reset r:
                     items.Clear();
@@ -330,10 +352,14 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
 
             if (item.AsEvent() is not { } e)
                 return null;
-            var name = e.SenderProfile is ProfileDetails.Ready { DisplayName: { } n }
+            var name = e.SenderProfile is ProfileDetails.Ready {
+                DisplayName: { } n
+            }
                 ? n
                 : e.Sender;
-            if (e.Content is TimelineItemContent.MsgLike { Content: { Kind: MsgLikeKind.Message m } msg }) {
+            if (e.Content is TimelineItemContent.MsgLike {
+                    Content: { Kind: MsgLikeKind.Message m } msg
+                }) {
                 return new TimelineItem {
                     Id = id,
                     Body = m.Content.MsgType switch {
@@ -344,7 +370,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                         _ => m.Content.Body,
                     },
                     FormattedBody = m.Content.MsgType is MessageType.Text {
-                        Content: { Formatted: { Format: MessageFormat.Html } formatted }
+                        Content:
+                        { Formatted: { Format: MessageFormat.Html } formatted }
                     }
                         ? formatted.Body
                         : null,
@@ -353,7 +380,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                             file.Content.Filename,
                             (long)(file.Content.Info?.Size ?? 0),
                             file.Content.Source.ToJson(),
-                            file.Content.Info?.Mimetype ?? "application/octet-stream"
+                            file.Content.Info?.Mimetype ??
+                            "application/octet-stream"
                         ),
                         MessageType.Audio audio => new FileAttachment(
                             audio.Content.Filename,
@@ -384,15 +412,19 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     SenderId = e.Sender,
                     SenderName = name,
                     IsOwn = e.IsOwn,
-                    Read = e.IsOwn && e.ReadReceipts.Keys.Any(u => u != e.Sender),
+                    Read = e.IsOwn &&
+                           e.ReadReceipts.Keys.Any(u => u != e.Sender),
                     Ts = (long)e.Timestamp,
                     Sending = e.LocalSendState is EventSendState.NotSentYet,
                     Failed = e.LocalSendState is EventSendState.SendingFailed,
                     Edited = m.Content.IsEdited,
-                    EventId = e.EventOrTransactionId is EventOrTransactionId.EventId ev
-                        ? ev.EventIdValue
-                        : null,
-                    Reactions = [..
+                    EventId =
+                        e.EventOrTransactionId is EventOrTransactionId.EventId
+                            ev
+                            ? ev.EventIdValue
+                            : null,
+                    Reactions = [
+                        ..
                         msg.Reactions.Select(r => new ReactionCount(
                             r.Key,
                             r.Senders.Length,
@@ -414,15 +446,19 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
 
             // A message this device cannot read (its keys have not come): shown as a line, not left out.
-            if (e.Content is TimelineItemContent.MsgLike { Content.Kind: MsgLikeKind.UnableToDecrypt }) {
+            if (e.Content is TimelineItemContent.MsgLike {
+                    Content.Kind: MsgLikeKind.UnableToDecrypt
+                }) {
                 return new TimelineItem {
                     Id = id,
                     Kind = TimelineKind.Service,
                     Body = TimelineItem.Undecryptable,
                     Ts = (long)e.Timestamp,
-                    EventId = e.EventOrTransactionId is EventOrTransactionId.EventId ev2
-                        ? ev2.EventIdValue
-                        : null,
+                    EventId =
+                        e.EventOrTransactionId is EventOrTransactionId.EventId
+                            ev2
+                            ? ev2.EventIdValue
+                            : null,
                 };
             }
 
@@ -436,17 +472,22 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 return null;
             if (reply.Event() is not EmbeddedEventDetails.Ready ready)
                 return new ReplyQuote("", "…", reply.EventId());
-            var name = ready.SenderProfile is ProfileDetails.Ready { DisplayName: { } n }
+            var name = ready.SenderProfile is ProfileDetails.Ready {
+                DisplayName: { } n
+            }
                 ? n
                 : ready.Sender;
             var text =
- ready.Content is TimelineItemContent.MsgLike { Content.Kind: MsgLikeKind.Message m }
-                ? m.Content.Body
-                : "";
+                ready.Content is TimelineItemContent.MsgLike {
+                    Content.Kind: MsgLikeKind.Message m
+                }
+                    ? m.Content.Body
+                    : "";
             return new ReplyQuote(name, text, reply.EventId());
         }
 
-        private sealed class TypingListener(Session session) : TypingNotificationsListener {
+        private sealed class TypingListener(Session session)
+            : TypingNotificationsListener {
             public void Call(string[] typingUserIds)
             {
                 var names = typingUserIds
@@ -457,7 +498,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
-        private sealed class Listener(ChannelWriter<TimelineDiff[]> writer) : TimelineListener {
+        private sealed class Listener(ChannelWriter<TimelineDiff[]> writer)
+            : TimelineListener {
             public void OnUpdate(TimelineDiff[] diff)
             {
                 writer.TryWrite(diff);

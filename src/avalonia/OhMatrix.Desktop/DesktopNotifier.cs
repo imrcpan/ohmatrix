@@ -8,7 +8,9 @@ namespace OhMatrix.Desktop;
 /// notification area on Windows. The text is passed as arguments or environment variables, never as part of a script. A message of the chat that is
 /// open in the window the person is looking at is not announced.
 /// </summary>
-internal sealed class DesktopNotifier(Func<bool> windowActive, Action<string>? open = null)
+internal sealed class DesktopNotifier(
+    Func<bool> windowActive,
+    Action<string>? open = null)
     : INotifier {
     public void Notify(Notification notification)
     {

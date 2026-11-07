@@ -13,6 +13,7 @@ public sealed class FontPage : Grid {
     private readonly AppController controller;
     private readonly Border bar = new();
     private readonly SearchField search = new();
+
     private readonly StackPanel rows = new() {
         Margin = new Thickness(12, 4, 12, 24),
         Spacing = 2
@@ -37,14 +38,16 @@ public sealed class FontPage : Grid {
         Children.Add(scroller);
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<FontPage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<FontPage>((p, _) =>
+            p.Apply());
         Apply();
     }
 
     public StackPanel Rows => rows;
     public SearchField Search => search;
 
-    private string T(string key) => Strings.T(controller.Store.Value.Locale, key);
+    private string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
 
     private void Apply()
     {
@@ -61,7 +64,8 @@ public sealed class FontPage : Grid {
         if (query.Length == 0)
             names.Add(null);
         names.AddRange(installed.Where(n =>
-            query.Length == 0 || n.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
+            query.Length == 0 || n.Contains(query,
+                StringComparison.CurrentCultureIgnoreCase)));
         foreach (var name in names)
             rows.Children.Add(Row(c, name, name == current));
         if (names.Count == 0)
@@ -110,7 +114,9 @@ public sealed class FontPage : Grid {
             Height = 40,
             Padding = new Thickness(14, 0),
             CornerRadius = new CornerRadius(Radius.Control),
-            Background = active ? new SolidColorBrush(c.BgSecondary) : Brushes.Transparent,
+            Background = active
+                ? new SolidColorBrush(c.BgSecondary)
+                : Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.Hand),
             Child = line,
         };

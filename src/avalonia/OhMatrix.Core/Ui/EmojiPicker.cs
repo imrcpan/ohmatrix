@@ -122,7 +122,8 @@ public sealed class EmojiPicker {
 
     /// <summary>Shows the picker above <paramref name="anchor"/> in <paramref name="window"/>.</summary>
     public void Show(Control anchor, TopLevel window, ColorTokens tokens,
-        IReadOnlyList<string> recentEmoji, string searchLabel, Action<string> onPick)
+        IReadOnlyList<string> recentEmoji, string searchLabel,
+        Action<string> onPick)
     {
         colors = tokens;
         recent = recentEmoji;
@@ -140,12 +141,15 @@ public sealed class EmojiPicker {
     }
 
     /// <summary>Shows the stickers over the same surface: the picker is the sticker pane alone (no emoji groups, no search, no tabs).</summary>
-    public void ShowStickers(Control anchor, TopLevel window, ColorTokens tokens, StickerPane pane)
+    public void ShowStickers(Control anchor, TopLevel window,
+        ColorTokens tokens, StickerPane pane)
     {
         colors = tokens;
         clip.Child = pane;
         Style();
-        var width = StickerPane.WidthOf(StickerPane.Columns(window.ClientSize.Width - 2 * Margin));
+        var width =
+            StickerPane.WidthOf(
+                StickerPane.Columns(window.ClientSize.Width - 2 * Margin));
         Place(anchor, window, width, pane.Height);
     }
 
@@ -173,27 +177,32 @@ public sealed class EmojiPicker {
             new SolidColorBrush(colors.TextSecondary);
         search.Resources["TextControlPlaceholderForegroundFocused"] =
             new SolidColorBrush(colors.TextSecondary);
-        search.Resources["TextControlBackgroundFocused"] = new SolidColorBrush(colors.BgSecondary);
+        search.Resources["TextControlBackgroundFocused"] =
+            new SolidColorBrush(colors.BgSecondary);
         search.Resources["TextControlBackgroundPointerOver"] =
             new SolidColorBrush(colors.BgSecondary);
         search.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
-        search.Resources["TextControlBorderBrushPointerOver"] = Brushes.Transparent;
+        search.Resources["TextControlBorderBrushPointerOver"] =
+            Brushes.Transparent;
         tabBar.BorderBrush = new SolidColorBrush(colors.Separator);
     }
 
-    private void Place(Control anchor, TopLevel window, double wanted, double tall)
+    private void Place(Control anchor, TopLevel window, double wanted,
+        double tall)
     {
         Close();
         layer = OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
-        var origin = anchor.TranslatePoint(new Point(0, 0), window) ?? new Point();
+        var origin = anchor.TranslatePoint(new Point(0, 0), window) ??
+                     new Point();
         var width = Math.Min(wanted, window.ClientSize.Width - 2 * Margin);
         surface.Width = width;
         var height = Math.Min(tall, Math.Max(160, origin.Y - 2 * Margin));
         surface.Height = height;
         // Above the anchor with a gap of 8, at its left edge, and inside the window.
-        var left = Math.Max(Margin, Math.Min(origin.X, window.ClientSize.Width - width - Margin));
+        var left = Math.Max(Margin,
+            Math.Min(origin.X, window.ClientSize.Width - width - Margin));
         Canvas.SetLeft(surface, left);
         Canvas.SetTop(surface, Math.Max(Margin, origin.Y - height - Margin));
         shade.Width = window.ClientSize.Width;
@@ -222,10 +231,12 @@ public sealed class EmojiPicker {
     {
         if (query.Length > 0)
             return EmojiData.Groups.SelectMany(g => g.Emojis)
-                .Where(e => e.Contains(query, StringComparison.Ordinal)).ToList();
+                .Where(e => e.Contains(query, StringComparison.Ordinal))
+                .ToList();
         if (group == "recent")
             return recent;
-        return EmojiData.Groups.FirstOrDefault(g => g.Id == group)?.Emojis ?? [];
+        return EmojiData.Groups.FirstOrDefault(g => g.Id == group)?.Emojis ??
+               [];
     }
 
     /// <summary>Opens the tab of a group.</summary>
@@ -255,14 +266,17 @@ public sealed class EmojiPicker {
                     VerticalAlignment = VerticalAlignment.Center,
                 },
             };
-            tile.PointerEntered += (_, _) => tile.Background = new SolidColorBrush(colors.Hover);
-            tile.PointerExited += (_, _) => tile.Background = Brushes.Transparent;
+            tile.PointerEntered += (_, _) =>
+                tile.Background = new SolidColorBrush(colors.Hover);
+            tile.PointerExited += (_, _) =>
+                tile.Background = Brushes.Transparent;
             tile.PointerPressed += (_, e) => {
                 e.Handled = true;
                 Close();
                 pick(emoji);
             };
-            Avalonia.Automation.AutomationProperties.SetName(tile, $"Emoji {emoji}");
+            Avalonia.Automation.AutomationProperties.SetName(tile,
+                $"Emoji {emoji}");
             grid.Children.Add(tile);
         }
 
@@ -272,7 +286,10 @@ public sealed class EmojiPicker {
             var cell = new Border {
                 Width = (PickerWidth - 0) / TabList().Count,
                 Height = 32,
-                Background = new SolidColorBrush(on ? colors.BgSecondary : Colors.Transparent),
+                Background =
+                    new SolidColorBrush(on
+                        ? colors.BgSecondary
+                        : Colors.Transparent),
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = tab.Id == "recent"
                     ? new Icon {

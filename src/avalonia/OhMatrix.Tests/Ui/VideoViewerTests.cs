@@ -23,7 +23,8 @@ public class VideoViewerTests {
         window.Show();
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "clip.mp4");
         var viewer = new VideoViewer();
-        var file = new FileAttachment("clip.mp4", 9680, "mxc://s/clip", "video/mp4", FileKind.Video,
+        var file = new FileAttachment("clip.mp4", 9680, "mxc://s/clip",
+            "video/mp4", FileKind.Video,
             TimeSpan.FromSeconds(3));
         await viewer.Show(window, file, _ => Task.FromResult<string?>(path));
         Assert.True(viewer.IsOpen);
@@ -38,7 +39,8 @@ public class VideoViewerTests {
         var shot = Environment.GetEnvironmentVariable("OHMATRIX_CHAT_SHEET");
         if (!string.IsNullOrEmpty(shot)) {
             window.UpdateLayout();
-            window.CaptureRenderedFrame()!.Save(shot.Replace(".png", "-video.png"),
+            window.CaptureRenderedFrame()!.Save(
+                shot.Replace(".png", "-video.png"),
                 new PngBitmapEncoderOptions());
         }
 
@@ -56,7 +58,8 @@ public class VideoViewerTests {
         };
         window.Show();
         var viewer = new VideoViewer();
-        await viewer.Show(window, new FileAttachment("x.mp4", 1, "mxc://s/x", "video/mp4",
+        await viewer.Show(window, new FileAttachment("x.mp4", 1, "mxc://s/x",
+            "video/mp4",
             FileKind.Video), _ => Task.FromResult<string?>(null));
         Assert.False(viewer.IsOpen);
     }

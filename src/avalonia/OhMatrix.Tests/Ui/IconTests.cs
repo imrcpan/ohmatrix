@@ -50,7 +50,8 @@ public class IconTests {
                 Size = 48,
                 Color = Brushes.Black
             };
-            Assert.True(Dark(Draw(icon, 48)) > 20, $"the icon {name} drew nothing");
+            Assert.True(Dark(Draw(icon, 48)) > 20,
+                $"the icon {name} drew nothing");
         }
     }
 

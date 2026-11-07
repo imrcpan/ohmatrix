@@ -19,6 +19,7 @@ public sealed class MessageResultsView : StackPanel {
     private readonly AppController controller;
     private readonly string? roomId;
     private readonly bool showRoom;
+
     private readonly Avalonia.Threading.DispatcherTimer debounce = new() {
         Interval = TimeSpan.FromMilliseconds(350)
     };
@@ -29,7 +30,8 @@ public sealed class MessageResultsView : StackPanel {
     private string? next;
     private bool busy;
 
-    public MessageResultsView(AppController controller, string? roomId, bool showRoom)
+    public MessageResultsView(AppController controller, string? roomId,
+        bool showRoom)
     {
         this.controller = controller;
         this.roomId = roomId;
@@ -38,7 +40,8 @@ public sealed class MessageResultsView : StackPanel {
             debounce.Stop();
             _ = Load(null);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<MessageResultsView>((v, _) => v.Render());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<MessageResultsView>((v, _) => v.Render());
     }
 
     /// <summary>The hits shown.</summary>
@@ -52,7 +55,8 @@ public sealed class MessageResultsView : StackPanel {
     /// <summary>Whether the term is long enough to search.</summary>
     public static bool Active(string term) => term.Trim().Length >= 2;
 
-    private string T(string key) => Strings.T(controller.Store.Value.Locale, key);
+    private string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
 
     /// <summary>Searches for a term after a short pause in the typing; fewer than two characters clears the results.</summary>
     public void SetTerm(string value)
@@ -86,7 +90,9 @@ public sealed class MessageResultsView : StackPanel {
         if (mine != seq)
             return;
         busy = false;
-        results = from is null ? [.. page?.Results ?? []] : [.. results ?? [], .. page?.Results ?? []];
+        results = from is null
+            ? [.. page?.Results ?? []]
+            : [.. results ?? [], .. page?.Results ?? []];
         next = page?.Next;
         Render();
     }
@@ -122,7 +128,8 @@ public sealed class MessageResultsView : StackPanel {
         }
     }
 
-    private static TextBlock Note(ColorTokens c, string text, double size, double pad)
+    private static TextBlock Note(ColorTokens c, string text, double size,
+        double pad)
     {
         return new TextBlock {
             Text = text,
@@ -140,7 +147,8 @@ public sealed class MessageResultsView : StackPanel {
         var s = controller.Store.Value;
         var snip = Snippet.Make(r.Text, term.Trim());
         var grid = new Grid {
-            ColumnDefinitions = new ColumnDefinitions(showRoom ? "Auto,*" : "*"),
+            ColumnDefinitions =
+                new ColumnDefinitions(showRoom ? "Auto,*" : "*"),
             Margin = new Thickness(6, 0),
             Background = Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.Hand),
@@ -190,7 +198,8 @@ public sealed class MessageResultsView : StackPanel {
             MaxLines = 2,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        body.Inlines!.Add(new Run((showRoom ? r.SenderName + ": " : "") + snip.Before));
+        body.Inlines!.Add(new Run((showRoom ? r.SenderName + ": " : "") +
+                                  snip.Before));
         body.Inlines.Add(new Run(snip.Match) {
             Foreground = new SolidColorBrush(c.Accent),
             FontWeight = FontWeight.Bold

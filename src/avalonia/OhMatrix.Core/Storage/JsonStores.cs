@@ -74,16 +74,19 @@ public sealed class FileSessionStore(string directory) : ISessionStore {
 
 /// <summary>The preferences in <c>preferences.json</c> of a data directory.</summary>
 public sealed class FilePreferencesStore(string directory) : IPreferencesStore {
-    private string Path => System.IO.Path.Combine(directory, "preferences.json");
+    private string Path =>
+        System.IO.Path.Combine(directory, "preferences.json");
 
     public async Task<Preferences> Load()
     {
-        return await JsonFile.Read(Path, StorageJson.Default.Preferences) ?? new Preferences();
+        return await JsonFile.Read(Path, StorageJson.Default.Preferences) ??
+               new Preferences();
     }
 
     public Task Save(Preferences preferences)
     {
-        return JsonFile.Write(Path, preferences, StorageJson.Default.Preferences);
+        return JsonFile.Write(Path, preferences,
+            StorageJson.Default.Preferences);
     }
 }
 
@@ -98,6 +101,7 @@ public sealed class FileAccountsStore(string directory) : IAccountsStore {
 
     public Task Save(StoredAccounts accounts)
     {
-        return JsonFile.Write(Path, accounts, StorageJson.Default.StoredAccounts);
+        return JsonFile.Write(Path, accounts,
+            StorageJson.Default.StoredAccounts);
     }
 }

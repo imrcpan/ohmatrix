@@ -75,8 +75,10 @@ public sealed class AudioCard : Grid {
         this.fallback = fallback;
         ColumnDefinitions = new ColumnDefinitions("Auto,*");
         MinWidth = 220;
-        disc.Background = new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent);
-        glyph.Color = new SolidColorBrush(mine ? colors.BubbleOut : colors.OnAccent);
+        disc.Background =
+            new SolidColorBrush(mine ? colors.BubbleOutText : colors.Accent);
+        glyph.Color =
+            new SolidColorBrush(mine ? colors.BubbleOut : colors.OnAccent);
         disc.Child = glyph;
         var words = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center,
@@ -93,7 +95,8 @@ public sealed class AudioCard : Grid {
         var back = new Border {
             Height = 4,
             CornerRadius = new CornerRadius(2),
-            Background = new SolidColorBrush(Color.FromArgb(70, meta.R, meta.G, meta.B)),
+            Background =
+                new SolidColorBrush(Color.FromArgb(70, meta.R, meta.G, meta.B)),
             VerticalAlignment = VerticalAlignment.Center,
         };
         fill.Background = fg;
@@ -115,8 +118,9 @@ public sealed class AudioCard : Grid {
         };
         track.PointerPressed += (_, e) => {
             e.Handled = true;
-            if (Players.TryGetValue(file.Source, out var player) && player.DurationMs > 0
-                                                                 && track.Bounds.Width > 0)
+            if (Players.TryGetValue(file.Source, out var player) &&
+                player.DurationMs > 0
+                && track.Bounds.Width > 0)
                 player.Seek((long)(player.DurationMs * e.GetPosition(track).X /
                                    track.Bounds.Width));
             Refresh();
@@ -133,7 +137,8 @@ public sealed class AudioCard : Grid {
     /// <summary>What the button shows now; "play" or "pause".</summary>
     public string Glyph => glyph.Glyph;
 
-    public long Position => Players.TryGetValue(file.Source, out var p) ? p.PositionMs : 0;
+    public long Position =>
+        Players.TryGetValue(file.Source, out var p) ? p.PositionMs : 0;
 
     /// <summary>Starts the clip (fetching it first) or pauses it; the program of the system takes over where there is no player library.</summary>
     public async Task Toggle()

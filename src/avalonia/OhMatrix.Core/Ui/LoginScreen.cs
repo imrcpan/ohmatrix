@@ -86,7 +86,8 @@ public sealed class LoginScreen : Grid {
         this.controller = controller;
         this.back = back;
         this.time = time ?? TimeProvider.System;
-        homeserver.Text = controller.Store.Value.Prefs.LastHomeserver is { Length: > 0 } last
+        homeserver.Text = controller.Store.Value.Prefs.LastHomeserver is
+            { Length: > 0 } last
             ? last
             : defaultHomeserver;
         Build();
@@ -107,7 +108,8 @@ public sealed class LoginScreen : Grid {
         zoom = new ZoomPicker(controller, this, true, time);
         zoomButton.Click += (_, _) => zoom.Open(zoomButton);
         controller.Store.Changed += OnStateChanged;
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<LoginScreen>((s, _) => s.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<LoginScreen>((s, _) =>
+            s.Apply());
         Apply();
     }
 
@@ -165,8 +167,9 @@ public sealed class LoginScreen : Grid {
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         foreach (var c in new Control[] {
-                     head, homeserver, username, password, confirm, token, mismatchText, errorText,
-                     submitButton, toggleButton, backButton,
+                     head, homeserver, username, password, confirm, token,
+                     mismatchText, errorText, submitButton, toggleButton,
+                     backButton,
                  })
             form.Children.Add(c);
 
@@ -200,11 +203,13 @@ public sealed class LoginScreen : Grid {
 
     private bool Busy => controller.Store.Value.Auth == AuthStatus.SigningIn;
 
-    private bool Mismatched => creating && confirm.Text.Length > 0 && confirm.Text != password.Text;
+    private bool Mismatched => creating && confirm.Text.Length > 0 &&
+                               confirm.Text != password.Text;
 
     private bool Ready =>
         homeserver.Text.Trim().Length > 0 && username.Text.Trim().Length > 0 &&
-        password.Text.Length > 0 && (!creating || (confirm.Text.Length > 0 && !Mismatched));
+        password.Text.Length > 0 &&
+        (!creating || (confirm.Text.Length > 0 && !Mismatched));
 
     /// <summary>The words for what went wrong, in the language of the person; the network stack's own text is never shown for a network error.</summary>
     private string? WordedError()
@@ -227,7 +232,8 @@ public sealed class LoginScreen : Grid {
         }
 
         return code switch {
-            EngineErrorCode.Forbidden or EngineErrorCode.Unauthorized => T("login.rejected"),
+            EngineErrorCode.Forbidden or EngineErrorCode.Unauthorized => T(
+                "login.rejected"),
             EngineErrorCode.Conflict => T("login.exists"),
             _ => s.AuthError,
         };
@@ -241,7 +247,8 @@ public sealed class LoginScreen : Grid {
         var name = username.Text.Trim();
         if (creating) {
             var t = token.Text.Trim();
-            _ = controller.Register(server, name, password.Text, t.Length > 0 ? t : null);
+            _ = controller.Register(server, name, password.Text,
+                t.Length > 0 ? t : null);
         } else
             _ = controller.Login(server, name, password.Text);
     }
@@ -312,7 +319,8 @@ public sealed class LoginScreen : Grid {
         submitButton.Title = creating ? T("register.submit") : T("signIn");
         submitButton.Loading = Busy;
         submitButton.Disabled = !Ready;
-        toggleButton.Title = creating ? T("register.back") : T("register.toggle");
+        toggleButton.Title =
+            creating ? T("register.back") : T("register.toggle");
         backButton.IsVisible = back is not null && !Busy;
         backButton.Title = back?.Label ?? "";
 

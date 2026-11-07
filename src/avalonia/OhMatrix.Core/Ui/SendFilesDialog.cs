@@ -30,10 +30,13 @@ public sealed class SendFilesDialog {
     public static string KindOf(string path)
     {
         var mime = MimeTypes.For(path);
-        return mime.StartsWith("image/", StringComparison.Ordinal) ? "photo"
-            : mime.StartsWith("video/", StringComparison.Ordinal) ? "video"
-            : mime.StartsWith("audio/", StringComparison.Ordinal) ? "send.files.audio"
-            : "send.files.file";
+        return mime.StartsWith("image/", StringComparison.Ordinal)
+            ? "photo"
+            : mime.StartsWith("video/", StringComparison.Ordinal)
+                ? "video"
+                : mime.StartsWith("audio/", StringComparison.Ordinal)
+                    ? "send.files.audio"
+                    : "send.files.file";
     }
 
     public void Show(TopLevel window, IReadOnlyList<string> paths, Action send)
@@ -41,7 +44,8 @@ public sealed class SendFilesDialog {
         if (paths.Count == 0)
             return;
         var c = ThemeScope.GetColors(window);
-        var sizes = paths.Select(p => File.Exists(p) ? new FileInfo(p).Length : 0).ToList();
+        var sizes = paths
+            .Select(p => File.Exists(p) ? new FileInfo(p).Length : 0).ToList();
         var list = new StackPanel {
             Spacing = 8
         };
@@ -58,7 +62,9 @@ public sealed class SendFilesDialog {
                 Background = new SolidColorBrush(c.Accent),
                 Margin = new Thickness(0, 0, 12, 0),
                 Child = new Icon {
-                    Glyph = kind == "video" ? "video" : kind == "send.files.audio" ? "mic" : kind == "photo" ? "image" : "file",
+                    Glyph = kind == "video" ? "video" :
+                        kind == "send.files.audio" ? "mic" :
+                        kind == "photo" ? "image" : "file",
                     Size = 22,
                     Color = Brushes.White,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -110,8 +116,12 @@ public sealed class SendFilesDialog {
         };
         no.Click += (_, _) => dialog.Close();
         dialog.Show(window, c,
-            paths.Count == 1 ? T("send.files.one") : T("send.files.title", ("n", paths.Count)),
-            paths.Count > 1 ? T("send.files.total", ("size", Format.Bytes(sizes.Sum()))) : null,
+            paths.Count == 1
+                ? T("send.files.one")
+                : T("send.files.title", ("n", paths.Count)),
+            paths.Count > 1
+                ? T("send.files.total", ("size", Format.Bytes(sizes.Sum())))
+                : null,
             list, yes, no);
     }
 }

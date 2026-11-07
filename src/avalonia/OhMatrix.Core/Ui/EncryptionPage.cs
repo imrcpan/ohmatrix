@@ -36,7 +36,8 @@ public sealed class EncryptionPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<EncryptionPage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<EncryptionPage>((p, _) => p.Apply());
         Apply();
     }
 
@@ -91,7 +92,8 @@ public sealed class EncryptionPage : Grid {
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,
         };
-        ResetDialog.Show(window, c, T("keys.reset"), T("keys.reset.body"), warning, go, cancel);
+        ResetDialog.Show(window, c, T("keys.reset"), T("keys.reset.body"),
+            warning, go, cancel);
     }
 
     /// <summary>The row that asks my other sessions to verify this one; null when the state has no such step.</summary>
@@ -118,9 +120,11 @@ public sealed class EncryptionPage : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        SetupPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+        SetupPrompt.Show(window, ThemeScope.GetColors(this),
+            controller.Store.Value.Locale,
             T("sec.setup.title"), T("sec.setup.body"),
-            [new PromptField(T("password"), "lock", false, true)], T("sec.action.setup"),
+            [new PromptField(T("password"), "lock", false, true)],
+            T("sec.action.setup"),
             async v => {
                 var key = await controller.SetUpEncryption(v[0]);
                 ShowKey(window, key);
@@ -159,7 +163,8 @@ public sealed class EncryptionPage : Grid {
                 TextWrapping = TextWrapping.Wrap,
             },
         };
-        KeyDialog.Show(window, c, T("sec.saved.title"), T("sec.saved.body"), shown, copy, done);
+        KeyDialog.Show(window, c, T("sec.saved.title"), T("sec.saved.body"),
+            shown, copy, done);
     }
 
     private void AskSaved(TopLevel window)
@@ -181,7 +186,8 @@ public sealed class EncryptionPage : Grid {
             if (ShownKey is { } key)
                 ShowKey(window, key);
         };
-        KeyDialog.Show(window, c, T("sec.confirm.title"), T("sec.confirm.body"), yes, back);
+        KeyDialog.Show(window, c, T("sec.confirm.title"), T("sec.confirm.body"),
+            yes, back);
     }
 
     /// <summary>Asks for the recovery key to unlock the history of this device.</summary>
@@ -189,9 +195,11 @@ public sealed class EncryptionPage : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        RecoveryPrompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
+        RecoveryPrompt.Show(window, ThemeScope.GetColors(this),
+            controller.Store.Value.Locale,
             T("sec.recovery.title"), T("sec.recovery.body"),
-            [new PromptField(T("sec.recoveryKey"), "key", false, true)], T("sec.action.verify"),
+            [new PromptField(T("sec.recoveryKey"), "key", false, true)],
+            T("sec.action.verify"),
             v => controller.RestoreWithRecoveryKey(v[0]));
     }
 
@@ -212,26 +220,30 @@ public sealed class EncryptionPage : Grid {
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(26, 18, 12, 0),
         });
-        content.Children.Add(ProfilePage.NavRow(c, "lock", T("encryption"), () => {
-        }, 6,
+        content.Children.Add(ProfilePage.NavRow(c, "lock", T("encryption"),
+            () => {
+            }, 6,
             Words(s.Security, k => T(k)), false));
         RecoveryRow = null;
         VerifyRow = null;
         SetupRow = null;
         ResetRow = null;
         if (s.Security == SecurityState.NeedsSetup) {
-            SetupRow = ProfilePage.NavRow(c, "key", T("sec.setup.title"), AskSetup, 12);
+            SetupRow = ProfilePage.NavRow(c, "key", T("sec.setup.title"),
+                AskSetup, 12);
             content.Children.Add(SetupRow);
         }
 
         if (s.Security == SecurityState.Ready) {
-            ResetRow = ProfilePage.NavRow(c, "refresh", T("keys.reset"), AskReset, 12, null, false,
+            ResetRow = ProfilePage.NavRow(c, "refresh", T("keys.reset"),
+                AskReset, 12, null, false,
                 true);
             content.Children.Add(ResetRow);
         }
 
         if (s.Security == SecurityState.NeedsRecovery) {
-            RecoveryRow = ProfilePage.NavRow(c, "key", T("sec.recovery.title"), AskRecoveryKey, 12);
+            RecoveryRow = ProfilePage.NavRow(c, "key", T("sec.recovery.title"),
+                AskRecoveryKey, 12);
             content.Children.Add(RecoveryRow);
             VerifyRow = ProfilePage.NavRow(
                 c,

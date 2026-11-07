@@ -17,17 +17,21 @@ public class App : Application {
 
     public override void OnFrameworkInitializationCompleted()
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
+            desktop) {
             var data = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                Environment.GetFolderPath(Environment.SpecialFolder
+                    .ApplicationData),
                 "OhMatrix"
             );
             AccountManager? manager = null;
+
             // Each account has its own folder, engines and controller; the preferences are shared.
             AppController Create(string dir)
             {
-                var (auth, rooms, chats, media, profiles, devices, links, security, verification,
-                        calls, stickers, search, spaces) = Engines.Create(dir);
+                var (auth, rooms, chats, media, profiles, devices, links,
+                    security, verification,
+                    calls, stickers, search, spaces) = Engines.Create(dir);
                 return new AppController(
                     auth,
                     new FileSessionStore(dir),
@@ -40,12 +44,13 @@ public class App : Application {
                     devices,
                     links,
                     security,
-                    new DesktopNotifier(() => desktop.MainWindow?.IsActive == true, id => {
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                            desktop.MainWindow?.Activate();
-                            manager?.Current.SelectRoom(id);
-                        });
-                    }),
+                    new DesktopNotifier(
+                        () => desktop.MainWindow?.IsActive == true, id => {
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                                desktop.MainWindow?.Activate();
+                                manager?.Current.SelectRoom(id);
+                            });
+                        }),
                     verification,
                     calls,
                     new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
@@ -56,7 +61,8 @@ public class App : Application {
                 );
             }
 
-            manager = new AccountManager(data, Create, new FileAccountsStore(data));
+            manager =
+                new AccountManager(data, Create, new FileAccountsStore(data));
             AppRoot? root = null;
             desktop.MainWindow = new Window {
                 Title = "OhMatrix",
@@ -73,25 +79,35 @@ public class App : Application {
                 root = new AppRoot(
                     manager,
                     "matrix.org",
-                    () => PlatformSettings?.GetColorValues().ThemeVariant switch {
-                        PlatformThemeVariant.Dark => true,
-                        PlatformThemeVariant.Light => false,
-                        _ => null,
-                    }
+                    () => PlatformSettings?.GetColorValues().ThemeVariant
+                        switch {
+                            PlatformThemeVariant.Dark => true,
+                            PlatformThemeVariant.Light => false,
+                            _ => null,
+                        }
                 );
                 desktop.MainWindow.Content = root;
                 // Files named on the command line, or dropped on the window, are offered to be shared to chats.
-                var named = (desktop.Args ?? []).Where(File.Exists).Select(Path.GetFullPath).ToList();
+                var named = (desktop.Args ?? []).Where(File.Exists)
+                    .Select(Path.GetFullPath).ToList();
                 if (named.Count > 0)
-                    manager.Current.SetIncomingShare(new OhMatrix.Core.Model.SharedContent(null, named));
+                    manager.Current.SetIncomingShare(
+                        new OhMatrix.Core.Model.SharedContent(null, named));
                 Avalonia.Input.DragDrop.SetAllowDrop(desktop.MainWindow, true);
-                desktop.MainWindow.AddHandler(Avalonia.Input.DragDrop.DropEvent, (_, e) => {
-                    var paths = Avalonia.Input.DataTransferExtensions.TryGetFiles(e.DataTransfer)?
-                        .Select(f => Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(f)).OfType<string>().ToList();
-                    if (paths is { Count: > 0 })
-                        manager.Current.SetIncomingShare(
-                            new OhMatrix.Core.Model.SharedContent(null, paths));
-                });
+                desktop.MainWindow.AddHandler(Avalonia.Input.DragDrop.DropEvent,
+                    (_, e) => {
+                        var paths = Avalonia.Input.DataTransferExtensions
+                            .TryGetFiles(e.DataTransfer)?
+                            .Select(f =>
+                                Avalonia.Platform.Storage
+                                    .StorageProviderExtensions
+                                    .TryGetLocalPath(f)).OfType<string>()
+                            .ToList();
+                        if (paths is { Count: > 0 })
+                            manager.Current.SetIncomingShare(
+                                new OhMatrix.Core.Model.SharedContent(null,
+                                    paths));
+                    });
             }
         }
 

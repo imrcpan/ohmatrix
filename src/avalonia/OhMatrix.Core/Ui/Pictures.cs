@@ -10,7 +10,8 @@ namespace OhMatrix.Core.Ui;
 /// and asked for only once when several rows want the same one at the same time.
 /// </summary>
 public sealed class Pictures(IMediaEngine? media) {
-    private readonly ConcurrentDictionary<(string, int, int), Task<IImage?>> cache = new();
+    private readonly ConcurrentDictionary<(string, int, int), Task<IImage?>>
+        cache = new();
 
     /// <summary>The picture, square at <paramref name="size"/> (logical pixels; fetched twice as big for sharp screens); null when there is none.</summary>
     public Task<IImage?> Get(string? mxc, int size)
@@ -28,7 +29,8 @@ public sealed class Pictures(IMediaEngine? media) {
     }
 
     /// <summary>Gives <paramref name="image"/> its picture when it has come.</summary>
-    public void Attach(Avalonia.Controls.Image image, string? source, int width, int height)
+    public void Attach(Avalonia.Controls.Image image, string? source, int width,
+        int height)
     {
         var task = Get(source, width, height);
         if (task.IsCompletedSuccessfully) {
@@ -39,11 +41,13 @@ public sealed class Pictures(IMediaEngine? media) {
         _ = Show(image, task);
     }
 
-    private static async Task Show(Avalonia.Controls.Image image, Task<IImage?> task)
+    private static async Task Show(Avalonia.Controls.Image image,
+        Task<IImage?> task)
     {
         var picture = await task;
         if (picture is not null)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => image.Source = picture);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                image.Source = picture);
     }
 
     /// <summary>Gives <paramref name="avatar"/> its picture: at once when it is known, otherwise when it has come.</summary>
@@ -64,7 +68,8 @@ public sealed class Pictures(IMediaEngine? media) {
         if (picture is null)
             return;
         // Back on the thread of the interface.
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => avatar.Source = picture);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            avatar.Source = picture);
     }
 
     private async Task<IImage?> Load(string mxc, int width, int height)

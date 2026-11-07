@@ -14,7 +14,8 @@ public class PicturesTests {
         public int Calls;
         public (int, int) Size;
 
-        public Task<string?> Download(string source, string fileName, string mimeType) =>
+        public Task<string?> Download(string source, string fileName,
+            string mimeType) =>
             Task.FromResult<string?>(null);
 
         public Task<byte[]?> Thumbnail(string mxc, int width, int height)
@@ -52,7 +53,8 @@ public class PicturesTests {
         Assert.Null(await new Pictures(new Media(Png())).Get(null, 44));
         Assert.Null(await new Pictures(null).Get("mxc://s/a", 44));
         Assert.Null(await new Pictures(new Media(null)).Get("mxc://s/a", 44));
-        Assert.Null(await new Pictures(new Media([1, 2, 3])).Get("mxc://s/a", 44));
+        Assert.Null(
+            await new Pictures(new Media([1, 2, 3])).Get("mxc://s/a", 44));
     }
 
     [AvaloniaFact]
