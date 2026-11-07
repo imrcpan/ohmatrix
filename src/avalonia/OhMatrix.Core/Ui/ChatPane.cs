@@ -787,6 +787,21 @@ public sealed class ChatPane : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
+        // A message that could not be sent has only the two things that can be done with it, and no reactions.
+        if (item.Failed) {
+            actions.Show(window, ThemeScope.GetColors(this),
+                at ?? (anchor.TranslatePoint(new Point(0, 0), window) ?? new Point()), [], [],
+                _ => {
+                },
+                [
+                    new MenuItem(T("resend"), () => _ = controller.ResendMessage(item.Id),
+                        Icon: "send"),
+                    new MenuItem(T("delete"), () => _ = controller.DiscardMessage(item.Id),
+                        Icon: "trash", Danger: true),
+                ]);
+            return;
+        }
+
         var items = new List<MenuItem>();
         if (item.Body.Length > 0 && item.Image is null && item.File is null)
             items.Add(new MenuItem(T("copy"), () => _ = Copy(window, item.Body), Icon: "copy"));

@@ -64,6 +64,20 @@ public class ChatPaneTests {
             return Task.CompletedTask;
         }
 
+        public readonly List<string> Retried = [];
+
+        public Task Resend(string itemId)
+        {
+            Retried.Add("resend " + itemId);
+            return Task.CompletedTask;
+        }
+
+        public Task Discard(string itemId)
+        {
+            Retried.Add("discard " + itemId);
+            return Task.CompletedTask;
+        }
+
         public Task ToggleReaction(string itemId, string key)
         {
             Reacted.Add(itemId + key);
@@ -1635,6 +1649,27 @@ public class ChatPaneTests {
         pane.CancelSelect();
         Assert.False(pane.Selecting);
         Assert.Empty(pane.Chosen);
+    }
+
+    [AvaloniaFact]
+    public async Task A_message_that_failed_can_be_sent_again_or_dropped()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        var failed = controller.Store.Value.Timeline.First(i => i.Failed);
+        pane.OpenActions(pane.Messages, failed);
+        Assert.Empty(pane.Actions.Emojis);
+        Assert.Equal(2, pane.Actions.Rows.Count);
+        Save(window, "failed-menu");
+        var send = (Border)pane.Actions.Rows[0];
+        send.RaiseEvent(Release(send));
+        pane.OpenActions(pane.Messages, failed);
+        var drop = (Border)pane.Actions.Rows[1];
+        drop.RaiseEvent(Release(drop));
+        await Settle();
+        Assert.Equal([$"resend {failed.Id}", $"discard {failed.Id}"], engine.Opened[0].Retried);
     }
 
     [Xunit.Theory]

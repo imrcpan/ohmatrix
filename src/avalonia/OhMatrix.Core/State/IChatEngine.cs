@@ -29,6 +29,12 @@ public interface IChatSession : IDisposable {
     /// <summary>Removes one of my messages for everyone in the chat.</summary>
     Task Delete(string itemId);
 
+    /// <summary>Tries again to send the messages that could not be sent.</summary>
+    Task Resend(string itemId);
+
+    /// <summary>Drops a message that could not be sent.</summary>
+    Task Discard(string itemId);
+
     /// <summary>Adds my reaction to a line, or takes it away if it is there.</summary>
     Task ToggleReaction(string itemId, string key);
 
