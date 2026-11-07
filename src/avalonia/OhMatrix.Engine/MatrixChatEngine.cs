@@ -150,6 +150,22 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        public Task Resend(string itemId)
+        {
+            try {
+                // The send queue stops after a failure; enabling it again sends what waits in it.
+                room.EnableSendQueue(true);
+                return Task.CompletedTask;
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
+            }
+        }
+
+        public Task Discard(string itemId)
+        {
+            return Delete(itemId);
+        }
+
         private EventTimelineItem? Event(string itemId)
         {
             lock (byId) {

@@ -746,6 +746,18 @@ public sealed class AppController(
         return chat is null ? Task.CompletedTask : chat.Delete(itemId);
     }
 
+    /// <summary>Tries again to send a message that could not be sent.</summary>
+    public Task ResendMessage(string itemId)
+    {
+        return chat is null ? Task.CompletedTask : chat.Resend(itemId);
+    }
+
+    /// <summary>Drops a message that could not be sent.</summary>
+    public Task DiscardMessage(string itemId)
+    {
+        return chat is null ? Task.CompletedTask : chat.Discard(itemId);
+    }
+
     /// <summary>Adds my reaction to a message, or takes it away.</summary>
     public Task ToggleReaction(string itemId, string key)
     {
