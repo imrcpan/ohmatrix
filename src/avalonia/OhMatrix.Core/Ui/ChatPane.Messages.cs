@@ -519,8 +519,11 @@ public sealed partial class ChatPane {
                 : Brushes.Transparent;
     }
 
-    private double MessageWidth() => Math.Max(0,
-        Math.Min(560, ((Bounds.Width > 0 ? Bounds.Width : 800) - 24) * 0.8));
+    private double MessageWidth()
+    {
+        var available = Bounds.Width > 0 ? Bounds.Width : 800;
+        return Math.Max(0, Math.Min(560, (available - 24) * 0.8));
+    }
 
     private void ResizeMessages()
     {
