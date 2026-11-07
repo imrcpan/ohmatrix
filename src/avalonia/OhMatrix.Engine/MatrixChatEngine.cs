@@ -118,11 +118,26 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             _ = Quietly(() => timeline.PaginateBackwards(30));
         }
 
-        public async Task Send(string text, string? replyToEventId = null)
+        public async Task SetTyping(bool typing)
+        {
+            try {
+                await room.TypingNotice(typing);
+            } catch (Exception) {
+                // A typing notice that is lost is not worth a message.
+            }
+        }
+
+        public async Task Send(string text, string? replyToEventId = null,
+            IReadOnlyList<string>? mentions = null)
         {
             try {
                 var content =
                     MatrixSdkFfiMethods.MessageEventContentFromMarkdown(text);
+                // The people named are told, whatever the room's settings: that is what m.mentions is for.
+                if (mentions is { Count: > 0 })
+                    content = content.WithMentions(
+                        new uniffi.matrix_sdk_ffi.Mentions([.. mentions],
+                            false));
                 if (replyToEventId is null)
                     await timeline.Send(content);
                 else

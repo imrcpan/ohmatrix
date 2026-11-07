@@ -75,7 +75,15 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             var info = await room.RoomInfo();
             var people = new List<RoomMemberInfo>();
             using var members = await room.Members();
+            var banned = new List<BannedMemberInfo>();
             while (members.NextChunk(100) is { Length: > 0 } chunk) {
+                foreach (var m in chunk.Where(m =>
+                             m.Membership is MembershipState.Ban))
+                    banned.Add(new BannedMemberInfo(m.UserId,
+                        m.DisplayName ?? m.UserId.TrimStart('@').Split(':')[0],
+                        string.IsNullOrWhiteSpace(m.MembershipChangeReason)
+                            ? null
+                            : m.MembershipChangeReason));
                 foreach (var m in chunk.Where(m =>
                              m.Membership is MembershipState.Join)) {
                     people.Add(new RoomMemberInfo(
@@ -89,7 +97,11 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                             RoomMemberRole.Moderator => MemberRole.Moderator,
                             _ => MemberRole.Member,
                         }
-                    ));
+                    ) {
+                        Power = m.PowerLevel is PowerLevel.Value v
+                            ? (int)v.ValueValue
+                            : null
+                    });
                 }
             }
 
@@ -164,7 +176,10 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                 thresholds,
                 can,
                 isDirect
-            );
+            ) {
+                IsEncrypted = await room.IsEncrypted(),
+                Banned = banned,
+            };
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
@@ -369,6 +384,18 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.UpdatePowerLevelsForUsers([
             new UserPowerLevelUpdate(userId, level)
         ]));
+    }
+
+    public Task SetMemberPower(string roomId, string userId, int level)
+    {
+        return Act(roomId, room => room.UpdatePowerLevelsForUsers([
+            new UserPowerLevelUpdate(userId, level)
+        ]));
+    }
+
+    public Task UnbanMember(string roomId, string userId)
+    {
+        return Act(roomId, room => room.UnbanUser(userId, null));
     }
 
     public Task RemoveMember(string roomId, string userId)

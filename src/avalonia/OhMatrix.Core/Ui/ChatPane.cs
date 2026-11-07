@@ -287,6 +287,36 @@ public sealed class ChatPane : Grid {
     private IReadOnlyList<TimelineItem>? shownItems;
     private string? shownRoom;
     private bool stickToBottom = true;
+    private readonly Mentions mentions = new();
+    private readonly Menu mentionMenu = new();
+    private string? mentionRoom;
+
+    /// <summary>The menu of people offered for an <c>@</c> in the message box.</summary>
+    public Menu MentionMenu => mentionMenu;
+
+    private int newWhileAway;
+    private string? lastSeenId;
+
+    private readonly Border latest = new() {
+        Width = 40,
+        Height = 40,
+        CornerRadius = new CornerRadius(20),
+        BorderThickness = new Thickness(1),
+        Cursor = new Cursor(StandardCursorType.Hand),
+        Child = new Icon {
+            Glyph = "chevronDown",
+            Size = 20,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        },
+    };
+
+    /// <summary>The button to the newest message, shown while the view is up in the history.</summary>
+    public Border ScrollToLatest => latest;
+
+    /// <summary>How many messages from others arrived while the view was up in the history.</summary>
+    public int NewWhileAway => newWhileAway;
+
     private bool loadingOlder;
 
     // Over the place of the list while the messages of a chat come in; shown only if they take more than a moment.
@@ -371,6 +401,17 @@ public sealed class ChatPane : Grid {
         body.Children.Add(scroller);
         Grid.SetRow(overlay, 2);
         body.Children.Add(overlay);
+        Grid.SetRow(latest, 2);
+        latest.HorizontalAlignment = HorizontalAlignment.Right;
+        latest.VerticalAlignment = VerticalAlignment.Bottom;
+        latest.Margin = new Thickness(0, 0, 16, 12);
+        latest.IsVisible = false;
+        latest.PointerPressed += (_, e) => {
+            e.Handled = true;
+            newWhileAway = 0;
+            scroller.ScrollToEnd();
+        };
+        body.Children.Add(latest);
         searchBar.IsVisible = false;
         pinnedBar.PointerPressed += (_, e) => {
             e.Handled = true;
@@ -426,8 +467,11 @@ public sealed class ChatPane : Grid {
             }
         };
         input.PropertyChanged += (_, e) => {
-            if (e.Property == TextBox.TextProperty)
+            if (e.Property == TextBox.TextProperty) {
+                controller.SetTyping((input.Text ?? "").Trim().Length > 0);
+                SuggestMentions();
                 Apply();
+            }
         };
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DropEvent, (_, e) => {
@@ -461,7 +505,48 @@ public sealed class ChatPane : Grid {
             return;
         input.Text = "";
         stickToBottom = true;
-        _ = controller.Send(text);
+        var people = controller.Store.Value.Details?.Members ?? [];
+        var ids = mentions.Resolve(text, people);
+        mentions.Reset();
+        _ = controller.Send(text, ids);
+    }
+
+    /// <summary>Offers the people of the room when the caret is in an <c>@token</c>; picking one puts their name in the text.</summary>
+    public void SuggestMentions()
+    {
+        var s = controller.Store.Value;
+        if (TopLevel.GetTopLevel(this) is not { } window ||
+            s.SelectedRoomId is not { } roomId)
+            return;
+        if (mentionRoom != roomId) {
+            mentionRoom = roomId;
+            mentions.Reset();
+            // The people come with the info of the room.
+            _ = controller.LoadDetails(roomId);
+        }
+
+        var text = input.Text ?? "";
+        if (Mentions.TokenAt(text, input.CaretIndex) is not { } token ||
+            s.Details is null) {
+            mentionMenu.Close();
+            return;
+        }
+
+        var found = Mentions.Suggest(s.Details.Members, token.Query);
+        if (found.Count == 0) {
+            mentionMenu.Close();
+            return;
+        }
+
+        mentionMenu.Show(inputBox, window, [
+            .. found.Select(m => new MenuItem(m.Name, () => {
+                var (next, caret) =
+                    mentions.Apply(m, input.Text ?? "", input.CaretIndex);
+                input.Text = next;
+                input.CaretIndex = caret;
+                input.Focus();
+            }, Icon: "user"))
+        ]);
     }
 
     private string T(string key, params (string, object)[] values)
@@ -469,11 +554,31 @@ public sealed class ChatPane : Grid {
         return Strings.T(controller.Store.Value.Locale, key, values);
     }
 
+    private void ShowLatest()
+    {
+        var c = ThemeScope.GetColors(this);
+        var away = !stickToBottom && controller.Store.Value.Timeline.Count > 0;
+        latest.IsVisible = away;
+        latest.Background = new SolidColorBrush(c.Bg);
+        latest.BorderBrush = new SolidColorBrush(c.Separator);
+        if (latest.Child is Icon icon)
+            icon.Color = new SolidColorBrush(c.TextSecondary);
+        var label = newWhileAway > 0
+            ? T("scroll.newCount", ("n", newWhileAway))
+            : T("scroll.latest");
+        Avalonia.Automation.AutomationProperties.SetName(latest, label);
+        if (newWhileAway > 0)
+            ToolTip.SetTip(latest, label);
+    }
+
     private void OnScroll()
     {
         var atBottom = scroller.Offset.Y >=
                        scroller.Extent.Height - scroller.Viewport.Height - 40;
         stickToBottom = atBottom;
+        if (atBottom)
+            newWhileAway = 0;
+        ShowLatest();
         // Near the top: older messages are asked for.
         if (scroller.Offset.Y < 80 && !loadingOlder &&
             scroller.Extent.Height > scroller.Viewport.Height) {
@@ -816,6 +921,14 @@ public sealed class ChatPane : Grid {
             rowsById[item.Id] = frame;
         }
 
+        // A new last message from someone else while the view is up in the history counts for the button.
+        var lastItem = items.Count > 0 ? items[^1] : null;
+        if (lastSeenId is not null && lastItem is not null &&
+            lastItem.Id != lastSeenId
+            && !lastItem.IsOwn && !stickToBottom)
+            newWhileAway++;
+        lastSeenId = lastItem?.Id;
+        ShowLatest();
         if (s.JumpToEventId is { } target && s.TimelineReady) {
             var hit = items.FirstOrDefault(i => i.EventId == target);
             Dispatcher.UIThread.Post(() => {

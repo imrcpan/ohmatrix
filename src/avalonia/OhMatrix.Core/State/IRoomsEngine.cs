@@ -64,6 +64,12 @@ public interface IRoomsEngine {
     /// <summary>Gives a person a role in the room (admin 100, moderator 50, member 0).</summary>
     Task SetMemberRole(string roomId, string userId, MemberRole role);
 
+    /// <summary>Sets the power level of a person to any whole number up to my own.</summary>
+    Task SetMemberPower(string roomId, string userId, int level);
+
+    /// <summary>Lifts the ban of a person.</summary>
+    Task UnbanMember(string roomId, string userId);
+
     /// <summary>Removes a person from the room.</summary>
     Task RemoveMember(string roomId, string userId);
 

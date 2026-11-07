@@ -12,8 +12,12 @@ public interface IChatSession : IDisposable {
     /// <summary>Names of the people typing in the chat (never me), as they change.</summary>
     event Action<IReadOnlyList<string>>? TypingChanged;
 
+    /// <summary>Tells the room that I am typing, or that I stopped.</summary>
+    Task SetTyping(bool typing);
+
     /// <summary>Sends a text message; with <paramref name="replyToEventId"/>, as the answer to that message.</summary>
-    Task Send(string text, string? replyToEventId = null);
+    Task Send(string text, string? replyToEventId = null,
+        IReadOnlyList<string>? mentions = null);
 
     /// <summary>
     /// Sends a file from disk as a message: a picture when <paramref name="mimeType"/> is an image (with its size when known), otherwise a file.

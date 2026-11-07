@@ -301,6 +301,18 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
+    public async Task SetMemberPower(string roomId, string userId, int level)
+    {
+        await rooms!.SetMemberPower(roomId, userId, level);
+        await LoadDetails(roomId);
+    }
+
+    public async Task UnbanMember(string roomId, string userId)
+    {
+        await rooms!.UnbanMember(roomId, userId);
+        await LoadDetails(roomId);
+    }
+
     /// <summary>Removes a person from a group.</summary>
     public async Task RemoveMember(string roomId, string userId)
     {
@@ -518,6 +530,37 @@ public sealed class AppController(
         }
     }
 
+    /// <summary>Whether a person can be asked to verify.</summary>
+    public bool CanVerifyUser => verification is not null;
+
+    /// <summary>Asks another person to verify with me; the progress is in <see cref="AppState.Verification"/>.</summary>
+    public async Task VerifyUser(string userId)
+    {
+        if (verification is null)
+            return;
+        Store.Update(s => s with {
+            Verification = new VerifyFlow(VerifyPhase.Requested, false)
+        });
+        try {
+            await verification.RequestUser(userId);
+        } catch (Exception) {
+            Store.Update(s => s with {
+                Verification = new VerifyFlow(VerifyPhase.Failed, false)
+            });
+        }
+    }
+
+    private bool typingSent;
+
+    /// <summary>Tells the open chat that I am typing (when the draft has text) or not; only a change is sent.</summary>
+    public void SetTyping(bool typing)
+    {
+        if (typing == typingSent || chat is null)
+            return;
+        typingSent = typing;
+        _ = Quietly(() => chat.SetTyping(typing));
+    }
+
     public Task AcceptVerification()
     {
         return Quietly(() => verification!.Accept());
@@ -607,7 +650,7 @@ public sealed class AppController(
     }
 
     /// <summary>Sends text to the open chat. Nothing is sent for an empty text.</summary>
-    public Task Send(string text)
+    public Task Send(string text, IReadOnlyList<string>? mentions = null)
     {
         var trimmed = text.Trim();
         if (trimmed.Length == 0 || chat is null)
@@ -620,7 +663,7 @@ public sealed class AppController(
         var reply = Store.Value.ReplyTo?.EventId;
         if (reply is not null)
             SetReplyTo(null);
-        return chat.Send(trimmed, reply);
+        return chat.Send(trimmed, reply, mentions);
     }
 
     /// <summary>Answers a message in the open chat: the next text sent quotes it. Null cancels.</summary>
@@ -642,7 +685,7 @@ public sealed class AppController(
             _ = LoadDetails(id);
     }
 
-    private async Task LoadDetails(string roomId)
+    public async Task LoadDetails(string roomId)
     {
         if (rooms is null)
             return;
@@ -1080,6 +1123,7 @@ public sealed class AppController(
     {
         chatOpening++;
         chat?.Dispose();
+        typingSent = false;
         chat = null;
     }
 

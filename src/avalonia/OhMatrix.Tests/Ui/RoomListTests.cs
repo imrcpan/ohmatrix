@@ -132,6 +132,12 @@ public class RoomListTests {
             MemberRole role) =>
             Log($"role {roomId} {userId} {role}");
 
+        public Task SetMemberPower(string roomId, string userId, int level) =>
+            Log($"power {roomId} {userId} {level}");
+
+        public Task UnbanMember(string roomId, string userId) =>
+            Log($"unban {roomId} {userId}");
+
         public Task RemoveMember(string roomId, string userId) =>
             Log($"remove {roomId} {userId}");
 

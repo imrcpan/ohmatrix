@@ -23,6 +23,14 @@ public class ChatPaneTests {
         : IChatSession {
         public event Action<IReadOnlyList<TimelineItem>>? Changed;
         public IReadOnlyList<TimelineItem> Items { get; private set; } = first;
+        public readonly List<bool> Typed = [];
+
+        public Task SetTyping(bool typing)
+        {
+            Typed.Add(typing);
+            return Task.CompletedTask;
+        }
+
         public readonly List<string> Sent = [];
         public bool Disposed;
 
@@ -88,11 +96,15 @@ public class ChatPaneTests {
             return Task.CompletedTask;
         }
 
-        public Task Send(string text, string? replyToEventId = null)
+        public readonly List<string> Mentioned = [];
+
+        public Task Send(string text, string? replyToEventId = null,
+            IReadOnlyList<string>? mentions = null)
         {
             if (replyToEventId is not null)
                 Replies.Add(replyToEventId);
             Sent.Add(text);
+            Mentioned.AddRange(mentions ?? []);
             Items = [
                 .. Items,
                 new TimelineItem {
@@ -417,6 +429,8 @@ public class ChatPaneTests {
 
         public Task Listen() => Task.CompletedTask;
 
+        public Task RequestUser(string userId) => Task.CompletedTask;
+
         public Task Request()
         {
             Calls.Add("request");
@@ -608,6 +622,12 @@ public class ChatPaneTests {
         public Task SetMemberRole(string roomId, string userId,
             MemberRole role) =>
             Log($"role {roomId} {userId} {role}");
+
+        public Task SetMemberPower(string roomId, string userId, int level) =>
+            Log($"power {roomId} {userId} {level}");
+
+        public Task UnbanMember(string roomId, string userId) =>
+            Log($"unban {roomId} {userId}");
 
         public Task RemoveMember(string roomId, string userId) =>
             Log($"remove {roomId} {userId}");
@@ -1606,6 +1626,42 @@ public class ChatPaneTests {
         File.Delete(file);
     }
 
+    [Fact]
+    public void An_at_sign_offers_people_and_the_ones_picked_are_mentioned()
+    {
+        Assert.Null(Mentions.TokenAt("mail me a@b", 11));
+        Assert.Equal((4, "al"), Mentions.TokenAt("hi, @al", 7));
+        Assert.Null(Mentions.TokenAt("hi @al lee", 10));
+        RoomMemberInfo[] people = [
+            new("@alice:s", "Alice", null, MemberRole.Member),
+            new("@bob:s", "Bob", null, MemberRole.Member),
+            new("@malik:s", "Malik", null, MemberRole.Member),
+        ];
+        Assert.Equal(["Alice", "Malik"],
+            Mentions.Suggest(people, "al").Select(p => p.Name));
+        var m = new Mentions();
+        var (text, caret) = m.Apply(people[0], "hi @al", 6);
+        Assert.Equal("hi @Alice ", text);
+        Assert.Equal(10, caret);
+        Assert.Equal(["@alice:s"], m.Resolve(text + "there", people));
+        Assert.Empty(m.Resolve("hi Alice", people));
+    }
+
+    [AvaloniaFact]
+    public async Task
+        Typing_is_told_and_the_scroll_button_shows_up_in_the_history()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        pane.Input.Text = "hello";
+        Assert.Equal([true], engine.Opened[0].Typed);
+        pane.Input.Text = "";
+        Assert.Equal([true, false], engine.Opened[0].Typed);
+        Assert.False(pane.ScrollToLatest.IsVisible);
+    }
+
     [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
@@ -1717,7 +1773,7 @@ public class ChatPaneTests {
         panel.ViewMember(bob);
         Assert.Equal(bob, panel.Viewing);
         // Copy link, copy address, write, block.
-        Assert.Equal(4, panel.Content.Children.Count - 1);
+        Assert.Equal(5, panel.Content.Children.Count - 1);
         Save(window, "member-page");
         panel.AskBlockForTest(bob);
         panel.LeaveMember();
@@ -1743,7 +1799,7 @@ public class ChatPaneTests {
             .First(b => b.Cursor is not null);
         panel.OpenMemberMenu(anchor, room, bob);
         Assert.True(panel.MemberMenu.IsOpen);
-        Assert.Equal(5, panel.MemberMenu.Rows.Count);
+        Assert.Equal(6, panel.MemberMenu.Rows.Count);
         Save(window, "member-menu");
         panel.MemberMenu.Close();
         panel.AskRole(room, bob, MemberRole.Moderator);
