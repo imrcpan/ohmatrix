@@ -554,6 +554,65 @@ public sealed class ChatPane : Grid {
         return Strings.T(controller.Store.Value.Locale, key, values);
     }
 
+    private bool revealing;
+
+    /// <summary>
+    /// Goes to a message and marks it for a moment, reading older history
+    /// first when it is not loaded (<c>useReveal</c>); says so when it cannot
+    /// be found.
+    /// </summary>
+    public async Task Reveal(string eventId)
+    {
+        if (revealing)
+            return;
+        revealing = true;
+        try {
+            TimelineItem? Find() => controller.Store.Value.Timeline
+                .FirstOrDefault(i => i.EventId == eventId);
+
+            if (Find() is null) {
+                controller.ShowNotice(T("jump.looking"), NoticeKind.Progress);
+                // Older pages are read until it is there or the room starts.
+                for (var n = 0; n < 40 && Find() is null; n++) {
+                    var before = controller.Store.Value.Timeline.Count;
+                    if (await controller.LoadOlder() && Find() is null)
+                        break;
+                    for (var w = 0;
+                         w < 20 && Find() is null &&
+                         controller.Store.Value.Timeline.Count == before;
+                         w++)
+                        await Task.Delay(50);
+                    if (controller.Store.Value.Timeline.Count == before)
+                        break;
+                }
+            }
+
+            await Task.Yield();
+            Dispatcher.UIThread.RunJobs();
+            if (Find() is not { } hit ||
+                !rowsById.TryGetValue(hit.Id, out var row)) {
+                controller.ShowNotice(T("jump.notFound"), NoticeKind.Error);
+                return;
+            }
+
+            controller.Store.Update(x => x with {
+                Notice = null
+            });
+            row.BringIntoView();
+            highlightId = hit.Id;
+            Mark();
+            await Task.Delay(3000);
+            if (highlightId == hit.Id)
+                highlightId = null;
+            Mark();
+        } finally {
+            revealing = false;
+        }
+    }
+
+    private string? highlightId;
+    public string? Highlighted => highlightId;
+
     private void ShowLatest()
     {
         var c = ThemeScope.GetColors(this);
@@ -861,6 +920,18 @@ public sealed class ChatPane : Grid {
                 controller.LinkPreview,
                 controller.DownloadFile
             );
+            if (bubble.Quote is { } quote &&
+                item.Reply?.EventId is { } quoted) {
+                quote.Cursor = new Cursor(StandardCursorType.Hand);
+                quote.PointerPressed += (_, e) => {
+                    if (!e.GetCurrentPoint(quote).Properties
+                            .IsLeftButtonPressed)
+                        return;
+                    e.Handled = true;
+                    _ = Reveal(quoted);
+                };
+            }
+
             bubble.PointerPressed += (_, e) => {
                 if (e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed) {
                     e.Handled = true;
@@ -930,17 +1001,11 @@ public sealed class ChatPane : Grid {
         lastSeenId = lastItem?.Id;
         ShowLatest();
         if (s.JumpToEventId is { } target && s.TimelineReady) {
-            var hit = items.FirstOrDefault(i => i.EventId == target);
-            Dispatcher.UIThread.Post(() => {
-                // A message older than what is loaded cannot be shown; the chat stays where it is.
-                if (hit is not null &&
-                    rowsById.TryGetValue(hit.Id, out var row))
-                    row.BringIntoView();
-                controller.Store.Update(x => x with {
-                    JumpToEventId = null
-                });
-            }, DispatcherPriority.Background);
+            controller.Store.Update(x => x with {
+                JumpToEventId = null
+            });
             stickToBottom = false;
+            _ = Reveal(target);
         } else if (searching)
             Search();
         else if (stickToBottom)
@@ -1361,9 +1426,13 @@ public sealed class ChatPane : Grid {
         var c = ThemeScope.GetColors(this);
         foreach (var (id, frame) in rowsById) {
             var index = matches.IndexOf(id);
-            frame.BorderBrush = index < 0 ? Brushes.Transparent
-                : index == current ? new SolidColorBrush(c.Accent)
-                : new SolidColorBrush(c.MentionHighlight);
+            frame.BorderBrush = id == highlightId
+                ? new SolidColorBrush(c.Accent)
+                : index < 0
+                    ? Brushes.Transparent
+                    : index == current
+                        ? new SolidColorBrush(c.Accent)
+                        : new SolidColorBrush(c.MentionHighlight);
         }
 
         if (current >= 0 && current < matches.Count &&
