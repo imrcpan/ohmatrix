@@ -137,6 +137,7 @@ public sealed class ProfilePage : Grid {
             FontSize = 16,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(danger ? c.Danger : c.Text),
+            TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
         };
         Grid.SetColumn(text, 1);
@@ -148,13 +149,15 @@ public sealed class ProfilePage : Grid {
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 Margin = new Thickness(12, 0, 6, 0),
-                MaxWidth = 170,
+                TextAlignment = TextAlignment.Right,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center,
             };
             Grid.SetColumn(shown, 2);
             grid.Children.Add(shown);
-            grid.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto");
+            // The name keeps its room and the value takes what is left.
+            grid.ColumnDefinitions =
+                new ColumnDefinitions("Auto,Auto,*,Auto");
         }
 
         if (chevron) {
