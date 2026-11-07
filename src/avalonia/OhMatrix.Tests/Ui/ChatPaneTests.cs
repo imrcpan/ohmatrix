@@ -498,11 +498,20 @@ public class ChatPaneTests {
 
         public Task<RoomDetails> Details(string roomId)
         {
-            return Task.FromResult(new RoomDetails("We plan the demo here.", [
-                new RoomMemberInfo("@me:s", "Mia Example", null, MemberRole.Admin),
-                new RoomMemberInfo("@alice:s", "Alice", null, MemberRole.Moderator),
-                new RoomMemberInfo("@bob:s", "Bob", null, MemberRole.Member),
-            ]));
+            return Task.FromResult(new RoomDetails(
+                "We plan the demo here.",
+                [
+                    new RoomMemberInfo("@me:s", "Mia Example", null, MemberRole.Admin),
+                    new RoomMemberInfo("@alice:s", "Alice", null, MemberRole.Moderator),
+                    new RoomMemberInfo("@bob:s", "Bob", null, MemberRole.Member),
+                ],
+                [],
+                JoinRule.Invite,
+                HistoryVisibility.Shared,
+                new PowerThresholds(50, 50, 50, 50, 0, 50, 100),
+                new RoomPermissions(true, true, true, true, true, true, true),
+                false
+            ));
         }
 
         public Task AcceptInvite(string roomId) => Log("accept " + roomId);
@@ -548,6 +557,26 @@ public class ChatPaneTests {
 
         public Task BanMember(string roomId, string userId, string? reason) =>
             Log($"ban {roomId} {userId} {reason}");
+
+        public Task SetJoinRule(string roomId, JoinRule rule) =>
+            Log($"joinRule {roomId} {rule}");
+
+        public Task SetHistoryVisibility(string roomId, HistoryVisibility visibility) =>
+            Log($"history {roomId} {visibility}");
+
+        public Task<bool> IsAliasAvailable(string alias) => Task.FromResult(true);
+
+        public Task AddRoomAlias(string roomId, string alias) =>
+            Log($"addAlias {roomId} {alias}");
+
+        public Task RemoveRoomAlias(string roomId, string alias) =>
+            Log($"removeAlias {roomId} {alias}");
+
+        public Task SetMainAlias(string roomId, string? alias) =>
+            Log($"mainAlias {roomId} {alias}");
+
+        public Task SetPowerThresholds(string roomId, PowerThresholds thresholds) =>
+            Log($"thresholds {roomId}");
 
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {

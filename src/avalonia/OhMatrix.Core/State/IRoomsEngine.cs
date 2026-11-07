@@ -67,6 +67,24 @@ public interface IRoomsEngine {
 
     Task BanMember(string roomId, string userId, string? reason);
 
+    Task SetJoinRule(string roomId, JoinRule rule);
+    Task SetHistoryVisibility(string roomId, HistoryVisibility visibility);
+
+    /// <summary>Checks whether a room alias is available (not taken).</summary>
+    Task<bool> IsAliasAvailable(string alias);
+
+    /// <summary>Adds an alias to the room and publishes it in the room directory.</summary>
+    Task AddRoomAlias(string roomId, string alias);
+
+    /// <summary>Removes an alias from the room and unpublishes it from the directory.</summary>
+    Task RemoveRoomAlias(string roomId, string alias);
+
+    /// <summary>Sets the main (canonical) alias of the room.</summary>
+    Task SetMainAlias(string roomId, string? alias);
+
+    /// <summary>Sets the power thresholds for actions in the room.</summary>
+    Task SetPowerThresholds(string roomId, PowerThresholds thresholds);
+
     Task StartSync();
     Task StopSync();
 }
