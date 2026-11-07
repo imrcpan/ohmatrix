@@ -56,6 +56,28 @@ public class IconTests {
     }
 
     [AvaloniaFact]
+    public void A_glyph_shared_by_icons_and_a_changed_colour_still_draw_right()
+    {
+        // The path of a glyph is parsed once and a pen is kept while the
+        // colour stays: another icon, colour or weight must still be drawn.
+        static Icon Globe(IBrush color, double? width = null)
+        {
+            return new Icon {
+                Glyph = "globe",
+                Size = 48,
+                Color = color,
+                StrokeWidth = width
+            };
+        }
+
+        var black = Dark(Draw(Globe(Brushes.Black), 48));
+        Assert.True(black > 20);
+        Assert.Equal(black, Dark(Draw(Globe(Brushes.Black), 48)));
+        Assert.Equal(0, Dark(Draw(Globe(Brushes.White), 48)));
+        Assert.True(Dark(Draw(Globe(Brushes.Black, 4), 48)) > black);
+    }
+
+    [AvaloniaFact]
     public void A_solid_icon_is_filled_and_a_line_icon_is_not()
     {
         var play = Dark(Draw(new Icon {

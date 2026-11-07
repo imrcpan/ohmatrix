@@ -9,6 +9,22 @@ namespace OhMatrix.Core.Ui;
 public sealed class Icon : Control {
     private const double Grid = 24;
 
+    // The path of a glyph is parsed once and shared by every icon that shows
+    // it, as Logo does with its shapes.
+    private static readonly Dictionary<string, Geometry> Geometries = [];
+
+    // The pen of the last drawing, kept while the colour and the weight stay.
+    private Pen? pen;
+    private IBrush? penBrush;
+    private double penWidth;
+
+    private static Geometry GeometryOf(string glyph, string data)
+    {
+        if (!Geometries.TryGetValue(glyph, out var geometry))
+            Geometries[glyph] = geometry = Geometry.Parse(data);
+        return geometry;
+    }
+
     public static readonly StyledProperty<string> GlyphProperty =
         AvaloniaProperty.Register<Icon, string>(nameof(Glyph), "chat");
 
@@ -63,14 +79,20 @@ public sealed class Icon : Control {
         var width = fluent ? IconData.FluentWeight.GetValueOrDefault(Glyph, 0.9)
             : solid ? 1.6
             : StrokeWidth ?? IconData.Weight.GetValueOrDefault(Glyph, 2);
-        var pen = width > 0
-            ? new Pen(Color, width, lineCap: PenLineCap.Round,
-                lineJoin: PenLineJoin.Round)
-            : null;
-        var geometry = Geometry.Parse(data);
+        if (width <= 0)
+            pen = null;
+        else if (pen is null || !ReferenceEquals(penBrush, Color) ||
+                 penWidth != width) {
+            pen = new Pen(Color, width, lineCap: PenLineCap.Round,
+                lineJoin: PenLineJoin.Round);
+            penBrush = Color;
+            penWidth = width;
+        }
+
         var scale = Size / Grid;
         using (context.PushTransform(Matrix.CreateScale(scale, scale))) {
-            context.DrawGeometry(fluent || solid ? Color : null, pen, geometry);
+            context.DrawGeometry(fluent || solid ? Color : null, pen,
+                GeometryOf(Glyph, data));
         }
     }
 }
