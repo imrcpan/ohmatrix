@@ -66,6 +66,7 @@ public class RoomListTests {
         public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
+        public Task BlockUser(string userId) => Log("block " + userId);
 
         public Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
         {

@@ -514,6 +514,7 @@ public class ChatPaneTests {
         public Task SetRoomName(string roomId, string name) => Log($"name {roomId} {name}");
         public Task SetRoomTopic(string roomId, string topic) => Log($"topic {roomId} {topic}");
         public Task LeaveRoom(string roomId) => Log("leave " + roomId);
+        public Task BlockUser(string userId) => Log("block " + userId);
 
         public Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
         {
@@ -1371,6 +1372,27 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_member_has_a_page_to_write_to_or_block()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        var bob = controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
+        panel.ViewMember(bob);
+        Assert.Equal(bob, panel.Viewing);
+        // Copy link, copy address, write, block.
+        Assert.Equal(4, panel.Content.Children.Count - 1);
+        Save(window, "member-page");
+        panel.AskBlockForTest(bob);
+        panel.LeaveMember();
+        Assert.Null(panel.Viewing);
+    }
+
+    [AvaloniaFact]
     public async Task Members_get_a_role_are_removed_or_banned_from_the_info_panel()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
@@ -1385,7 +1407,7 @@ public class ChatPaneTests {
         var anchor = panel.Content.Children.OfType<Border>().First(b => b.Cursor is not null);
         panel.OpenMemberMenu(anchor, room, bob);
         Assert.True(panel.MemberMenu.IsOpen);
-        Assert.Equal(4, panel.MemberMenu.Rows.Count);
+        Assert.Equal(5, panel.MemberMenu.Rows.Count);
         Save(window, "member-menu");
         panel.MemberMenu.Close();
         panel.AskRole(room, bob, MemberRole.Moderator);
