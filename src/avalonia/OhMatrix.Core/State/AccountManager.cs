@@ -1,5 +1,3 @@
-using OhMatrix.Core.Model;
-
 namespace OhMatrix.Core.State;
 
 /// <summary>An account the app keeps: where its data lives, and the controller that keeps it syncing.</summary>

@@ -1,12 +1,10 @@
 using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
-using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
 

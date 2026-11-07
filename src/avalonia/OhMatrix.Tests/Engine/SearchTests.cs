@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
-using OhMatrix.Core.State;
 using Xunit;
 
 namespace OhMatrix.Tests.Engine;

@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Threading;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
