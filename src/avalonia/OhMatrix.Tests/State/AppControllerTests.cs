@@ -1,3 +1,4 @@
+using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using Xunit;
@@ -375,5 +376,29 @@ public class AppControllerTests {
         ]);
         Assert.Equal(("Ann joined", true),
             (joined[0].LastMessage, joined[0].LastIsLine));
+    }
+
+    [Fact]
+    public void The_locale_follows_the_preferences_it_is_kept_with()
+    {
+        var state = new AppState();
+        Assert.True(Strings.IsLocale(state.Locale));
+        var chosen = state with {
+            Prefs = new Preferences {
+                Locale = "de"
+            }
+        };
+        Assert.Equal("de", chosen.Locale);
+        // A change of something else keeps it; an unknown one falls back.
+        Assert.Equal("de", (chosen with {
+            UserId = "@a:s"
+        }).Locale);
+        var unknown = chosen with {
+            Prefs = new Preferences {
+                Locale = "xx"
+            }
+        };
+        Assert.True(Strings.IsLocale(unknown.Locale));
+        Assert.NotEqual("xx", unknown.Locale);
     }
 }

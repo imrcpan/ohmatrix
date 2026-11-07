@@ -37,7 +37,18 @@ public sealed record AppState {
 
     public string? UserId { get; init; }
     public string? Homeserver { get; init; }
-    public Preferences Prefs { get; init; } = new();
+
+    public Preferences Prefs {
+        get => prefs;
+        init {
+            prefs = value;
+            // Read by every row and line that is drawn, so it is worked out
+            // once here, when the preferences are set, not on every read.
+            Locale = ResolveLocale(value.Locale);
+        }
+    }
+
+    private Preferences prefs = new();
 
     /// <summary>
     /// A zoom being tried: the interface is drawn at <see cref="ZoomTrial.To"/> while Settings asks to keep it, and goes back to
@@ -121,9 +132,14 @@ public sealed record AppState {
     public IReadOnlyList<TimelineItem> Timeline { get; init; } = [];
 
     /// <summary>The language the screens speak: the one chosen, else the one of the system.</summary>
-    public string Locale => Strings.IsLocale(Prefs.Locale)
-        ? Prefs.Locale!
-        : Strings.DetectLocale(CultureInfo.CurrentUICulture.Name);
+    public string Locale { get; private set; } = ResolveLocale(null);
+
+    private static string ResolveLocale(string? chosen)
+    {
+        return Strings.IsLocale(chosen)
+            ? chosen!
+            : Strings.DetectLocale(CultureInfo.CurrentUICulture.Name);
+    }
 }
 
 /// <summary>A zoom that is being tried; <c>Until</c> is a time of the clock of the controller.</summary>
