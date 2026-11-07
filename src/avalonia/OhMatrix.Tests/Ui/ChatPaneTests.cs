@@ -614,6 +614,16 @@ public class ChatPaneTests {
 
         public readonly List<string> Forwarded = [];
 
+        public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset,
+            int want)
+        {
+            var all = Opened.LastOrDefault()?.Items.Where(i => MediaKinds.Of(i) == kind)
+                .Reverse().ToList() ?? [];
+            var more = all.Count > offset + want;
+            return Task.FromResult(new SharedMediaPage([.. all.Skip(offset).Take(want)],
+                more ? offset + want : null));
+        }
+
         public Task SendMessageContent(string roomId, System.Text.Json.Nodes.JsonObject content)
         {
             if (roomId == "!bad")
@@ -1335,6 +1345,31 @@ public class ChatPaneTests {
         Assert.False(page.Zoom.Dialog.IsOpen);
         Assert.Equal(1.5, controller.Store.Value.Prefs.UiScale);
         Save(window, "zoom-kept");
+    }
+
+    [AvaloniaFact]
+    public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>().First();
+        panel.OpenGallery();
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var gallery = Assert.IsType<SharedMediaView>(panel.Gallery);
+        Assert.Equal(MediaKind.Image, gallery.Kind);
+        Assert.Single(gallery.Shown);
+        gallery.Select(MediaKind.File);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("budget-2026.pdf", Assert.Single(gallery.Shown).File!.Name);
+        Save(window, "gallery");
+        panel.LeaveGallery();
+        Assert.Null(panel.Gallery);
     }
 
     [AvaloniaFact]

@@ -51,4 +51,10 @@ public interface IChatEngine {
 
     /// <summary>Sends the content of an <c>m.room.message</c> to a room (a forwarded message).</summary>
     Task SendMessageContent(string roomId, System.Text.Json.Nodes.JsonObject content);
+
+    /// <summary>
+    /// A page of the media of one kind in a room's whole history (not only what an open chat has loaded), newest first, starting at
+    /// <paramref name="offset"/> of the matches; the history is asked for as far as the page needs.
+    /// </summary>
+    Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset, int want);
 }

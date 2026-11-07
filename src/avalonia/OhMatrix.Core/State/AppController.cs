@@ -645,6 +645,14 @@ public sealed class AppController(
         return chats is null ? Task.CompletedTask : chats.SendMessageContent(roomId, content);
     }
 
+    /// <summary>A page of the shared media of a room (see <see cref="IChatEngine.SharedMedia"/>).</summary>
+    public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset, int want)
+    {
+        return chats is null
+            ? Task.FromResult(new SharedMediaPage([], null))
+            : chats.SharedMedia(roomId, kind, offset, want);
+    }
+
     /// <summary>Whether this account can keep a sticker pack (the picker has a stickers tab).</summary>
     public bool CanStickers => stickersEngine is not null;
 

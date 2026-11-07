@@ -48,6 +48,41 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         }
     }
 
+    private sealed class Gallery(IChatSession session) {
+        public IChatSession Session { get; } = session;
+        public bool AtStart { get; set; }
+    }
+
+    private readonly Dictionary<string, Gallery> galleries = [];
+
+    public async Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset, int want)
+    {
+        Gallery? gallery;
+        lock (galleries)
+            galleries.TryGetValue(roomId, out gallery);
+        if (gallery is null) {
+            gallery = new Gallery(await Open(roomId));
+            lock (galleries)
+                galleries[roomId] = gallery;
+            // The first page of history comes with opening; let it arrive.
+            for (var i = 0; i < 20 && gallery.Session.Items.Count == 0; i++)
+                await Task.Delay(100);
+        }
+
+        List<TimelineItem> Found() =>
+            [.. gallery.Session.Items.Where(i => MediaKinds.Of(i) == kind).Reverse()];
+
+        // Ask the room for more until it has what the page needs (and one more, to know whether there is a next page).
+        for (var n = 0; Found().Count <= offset + want && !gallery.AtStart && n < 40; n++) {
+            gallery.AtStart = await gallery.Session.LoadOlder();
+            await Task.Delay(100);
+        }
+
+        var all = Found();
+        var more = all.Count > offset + want || !gallery.AtStart;
+        return new SharedMediaPage([.. all.Skip(offset).Take(want)], more ? offset + want : null);
+    }
+
     /// <summary>One open chat: the SDK's changes are applied to a list of its items, in order, and the lines are made from them.</summary>
     private sealed class Session(Timeline timeline, Room room, string me) : IChatSession {
         private readonly Channel<TimelineDiff[]> diffs = Channel.CreateUnbounded<TimelineDiff[]>();
