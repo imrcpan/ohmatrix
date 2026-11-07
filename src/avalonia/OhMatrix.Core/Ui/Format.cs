@@ -20,7 +20,9 @@ public static class Format {
         if (ts == 0)
             return "";
         zone ??= TimeZoneInfo.Local;
-        var at = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(ts), zone);
+        var at =
+            TimeZoneInfo.ConvertTime(
+                DateTimeOffset.FromUnixTimeMilliseconds(ts), zone);
         var today = TimeZoneInfo.ConvertTime(now, zone);
         var days = (int)Math.Round((today.Date - at.Date).TotalDays);
         var culture = Culture(locale);
@@ -32,10 +34,12 @@ public static class Format {
     }
 
     /// <summary>The clock of a message, 24 hours.</summary>
-    public static string Clock(long ts, string locale, TimeZoneInfo? zone = null)
+    public static string Clock(long ts, string locale,
+        TimeZoneInfo? zone = null)
     {
         zone ??= TimeZoneInfo.Local;
-        return TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(ts), zone)
+        return TimeZoneInfo
+            .ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(ts), zone)
             .ToString("HH:mm", Culture(locale));
     }
 
@@ -45,7 +49,9 @@ public static class Format {
         TimeZoneInfo? zone = null)
     {
         zone ??= TimeZoneInfo.Local;
-        var at = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(ts), zone);
+        var at =
+            TimeZoneInfo.ConvertTime(
+                DateTimeOffset.FromUnixTimeMilliseconds(ts), zone);
         var today = TimeZoneInfo.ConvertTime(now, zone);
         var days = (int)Math.Round((today.Date - at.Date).TotalDays);
         var culture = Culture(locale);
@@ -82,7 +88,8 @@ public static class Format {
         }
 
         var ru = (n % 10 == 1 && n % 100 != 11) ? 0
-            : (n % 10 is >= 2 and <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 1 : 2;
+            : (n % 10 is >= 2 and <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 1
+            : 2;
         return locale switch {
             "zh-CN" => $"{n}{Two("分钟", "小时", "天")[i]}前",
             "zh-TW" => $"{n}{Two("分鐘", "小時", "天")[i]}前",
@@ -106,7 +113,8 @@ public static class Format {
             "hi" => $"{n} {Two("मिनट", "घंटे", "दिन")[i]} पहले",
             "bn" => $"{n} {Two("মিনিট", "ঘণ্টা", "দিন")[i]} আগে",
             "id" => $"{n} {Two("menit", "jam", "hari")[i]} yang lalu",
-            _ => $"{n} {Two("minute", "hour", "day")[i]}{(n == 1 ? "" : "s")} ago",
+            _ =>
+                $"{n} {Two("minute", "hour", "day")[i]}{(n == 1 ? "" : "s")} ago",
         };
     }
 

@@ -32,7 +32,8 @@ public sealed class RoomRow : PressableButton {
     public Pictures? Pictures { get; set; }
 
     /// <summary>Pending invitation: Accept and Decline under the preview, with their labels.</summary>
-    public (string Accept, string Decline, Action OnAccept, Action OnDecline)? Invite {
+    public (string Accept, string Decline, Action OnAccept, Action OnDecline)?
+        Invite {
         get;
         set;
     }
@@ -65,7 +66,10 @@ public sealed class RoomRow : PressableButton {
         drawn = c;
         Height = Invite is null || Compact ? RowHeight : double.NaN;
         Avalonia.Automation.AutomationProperties.SetName(this, Title);
-        var secondary = new SolidColorBrush(Selected ? c.OnSelectedSecondary : c.TextSecondary);
+        var secondary =
+            new SolidColorBrush(Selected
+                ? c.OnSelectedSecondary
+                : c.TextSecondary);
         var avatar = new Avatar(RoomId, Title, 44, IsSpace);
         Pictures?.Attach(avatar, AvatarUrl, 44);
         if (Compact) {
@@ -123,7 +127,8 @@ public sealed class RoomRow : PressableButton {
                 Height = 12,
                 CornerRadius = new CornerRadius(6),
                 Margin = new Thickness(8, 0, 4, 0),
-                Background = new SolidColorBrush(Selected ? c.OnSelected : c.Badge),
+                Background =
+                    new SolidColorBrush(Selected ? c.OnSelected : c.Badge),
             };
             Grid.SetColumn(dot, 1);
             bottom.Children.Add(dot);
@@ -144,7 +149,8 @@ public sealed class RoomRow : PressableButton {
                     FontSize = 13,
                     FontWeight = FontWeight.SemiBold,
                     FontFamily = Fonts.System,
-                    Foreground = new SolidColorBrush(Selected ? c.Selected : c.OnAccent),
+                    Foreground =
+                        new SolidColorBrush(Selected ? c.Selected : c.OnAccent),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 },
@@ -179,7 +185,8 @@ public sealed class RoomRow : PressableButton {
                 Height = 20,
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(5, 0),
-                Background = new SolidColorBrush(Muted ? c.BadgeMuted : c.Badge),
+                Background =
+                    new SolidColorBrush(Muted ? c.BadgeMuted : c.Badge),
                 BorderBrush = ring,
                 BorderThickness = new Thickness(2),
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -212,7 +219,8 @@ public sealed class RoomRow : PressableButton {
         return holder;
     }
 
-    private static TextBlock Ellipsis(string text, double size, FontWeight weight, Color color)
+    private static TextBlock Ellipsis(string text, double size,
+        FontWeight weight, Color color)
     {
         return new TextBlock {
             Text = text,
@@ -226,7 +234,8 @@ public sealed class RoomRow : PressableButton {
         };
     }
 
-    private static int AddSmallIcon(Grid top, string glyph, IBrush color, int column)
+    private static int AddSmallIcon(Grid top, string glyph, IBrush color,
+        int column)
     {
         var icon = new Icon {
             Glyph = glyph,
@@ -241,13 +250,16 @@ public sealed class RoomRow : PressableButton {
     }
 
     private StackPanel InviteButtons(
-        (string Accept, string Decline, Action OnAccept, Action OnDecline) invite,
+        (string Accept, string Decline, Action OnAccept, Action OnDecline)
+            invite,
         Theming.ColorTokens c
     )
     {
-        var accept = Pill(invite.Accept, FontWeight.SemiBold, Selected ? c.OnSelected : c.Accent,
+        var accept = Pill(invite.Accept, FontWeight.SemiBold,
+            Selected ? c.OnSelected : c.Accent,
             Selected ? c.Selected : c.OnAccent, invite.OnAccept);
-        var decline = Pill(invite.Decline, FontWeight.Medium, c.BgSecondary, c.Text,
+        var decline = Pill(invite.Decline, FontWeight.Medium, c.BgSecondary,
+            c.Text,
             invite.OnDecline);
         var buttons = new StackPanel {
             Orientation = Orientation.Horizontal,
@@ -259,7 +271,8 @@ public sealed class RoomRow : PressableButton {
         return buttons;
     }
 
-    private static Border Pill(string label, FontWeight weight, Color fill, Color ink, Action press)
+    private static Border Pill(string label, FontWeight weight, Color fill,
+        Color ink, Action press)
     {
         var pill = new Border {
             Background = new SolidColorBrush(fill),

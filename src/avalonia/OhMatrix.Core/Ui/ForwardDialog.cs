@@ -52,7 +52,8 @@ public sealed class ForwardDialog {
     }
 
     /// <summary>Opens for <paramref name="messages"/> of the open chat; <paramref name="onSent"/> runs when all went through.</summary>
-    public void Show(TopLevel top, IReadOnlyList<TimelineItem> messages, Action? onSent = null)
+    public void Show(TopLevel top, IReadOnlyList<TimelineItem> messages,
+        Action? onSent = null)
     {
         window = top;
         items = messages;
@@ -105,7 +106,8 @@ public sealed class ForwardDialog {
     /// <summary>Sends the messages to the chats kept; what failed stays for another try.</summary>
     public async Task Send()
     {
-        var targets = Postable().Where(r => picked.Contains(r.Id) && keep.Contains(r.Id)).ToList();
+        var targets = Postable()
+            .Where(r => picked.Contains(r.Id) && keep.Contains(r.Id)).ToList();
         if (targets.Count == 0 || sending)
             return;
         sending = true;
@@ -135,7 +137,8 @@ public sealed class ForwardDialog {
         Build();
     }
 
-    private Control Row(ColorTokens c, RoomSummary room, bool checkedOn, bool disabled)
+    private Control Row(ColorTokens c, RoomSummary room, bool checkedOn,
+        bool disabled)
     {
         var avatar = new Avatar(room.Id, room.Name, 36, room.IsSpace) {
             VerticalAlignment = VerticalAlignment.Center
@@ -146,8 +149,11 @@ public sealed class ForwardDialog {
             Height = 22,
             CornerRadius = new CornerRadius(11),
             BorderThickness = new Thickness(2),
-            BorderBrush = new SolidColorBrush(checkedOn ? c.Accent : c.TextTertiary),
-            Background = checkedOn ? new SolidColorBrush(c.Accent) : Brushes.Transparent,
+            BorderBrush =
+                new SolidColorBrush(checkedOn ? c.Accent : c.TextTertiary),
+            Background = checkedOn
+                ? new SolidColorBrush(c.Accent)
+                : Brushes.Transparent,
             VerticalAlignment = VerticalAlignment.Center,
             Child = checkedOn
                 ? new Icon {
@@ -185,7 +191,8 @@ public sealed class ForwardDialog {
             Child = grid,
         };
         if (!disabled) {
-            row.PointerEntered += (_, _) => row.Background = new SolidColorBrush(c.Hover);
+            row.PointerEntered += (_, _) =>
+                row.Background = new SolidColorBrush(c.Hover);
             row.PointerExited += (_, _) => row.Background = Brushes.Transparent;
             var id = room.Id;
             row.PointerPressed += (_, e) => {
@@ -213,7 +220,9 @@ public sealed class ForwardDialog {
         var query = filter.Text.Trim();
         var shown = postable.Where(r => query.Length == 0
                                         || r.Name.Contains(query,
-                                            StringComparison.CurrentCultureIgnoreCase)).ToList();
+                                            StringComparison
+                                                .CurrentCultureIgnoreCase))
+            .ToList();
         foreach (var room in shown)
             list.Children.Add(Row(c, room, picked.Contains(room.Id), false));
         if (shown.Count == 0)
@@ -241,7 +250,8 @@ public sealed class ForwardDialog {
         ThemeScope.SetColors(other, c);
         if (confirming) {
             foreach (var room in postable.Where(r => picked.Contains(r.Id)))
-                list.Children.Add(Row(c, room, keep.Contains(room.Id), sending));
+                list.Children.Add(Row(c, room, keep.Contains(room.Id),
+                    sending));
             content.Add(new ScrollViewer {
                 MaxHeight = 300,
                 Content = list
@@ -270,7 +280,9 @@ public sealed class ForwardDialog {
                 MaxHeight = 300,
                 Content = list
             });
-            primary.Title = picked.Count > 0 ? $"{T("forward")} ({picked.Count})" : T("forward");
+            primary.Title = picked.Count > 0
+                ? $"{T("forward")} ({picked.Count})"
+                : T("forward");
             primary.Disabled = picked.Count == 0;
             primary.Click += (_, _) => Confirm();
             other.Title = T("cancel");
@@ -280,7 +292,8 @@ public sealed class ForwardDialog {
         content.Add(primary);
         content.Add(other);
         dialog.Modal = confirming;
-        dialog.Show(window, c, confirming ? T("forward.confirm") : T("forward.title"), null,
+        dialog.Show(window, c,
+            confirming ? T("forward.confirm") : T("forward.title"), null,
             [.. content]);
     }
 }

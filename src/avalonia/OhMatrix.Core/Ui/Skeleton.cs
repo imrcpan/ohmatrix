@@ -13,7 +13,8 @@ namespace OhMatrix.Core.Ui;
 public class Pulse : Panel {
     private CancellationTokenSource? running;
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         running = new CancellationTokenSource();
@@ -40,7 +41,8 @@ public class Pulse : Panel {
         _ = animation.RunAsync(this, running.Token);
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         running?.Cancel();
@@ -51,19 +53,23 @@ public class Pulse : Panel {
 
 /// <summary>A grey shape where something is still to come: a circle, or a bar with rounded ends (<c>SkeletonBlock</c>).</summary>
 public sealed class SkeletonBlock : Border {
-    public SkeletonBlock(double width, double height, bool circle = false, double radius = 0)
+    public SkeletonBlock(double width, double height, bool circle = false,
+        double radius = 0)
     {
         Width = width;
         Height = height;
         CornerRadius = new CornerRadius(
-            circle ? height / 2 : radius > 0 ? radius : Math.Min(6, height / 2));
+            circle ? height / 2 :
+            radius > 0 ? radius : Math.Min(6, height / 2));
         HorizontalAlignment = HorizontalAlignment.Left;
         VerticalAlignment = VerticalAlignment.Center;
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SkeletonBlock>((b, _) => b.Fill());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<SkeletonBlock>((b, _) => b.Fill());
         Fill();
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Fill();
@@ -120,15 +126,18 @@ public sealed class ChatSkeleton : Pulse {
             // A bubble is 35% to 47% of the row, a little different each.
             var percent = 41 + (random.NextDouble() * 2 - 1) * 6;
             var line = new Grid {
-                ColumnDefinitions = new ColumnDefinitions(avatars ? "Auto,*" : "*"),
+                ColumnDefinitions =
+                    new ColumnDefinitions(avatars ? "Auto,*" : "*"),
             };
             var space = new Grid {
-                ColumnDefinitions = new ColumnDefinitions($"{percent}*,{100 - percent}*"),
+                ColumnDefinitions =
+                    new ColumnDefinitions($"{percent}*,{100 - percent}*"),
             };
-            space.Children.Add(new SkeletonBlock(double.NaN, BubbleHeight, false, 18) {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Bottom,
-            });
+            space.Children.Add(
+                new SkeletonBlock(double.NaN, BubbleHeight, false, 18) {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                });
             if (avatars) {
                 var avatar = new SkeletonBlock(32, 32, true) {
                     VerticalAlignment = VerticalAlignment.Bottom,
@@ -163,7 +172,8 @@ public sealed class BottomAnchor : Panel {
         var height = 0.0;
         var width = 0.0;
         foreach (var child in Children) {
-            child.Measure(new Size(availableSize.Width, double.PositiveInfinity));
+            child.Measure(
+                new Size(availableSize.Width, double.PositiveInfinity));
             height = Math.Max(height, child.DesiredSize.Height);
             width = Math.Max(width, child.DesiredSize.Width);
         }
@@ -177,7 +187,8 @@ public sealed class BottomAnchor : Panel {
     {
         foreach (var child in Children) {
             var height = child.DesiredSize.Height;
-            child.Arrange(new Rect(0, finalSize.Height - height, finalSize.Width, height));
+            child.Arrange(new Rect(0, finalSize.Height - height,
+                finalSize.Width, height));
         }
 
         return finalSize;

@@ -10,12 +10,15 @@ public class AccountManagerTests {
     private sealed class Engine : IAuthEngine {
         public int Logouts;
 
-        public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
         {
-            return Task.FromResult(new Session(homeserver, $"@{username}:s", "D", "T"));
+            return Task.FromResult(new Session(homeserver, $"@{username}:s",
+                "D", "T"));
         }
 
-        public Task<Session> Register(string homeserver, string username, string password,
+        public Task<Session> Register(string homeserver, string username,
+            string password,
             string? token)
         {
             return LoginWithPassword(homeserver, username, password);
@@ -65,23 +68,33 @@ public class AccountManagerTests {
         var store = new Accounts {
             Saved = saved.Length == 0
                 ? null
-                : new StoredAccounts([.. saved.Select(u => new StoredAccount(u, "/nowhere/" + u))],
+                : new StoredAccounts(
+                    [
+                        .. saved.Select(u =>
+                            new StoredAccount(u, "/nowhere/" + u))
+                    ],
                     saved[0])
         };
+
         AppController Create(string dir)
         {
             var engine = new Engine();
             engines[dir] = engine;
-            var user = dir.StartsWith("/nowhere/", StringComparison.Ordinal) ? dir[9..] : null;
+            var user = dir.StartsWith("/nowhere/", StringComparison.Ordinal)
+                ? dir[9..]
+                : null;
             return new AppController(engine,
-                new Sessions(user is null ? null : new Session("s", user, "D", "T")), null);
+                new Sessions(user is null
+                    ? null
+                    : new Session("s", user, "D", "T")), null);
         }
 
         return (new AccountManager("/data", Create, store), store, engines);
     }
 
     [Fact]
-    public async Task A_first_start_shows_the_sign_in_and_keeps_the_account_once_signed_in()
+    public async Task
+        A_first_start_shows_the_sign_in_and_keeps_the_account_once_signed_in()
     {
         var (manager, store, _) = Make();
         await manager.Start();
@@ -105,7 +118,8 @@ public class AccountManagerTests {
     }
 
     [Fact]
-    public async Task Another_account_is_added_switched_to_ordered_and_signed_out()
+    public async Task
+        Another_account_is_added_switched_to_ordered_and_signed_out()
     {
         var (manager, store, engines) = Make("@a:s");
         await manager.Start();
@@ -117,7 +131,8 @@ public class AccountManagerTests {
         manager.SwitchTo("@a:s");
         Assert.Equal("@a:s", manager.CurrentAccount!.UserId);
         await manager.Move("@a:s", 1);
-        Assert.Equal(["@b:s", "@a:s"], store.Saved!.Accounts.Select(a => a.UserId));
+        Assert.Equal(["@b:s", "@a:s"],
+            store.Saved!.Accounts.Select(a => a.UserId));
         var bDir = manager.Accounts[0].Dir;
         await manager.Remove("@b:s");
         Assert.Equal(1, engines[bDir].Logouts);
@@ -143,13 +158,15 @@ public class AccountManagerTests {
     [InlineData(0, 70, 3, 1)]
     [InlineData(1, -200, 3, 0)]
     [InlineData(1, 500, 3, 2)]
-    public void A_dragged_row_lands_on_the_row_it_is_over(int from, double dy, int count, int to)
+    public void A_dragged_row_lands_on_the_row_it_is_over(int from, double dy,
+        int count, int to)
     {
         Assert.Equal(to, AccountsPage.DropIndex(from, dy, count));
     }
 
     [AvaloniaFact]
-    public async Task The_accounts_page_lists_the_accounts_and_the_root_follows_the_one_in_use()
+    public async Task
+        The_accounts_page_lists_the_accounts_and_the_root_follows_the_one_in_use()
     {
         var (manager, _, _) = Make("@a:s", "@b:s");
         await manager.Start();

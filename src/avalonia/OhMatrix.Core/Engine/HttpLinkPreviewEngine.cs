@@ -8,7 +8,9 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Engine;
 
 /// <summary>Link previews over the media API of the homeserver (<c>preview_url</c>), the authenticated route first and the old one when it is not there.</summary>
-public sealed class HttpLinkPreviewEngine(Func<Session?> session, HttpClient? http = null)
+public sealed class HttpLinkPreviewEngine(
+    Func<Session?> session,
+    HttpClient? http = null)
     : ILinkPreviewEngine {
     private readonly HttpClient web = http ?? new HttpClient();
 
@@ -19,10 +21,13 @@ public sealed class HttpLinkPreviewEngine(Func<Session?> session, HttpClient? ht
         var root = a.Homeserver.TrimEnd('/');
         var query = "?url=" + Uri.EscapeDataString(url);
         foreach (var path in new[] {
-                     "/_matrix/client/v1/media/preview_url", "/_matrix/media/v3/preview_url"
+                     "/_matrix/client/v1/media/preview_url",
+                     "/_matrix/media/v3/preview_url"
                  }) {
-            var request = new HttpRequestMessage(HttpMethod.Get, root + path + query);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", a.AccessToken);
+            var request =
+                new HttpRequestMessage(HttpMethod.Get, root + path + query);
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", a.AccessToken);
             try {
                 using var response = await web.SendAsync(request);
                 if (response.StatusCode is HttpStatusCode.NotFound
@@ -62,7 +67,10 @@ public sealed class HttpLinkPreviewEngine(Func<Session?> session, HttpClient? ht
 
         int? Num(string key)
         {
-            return o[key] is JsonValue v && v.TryGetValue<int>(out var n) && n > 0 ? n : null;
+            return o[key] is JsonValue v && v.TryGetValue<int>(out var n) &&
+                   n > 0
+                ? n
+                : null;
         }
 
         var title = Str("og:title");

@@ -13,13 +13,17 @@ public static class Fonts {
     /// <summary>Uses the installed font of this name for the interface (the system's stack stands behind it for characters it lacks); null goes back to the system's own.</summary>
     public static void Use(string? name)
     {
-        System = new FontFamily(string.IsNullOrWhiteSpace(name) ? Stack : name + ", " + Stack);
+        System = new FontFamily(string.IsNullOrWhiteSpace(name)
+            ? Stack
+            : name + ", " + Stack);
     }
 
     /// <summary>The names of the fonts installed, sorted.</summary>
     public static IReadOnlyList<string> Installed()
     {
-        return [.. FontManager.Current.SystemFonts.Select(f => f.Name).Distinct()
-            .OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)];
+        return [
+            .. FontManager.Current.SystemFonts.Select(f => f.Name).Distinct()
+                .OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)
+        ];
     }
 }

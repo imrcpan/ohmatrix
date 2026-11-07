@@ -34,7 +34,8 @@ internal static partial class LibVlc {
         tried = true;
         try {
             instance = libvlc_new(3, ["--no-video", "--quiet", "--no-xlib"]);
-        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) {
+        } catch (Exception e) when (e is DllNotFoundException
+                                        or EntryPointNotFoundException) {
             instance = IntPtr.Zero;
         }
 
@@ -49,7 +50,8 @@ internal static partial class LibVlc {
         triedVideo = true;
         try {
             videoInstance = libvlc_new(2, ["--quiet", "--no-xlib"]);
-        } catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) {
+        } catch (Exception e) when (e is DllNotFoundException
+                                        or EntryPointNotFoundException) {
             videoInstance = IntPtr.Zero;
         }
 
@@ -66,24 +68,28 @@ internal static partial class LibVlc {
     [LibraryImport(Name)]
     private static partial IntPtr libvlc_new(
         int argc,
-        [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPUTF8Str)]
+        [MarshalAs(UnmanagedType.LPArray,
+            ArraySubType = UnmanagedType.LPUTF8Str)]
         string[] argv
     );
 
     [LibraryImport(Name)]
-    public static partial IntPtr libvlc_media_new_path(IntPtr instance, byte[] path);
+    public static partial IntPtr libvlc_media_new_path(IntPtr instance,
+        byte[] path);
 
     [LibraryImport(Name)]
     public static partial void libvlc_media_release(IntPtr media);
 
     [LibraryImport(Name)]
-    public static partial IntPtr libvlc_media_player_new_from_media(IntPtr media);
+    public static partial IntPtr libvlc_media_player_new_from_media(
+        IntPtr media);
 
     [LibraryImport(Name)]
     public static partial int libvlc_media_player_play(IntPtr player);
 
     [LibraryImport(Name)]
-    public static partial void libvlc_media_player_set_pause(IntPtr player, int pause);
+    public static partial void libvlc_media_player_set_pause(IntPtr player,
+        int pause);
 
     [LibraryImport(Name)]
     public static partial void libvlc_media_player_stop(IntPtr player);
@@ -92,7 +98,8 @@ internal static partial class LibVlc {
     public static partial long libvlc_media_player_get_time(IntPtr player);
 
     [LibraryImport(Name)]
-    public static partial void libvlc_media_player_set_time(IntPtr player, long ms);
+    public static partial void libvlc_media_player_set_time(IntPtr player,
+        long ms);
 
     [LibraryImport(Name)]
     public static partial long libvlc_media_player_get_length(IntPtr player);
@@ -115,7 +122,8 @@ internal static partial class LibVlc {
     [LibraryImport(Name)]
     public static unsafe partial void libvlc_video_set_format_callbacks(
         IntPtr player,
-        delegate* unmanaged[Cdecl]<IntPtr*, byte*, uint*, uint*, uint*, uint*, uint> setup,
+        delegate* unmanaged[Cdecl]<IntPtr*, byte*, uint*, uint*, uint*, uint*,
+            uint> setup,
         delegate* unmanaged[Cdecl]<IntPtr, void> cleanup
     );
 }

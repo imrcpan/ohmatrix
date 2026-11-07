@@ -11,4 +11,8 @@ public sealed record PublicRoom(
 );
 
 /// <summary>A public room being joined: shown above the chat list until the join ends (<c>Joining</c> of the React Native app).</summary>
-public sealed record JoiningRoom(string Id, string Name, string? AvatarUrl, DateTimeOffset Since);
+public sealed record JoiningRoom(
+    string Id,
+    string Name,
+    string? AvatarUrl,
+    DateTimeOffset Since);

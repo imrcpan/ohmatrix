@@ -12,12 +12,15 @@ namespace OhMatrix.Tests.Ui;
 
 public class AppRootTests {
     private sealed class Engine : IAuthEngine {
-        public Task<Session> LoginWithPassword(string homeserver, string username, string password)
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
         {
-            return Task.FromResult(new Session(homeserver, "@" + username, "D", "T"));
+            return Task.FromResult(new Session(homeserver, "@" + username, "D",
+                "T"));
         }
 
-        public Task<Session> Register(string homeserver, string username, string password,
+        public Task<Session> Register(string homeserver, string username,
+            string password,
             string? token)
         {
             return LoginWithPassword(homeserver, username, password);
@@ -36,7 +39,8 @@ public class AppRootTests {
 
     private static string Directory_()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "ohm-root-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(),
+            "ohm-root-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -85,10 +89,12 @@ public class AppRootTests {
     [AvaloniaFact]
     public async Task Theme_and_zoom_reach_the_pages()
     {
-        var controller = new AppController(new Engine(), new FileSessionStore(Directory_()));
+        var controller = new AppController(new Engine(),
+            new FileSessionStore(Directory_()));
         var root = new AppRoot(controller, "matrix.org", () => true);
         await controller.Bootstrap();
-        Assert.Equal(Themes.Resolve("dark", null).Colors.Bg, ThemeScope.GetColors(root).Bg);
+        Assert.Equal(Themes.Resolve("dark", null).Colors.Bg,
+            ThemeScope.GetColors(root).Bg);
         controller.TryZoom(2);
         var zoom = (LayoutTransformControl)root.Child!;
         Assert.Equal(2, ((ScaleTransform)zoom.LayoutTransform!).ScaleX);

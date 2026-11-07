@@ -89,7 +89,9 @@ public class ControlsTests {
         window.Show();
         var clicks = 0;
         button.Click += (_, _) => clicks++;
-        var middle = button.TranslatePoint(new Point(button.Bounds.Width / 2, 20), window)!.Value;
+        var middle =
+            button.TranslatePoint(new Point(button.Bounds.Width / 2, 20),
+                window)!.Value;
         window.MouseDown(middle, Avalonia.Input.MouseButton.Left);
         window.MouseUp(middle, Avalonia.Input.MouseButton.Left);
         Assert.Equal(1, clicks);
@@ -161,7 +163,8 @@ public class ControlsTests {
         window.Show();
         var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
-        var path = Environment.GetEnvironmentVariable("OHMATRIX_CONTROLS_SHEET");
+        var path =
+            Environment.GetEnvironmentVariable("OHMATRIX_CONTROLS_SHEET");
         if (!string.IsNullOrEmpty(path))
             frame.Save(path, new PngBitmapEncoderOptions());
     }

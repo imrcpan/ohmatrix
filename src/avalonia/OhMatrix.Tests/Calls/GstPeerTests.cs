@@ -11,7 +11,8 @@ public class GstPeerTests {
         "videotestsrc is-live=true pattern=ball"
     );
 
-    private static async Task<T> Within<T>(Func<T?> read, string what, int ms = 20_000)
+    private static async Task<T> Within<T>(Func<T?> read, string what,
+        int ms = 20_000)
         where T : class
     {
         for (var waited = 0; waited < ms; waited += 50) {
@@ -90,20 +91,22 @@ public class GstPeerTests {
 
         await Within(() => aState.Contains(PeerState.Connected) ? aState : null,
             "a connected; states " + string.Join(',', aState));
-        await Within(() => bState.Contains(PeerState.Connected) ? bState : null, "b connected");
+        await Within(() => bState.Contains(PeerState.Connected) ? bState : null,
+            "b connected");
 
         // The picture of each reaches the other.
         var seen = await Within(() => {
-            (int, int)? size = null;
-            b.TryTakeFrame((data, w, h) => size = (w, h));
-            return size is { } s
-                ? new[] {
+                (int, int)? size = null;
+                b.TryTakeFrame((data, w, h) => size = (w, h));
+                return size is { } s
+                    ? new[] {
                         s.Item1, s.Item2
-                }
-                : null;
-        },
+                    }
+                    : null;
+            },
             "picture at b; log: " +
-            string.Join(" | ", OhMatrix.Core.State.AppLog.Snapshot().Select(l => l.Text)));
+            string.Join(" | ",
+                OhMatrix.Core.State.AppLog.Snapshot().Select(l => l.Text)));
         Assert.Equal(640, seen[0]);
         Assert.Equal(480, seen[1]);
         var back = await Within(() => {
@@ -133,13 +136,15 @@ public class GstPeerTests {
     }
 
     [Fact]
-    public async Task The_microphones_and_cameras_are_listed_and_can_be_switched_to_in_a_call()
+    public async Task
+        The_microphones_and_cameras_are_listed_and_can_be_switched_to_in_a_call()
     {
         Assert.SkipUnless(new GstCallPlatform().Available,
             "GStreamer with webrtcbin is not installed");
         var platform = new GstCallPlatform(Test);
         var devices = platform.Media.Devices();
-        Assert.All(devices.Microphones, d => Assert.False(string.IsNullOrEmpty(d.Label)));
+        Assert.All(devices.Microphones,
+            d => Assert.False(string.IsNullOrEmpty(d.Label)));
         using var peer = new GstPeer([], Test);
         peer.AddLocalMedia(true);
         if (devices.Microphones.Count > 0)

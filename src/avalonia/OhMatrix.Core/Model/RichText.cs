@@ -41,7 +41,8 @@ public static partial class RichText {
     [GeneratedRegex(@"^https?://matrix\.to/#/(@[^/?#\s]+)")]
     private static partial Regex PermalinkRegex();
 
-    [GeneratedRegex(@"\bhref\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s>]+))", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\bhref\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s>]+))",
+        RegexOptions.IgnoreCase)]
     private static partial Regex HrefRegex();
 
     [GeneratedRegex(@"&(#\d+|[a-z]+);", RegexOptions.IgnoreCase)]
@@ -75,8 +76,10 @@ public static partial class RichText {
                     return " ";
             }
 
-            if (e[0] == '#' && int.TryParse(e.AsSpan(1), NumberStyles.None, null, out var code)
-                            && code is > 0 and <= 0x10FFFF and not (>= 0xD800 and <= 0xDFFF))
+            if (e[0] == '#' && int.TryParse(e.AsSpan(1), NumberStyles.None,
+                                null, out var code)
+                            && code is > 0 and <= 0x10FFFF
+                                and not (>= 0xD800 and <= 0xDFFF))
                 return char.ConvertFromUtf32(code);
             return m.Value;
         });
@@ -202,22 +205,24 @@ public static partial class RichText {
                     top.List = name;
                     break;
                 case "a": {
-                        var m = HrefRegex().Match(attrs);
-                        var url = m.Success
-                            ? Decode(m.Groups[1].Success ? m.Groups[1].Value
-                                : m.Groups[2].Success ? m.Groups[2].Value
-                                : m.Groups[3].Value)
-                            : "";
-                        if (url.Length > 0) {
-                            var uid = PermalinkRegex().Match(url);
-                            frame.Style = frame.Style with {
-                                Href = url,
-                                UserId = uid.Success ? uid.Groups[1].Value : frame.Style.UserId,
-                            };
-                        }
-
-                        break;
+                    var m = HrefRegex().Match(attrs);
+                    var url = m.Success
+                        ? Decode(m.Groups[1].Success ? m.Groups[1].Value
+                            : m.Groups[2].Success ? m.Groups[2].Value
+                            : m.Groups[3].Value)
+                        : "";
+                    if (url.Length > 0) {
+                        var uid = PermalinkRegex().Match(url);
+                        frame.Style = frame.Style with {
+                            Href = url,
+                            UserId = uid.Success
+                                ? uid.Groups[1].Value
+                                : frame.Style.UserId,
+                        };
                     }
+
+                    break;
+                }
                 case "span" when SpoilerRegex().IsMatch(attrs):
                     frame.Style = frame.Style with {
                         Spoiler = true
@@ -241,9 +246,12 @@ public static partial class RichText {
 
     private static bool SameStyle(TextRun a, TextRun b)
     {
-        return a.Bold == b.Bold && a.Italic == b.Italic && a.Underline == b.Underline
-               && a.Strike == b.Strike && a.Code == b.Code && a.Spoiler == b.Spoiler
-               && a.Href == b.Href && a.UserId == b.UserId && a.Prefix == b.Prefix
+        return a.Bold == b.Bold && a.Italic == b.Italic &&
+               a.Underline == b.Underline
+               && a.Strike == b.Strike && a.Code == b.Code &&
+               a.Spoiler == b.Spoiler
+               && a.Href == b.Href && a.UserId == b.UserId &&
+               a.Prefix == b.Prefix
                && a.Br == b.Br;
     }
 
@@ -273,7 +281,8 @@ public static partial class RichText {
                 if (piece.Length == 0)
                     continue;
                 var uid = piece[0] == '@'
-                    ? mentions?.FirstOrDefault(m => m == piece || m.Split(':')[0] == piece)
+                    ? mentions?.FirstOrDefault(m =>
+                        m == piece || m.Split(':')[0] == piece)
                     : null;
                 runs.Add(new TextRun(piece) {
                     UserId = uid

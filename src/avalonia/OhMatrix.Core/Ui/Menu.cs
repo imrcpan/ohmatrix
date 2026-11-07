@@ -46,8 +46,10 @@ public sealed class Menu {
     };
 
     private readonly ScrollViewer scroller = new() {
-        VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        VerticalScrollBarVisibility =
+            Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives
+            .ScrollBarVisibility.Disabled,
     };
 
     private readonly StackPanel rows = new() {
@@ -95,7 +97,8 @@ public sealed class Menu {
     public ScrollViewer Scroller => scroller;
 
     /// <summary>Opens the menu on <paramref name="anchor"/>, in <paramref name="window"/>.</summary>
-    public void Show(Control anchor, TopLevel window, IReadOnlyList<MenuItem> items)
+    public void Show(Control anchor, TopLevel window,
+        IReadOnlyList<MenuItem> items)
     {
         var colors = ThemeScope.GetColors(anchor);
         Build(anchor, items, colors);
@@ -103,7 +106,8 @@ public sealed class Menu {
         clip.Background = new SolidColorBrush(colors.Bg);
         surface.BoxShadow = Shadow(colors);
 
-        var origin = anchor.TranslatePoint(new Point(0, 0), window) ?? new Point();
+        var origin = anchor.TranslatePoint(new Point(0, 0), window) ??
+                     new Point();
         var content = Measure(items.Count);
         var place = MenuPlacement.Place(
             origin.Y,
@@ -113,8 +117,11 @@ public sealed class Menu {
             Margin,
             window.ClientSize.Height - Margin
         );
-        var rawLeft = AlignRight ? origin.X + anchor.Bounds.Width - Width : origin.X;
-        var left = Math.Max(Margin, Math.Min(rawLeft, window.ClientSize.Width - Width - Margin));
+        var rawLeft = AlignRight
+            ? origin.X + anchor.Bounds.Width - Width
+            : origin.X;
+        var left = Math.Max(Margin,
+            Math.Min(rawLeft, window.ClientSize.Width - Width - Margin));
         scroller.MaxHeight = place.Height;
         scroller.VerticalScrollBarVisibility = place.Scrolls
             ? Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
@@ -143,7 +150,8 @@ public sealed class Menu {
         return Math.Max(rows.DesiredSize.Height + 4, count * Row + 4);
     }
 
-    private void Build(Control anchor, IReadOnlyList<MenuItem> items, ColorTokens colors)
+    private void Build(Control anchor, IReadOnlyList<MenuItem> items,
+        ColorTokens colors)
     {
         rows.Children.Clear();
         foreach (var item in items)
@@ -160,7 +168,9 @@ public sealed class Menu {
             var icon = new Icon {
                 Glyph = item.Icon,
                 Size = 18,
-                Color = new SolidColorBrush(item.Danger ? colors.Danger : colors.TextSecondary),
+                Color = new SolidColorBrush(item.Danger
+                    ? colors.Danger
+                    : colors.TextSecondary),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0),
             };
@@ -199,9 +209,11 @@ public sealed class Menu {
             Child = grid,
         };
         Avalonia.Automation.AutomationProperties.SetName(row, item.Label);
-        row.PointerEntered += (_, _) => row.Background = new SolidColorBrush(colors.Hover);
+        row.PointerEntered += (_, _) =>
+            row.Background = new SolidColorBrush(colors.Hover);
         row.PointerExited += (_, _) => row.Background = Brushes.Transparent;
-        row.PointerPressed += (_, _) => row.Background = new SolidColorBrush(colors.Separator);
+        row.PointerPressed += (_, _) =>
+            row.Background = new SolidColorBrush(colors.Separator);
         row.PointerReleased += (_, e) => {
             if (!new Rect(row.Bounds.Size).Contains(e.GetPosition(row)))
                 return;

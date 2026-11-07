@@ -11,10 +11,11 @@ public static class FilePicker {
         var provider = window.StorageProvider;
         if (!provider.CanOpen)
             return null;
-        var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions {
-            AllowMultiple = false,
-            FileTypeFilter = [FilePickerFileTypes.ImageAll],
-        });
+        var files = await provider.OpenFilePickerAsync(
+            new FilePickerOpenOptions {
+                AllowMultiple = false,
+                FileTypeFilter = [FilePickerFileTypes.ImageAll],
+            });
         return files.Count == 0 ? null : files[0].TryGetLocalPath();
     }
 }

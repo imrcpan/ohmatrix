@@ -6,7 +6,8 @@ using uniffi.matrix_sdk_ffi;
 namespace OhMatrix.Engine;
 
 /// <summary>The verification with another session over the Matrix SDK (<c>verification</c> of <c>RustEngineCore</c>).</summary>
-public sealed class MatrixVerificationEngine(MatrixAuthEngine auth) : IVerificationEngine {
+public sealed class MatrixVerificationEngine(MatrixAuthEngine auth)
+    : IVerificationEngine {
     private SessionVerificationController? controller;
     private Client? owner;
     private bool incoming;
@@ -87,26 +88,31 @@ public sealed class MatrixVerificationEngine(MatrixAuthEngine auth) : IVerificat
         }
     }
 
-    private void Tell(VerifyPhase phase, string? who = null, IReadOnlyList<VerifyEmoji>? emojis =
- null)
+    private void Tell(VerifyPhase phase, string? who = null,
+        IReadOnlyList<VerifyEmoji>? emojis =
+            null)
     {
         Changed?.Invoke(new VerifyFlow(phase, incoming, who, emojis));
     }
 
     // The SDK calls these from its own threads; a failure inside must not travel back into Rust.
-    private sealed class Listener(MatrixVerificationEngine engine) : SessionVerificationControllerDelegate {
-        public void DidReceiveVerificationRequest(SessionVerificationRequestDetails details)
+    private sealed class Listener(MatrixVerificationEngine engine)
+        : SessionVerificationControllerDelegate {
+        public void DidReceiveVerificationRequest(
+            SessionVerificationRequestDetails details)
         {
             engine.incoming = true;
             var who = details.DeviceDisplayName ?? details.DeviceId;
             _ = Acknowledge(details, who);
         }
 
-        private async Task Acknowledge(SessionVerificationRequestDetails details, string who)
+        private async Task Acknowledge(
+            SessionVerificationRequestDetails details, string who)
         {
             try {
                 await (await engine.Controller())
-                    .AcknowledgeVerificationRequest(details.SenderProfile.UserId, details.FlowId);
+                    .AcknowledgeVerificationRequest(
+                        details.SenderProfile.UserId, details.FlowId);
                 engine.Tell(VerifyPhase.Requested, who);
             } catch (Exception) {
                 engine.Tell(VerifyPhase.Failed);
@@ -143,7 +149,8 @@ public sealed class MatrixVerificationEngine(MatrixAuthEngine auth) : IVerificat
                 engine.Tell(
                     VerifyPhase.Emojis,
                     null,
-                    shown.EmojisValue.Select(e => new VerifyEmoji(e.Symbol(), e.Description()))
+                    shown.EmojisValue.Select(e =>
+                            new VerifyEmoji(e.Symbol(), e.Description()))
                         .ToList()
                 );
             } else

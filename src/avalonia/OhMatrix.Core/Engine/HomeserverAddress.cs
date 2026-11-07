@@ -22,14 +22,19 @@ public static partial class HomeserverAddress {
         if (fallback != $"https://{host}")
             return fallback;
         try {
-            using var res = await http.GetAsync($"https://{host}/.well-known/matrix/client");
+            using var res =
+                await http.GetAsync(
+                    $"https://{host}/.well-known/matrix/client");
             if (res.IsSuccessStatusCode) {
-                var json = JsonNode.Parse(await res.Content.ReadAsStringAsync());
+                var json =
+                    JsonNode.Parse(await res.Content.ReadAsStringAsync());
                 var url = json?["m.homeserver"]?["base_url"];
-                if (url is JsonValue v && v.TryGetValue<string>(out var s) && Http().IsMatch(s))
+                if (url is JsonValue v && v.TryGetValue<string>(out var s) &&
+                    Http().IsMatch(s))
                     return s.TrimEnd('/');
             }
-        } catch (Exception e) when (e is HttpRequestException or TaskCanceledException
+        } catch (Exception e) when (e is HttpRequestException
+                                        or TaskCanceledException
                                         or System.Text.Json.JsonException) {
             // Offline or no well-known: fall back.
         }

@@ -32,7 +32,8 @@ public sealed class LanguagePage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<LanguagePage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<LanguagePage>((p, _) => p.Apply());
         Apply();
     }
 
@@ -43,7 +44,8 @@ public sealed class LanguagePage : Grid {
         var c = ThemeScope.GetColors(this);
         var locale = controller.Store.Value.Locale;
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, Strings.T(locale, "language"), Strings.T(locale, "settings"),
+        PageBar.Fill(bar, c, Strings.T(locale, "language"),
+            Strings.T(locale, "settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));
         rows.Children.Clear();
         foreach (var language in Strings.Languages) {
@@ -73,7 +75,9 @@ public sealed class LanguagePage : Grid {
                 Height = 44,
                 Padding = new Thickness(14, 0),
                 CornerRadius = new CornerRadius(Radius.Control),
-                Background = active ? new SolidColorBrush(c.BgSecondary) : Brushes.Transparent,
+                Background = active
+                    ? new SolidColorBrush(c.BgSecondary)
+                    : Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = line,
             };
@@ -84,7 +88,8 @@ public sealed class LanguagePage : Grid {
                     Locale = id
                 });
             };
-            Avalonia.Automation.AutomationProperties.SetName(row, language.Label);
+            Avalonia.Automation.AutomationProperties.SetName(row,
+                language.Label);
             rows.Children.Add(row);
         }
     }

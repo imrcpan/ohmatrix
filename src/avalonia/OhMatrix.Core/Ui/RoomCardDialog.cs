@@ -55,7 +55,9 @@ public sealed class RoomCardDialog {
             Margin = new Thickness(0, 8, 0, 0),
         });
         head.Children.Add(new TextBlock {
-            Text = room.Members == 1 ? T("member.one") : T("explore.members", ("count", room.Members)),
+            Text = room.Members == 1
+                ? T("member.one")
+                : T("explore.members", ("count", room.Members)),
             FontSize = 14,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -98,7 +100,9 @@ public sealed class RoomCardDialog {
             Title = T("cancel")
         };
         cancel.Click += (_, _) => dialog.Close();
-        foreach (var b in new Control[] { copy, joinButton, cancel })
+        foreach (var b in new Control[] {
+                     copy, joinButton, cancel
+                 })
             ThemeScope.SetColors(b, c);
         content.AddRange([copy, joinButton, cancel]);
         dialog.Show(window, c, "", null, [.. content]);

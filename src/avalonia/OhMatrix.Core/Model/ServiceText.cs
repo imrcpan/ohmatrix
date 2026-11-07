@@ -24,7 +24,8 @@ public static class ServiceText {
     }
 
     /// <summary>The line for someone's membership changing; <paramref name="who"/> is whose it is, <paramref name="by"/> who did it.</summary>
-    public static string? ForMembership(MembershipKind change, string who, string by)
+    public static string? ForMembership(MembershipKind change, string who,
+        string by)
     {
         return change switch {
             MembershipKind.Joined => $"{who} joined",

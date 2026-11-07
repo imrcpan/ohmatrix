@@ -46,7 +46,8 @@ public sealed class ThemePage : Grid {
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<ThemePage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<ThemePage>((p, _) =>
+            p.Apply());
         Apply();
     }
 
@@ -69,11 +70,13 @@ public sealed class ThemePage : Grid {
         cards.Children.Clear();
         var light = Themes.Get("light")!;
         var dark = Themes.Get("dark")!;
-        cards.Children.Add(Card(c, Themes.System, T("theme.system"), s.Prefs.Theme,
+        cards.Children.Add(Card(c, Themes.System, T("theme.system"),
+            s.Prefs.Theme,
             SystemPreview(light, dark)));
         foreach (var def in Themes.All())
             cards.Children.Add(
-                Card(c, def.Id, def.LabelFor(s.Locale), s.Prefs.Theme, MiniChat(def)));
+                Card(c, def.Id, def.LabelFor(s.Locale), s.Prefs.Theme,
+                    MiniChat(def)));
     }
 
     private Control Preview(ColorTokens c, string locale)
@@ -94,14 +97,18 @@ public sealed class ThemePage : Grid {
                 Foreground = new SolidColorBrush(c.ServiceChipText),
             },
         });
-        chat.Children.Add(new Bubble(c, Strings.T(locale, "theme.preview.in"), "9:41", false) {
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(10, 0),
-        });
-        chat.Children.Add(new Bubble(c, Strings.T(locale, "theme.preview.out"), "9:42", true) {
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(10, 0),
-        });
+        chat.Children.Add(
+            new Bubble(c, Strings.T(locale, "theme.preview.in"), "9:41",
+                false) {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(10, 0),
+            });
+        chat.Children.Add(
+            new Bubble(c, Strings.T(locale, "theme.preview.out"), "9:42",
+                true) {
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(10, 0),
+            });
         var host = new Border {
             Background = new SolidColorBrush(c.ChatBg),
             BorderBrush = new SolidColorBrush(c.Separator),
@@ -109,7 +116,8 @@ public sealed class ThemePage : Grid {
             Padding = new Thickness(0, 12, 0, 22),
             Child = chat,
         };
-        Avalonia.Automation.AutomationProperties.SetName(host, Strings.T(locale, "theme.preview"));
+        Avalonia.Automation.AutomationProperties.SetName(host,
+            Strings.T(locale, "theme.preview"));
         return host;
     }
 
@@ -150,7 +158,8 @@ public sealed class ThemePage : Grid {
         return grid;
     }
 
-    private static Control SystemPreview(ThemeDefinition light, ThemeDefinition dark)
+    private static Control SystemPreview(ThemeDefinition light,
+        ThemeDefinition dark)
     {
         var left = new Border {
             ClipToBounds = true,
@@ -178,7 +187,8 @@ public sealed class ThemePage : Grid {
         return grid;
     }
 
-    private Control Card(ColorTokens c, string id, string label, string current, Control preview)
+    private Control Card(ColorTokens c, string id, string label, string current,
+        Control preview)
     {
         var active = current == id;
         var frame = new Border {
@@ -186,7 +196,9 @@ public sealed class ThemePage : Grid {
             Height = 74,
             CornerRadius = new CornerRadius(18),
             BorderThickness = new Thickness(2.5),
-            BorderBrush = active ? new SolidColorBrush(c.Accent) : Brushes.Transparent,
+            BorderBrush = active
+                ? new SolidColorBrush(c.Accent)
+                : Brushes.Transparent,
             Padding = new Thickness(3),
         };
         var inner = new Border {

@@ -21,7 +21,10 @@ public sealed class GstPeer : IPeer, IDisposable {
 
     private readonly IReadOnlyList<IceServer> servers;
     private readonly GstSources sources;
-    private readonly SynchronizationContext? context = SynchronizationContext.Current;
+
+    private readonly SynchronizationContext? context =
+        SynchronizationContext.Current;
+
     private GCHandle self;
     private IntPtr pipeline;
     private IntPtr webrtc;
@@ -74,7 +77,9 @@ public sealed class GstPeer : IPeer, IDisposable {
             + "queue name=aq ! audioconvert ! audioresample ! volume name=mic ! opusenc ! "
             + "rtpopuspay pt=111 ! application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! wb. "
             + (video
-                ? (cameraName is null ? $"{sources.VideoSource} name=vsrc ! " : "")
+                ? (cameraName is null
+                      ? $"{sources.VideoSource} name=vsrc ! "
+                      : "")
                   + "queue name=vq ! videoconvert ! videoscale ! "
                   + "video/x-raw,width=640,height=480 ! valve name=cam ! tee name=lt ! queue ! "
                   + "vp8enc deadline=1 cpu-used=8 target-bitrate=800000 keyframe-max-dist=30 ! "
@@ -84,7 +89,8 @@ public sealed class GstPeer : IPeer, IDisposable {
                   + "video/x-raw,format=BGRA,width=240,height=180 ! "
                   + "appsink name=lv max-buffers=1 drop=true sync=false"
                 : "");
-        pipeline = LibGst.gst_parse_launch(LibGst.Utf8(description), out var error);
+        pipeline =
+            LibGst.gst_parse_launch(LibGst.Utf8(description), out var error);
         if (pipeline == IntPtr.Zero) {
             var why = LibGst.Text(error != IntPtr.Zero
                 ? *(IntPtr*)((byte*)error + 8)
@@ -97,24 +103,31 @@ public sealed class GstPeer : IPeer, IDisposable {
         audioQueue = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("aq"));
         audioSource = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("asrc"));
         if (video) {
-            videoQueue = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("vq"));
-            videoSource = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("vsrc"));
+            videoQueue =
+                LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("vq"));
+            videoSource =
+                LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("vsrc"));
             camera = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("cam"));
-            localVideo = LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("lv"));
+            localVideo =
+                LibGst.gst_bin_get_by_name(pipeline, LibGst.Utf8("lv"));
         }
 
         self = GCHandle.Alloc(this);
         var data = GCHandle.ToIntPtr(self);
         LibGst.Connect(webrtc, "on-ice-candidate",
-            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, uint, IntPtr, IntPtr, void>)&OnIceCandidate,
+            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, uint, IntPtr, IntPtr,
+                void>)&OnIceCandidate,
             data);
         LibGst.Connect(webrtc, "pad-added",
-            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&OnPadAdded, data);
+            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)
+            &OnPadAdded, data);
         LibGst.Connect(webrtc, "notify::connection-state",
-            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&OnConnectionState,
+            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)
+            &OnConnectionState,
             data);
         LibGst.Connect(webrtc, "notify::ice-gathering-state",
-            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)&OnGatheringState,
+            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, IntPtr, void>)
+            &OnGatheringState,
             data);
         AddServers();
         // A device chosen by the person is put in front of the queue that the launch text left open for it.
@@ -130,18 +143,21 @@ public sealed class GstPeer : IPeer, IDisposable {
         foreach (var server in servers) {
             foreach (var url in server.Urls) {
                 if (url.StartsWith("stun:", StringComparison.Ordinal)) {
-                    LibGst.SetString(webrtc, "stun-server", "stun://" + url[5..]);
+                    LibGst.SetString(webrtc, "stun-server",
+                        "stun://" + url[5..]);
                 } else if (url.StartsWith("turn:", StringComparison.Ordinal)
-                           || url.StartsWith("turns:", StringComparison.Ordinal)) {
-                    var scheme = url.StartsWith("turns:", StringComparison.Ordinal)
-                        ? "turns"
-                        : "turn";
+                           || url.StartsWith("turns:",
+                               StringComparison.Ordinal)) {
+                    var scheme =
+                        url.StartsWith("turns:", StringComparison.Ordinal)
+                            ? "turns"
+                            : "turn";
                     var rest = url[(scheme.Length + 1)..];
                     var credentials = server.Username is null
                         ? ""
                         : Uri.EscapeDataString(server.Username) + ":"
-                                                                + Uri.EscapeDataString(
-                                                                    server.Credential ?? "") + "@";
+                        + Uri.EscapeDataString(
+                            server.Credential ?? "") + "@";
                     var result = default(GValue);
                     LibGst.g_value_init(ref result, LibGst.TypeBoolean);
                     LibGst.Emit(webrtc, "add-turn-server", &result,
@@ -155,15 +171,18 @@ public sealed class GstPeer : IPeer, IDisposable {
     /// <summary>Puts the microphone of that name in place of the one in use, in the middle of a call too; false when it is gone.</summary>
     public bool UseMicrophone(string name)
     {
-        return Replace(ref audioSource, audioQueue, "Audio/Source", name, "mic-device");
+        return Replace(ref audioSource, audioQueue, "Audio/Source", name,
+            "mic-device");
     }
 
     public bool UseCamera(string name)
     {
-        return Replace(ref videoSource, videoQueue, "Video/Source", name, "camera-device");
+        return Replace(ref videoSource, videoQueue, "Video/Source", name,
+            "camera-device");
     }
 
-    private bool Replace(ref IntPtr source, IntPtr queue, string deviceClass, string name,
+    private bool Replace(ref IntPtr source, IntPtr queue, string deviceClass,
+        string name,
         string elementName)
     {
         if (pipeline == IntPtr.Zero || queue == IntPtr.Zero)
@@ -199,19 +218,23 @@ public sealed class GstPeer : IPeer, IDisposable {
             LibGst.SetBool(camera, "drop", off);
     }
 
-    private sealed class PromiseState(string key, TaskCompletionSource<SessionDescription?> done) {
+    private sealed class PromiseState(
+        string key,
+        TaskCompletionSource<SessionDescription?> done) {
         public string Key => key;
         public TaskCompletionSource<SessionDescription?> Done => done;
     }
 
-    private unsafe Task<SessionDescription?> Ask(Action<IntPtr> emit, string key)
+    private unsafe Task<SessionDescription?> Ask(Action<IntPtr> emit,
+        string key)
     {
         var done = new TaskCompletionSource<SessionDescription?>(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
         var state = GCHandle.Alloc(new PromiseState(key, done));
         var promise = LibGst.gst_promise_new_with_change_func(
-            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, void>)&OnPromise,
+            (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, IntPtr, void>)
+            &OnPromise,
             GCHandle.ToIntPtr(state),
             IntPtr.Zero
         );
@@ -228,15 +251,20 @@ public sealed class GstPeer : IPeer, IDisposable {
             SessionDescription? result = null;
             var reply = LibGst.gst_promise_get_reply(promise);
             if (state.Key.Length > 0 && reply != IntPtr.Zero) {
-                var value = LibGst.gst_structure_get_value(reply, LibGst.Utf8(state.Key));
+                var value =
+                    LibGst.gst_structure_get_value(reply,
+                        LibGst.Utf8(state.Key));
                 if (value != IntPtr.Zero) {
                     var description = LibGst.g_value_get_boxed(value);
                     var type = *(int*)description;
                     var text =
                         LibGst.Text(
-                            LibGst.gst_sdp_message_as_text(*(IntPtr*)((byte*)description + 8)));
+                            LibGst.gst_sdp_message_as_text(
+                                *(IntPtr*)((byte*)description + 8)));
                     if (text is not null)
-                        result = new SessionDescription(type == Offer ? "offer" : "answer", text);
+                        result =
+                            new SessionDescription(
+                                type == Offer ? "offer" : "answer", text);
                 }
             }
 
@@ -245,7 +273,8 @@ public sealed class GstPeer : IPeer, IDisposable {
                 state.Done.TrySetResult(result);
             else
                 state.Done.TrySetException(
-                    new InvalidOperationException("the peer gave no description"));
+                    new InvalidOperationException(
+                        "the peer gave no description"));
         } catch (Exception e) {
             state.Done.TrySetException(e);
         } finally {
@@ -256,14 +285,16 @@ public sealed class GstPeer : IPeer, IDisposable {
     public async Task<SessionDescription> CreateOffer()
     {
         return await Ask(
-            p => LibGst.Emit(webrtc, "create-offer", LibGst.NoStructure(), LibGst.Promise(p)),
+            p => LibGst.Emit(webrtc, "create-offer", LibGst.NoStructure(),
+                LibGst.Promise(p)),
             "offer") ?? throw new InvalidOperationException("no offer");
     }
 
     public async Task<SessionDescription> CreateAnswer()
     {
         return await Ask(
-            p => LibGst.Emit(webrtc, "create-answer", LibGst.NoStructure(), LibGst.Promise(p)),
+            p => LibGst.Emit(webrtc, "create-answer", LibGst.NoStructure(),
+                LibGst.Promise(p)),
             "answer") ?? throw new InvalidOperationException("no answer");
     }
 
@@ -271,12 +302,15 @@ public sealed class GstPeer : IPeer, IDisposable {
     {
         var bytes = System.Text.Encoding.UTF8.GetBytes(d.Sdp);
         LibGst.gst_sdp_message_new(out var message);
-        if (LibGst.gst_sdp_message_parse_buffer(bytes, (uint)bytes.Length, message) != 0) {
+        if (LibGst.gst_sdp_message_parse_buffer(bytes, (uint)bytes.Length,
+                message) != 0) {
             LibGst.gst_sdp_message_free(message);
-            throw new InvalidOperationException("the description cannot be read");
+            throw new InvalidOperationException(
+                "the description cannot be read");
         }
 
-        return LibGst.gst_webrtc_session_description_new(d.Type == "offer" ? Offer : Answer,
+        return LibGst.gst_webrtc_session_description_new(
+            d.Type == "offer" ? Offer : Answer,
             message);
     }
 
@@ -284,7 +318,8 @@ public sealed class GstPeer : IPeer, IDisposable {
     {
         var native = Native(description);
         try {
-            await Ask(p => LibGst.Emit(webrtc, "set-local-description", LibGst.Description(native),
+            await Ask(p => LibGst.Emit(webrtc, "set-local-description",
+                LibGst.Description(native),
                 LibGst.Promise(p)), "");
         } finally {
             LibGst.gst_webrtc_session_description_free(native);
@@ -295,7 +330,8 @@ public sealed class GstPeer : IPeer, IDisposable {
     {
         var native = Native(description);
         try {
-            await Ask(p => LibGst.Emit(webrtc, "set-remote-description", LibGst.Description(native),
+            await Ask(p => LibGst.Emit(webrtc, "set-remote-description",
+                LibGst.Description(native),
                 LibGst.Promise(p)), "");
         } finally {
             LibGst.gst_webrtc_session_description_free(native);
@@ -312,18 +348,21 @@ public sealed class GstPeer : IPeer, IDisposable {
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private unsafe static void OnIceCandidate(IntPtr element, uint mline, IntPtr candidate,
+    private unsafe static void OnIceCandidate(IntPtr element, uint mline,
+        IntPtr candidate,
         IntPtr data)
     {
         var peer = (GstPeer)GCHandle.FromIntPtr(data).Target!;
         var text = LibGst.Text(candidate);
         if (text is not null)
             peer.Raise(() =>
-                peer.Candidate?.Invoke(new IceCandidate(text, mline.ToString(), (int)mline)));
+                peer.Candidate?.Invoke(new IceCandidate(text, mline.ToString(),
+                    (int)mline)));
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private unsafe static void OnGatheringState(IntPtr element, IntPtr spec, IntPtr data)
+    private unsafe static void OnGatheringState(IntPtr element, IntPtr spec,
+        IntPtr data)
     {
         var peer = (GstPeer)GCHandle.FromIntPtr(data).Target!;
         // 2 is "complete": every candidate has been found.
@@ -332,7 +371,8 @@ public sealed class GstPeer : IPeer, IDisposable {
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private unsafe static void OnConnectionState(IntPtr element, IntPtr spec, IntPtr data)
+    private unsafe static void OnConnectionState(IntPtr element, IntPtr spec,
+        IntPtr data)
     {
         var peer = (GstPeer)GCHandle.FromIntPtr(data).Target!;
         var state = LibGst.GetInt(element, "connection-state") switch {
@@ -346,7 +386,8 @@ public sealed class GstPeer : IPeer, IDisposable {
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private unsafe static void OnPadAdded(IntPtr element, IntPtr pad, IntPtr data)
+    private unsafe static void OnPadAdded(IntPtr element, IntPtr pad,
+        IntPtr data)
     {
         var peer = (GstPeer)GCHandle.FromIntPtr(data).Target!;
         try {
@@ -365,7 +406,8 @@ public sealed class GstPeer : IPeer, IDisposable {
         var current = LibGst.gst_pad_get_current_caps(pad);
         if (current != IntPtr.Zero) {
             var kind = LibGst.Text(LibGst.gst_structure_get_string(
-                LibGst.gst_caps_get_structure(current, 0), LibGst.Utf8("media")));
+                LibGst.gst_caps_get_structure(current, 0),
+                LibGst.Utf8("media")));
             LibGst.gst_mini_object_unref(current);
             if (kind == "video")
                 media = "video";
@@ -376,7 +418,8 @@ public sealed class GstPeer : IPeer, IDisposable {
             ? "queue ! rtpvp8depay ! vp8dec ! videoconvert ! videoscale ! video/x-raw,format=BGRA ! "
               + "appsink name=rv max-buffers=1 drop=true sync=false"
             : $"queue ! rtpopusdepay ! opusdec ! audioconvert ! audioresample ! {sources.AudioSink}";
-        var bin = LibGst.gst_parse_bin_from_description(LibGst.Utf8(chain), 1, out _);
+        var bin =
+            LibGst.gst_parse_bin_from_description(LibGst.Utf8(chain), 1, out _);
         if (bin == IntPtr.Zero)
             return;
         LibGst.gst_bin_add(pipeline, bin);
@@ -386,7 +429,8 @@ public sealed class GstPeer : IPeer, IDisposable {
         LibGst.g_object_unref(sink);
         if (media == "video") {
             lock (frameGate)
-                remoteVideo = LibGst.gst_bin_get_by_name(bin, LibGst.Utf8("rv"));
+                remoteVideo =
+                    LibGst.gst_bin_get_by_name(bin, LibGst.Utf8("rv"));
         }
     }
 
@@ -414,8 +458,10 @@ public sealed class GstPeer : IPeer, IDisposable {
         try {
             var caps = LibGst.gst_sample_get_caps(sample);
             var structure = LibGst.gst_caps_get_structure(caps, 0);
-            LibGst.gst_structure_get_int(structure, LibGst.Utf8("width"), out var width);
-            LibGst.gst_structure_get_int(structure, LibGst.Utf8("height"), out var height);
+            LibGst.gst_structure_get_int(structure, LibGst.Utf8("width"),
+                out var width);
+            LibGst.gst_structure_get_int(structure, LibGst.Utf8("height"),
+                out var height);
             var buffer = LibGst.gst_sample_get_buffer(sample);
             var info = default(GstMapInfo);
             if (LibGst.gst_buffer_map(buffer, &info, 1) == 0)
@@ -455,7 +501,8 @@ public sealed class GstPeer : IPeer, IDisposable {
         }
 
         foreach (var element in new[] {
-                     volume, camera, webrtc, audioSource, audioQueue, videoSource, videoQueue
+                     volume, camera, webrtc, audioSource, audioQueue,
+                     videoSource, videoQueue
                  })
             if (element != IntPtr.Zero)
                 LibGst.g_object_unref(element);

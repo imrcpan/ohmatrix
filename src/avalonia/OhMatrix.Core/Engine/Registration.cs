@@ -20,7 +20,8 @@ public static class Registration {
     /// Which of the steps a server offers can be done here: the dummy step, and the registration token step when a token was typed. An e-mail
     /// address, a captcha or terms to accept are more than a form can answer. A flow that uses the token is taken when there is one.
     /// </summary>
-    public static RegistrationPlan Plan(IReadOnlyList<IReadOnlyList<string>> flows, bool hasToken)
+    public static RegistrationPlan Plan(
+        IReadOnlyList<IReadOnlyList<string>> flows, bool hasToken)
     {
         var allowed = hasToken
             ? new[] {
@@ -28,8 +29,9 @@ public static class Registration {
             }
             : [Dummy];
         var doable = flows.Where(f => f.All(allowed.Contains)).ToList();
-        var pick = (hasToken ? doable.FirstOrDefault(f => f.Contains(Token)) : null)
-                   ?? doable.FirstOrDefault();
+        var pick =
+            (hasToken ? doable.FirstOrDefault(f => f.Contains(Token)) : null)
+            ?? doable.FirstOrDefault();
         if (pick is not null)
             return new RegistrationPlan(pick, null);
         if (!hasToken && flows.Any(f => f.All(s => s is Dummy or Token)))
@@ -65,7 +67,8 @@ public static class Registration {
             );
         }
 
-        var session = res.Body["session"] is JsonValue s && s.TryGetValue<string>(out var sv)
+        var session = res.Body["session"] is JsonValue s &&
+                      s.TryGetValue<string>(out var sv)
             ? sv
             : null;
         var done = new HashSet<string>(Strings(res.Body["completed"]));
@@ -89,7 +92,8 @@ public static class Registration {
             if (stage == Token && !completed.Contains(Token)) {
                 throw new EngineException(
                     EngineErrorCode.TokenInvalid,
-                    Text(res.Body, "error") ?? "The registration token is not valid."
+                    Text(res.Body, "error") ??
+                    "The registration token is not valid."
                 );
             }
 
@@ -127,7 +131,9 @@ public static class Registration {
 
     private static string? Text(JsonObject body, string key)
     {
-        return body[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+        return body[key] is JsonValue v && v.TryGetValue<string>(out var s)
+            ? s
+            : null;
     }
 
     private static EngineException Failed(RegisterReply res)
@@ -145,4 +151,6 @@ public static class Registration {
 }
 
 /// <summary>The steps to do, or why none can be done.</summary>
-public sealed record RegistrationPlan(IReadOnlyList<string>? Stages, EngineErrorCode? Problem);
+public sealed record RegistrationPlan(
+    IReadOnlyList<string>? Stages,
+    EngineErrorCode? Problem);

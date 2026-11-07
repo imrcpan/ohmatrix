@@ -11,7 +11,8 @@ namespace OhMatrix.Core.Ui;
 public static class ThemeScope {
     public static readonly AttachedProperty<ColorTokens> ColorsProperty =
         AvaloniaProperty.RegisterAttached<Control, ColorTokens>(
-            "Colors", typeof(ThemeScope), Themes.Resolve("light", null).Colors, inherits: true
+            "Colors", typeof(ThemeScope), Themes.Resolve("light", null).Colors,
+            inherits: true
         );
 
     public static ColorTokens GetColors(Control control)

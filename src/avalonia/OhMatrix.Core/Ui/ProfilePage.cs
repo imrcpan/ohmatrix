@@ -36,7 +36,8 @@ public sealed class ProfilePage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<ProfilePage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<ProfilePage>((p, _) =>
+            p.Apply());
         Apply();
     }
 
@@ -84,12 +85,18 @@ public sealed class ProfilePage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         var s = controller.Store.Value;
-        StatusPrompt.Show(window, ThemeScope.GetColors(this), s.Locale, T("status.edit"), "",
-            [new PromptField(T("status.placeholder"), "smile", true)], T("save"), async v => {
+        StatusPrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
+            T("status.edit"), "",
+            [new PromptField(T("status.placeholder"), "smile", true)],
+            T("save"), async v => {
                 try {
-                    await controller.SetStatus(v[0].Length > 100 ? v[0][..100] : v[0]);
-                } catch (EngineException e) when (e.Code == EngineErrorCode.Unsupported) {
-                    throw new InvalidOperationException(T("status.unsupported"));
+                    await controller.SetStatus(v[0].Length > 100
+                        ? v[0][..100]
+                        : v[0]);
+                } catch (EngineException e) when (e.Code ==
+                                                  EngineErrorCode.Unsupported) {
+                    throw new InvalidOperationException(
+                        T("status.unsupported"));
                 }
             });
         StatusPrompt.Fields[0].Text = s.Profile?.Status ?? "";
@@ -101,7 +108,8 @@ public sealed class ProfilePage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         var s = controller.Store.Value;
-        NamePrompt.Show(window, ThemeScope.GetColors(this), s.Locale, T("editName"), "",
+        NamePrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
+            T("editName"), "",
             [new PromptField(T("name"))], T("save"),
             values => controller.SetDisplayName(values[0]));
         NamePrompt.Fields[0].Text = s.Profile?.DisplayName ?? "";
@@ -109,8 +117,10 @@ public sealed class ProfilePage : Grid {
 
     public ImageViewer Viewer { get; } = new();
 
-    internal static Border NavRow(Theming.ColorTokens c, string glyph, string label, Action open,
-        double top, string? value = null, bool chevron = true, bool danger = false)
+    internal static Border NavRow(Theming.ColorTokens c, string glyph,
+        string label, Action open,
+        double top, string? value = null, bool chevron = true,
+        bool danger = false)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -207,6 +217,7 @@ public sealed class ProfilePage : Grid {
                         () => controller.SavePicture(window, own, shown));
             };
         }
+
         head.Children.Add(mine);
         head.Children.Add(new TextBlock {
             Text = shown,
@@ -234,7 +245,8 @@ public sealed class ProfilePage : Grid {
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(26, 18, 12, 0),
         });
-        content.Children.Add(NavRow(c, "camera", T("changePhoto"), ChangePhoto, 6));
+        content.Children.Add(NavRow(c, "camera", T("changePhoto"), ChangePhoto,
+            6));
         NameRow = NavRow(c, "user", T("name"), AskName, 12, shown);
         content.Children.Add(NameRow);
         StatusRow = NavRow(c, "smile", T("status"), AskStatus, 12,
@@ -243,7 +255,7 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "hash", T("userId"), () => {
         }, 12, id, false));
         content.Children.Add(NavRow(c, "info", T("homeserver"), () => {
-        }, 12,
+            }, 12,
             s.Homeserver ?? "", false));
         content.Children.Add(new TextBlock {
             Text = T("security"),

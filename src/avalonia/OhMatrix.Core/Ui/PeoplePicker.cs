@@ -95,7 +95,8 @@ public sealed class PeoplePicker {
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
         Render();
-        dialog.Show(window, colors, title, message, search, scroller, error, confirm, cancel);
+        dialog.Show(window, colors, title, message, search, scroller, error,
+            confirm, cancel);
     }
 
     private async Task Search()
@@ -113,10 +114,13 @@ public sealed class PeoplePicker {
 
         if (mine != ticket)
             return;
-        var rows = people.Where(p => p.UserId != controller.Store.Value.UserId).ToList();
+        var rows = people.Where(p => p.UserId != controller.Store.Value.UserId)
+            .ToList();
         // A full user id works even where the directory does not list the person.
-        if (term.StartsWith('@') && term.Contains(':') && rows.All(p => p.UserId != term))
-            rows.Insert(0, new PersonInfo(term, term.TrimStart('@').Split(':')[0], null));
+        if (term.StartsWith('@') && term.Contains(':') &&
+            rows.All(p => p.UserId != term))
+            rows.Insert(0,
+                new PersonInfo(term, term.TrimStart('@').Split(':')[0], null));
         found = rows;
         Render();
     }
@@ -189,7 +193,10 @@ public sealed class PeoplePicker {
 
         var row = new Border {
             CornerRadius = new CornerRadius(Radius.Control),
-            Background = on ? new SolidColorBrush(colors.MentionBg) : Brushes.Transparent,
+            Background =
+                on
+                    ? new SolidColorBrush(colors.MentionBg)
+                    : Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.Hand),
             Child = grid,
         };

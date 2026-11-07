@@ -6,7 +6,8 @@ using uniffi.matrix_sdk_ffi;
 namespace OhMatrix.Engine;
 
 /// <summary>My sticker pack over the Matrix SDK: the pack and the groups are account data, the pictures are uploaded media, and a sticker is sent as an <c>m.sticker</c> event (<c>RustStickers</c> of the TypeScript engine).</summary>
-public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngine {
+public sealed class MatrixStickersEngine(MatrixAuthEngine auth)
+    : IStickersEngine {
     private readonly SemaphoreSlim gate = new(1, 1);
 
     private Client Client => auth.Client ?? throw new EngineException(
@@ -14,7 +15,8 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
         "Not signed in."
     );
 
-    public async Task<(IReadOnlyList<Sticker> Stickers, IReadOnlyList<StickerGroup> Groups)> Load()
+    public async Task<(IReadOnlyList<Sticker> Stickers,
+        IReadOnlyList<StickerGroup> Groups)> Load()
     {
         try {
             var client = Client;
@@ -28,7 +30,8 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
 
     public async Task<string> Add(StickerUpload file, string? groupId)
     {
-        var mime = StickerPack.Check(file.Name, file.MimeType, file.Data.Length);
+        var mime =
+            StickerPack.Check(file.Name, file.MimeType, file.Data.Length);
         await gate.WaitAsync();
         try {
             var client = Client;
@@ -36,15 +39,20 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
             var previous = await client.AccountData(StickerPack.PackEvent);
             var stickers = StickerPack.Parse(previous).ToList();
             var code =
- StickerPack.NewShortcode(file.Name, stickers.Select(s => s.Shortcode).ToHashSet());
-            stickers.Add(new Sticker(code, mxc, mime, file.Width, file.Height, file.Data.Length));
-            await client.SetAccountData(StickerPack.PackEvent, StickerPack.Write(previous, stickers));
+                StickerPack.NewShortcode(file.Name,
+                    stickers.Select(s => s.Shortcode).ToHashSet());
+            stickers.Add(new Sticker(code, mxc, mime, file.Width, file.Height,
+                file.Data.Length));
+            await client.SetAccountData(StickerPack.PackEvent,
+                StickerPack.Write(previous, stickers));
             if (groupId is not null) {
                 var stored =
- StickerPack.ParseGroups(await client.AccountData(StickerPack.GroupsEvent));
+                    StickerPack.ParseGroups(
+                        await client.AccountData(StickerPack.GroupsEvent));
                 var shown = StickerPack.WithDefault(stored, stickers);
                 var placed = StickerPack.Place(shown, code, groupId);
-                await client.SetAccountData(StickerPack.GroupsEvent, StickerPack.WriteGroups(placed));
+                await client.SetAccountData(StickerPack.GroupsEvent,
+                    StickerPack.WriteGroups(placed));
             }
 
             return code;
@@ -67,13 +75,17 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
             stickers.Add(picture with {
                 Shortcode = code
             });
-            await client.SetAccountData(StickerPack.PackEvent, StickerPack.Write(previous, stickers));
+            await client.SetAccountData(StickerPack.PackEvent,
+                StickerPack.Write(previous, stickers));
             if (groupId is not null) {
                 var stored =
- StickerPack.ParseGroups(await client.AccountData(StickerPack.GroupsEvent));
+                    StickerPack.ParseGroups(
+                        await client.AccountData(StickerPack.GroupsEvent));
                 var placed =
- StickerPack.Place(StickerPack.WithDefault(stored, stickers), code, groupId);
-                await client.SetAccountData(StickerPack.GroupsEvent, StickerPack.WriteGroups(placed));
+                    StickerPack.Place(StickerPack.WithDefault(stored, stickers),
+                        code, groupId);
+                await client.SetAccountData(StickerPack.GroupsEvent,
+                    StickerPack.WriteGroups(placed));
             }
 
             return code;
@@ -91,12 +103,17 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
             var client = Client;
             var previous = await client.AccountData(StickerPack.PackEvent);
             var gone = shortcodes.ToHashSet();
-            var kept = StickerPack.Parse(previous).Where(s => !gone.Contains(s.Shortcode)).ToList();
-            await client.SetAccountData(StickerPack.PackEvent, StickerPack.Write(previous, kept));
-            var stored = StickerPack.ParseGroups(await client.AccountData(StickerPack.GroupsEvent));
+            var kept = StickerPack.Parse(previous)
+                .Where(s => !gone.Contains(s.Shortcode)).ToList();
+            await client.SetAccountData(StickerPack.PackEvent,
+                StickerPack.Write(previous, kept));
+            var stored =
+                StickerPack.ParseGroups(
+                    await client.AccountData(StickerPack.GroupsEvent));
             if (stored.Count > 0)
                 await client.SetAccountData(StickerPack.GroupsEvent,
-                    StickerPack.WriteGroups(StickerPack.Without(stored, shortcodes)));
+                    StickerPack.WriteGroups(
+                        StickerPack.Without(stored, shortcodes)));
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         } finally {
@@ -116,7 +133,8 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
 
     public async Task<StickerIcon> UploadGroupIcon(StickerUpload file)
     {
-        var mime = StickerPack.Check(file.Name, file.MimeType, file.Data.Length);
+        var mime =
+            StickerPack.Check(file.Name, file.MimeType, file.Data.Length);
         try {
             var mxc = await Client.UploadMedia(mime, file.Data, null);
             return StickerIcon.OfImage(mxc, mime);
@@ -129,12 +147,16 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth) : IStickersEngin
     {
         try {
             var client = Client;
-            var sticker = StickerPack.Parse(await client.AccountData(StickerPack.PackEvent))
-                .FirstOrDefault(s => s.Shortcode == shortcode) ?? throw new EngineException(
-                EngineErrorCode.NotFound, "No such sticker.");
+            var sticker = StickerPack
+                              .Parse(await client.AccountData(StickerPack
+                                  .PackEvent))
+                              .FirstOrDefault(s => s.Shortcode == shortcode) ??
+                          throw new EngineException(
+                              EngineErrorCode.NotFound, "No such sticker.");
             var room = client.GetRoom(roomId) ?? throw new EngineException(
                 EngineErrorCode.NotFound, "No such room.");
-            await room.SendRaw("m.sticker", StickerPack.EventContent(sticker).ToJsonString());
+            await room.SendRaw("m.sticker",
+                StickerPack.EventContent(sticker).ToJsonString());
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }

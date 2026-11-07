@@ -10,7 +10,8 @@ public static class ThemeColor {
         var h = hex.TrimStart('#');
         if (h.Length == 3)
             h = string.Concat(h[0], h[0], h[1], h[1], h[2], h[2]);
-        return Color.FromRgb(Convert.ToByte(h[..2], 16), Convert.ToByte(h[2..4], 16),
+        return Color.FromRgb(Convert.ToByte(h[..2], 16),
+            Convert.ToByte(h[2..4], 16),
             Convert.ToByte(h[4..6], 16));
     }
 
@@ -30,7 +31,8 @@ public static class ThemeColor {
     /// <summary>Linear mix of two colours; <c>t</c> = 0 gives a, 1 gives b. The alpha is dropped.</summary>
     public static Color Mix(Color a, Color b, double t)
     {
-        return Color.FromRgb(Lerp(a.R, b.R, t), Lerp(a.G, b.G, t), Lerp(a.B, b.B, t));
+        return Color.FromRgb(Lerp(a.R, b.R, t), Lerp(a.G, b.G, t),
+            Lerp(a.B, b.B, t));
     }
 
     public static Color Mix(string a, string b, double t)

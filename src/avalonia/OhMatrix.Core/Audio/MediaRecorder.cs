@@ -40,7 +40,8 @@ public sealed class MediaRecorder : IDisposable {
               + "autovideosrc ! videoconvert ! videoscale ! video/x-raw,width=640,height=480 ! "
               + "vp8enc deadline=1 cpu-used=8 ! m. " + sound + " ! m."
             : sound + $" ! oggmux ! filesink location=\"{path}\"";
-        pipeline = LibGst.gst_parse_launch(LibGst.Utf8(description), out var error);
+        pipeline =
+            LibGst.gst_parse_launch(LibGst.Utf8(description), out var error);
         if (pipeline == IntPtr.Zero)
             throw new InvalidOperationException("no recording pipeline");
         if (LibGst.gst_element_set_state(pipeline, LibGst.StatePlaying) == 0) {
@@ -62,13 +63,15 @@ public sealed class MediaRecorder : IDisposable {
             LibGst.gst_element_send_event(done, LibGst.gst_event_new_eos());
             var bus = LibGst.gst_element_get_bus(done);
             // The end of stream comes once the encoders have written out what they hold.
-            var message = LibGst.gst_bus_timed_pop_filtered(bus, 5_000_000_000UL, 1 | 2);
+            var message =
+                LibGst.gst_bus_timed_pop_filtered(bus, 5_000_000_000UL, 1 | 2);
             if (message != IntPtr.Zero)
                 LibGst.gst_mini_object_unref(message);
             LibGst.g_object_unref(bus);
         });
         Release();
-        return new Recording(path, video ? "video/webm" : "audio/ogg", clock.Elapsed);
+        return new Recording(path, video ? "video/webm" : "audio/ogg",
+            clock.Elapsed);
     }
 
     /// <summary>Stops and deletes the file.</summary>

@@ -196,11 +196,13 @@ public sealed class CallScreen : Grid {
         var items = new List<MenuItem>();
         foreach (var d in devices.Microphones)
             items.Add(new MenuItem($"{T("call.microphone")}: {d.Label}",
-                () => controller.UseCallDevice(false, d.Id), Checked: d.Current));
+                () => controller.UseCallDevice(false, d.Id),
+                Checked: d.Current));
         if (controller.Store.Value.Call is { Video: true }) {
             foreach (var d in devices.Cameras)
                 items.Add(new MenuItem($"{T("call.camera")}: {d.Label}",
-                    () => controller.UseCallDevice(true, d.Id), Checked: d.Current));
+                    () => controller.UseCallDevice(true, d.Id),
+                    Checked: d.Current));
         }
 
         if (items.Count > 0)
@@ -255,16 +257,20 @@ public sealed class CallScreen : Grid {
     /// <summary>True while my own picture is on screen.</summary>
     public bool ShowsOwnVideo => localFrame.IsVisible;
 
-    private static WriteableBitmap Fill(WriteableBitmap? bitmap, IntPtr data, int width, int height)
+    private static WriteableBitmap Fill(WriteableBitmap? bitmap, IntPtr data,
+        int width, int height)
     {
-        if (bitmap is null || bitmap.PixelSize.Width != width || bitmap.PixelSize.Height != height)
-            bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
+        if (bitmap is null || bitmap.PixelSize.Width != width ||
+            bitmap.PixelSize.Height != height)
+            bitmap = new WriteableBitmap(new PixelSize(width, height),
+                new Vector(96, 96),
                 PixelFormat.Bgra8888, AlphaFormat.Opaque);
         using var frame = bitmap.Lock();
         unsafe {
             for (var y = 0; y < height; y++)
                 Buffer.MemoryCopy((byte*)data + y * width * 4,
-                    (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
+                    (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes,
+                    width * 4);
         }
 
         return bitmap;
@@ -275,29 +281,32 @@ public sealed class CallScreen : Grid {
     {
         // My own camera, in the corner, while it is on.
         if (controller.TakeLocalCallFrame((data, width, height) => {
-            localPicture = Fill(localPicture, data, width, height);
-            local.Source = localPicture;
-        }))
+                localPicture = Fill(localPicture, data, width, height);
+                local.Source = localPicture;
+            }))
             local.InvalidateVisual();
         localFrame.IsVisible = localPicture is not null &&
-                               controller.Store.Value.Call is { CameraOff: false };
+                               controller.Store.Value.Call is
+                                   { CameraOff: false };
         if (!controller.TakeCallFrame((data, width, height) => {
-            if (picture is null || picture.PixelSize.Width != width
-                                || picture.PixelSize.Height != height) {
-                picture = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
-                    PixelFormat.Bgra8888, AlphaFormat.Opaque);
-                remote.Source = picture;
-            }
+                if (picture is null || picture.PixelSize.Width != width
+                                    || picture.PixelSize.Height != height) {
+                    picture = new WriteableBitmap(new PixelSize(width, height),
+                        new Vector(96, 96),
+                        PixelFormat.Bgra8888, AlphaFormat.Opaque);
+                    remote.Source = picture;
+                }
 
-            using var frame = picture.Lock();
-            unsafe {
-                for (var y = 0; y < height; y++)
-                    Buffer.MemoryCopy((byte*)data + y * width * 4,
-                        (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
-            }
+                using var frame = picture.Lock();
+                unsafe {
+                    for (var y = 0; y < height; y++)
+                        Buffer.MemoryCopy((byte*)data + y * width * 4,
+                            (byte*)frame.Address + y * frame.RowBytes,
+                            frame.RowBytes, width * 4);
+                }
 
-            pictureShown = true;
-        }))
+                pictureShown = true;
+            }))
             return;
         remote.InvalidateVisual();
         remote.IsVisible = pictureShown;
@@ -334,15 +343,21 @@ public sealed class CallScreen : Grid {
         if (call.Phase == CallPhase.Connected) {
             return call.Poor
                 ? T("call.poor")
-                : ClockText(time.GetUtcNow() - (call.ConnectedAt ?? time.GetUtcNow()));
+                : ClockText(time.GetUtcNow() -
+                            (call.ConnectedAt ?? time.GetUtcNow()));
         }
 
         if (call.Incoming && call.Phase == CallPhase.Ringing)
-            return T(call.Video ? "call.incoming.video" : "call.incoming.voice");
-        return T(call.Phase == CallPhase.Ringing ? "call.calling" : "call.connecting");
+            return T(call.Video
+                ? "call.incoming.video"
+                : "call.incoming.voice");
+        return T(call.Phase == CallPhase.Ringing
+            ? "call.calling"
+            : "call.connecting");
     }
 
-    private Border Round(string key, string glyph, Action press, Color? tone = null,
+    private Border Round(string key, string glyph, Action press,
+        Color? tone = null,
         bool off = false, double turn = 0)
     {
         var background = tone is { } t
@@ -350,7 +365,8 @@ public sealed class CallScreen : Grid {
             : off
                 ? Colors.White
                 : Color.FromArgb(46, 255, 255, 255);
-        var ink = tone is not null ? Colors.White : off ? Color.Parse("#1C1C1E") : Colors.White;
+        var ink = tone is not null ? Colors.White :
+            off ? Color.Parse("#1C1C1E") : Colors.White;
         var disc = new Border {
             Width = 64,
             Height = 64,
@@ -380,7 +396,8 @@ public sealed class CallScreen : Grid {
             Text = T(key),
             FontSize = 13,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
+            Foreground =
+                new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
             HorizontalAlignment = HorizontalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -426,7 +443,8 @@ public sealed class CallScreen : Grid {
         if (minimized && minimizedCall != call.CallId)
             minimized = false;
         // A call that is ringing or over is not left in a corner: it asks for attention, or says how it ended.
-        var small = minimized && call.Phase is CallPhase.Connecting or CallPhase.Connected;
+        var small = minimized &&
+                    call.Phase is CallPhase.Connecting or CallPhase.Connected;
         full.IsVisible = !small;
         mini.IsVisible = small;
         miniName.Text = who;
@@ -447,12 +465,15 @@ public sealed class CallScreen : Grid {
                 shown["call.accept"] = Round("call.accept", "fluentCall",
                     () => _ = controller.AnswerCall(), Accept);
             } else {
-                shown["call.mic"] = Round(call.Muted ? "call.micOff" : "call.micOn", "mic",
-                    () => controller.SetCallMuted(!call.Muted), off: call.Muted);
+                shown["call.mic"] = Round(
+                    call.Muted ? "call.micOff" : "call.micOn", "mic",
+                    () => controller.SetCallMuted(!call.Muted),
+                    off: call.Muted);
                 if (call.Video) {
                     shown["call.camera"] = Round(
                         call.CameraOff ? "call.cameraOff" : "call.cameraOn",
-                        "video", () => controller.SetCallCameraOff(!call.CameraOff),
+                        "video",
+                        () => controller.SetCallCameraOff(!call.CameraOff),
                         off: call.CameraOff);
                 }
 

@@ -41,7 +41,8 @@ public sealed class SessionsPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SessionsPage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<SessionsPage>((p, _) => p.Apply());
         Apply();
     }
 
@@ -72,14 +73,19 @@ public sealed class SessionsPage : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        confirm.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale,
-            T(all ? "sessions.confirm.all" : "sessions.confirm.one"), T("sessions.confirm.body"),
-            [new PromptField(T("password"), "lock", false, true)], T("sessions.signOut"),
+        confirm.Show(window, ThemeScope.GetColors(this),
+            controller.Store.Value.Locale,
+            T(all ? "sessions.confirm.all" : "sessions.confirm.one"),
+            T("sessions.confirm.body"),
+            [new PromptField(T("password"), "lock", false, true)],
+            T("sessions.signOut"),
             async v => {
                 try {
                     await controller.RemoveDevices(ids, v[0]);
-                } catch (EngineException e) when (e.Code == EngineErrorCode.Forbidden) {
-                    throw new InvalidOperationException(T("sessions.wrongPassword"));
+                } catch (EngineException e) when (e.Code ==
+                                                  EngineErrorCode.Forbidden) {
+                    throw new InvalidOperationException(
+                        T("sessions.wrongPassword"));
                 }
 
                 await Reload();
@@ -90,7 +96,8 @@ public sealed class SessionsPage : Grid {
     {
         if (d.LastSeenTs is not { } ts)
             return T("sessions.neverSeen");
-        var when = Format.Relative(ts, time.GetUtcNow(), controller.Store.Value.Locale);
+        var when = Format.Relative(ts, time.GetUtcNow(),
+            controller.Store.Value.Locale);
         var text = T("sessions.lastActive", ("when", when));
         return d.LastSeenIp is { } ip ? text + " · " + ip : text;
     }
@@ -149,7 +156,8 @@ public sealed class SessionsPage : Grid {
             ThemeScope.SetColors(all, c with {
                 Accent = c.Danger
             });
-            all.Click += (_, _) => AskSignOut([.. others.Select(d => d.Id)], true);
+            all.Click += (_, _) =>
+                AskSignOut([.. others.Select(d => d.Id)], true);
             content.Children.Add(all);
         }
 

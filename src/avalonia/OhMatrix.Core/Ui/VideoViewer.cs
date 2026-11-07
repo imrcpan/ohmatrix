@@ -134,7 +134,8 @@ public sealed class VideoViewer {
         track.PointerPressed += (_, e) => {
             e.Handled = true;
             if (player is { DurationMs: > 0 } p && track.Bounds.Width > 0)
-                p.Seek((long)(p.DurationMs * e.GetPosition(track).X / track.Bounds.Width));
+                p.Seek((long)(p.DurationMs * e.GetPosition(track).X /
+                              track.Bounds.Width));
         };
         shade.PointerPressed += (_, e) => {
             if (e.Source == shade)
@@ -216,7 +217,8 @@ public sealed class VideoViewer {
         p.Video?.TryTakeFrame((data, width, height) => {
             if (bitmap is null || bitmap.PixelSize.Width != width ||
                 bitmap.PixelSize.Height != height) {
-                bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96),
+                bitmap = new WriteableBitmap(new PixelSize(width, height),
+                    new Vector(96, 96),
                     PixelFormat.Bgra8888, AlphaFormat.Opaque);
                 picture.Source = bitmap;
             }
@@ -225,7 +227,8 @@ public sealed class VideoViewer {
             for (var y = 0; y < height; y++) {
                 unsafe {
                     Buffer.MemoryCopy((byte*)data + y * width * 4,
-                        (byte*)frame.Address + y * frame.RowBytes, frame.RowBytes, width * 4);
+                        (byte*)frame.Address + y * frame.RowBytes,
+                        frame.RowBytes, width * 4);
                 }
             }
 
@@ -235,7 +238,9 @@ public sealed class VideoViewer {
         toggle.Glyph = playing ? "pause" : "play";
         var length = p.DurationMs;
         var at = p.State == PlayState.Ended ? length : p.PositionMs;
-        fill.Width = length > 0 ? track.Bounds.Width * Math.Min(1.0, (double)at / length) : 0;
+        fill.Width = length > 0
+            ? track.Bounds.Width * Math.Min(1.0, (double)at / length)
+            : 0;
         time.Text = $"{Format.Duration(TimeSpan.FromMilliseconds(at))} / "
                     + Format.Duration(TimeSpan.FromMilliseconds(length));
     }

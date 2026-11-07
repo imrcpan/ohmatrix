@@ -33,7 +33,8 @@ public static class TomlLite {
                 if (end < 0 || !IsComment(line, end + 2))
                     throw Error(number, "a table header must end with ]]");
                 var name = line[2..end].Trim();
-                if (name.Length == 0 || name.Contains('.') || name.Contains('"'))
+                if (name.Length == 0 || name.Contains('.') ||
+                    name.Contains('"'))
                     throw Error(number, "unsupported table name");
                 current = new Dictionary<string, string>();
                 tables.Add((name, current));
@@ -63,7 +64,8 @@ public static class TomlLite {
             return ReadString(line, ref pos, number);
         var start = pos;
         while (pos < line.Length &&
-               (char.IsAsciiLetterOrDigit(line[pos]) || line[pos] is '_' or '-'))
+               (char.IsAsciiLetterOrDigit(line[pos]) ||
+                line[pos] is '_' or '-'))
             pos++;
         if (pos == start)
             throw Error(number, "expected a key");
@@ -129,10 +131,12 @@ public static class TomlLite {
         throw Error(number, "the string is not closed");
     }
 
-    private static string ReadCodePoint(string line, ref int pos, int digits, int number)
+    private static string ReadCodePoint(string line, ref int pos, int digits,
+        int number)
     {
         if (pos + digits > line.Length
-            || !int.TryParse(line.AsSpan(pos, digits), NumberStyles.AllowHexSpecifier,
+            || !int.TryParse(line.AsSpan(pos, digits),
+                NumberStyles.AllowHexSpecifier,
                 CultureInfo.InvariantCulture, out var code))
             throw Error(number, "a bad \\u escape");
         pos += digits;

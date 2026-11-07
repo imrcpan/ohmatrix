@@ -41,19 +41,24 @@ public sealed class SidebarResizer : Border {
         Background = Brushes.Transparent;
         Cursor = new Cursor(StandardCursorType.SizeWestEast);
         Child = line;
-        Avalonia.Automation.AutomationProperties.SetName(this, "Resize chat list");
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SidebarResizer>((r, _) => r.Paint());
+        Avalonia.Automation.AutomationProperties.SetName(this,
+            "Resize chat list");
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<SidebarResizer>((r, _) => r.Paint());
         Paint();
     }
 
     private void Paint()
     {
         var c = ThemeScope.GetColors(this);
-        line.Background = hover || dragging ? new SolidColorBrush(c.Accent) : Brushes.Transparent;
+        line.Background = hover || dragging
+            ? new SolidColorBrush(c.Accent)
+            : Brushes.Transparent;
         line.Opacity = dragging ? 1 : 0.7;
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Paint();

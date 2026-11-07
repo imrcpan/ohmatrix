@@ -10,7 +10,8 @@ public sealed class IconButton : PressableButton {
         VerticalAlignment = VerticalAlignment.Center,
     };
 
-    public IconButton(string glyph, string label, double size = 22, double box = 36)
+    public IconButton(string glyph, string label, double size = 22,
+        double box = 36)
     {
         icon.Glyph = glyph;
         icon.Size = size;

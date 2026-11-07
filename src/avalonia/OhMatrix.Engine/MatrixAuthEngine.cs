@@ -13,7 +13,9 @@ using SdkSession = uniffi.matrix_sdk_ffi.Session;
 namespace OhMatrix.Engine;
 
 /// <summary>The sign-in part of the engine over the Matrix SDK (<c>auth</c> of <c>RustEngineCore</c>): the client it makes is kept for the rest of the engine.</summary>
-public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = null) : IAuthEngine {
+public sealed class MatrixAuthEngine(
+    string dataDirectory,
+    HttpClient? http = null) : IAuthEngine {
     private const string DeviceName = "OhMatrix Desktop";
 
     private readonly HttpClient web = http ?? new HttpClient();
@@ -22,13 +24,17 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
     public Client? Client { get; private set; }
 
     /// <summary>The session of the client now (its token may have been renewed), or null when signed out.</summary>
-    public Session? CurrentSession => Client is { } c ? ToSession(c.Session()) : null;
+    public Session? CurrentSession =>
+        Client is { } c ? ToSession(c.Session()) : null;
 
-    public async Task<Session> LoginWithPassword(string homeserver, string username,
+    public async Task<Session> LoginWithPassword(string homeserver,
+        string username,
         string password)
     {
         try {
-            var client = await MakeClient(await HomeserverAddress.Resolve(homeserver, web));
+            var client =
+                await MakeClient(
+                    await HomeserverAddress.Resolve(homeserver, web));
             await client.Login(username, password, DeviceName, null);
             Client = client;
             return ToSession(client.Session());
@@ -37,7 +43,8 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
         }
     }
 
-    public async Task<Session> Register(string homeserver, string username, string password,
+    public async Task<Session> Register(string homeserver, string username,
+        string password,
         string? token)
     {
         try {
@@ -123,12 +130,15 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
     // The refresh token, if the server uses them, is kept in Session.Native.
     private static Session ToSession(SdkSession s)
     {
-        return new Session(s.HomeserverUrl, s.UserId, s.DeviceId, s.AccessToken, s.RefreshToken);
+        return new Session(s.HomeserverUrl, s.UserId, s.DeviceId, s.AccessToken,
+            s.RefreshToken);
     }
 
     private static string? Text(JsonObject body, string key)
     {
-        return body[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+        return body[key] is JsonValue v && v.TryGetValue<string>(out var s)
+            ? s
+            : null;
     }
 
     /// <summary>What the SDK threw, as the one error type of an engine.</summary>
@@ -136,26 +146,27 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
     {
         switch (e) {
             case ClientException.MatrixApi api: {
-                    var kind = api.kind switch {
-                        ErrorKind.UnknownToken => "UnknownToken",
-                        ErrorKind.MissingToken => "MissingToken",
-                        ErrorKind.Forbidden => "Forbidden",
-                        ErrorKind.LimitExceeded => "LimitExceeded",
-                        ErrorKind.NotFound => "NotFound",
-                        ErrorKind.UserInUse => "UserInUse",
-                        ErrorKind.RoomInUse => "RoomInUse",
-                        ErrorKind.Unrecognized => "Unrecognized",
-                        _ => null,
-                    };
-                    return new EngineException(
-                        ErrorMapping.Map(kind, api.code, true, api.msg),
-                        api.msg,
-                        e
-                    );
-                }
+                var kind = api.kind switch {
+                    ErrorKind.UnknownToken => "UnknownToken",
+                    ErrorKind.MissingToken => "MissingToken",
+                    ErrorKind.Forbidden => "Forbidden",
+                    ErrorKind.LimitExceeded => "LimitExceeded",
+                    ErrorKind.NotFound => "NotFound",
+                    ErrorKind.UserInUse => "UserInUse",
+                    ErrorKind.RoomInUse => "RoomInUse",
+                    ErrorKind.Unrecognized => "Unrecognized",
+                    _ => null,
+                };
+                return new EngineException(
+                    ErrorMapping.Map(kind, api.code, true, api.msg),
+                    api.msg,
+                    e
+                );
+            }
             case ClientException.Generic generic:
                 return new EngineException(
-                    ErrorMapping.Map(null, null, false, $"{generic.msg} {generic.details}"),
+                    ErrorMapping.Map(null, null, false,
+                        $"{generic.msg} {generic.details}"),
                     generic.msg,
                     e
                 );
@@ -168,7 +179,9 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
         }
     }
 
-    private sealed class HttpRegisterTransport(HttpClient http, string homeserver)
+    private sealed class HttpRegisterTransport(
+        HttpClient http,
+        string homeserver)
         : IRegisterTransport {
         public async Task<RegisterReply> Post(JsonObject body)
         {
@@ -184,17 +197,21 @@ public sealed class MatrixAuthEngine(string dataDirectory, HttpClient? http = nu
                 );
                 JsonObject json;
                 try {
-                    json = JsonNode.Parse(await res.Content.ReadAsStringAsync()) as JsonObject
-                           ?? new JsonObject();
+                    json =
+                        JsonNode.Parse(await res.Content.ReadAsStringAsync()) as
+                            JsonObject
+                        ?? new JsonObject();
                 } catch (System.Text.Json.JsonException) {
                     json = new JsonObject();
                 }
 
                 return new RegisterReply((int)res.StatusCode, json);
             } catch (HttpRequestException e) {
-                throw new EngineException(EngineErrorCode.Network, e.Message, e);
+                throw new EngineException(EngineErrorCode.Network, e.Message,
+                    e);
             } catch (TaskCanceledException e) {
-                throw new EngineException(EngineErrorCode.Network, e.Message, e);
+                throw new EngineException(EngineErrorCode.Network, e.Message,
+                    e);
             }
         }
     }

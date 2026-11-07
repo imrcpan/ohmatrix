@@ -50,7 +50,8 @@ public sealed class Dialog {
         shade.PointerPressed += (_, e) => {
             if (Modal)
                 return;
-            if (e.Source is Visual v && !card.IsVisualAncestorOf(v) && !ReferenceEquals(v, card)) {
+            if (e.Source is Visual v && !card.IsVisualAncestorOf(v) &&
+                !ReferenceEquals(v, card)) {
                 Close();
                 OnClose?.Invoke();
             }

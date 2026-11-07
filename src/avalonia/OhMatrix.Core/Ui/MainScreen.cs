@@ -75,7 +75,8 @@ public sealed class MainScreen : Grid {
     {
         this.controller = controller;
         list = new RoomListPane(controller);
-        narrowChat = new ChatPane(controller, () => controller.SelectRoom(null));
+        narrowChat =
+            new ChatPane(controller, () => controller.SelectRoom(null));
         wideChat = new ChatPane(controller);
         profilePage = new ProfilePage(controller);
         themePage = new ThemePage(controller);
@@ -135,7 +136,8 @@ public sealed class MainScreen : Grid {
         Grid.SetColumnSpan(notice, 4);
         Children.Add(notice);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) => s.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) =>
+            s.Apply());
         SizeChanged += (_, _) => Apply();
         Apply();
     }

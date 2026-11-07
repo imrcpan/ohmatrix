@@ -32,7 +32,8 @@ public sealed class Avatar : Border {
     {
         Width = size;
         Height = size;
-        CornerRadius = new CornerRadius(square ? Math.Round(size * 0.28) : size / 2);
+        CornerRadius =
+            new CornerRadius(square ? Math.Round(size * 0.28) : size / 2);
         ClipToBounds = true;
         Background = new SolidColorBrush(PeerColor(id));
         initials.FontSize = size * 0.38;
@@ -66,7 +67,8 @@ public sealed class Avatar : Border {
         if (parts.Length > 1) {
             result = FirstChar(parts[0]) + FirstChar(parts[1]);
         } else {
-            var e = System.Globalization.StringInfo.GetTextElementEnumerator(clean);
+            var e =
+                System.Globalization.StringInfo.GetTextElementEnumerator(clean);
             result = "";
             for (var i = 0; i < 2 && e.MoveNext(); i++)
                 result += (string)e.Current;

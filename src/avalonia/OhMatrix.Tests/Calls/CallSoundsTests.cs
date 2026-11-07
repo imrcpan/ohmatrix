@@ -5,7 +5,8 @@ namespace OhMatrix.Tests.Calls;
 
 public class CallSoundsTests {
     [Fact]
-    public async Task The_ring_and_the_end_tone_are_made_and_played_without_a_sound_file()
+    public async Task
+        The_ring_and_the_end_tone_are_made_and_played_without_a_sound_file()
     {
         var sounds = new VlcCallSounds();
         sounds.Ring(true);

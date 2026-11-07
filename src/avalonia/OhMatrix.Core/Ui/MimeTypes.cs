@@ -25,7 +25,8 @@ public static class MimeTypes {
 
     public static string For(string path)
     {
-        return ByExtension.GetValueOrDefault(Path.GetExtension(path), "application/octet-stream");
+        return ByExtension.GetValueOrDefault(Path.GetExtension(path),
+            "application/octet-stream");
     }
 
     public static bool IsImage(string mime)

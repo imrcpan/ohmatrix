@@ -17,7 +17,9 @@ public class StickerPackTests {
     {
         var list = StickerPack.Parse(Pack);
         Assert.Equal(["cat", "plain"], list.Select(s => s.Shortcode));
-        Assert.Equal(new Sticker("cat", "mxc://s/cat", "image/png", 64, 32, 900), list[0]);
+        Assert.Equal(
+            new Sticker("cat", "mxc://s/cat", "image/png", 64, 32, 900),
+            list[0]);
         Assert.Equal("image/gif", list[1].MimeType);
         Assert.Empty(StickerPack.Parse(null));
         Assert.Empty(StickerPack.Parse("not json"));
@@ -27,7 +29,8 @@ public class StickerPackTests {
     public void Writing_keeps_what_another_client_put_in_the_pack()
     {
         var text =
-            StickerPack.Write(Pack, [new Sticker("dog", "mxc://s/dog", "image/webp", 10, 20)]);
+            StickerPack.Write(Pack,
+                [new Sticker("dog", "mxc://s/dog", "image/webp", 10, 20)]);
         Assert.Contains("\"display_name\":\"mine\"", text);
         var back = StickerPack.Parse(text);
         Assert.Equal(["dog"], back.Select(s => s.Shortcode));
@@ -38,7 +41,8 @@ public class StickerPackTests {
     public void The_event_of_a_sticker_has_its_name_and_picture()
     {
         var content =
-            StickerPack.EventContent(new Sticker("cat", "mxc://s/cat", "image/png", 1, 2));
+            StickerPack.EventContent(new Sticker("cat", "mxc://s/cat",
+                "image/png", 1, 2));
         Assert.Equal("cat", (string?)content["body"]);
         Assert.Equal("mxc://s/cat", (string?)content["url"]);
         Assert.Equal(1, (int?)content["info"]!["w"]);
@@ -53,7 +57,9 @@ public class StickerPackTests {
         };
         Assert.Equal("cat 3", StickerPack.NewShortcode("cat.png", taken));
         Assert.Equal("sticker", StickerPack.NewShortcode("  ", taken));
-        Assert.Equal(40, StickerPack.NewShortcode(new string('x', 60) + ".gif", taken).Length);
+        Assert.Equal(40,
+            StickerPack.NewShortcode(new string('x', 60) + ".gif", taken)
+                .Length);
     }
 
     [Fact]
@@ -61,12 +67,15 @@ public class StickerPackTests {
     {
         Assert.Equal("image/png", StickerPack.Check("a.png", "image/png", 10));
         Assert.Equal("image/jpeg", StickerPack.Check("a.jpg", "", 10));
-        Assert.Equal("image/webp", StickerPack.Check("a.webp", "application/octet-stream", 10));
+        Assert.Equal("image/webp",
+            StickerPack.Check("a.webp", "application/octet-stream", 10));
         Assert.Equal(EngineErrorCode.UnsupportedType,
-            Assert.Throws<EngineException>(() => StickerPack.Check("a.svg", "image/svg+xml", 10))
+            Assert.Throws<EngineException>(() =>
+                    StickerPack.Check("a.svg", "image/svg+xml", 10))
                 .Code);
         Assert.Equal(EngineErrorCode.TooLarge,
-            Assert.Throws<EngineException>(() => StickerPack.Check("a.png", "image/png", 4_000_000))
+            Assert.Throws<EngineException>(() =>
+                    StickerPack.Check("a.png", "image/png", 4_000_000))
                 .Code);
     }
 
@@ -79,7 +88,9 @@ public class StickerPackTests {
         var pack = new[] {
             "a", "b", "c", "d"
         }.Select(c => new Sticker(c, "mxc://s/" + c, "image/png")).ToList();
-        var groups = StickerPack.WithDefault([G("x", "c", "gone"), G("default", "d")], pack);
+        var groups =
+            StickerPack.WithDefault([G("x", "c", "gone"), G("default", "d")],
+                pack);
         Assert.Equal(["default", "x"], groups.Select(g => g.Id));
         Assert.Equal(["d", "a", "b"], groups[0].Stickers);
         Assert.Equal(["c"], groups[1].Stickers);
@@ -88,7 +99,8 @@ public class StickerPackTests {
     [Fact]
     public void A_sticker_is_in_one_group_only()
     {
-        var groups = StickerPack.Place([G("default", "a"), G("x", "b"), G("y")], "b", "y");
+        var groups = StickerPack.Place([G("default", "a"), G("x", "b"), G("y")],
+            "b", "y");
         Assert.Equal(["a"], groups[0].Stickers);
         Assert.Empty(groups[1].Stickers);
         Assert.Equal(["b"], groups[2].Stickers);
@@ -113,9 +125,12 @@ public class StickerPackTests {
             again.Select(g => (g.Id, g.Name, g.Icon)));
         Assert.Equal(parsed[0].Stickers, again[0].Stickers);
         Assert.Throws<EngineException>(() =>
-            StickerPack.WriteGroups([new("default", "", StickerIcon.OfEmoji("😀"), [])]));
+            StickerPack.WriteGroups([
+                new("default", "", StickerIcon.OfEmoji("😀"), [])
+            ]));
         Assert.Throws<EngineException>(() =>
-            StickerPack.WriteGroups(Enumerable.Range(0, 13).Select(i => G("g" + i)).ToList()));
+            StickerPack.WriteGroups(Enumerable.Range(0, 13)
+                .Select(i => G("g" + i)).ToList()));
     }
 
     [Fact]
@@ -125,17 +140,22 @@ public class StickerPackTests {
             new Sticker("a", "mxc://s/a", "image/png")
         };
         Assert.Equal("🎉",
-            StickerPack.CoverOf(new("x", "", StickerIcon.OfEmoji("🎉"), ["a"]), pack).Emoji);
-        Assert.Equal("mxc://s/a", StickerPack.CoverOf(G("x", "gone", "a"), pack).Url);
-        Assert.Equal(StickerPack.FallbackEmoji, StickerPack.CoverOf(G("x"), pack).Emoji);
+            StickerPack.CoverOf(new("x", "", StickerIcon.OfEmoji("🎉"), ["a"]),
+                pack).Emoji);
+        Assert.Equal("mxc://s/a",
+            StickerPack.CoverOf(G("x", "gone", "a"), pack).Url);
+        Assert.Equal(StickerPack.FallbackEmoji,
+            StickerPack.CoverOf(G("x"), pack).Emoji);
     }
 
     [Fact]
     public void Items_move_and_removed_stickers_leave_the_groups()
     {
-        Assert.Equal(["b", "c", "a"], StickerPack.MoveItem(["a", "b", "c"], 0, 2));
+        Assert.Equal(["b", "c", "a"],
+            StickerPack.MoveItem(["a", "b", "c"], 0, 2));
         Assert.Equal(["a", "b"], StickerPack.MoveItem(["a", "b"], 0, 5));
-        var groups = StickerPack.Without([G("x", "a", "b"), G("y", "c")], ["b", "c"]);
+        var groups =
+            StickerPack.Without([G("x", "a", "b"), G("y", "c")], ["b", "c"]);
         Assert.Equal(["a"], groups[0].Stickers);
         Assert.Empty(groups[1].Stickers);
         var id = StickerPack.NewGroupId([G("000000")], new Random(1));

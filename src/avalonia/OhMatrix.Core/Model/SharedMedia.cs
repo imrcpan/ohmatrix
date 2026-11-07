@@ -9,7 +9,9 @@ public enum MediaKind {
 }
 
 /// <summary>One page of a room's media, newest first. <paramref name="Next"/> is where the following page starts; null at the room's beginning.</summary>
-public sealed record SharedMediaPage(IReadOnlyList<TimelineItem> Items, int? Next);
+public sealed record SharedMediaPage(
+    IReadOnlyList<TimelineItem> Items,
+    int? Next);
 
 public static class MediaKinds {
     /// <summary>The kind of media a line carries; null for a line without any.</summary>

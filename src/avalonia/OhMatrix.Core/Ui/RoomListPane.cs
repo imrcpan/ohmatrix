@@ -35,7 +35,8 @@ public sealed class RoomListPane : Grid {
         CornerRadius = new CornerRadius(10),
         Padding = new Thickness(4, 2),
         Background = Brushes.Transparent,
-        Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+        Cursor =
+            new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
         HorizontalAlignment = HorizontalAlignment.Left,
     };
 
@@ -69,7 +70,8 @@ public sealed class RoomListPane : Grid {
         },
     };
 
-    public RoomListPane(AppController controller, bool rail = false, TimeProvider? time = null)
+    public RoomListPane(AppController controller, bool rail = false,
+        TimeProvider? time = null)
     {
         this.controller = controller;
         People = new PeoplePicker(controller);
@@ -127,7 +129,8 @@ public sealed class RoomListPane : Grid {
         plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<RoomListPane>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<RoomListPane>((p, _) => p.Apply());
         Apply();
     }
 
@@ -151,38 +154,48 @@ public sealed class RoomListPane : Grid {
             plus,
             window,
             [
-                new MenuItem(T("newChat"), () => People.Show(window, ThemeScope.GetColors(this),
+                new MenuItem(T("newChat"), () => People.Show(window,
+                    ThemeScope.GetColors(this),
                     T("newChat"), T("newChat.body"), false, _ => T("newChat"),
                     v => controller.StartDirectChat(v[0])), Icon: "user"),
                 new MenuItem(T("newGroup"), () => Ask(window, "newGroup",
                         [
                             new PromptField(T("groupName"), "users"),
-                            new PromptField(T("userIdPlaceholder"), "user", true)
+                            new PromptField(T("userIdPlaceholder"), "user",
+                                true)
                         ],
                         T("create"),
                         v => controller.CreateGroup(v[0],
                             v[1].Length == 0
                                 ? []
-                                : v[1].Split([',', ' '], StringSplitOptions.RemoveEmptyEntries))),
+                                : v[1].Split([',', ' '],
+                                    StringSplitOptions.RemoveEmptyEntries))),
                     Icon: "users"),
                 .. controller.CanManageSpaces
-                    ? [new MenuItem(T("newSpace"), () => Ask(window, "space.new",
-                        [new PromptField(T("space.name"), "users")], T("create"),
-                        v => controller.CreateSpace(v[0])), Icon: "users")]
+                    ? [
+                        new MenuItem(T("newSpace"), () => Ask(window,
+                            "space.new",
+                            [new PromptField(T("space.name"), "users")],
+                            T("create"),
+                            v => controller.CreateSpace(v[0])), Icon: "users")
+                    ]
                     : Array.Empty<MenuItem>(),
                 new MenuItem(T("joinRoom"), () => Ask(window, "joinRoom",
                     [new PromptField(T("roomIdOrAlias"), "hash")], T("join"),
                     v => controller.JoinRoom(v[0])), Icon: "hash"),
-                new MenuItem(T("explore"), () => controller.OpenSidebarPage(SidebarPage.Explore),
+                new MenuItem(T("explore"),
+                    () => controller.OpenSidebarPage(SidebarPage.Explore),
                     Icon: "globe"),
             ]
         );
     }
 
-    private void Ask(TopLevel window, string key, IReadOnlyList<PromptField> fields, string confirm,
+    private void Ask(TopLevel window, string key,
+        IReadOnlyList<PromptField> fields, string confirm,
         Func<IReadOnlyList<string>, Task> run)
     {
-        prompt.Show(window, ThemeScope.GetColors(this), controller.Store.Value.Locale, T(key),
+        prompt.Show(window, ThemeScope.GetColors(this),
+            controller.Store.Value.Locale, T(key),
             T(key + ".body"),
             fields, confirm, run);
     }
@@ -193,14 +206,16 @@ public sealed class RoomListPane : Grid {
     }
 
     /// <summary>The preview line of a row (<c>previewOf</c>).</summary>
-    public static string PreviewOf(RoomSummary room, Func<string, (string, object)[], string> t)
+    public static string PreviewOf(RoomSummary room,
+        Func<string, (string, object)[], string> t)
     {
         if (room.Invite)
             return t("invite.from", [("name", room.Inviter!)]);
         if (room.LastMessage is null)
             return t("noMessages", []);
         var body = string.Join(" ",
-            room.LastMessage.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            room.LastMessage.Split((char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries));
         if (room.LastIsLine)
             return body;
         if (room.LastSender is null)
@@ -236,17 +251,24 @@ public sealed class RoomListPane : Grid {
         }
 
         var waiting = s.SyncState == SyncState.Syncing && s.Profile is null;
-        name.Text = s.SyncState == SyncState.Syncing || !connectedOnce ? shown : T("connecting");
+        name.Text = s.SyncState == SyncState.Syncing || !connectedOnce
+            ? shown
+            : T("connecting");
         name.IsVisible = !Rail && !waiting;
         nameSkeleton.IsVisible = !Rail && waiting;
         Avalonia.Automation.AutomationProperties.SetName(profile, T("profile"));
-        bar.Padding = Rail ? new Thickness(6, 10, 6, 0) : new Thickness(12, 10, 12, 8);
-        Avalonia.Automation.AutomationProperties.SetName(plus, T("newChat.menu"));
+        bar.Padding = Rail
+            ? new Thickness(6, 10, 6, 0)
+            : new Thickness(12, 10, 12, 8);
+        Avalonia.Automation.AutomationProperties.SetName(plus,
+            T("newChat.menu"));
 
         var query = Rail ? "" : search.Text.Trim();
         var shownRooms = query.Length == 0
             ? s.Rooms
-            : s.Rooms.Where(r => r.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            : s.Rooms.Where(r =>
+                    r.Name.Contains(query,
+                        StringComparison.CurrentCultureIgnoreCase))
                 .ToList();
         rows.Children.Clear();
         var now = time.GetUtcNow();
@@ -258,7 +280,8 @@ public sealed class RoomListPane : Grid {
         foreach (var room in shownRooms)
             rows.Children.Add(MakeRow(room, s, now));
         // Until the first load is over, grey rows stand where the chats will be.
-        var loading = !s.RoomsSettled && s.Rooms.Count == 0 && query.Length == 0;
+        var loading =
+            !s.RoomsSettled && s.Rooms.Count == 0 && query.Length == 0;
         if (loading) {
             for (var i = 0; i < 12; i++)
                 rows.Children.Add(new RoomRowSkeleton(i, Rail));
@@ -281,7 +304,9 @@ public sealed class RoomListPane : Grid {
             messageHits.Children.Add(hits);
         } else
             hits?.SetTerm("");
-        empty.IsVisible = shownRooms.Count == 0 && !searchMessages && s.SyncState == SyncState.Syncing && !Rail
+
+        empty.IsVisible = shownRooms.Count == 0 && !searchMessages &&
+                          s.SyncState == SyncState.Syncing && !Rail
                           && !loading;
         empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
@@ -292,7 +317,8 @@ public sealed class RoomListPane : Grid {
     };
 
     /// <summary>The row of a room still being joined, with the seconds it has taken.</summary>
-    private RoomRow JoiningRow(JoiningRoom joining, AppState s, DateTimeOffset now)
+    private RoomRow JoiningRow(JoiningRoom joining, AppState s,
+        DateTimeOffset now)
     {
         var seconds = Math.Max(0, (int)(now - joining.Since).TotalSeconds);
         var row = new RoomRow {
@@ -336,12 +362,14 @@ public sealed class RoomListPane : Grid {
             window,
             [
                 new MenuItem(T(room.Pinned ? "unpin" : "pin"),
-                    () => _ = controller.SetPinned(room.Id, !room.Pinned), Icon: "pin"),
+                    () => _ = controller.SetPinned(room.Id, !room.Pinned),
+                    Icon: "pin"),
                 new MenuItem(T(room.Muted ? "unmute" : "mute"),
                     () => _ = controller.SetRoomMuted(room.Id, !room.Muted),
                     Icon: room.Muted ? "bell" : "bellOff"),
                 unread
-                    ? new MenuItem(T("markRead"), () => _ = controller.MarkRoomRead(room.Id),
+                    ? new MenuItem(T("markRead"),
+                        () => _ = controller.MarkRoomRead(room.Id),
                         Icon: "mailUnread")
                     : new MenuItem(T("markUnread"),
                         () => _ = controller.SetMarkedUnread(room.Id, true),
@@ -368,7 +396,8 @@ public sealed class RoomListPane : Grid {
             Pictures = controller.Pictures,
         };
         if (room.Invite) {
-            row.Invite = (T("accept"), T("decline"), () => _ = controller.AcceptInvite(room.Id),
+            row.Invite = (T("accept"), T("decline"),
+                () => _ = controller.AcceptInvite(room.Id),
                 () => _ = controller.DeclineInvite(room.Id));
         } else
             row.MenuRequested += (_, _) => OpenRowMenu(row, room);

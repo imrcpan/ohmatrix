@@ -82,7 +82,8 @@ public sealed class TextField : Border {
             if (e.Key == Key.Enter)
                 Submit?.Invoke(this, EventArgs.Empty);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<TextField>((f, _) => f.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<TextField>((f, _) =>
+            f.Apply());
     }
 
     public event EventHandler? TextChanged;
@@ -112,7 +113,9 @@ public sealed class TextField : Border {
     /// <summary>Makes it a password box with a button that shows the text; the two labels are for a screen reader (show, hide).</summary>
     public (string Show, string Hide)? Reveal {
         set {
-            revealLabels = value is null ? null : [value.Value.Show, value.Value.Hide];
+            revealLabels = value is null
+                ? null
+                : [value.Value.Show, value.Value.Hide];
             reveal.IsVisible = value is not null;
             shown = false;
             Apply();
@@ -130,7 +133,8 @@ public sealed class TextField : Border {
         return box.Focus();
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Apply();
@@ -140,19 +144,23 @@ public sealed class TextField : Border {
     {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.BgSecondary);
-        BorderBrush = box.IsFocused ? new SolidColorBrush(c.Accent) : Brushes.Transparent;
+        BorderBrush = box.IsFocused
+            ? new SolidColorBrush(c.Accent)
+            : Brushes.Transparent;
         box.Foreground = new SolidColorBrush(c.Text);
         box.CaretBrush = new SolidColorBrush(c.Text);
         box.SelectionBrush = new SolidColorBrush(c.Accent, 0.4);
         // The watermark is drawn with the foreground of the placeholder; the template reads it from the resources of the box.
-        box.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(c.TextSecondary);
+        box.Resources["TextControlPlaceholderForeground"] =
+            new SolidColorBrush(c.TextSecondary);
         box.Resources["TextControlPlaceholderForegroundFocused"] =
             new SolidColorBrush(c.TextSecondary);
         // The ring is the one of the field itself: the box inside draws none of its own when it has the focus.
         box.Resources["TextControlBackgroundFocused"] = Brushes.Transparent;
         box.Resources["TextControlBackgroundPointerOver"] = Brushes.Transparent;
         box.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
-        box.Resources["TextControlBorderBrushPointerOver"] = Brushes.Transparent;
+        box.Resources["TextControlBorderBrushPointerOver"] =
+            Brushes.Transparent;
         icon.Color = new SolidColorBrush(c.TextSecondary);
         eye.Color = new SolidColorBrush(c.TextSecondary);
         eye.Glyph = shown ? "eye" : "eyeOff";

@@ -3,7 +3,8 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Calls.Gst;
 
 /// <summary>Calls on this machine through GStreamer: <see cref="Available"/> is false where GStreamer or its WebRTC element is not installed.</summary>
-public sealed class GstCallPlatform(GstSources? sources = null) : ICallPlatform {
+public sealed class GstCallPlatform(GstSources? sources = null)
+    : ICallPlatform {
     private readonly GstCallMedia media = new();
 
     public bool Available => LibGst.Available;
@@ -37,7 +38,8 @@ internal sealed class GstCallMedia : ICallMedia {
 
     public GstPeer? Current { get; set; }
 
-    public string? StreamId { get; } = "ohmatrix-" + Guid.NewGuid().ToString("N")[..8];
+    public string? StreamId { get; } =
+        "ohmatrix-" + Guid.NewGuid().ToString("N")[..8];
 
     public Task Start(IPeer peer, bool video)
     {
@@ -51,7 +53,8 @@ internal sealed class GstCallMedia : ICallMedia {
 
     public CallDevices Devices()
     {
-        static IReadOnlyList<CallDevice> List(IReadOnlyList<string> names, string? chosen)
+        static IReadOnlyList<CallDevice> List(IReadOnlyList<string> names,
+            string? chosen)
         {
             // Until one is chosen the system's own choice is in use, which is the first the monitor lists.
             return names.Select((n, i) =>

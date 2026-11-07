@@ -31,7 +31,8 @@ public sealed class TopNotice : Border {
             Color = Color.FromArgb(90, 0, 0, 0)
         });
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<TopNotice>((n, _) => n.Apply());
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<TopNotice>((n, _) =>
+            n.Apply());
         Apply();
     }
 

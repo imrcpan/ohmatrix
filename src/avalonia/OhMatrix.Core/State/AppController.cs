@@ -33,7 +33,9 @@ public sealed class AppController(
     private ITimer? zoomTimer;
 
     // The engine tells of changes from its own threads; the store is changed on the thread the controller was made on (the UI thread).
-    private readonly SynchronizationContext? context = SynchronizationContext.Current;
+    private readonly SynchronizationContext? context =
+        SynchronizationContext.Current;
+
     private bool roomsHooked;
     private bool verifyHooked;
     private bool callsHooked;
@@ -77,21 +79,26 @@ public sealed class AppController(
         } catch (Exception e) {
             var code = (e as EngineException)?.Code;
             // A session the server no longer takes, or whose keys are gone, is not kept.
-            if (code is EngineErrorCode.Unauthorized or EngineErrorCode.KeysLost)
+            if (code is EngineErrorCode.Unauthorized
+                or EngineErrorCode.KeysLost)
                 await sessions.Clear();
-            SignedOut(code == EngineErrorCode.Unauthorized ? null : e.Message, code);
+            SignedOut(code == EngineErrorCode.Unauthorized ? null : e.Message,
+                code);
         }
     }
 
     public Task Login(string homeserver, string username, string password)
     {
-        return SignIn(homeserver, () => engine.LoginWithPassword(homeserver, username, password));
+        return SignIn(homeserver,
+            () => engine.LoginWithPassword(homeserver, username, password));
     }
 
     /// <summary>Creates an account on the server and signs in as it (see <see cref="IAuthEngine.Register"/>).</summary>
-    public Task Register(string homeserver, string username, string password, string? token = null)
+    public Task Register(string homeserver, string username, string password,
+        string? token = null)
     {
-        return SignIn(homeserver, () => engine.Register(homeserver, username, password, token));
+        return SignIn(homeserver,
+            () => engine.Register(homeserver, username, password, token));
     }
 
     /// <summary>The accounts this one is among, when the app keeps several; null otherwise.</summary>
@@ -144,7 +151,8 @@ public sealed class AppController(
     {
         if (Store.Value.Joining.Any(j => j.Id == room.RoomId))
             return;
-        var joining = new JoiningRoom(room.RoomId, room.Name, room.AvatarUrl, time.GetUtcNow());
+        var joining = new JoiningRoom(room.RoomId, room.Name, room.AvatarUrl,
+            time.GetUtcNow());
         Store.Update(s => s with {
             Joining = [joining, .. s.Joining],
             JoinError = null
@@ -243,7 +251,8 @@ public sealed class AppController(
     }
 
     /// <summary>Changes the role of a person in a group, and shows it in the info panel.</summary>
-    public async Task SetMemberRole(string roomId, string userId, MemberRole role)
+    public async Task SetMemberRole(string roomId, string userId,
+        MemberRole role)
     {
         await rooms!.SetMemberRole(roomId, userId, role);
         await LoadDetails(roomId);
@@ -256,14 +265,16 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
-    public async Task SetHistoryVisibility(string roomId, HistoryVisibility visibility)
+    public async Task SetHistoryVisibility(string roomId,
+        HistoryVisibility visibility)
     {
         await rooms!.SetHistoryVisibility(roomId, visibility);
         await LoadDetails(roomId);
     }
 
     /// <summary>Whether the address (<c>#name:server</c>) is free to take.</summary>
-    public Task<bool> IsAliasAvailable(string alias) => rooms!.IsAliasAvailable(alias);
+    public Task<bool> IsAliasAvailable(string alias) =>
+        rooms!.IsAliasAvailable(alias);
 
     public async Task AddRoomAlias(string roomId, string alias)
     {
@@ -283,7 +294,8 @@ public sealed class AppController(
         await LoadDetails(roomId);
     }
 
-    public async Task SetPowerThresholds(string roomId, PowerThresholds thresholds)
+    public async Task SetPowerThresholds(string roomId,
+        PowerThresholds thresholds)
     {
         await rooms!.SetPowerThresholds(roomId, thresholds);
         await LoadDetails(roomId);
@@ -299,7 +311,8 @@ public sealed class AppController(
     /// <summary>Bans a person from a group.</summary>
     public async Task BanMember(string roomId, string userId, string? reason)
     {
-        await rooms!.BanMember(roomId, userId, string.IsNullOrWhiteSpace(reason) ? null : reason);
+        await rooms!.BanMember(roomId, userId,
+            string.IsNullOrWhiteSpace(reason) ? null : reason);
         await LoadDetails(roomId);
     }
 
@@ -346,10 +359,12 @@ public sealed class AppController(
     }
 
     /// <summary>This machine and this build can make calls.</summary>
-    public bool CallsSupported => callsEngine is not null && callPlatform is { Available: true };
+    public bool CallsSupported => callsEngine is not null &&
+                                  callPlatform is { Available: true };
 
     /// <summary>How long a call that has ended stays on screen, saying how it ended.</summary>
-    public static readonly TimeSpan CallEndedStays = TimeSpan.FromMilliseconds(1800);
+    public static readonly TimeSpan CallEndedStays =
+        TimeSpan.FromMilliseconds(1800);
 
     private Calls.CallSignalling Signalling()
     {
@@ -365,7 +380,8 @@ public sealed class AppController(
                 // An ended call goes by itself after a moment.
                 callEndedTimer?.Dispose();
                 if (info is { Phase: Calls.CallPhase.Ended })
-                    callEndedTimer = time.CreateTimer(_ => Post(() => signalling?.Dismiss()), null,
+                    callEndedTimer = time.CreateTimer(
+                        _ => Post(() => signalling?.Dismiss()), null,
                         CallEndedStays, Timeout.InfiniteTimeSpan);
             }
         );
@@ -379,11 +395,16 @@ public sealed class AppController(
                          before.CallId == now?.CallId;
         if (ringing && !wasRinging) {
             callSounds?.Ring(now!.Incoming);
-            if (now!.Incoming && notifier is not null && Store.Value.Prefs.Notifications) {
-                var room = Store.Value.Rooms.FirstOrDefault(r => r.Id == now.RoomId);
-                notifier.Notify(new Notification(now.RoomId, room?.Name ?? now.Peer,
+            if (now!.Incoming && notifier is not null &&
+                Store.Value.Prefs.Notifications) {
+                var room =
+                    Store.Value.Rooms.FirstOrDefault(r => r.Id == now.RoomId);
+                notifier.Notify(new Notification(now.RoomId,
+                    room?.Name ?? now.Peer,
                     Strings.T(Store.Value.Locale,
-                        now.Video ? "call.incoming.video" : "call.incoming.voice"),
+                        now.Video
+                            ? "call.incoming.video"
+                            : "call.incoming.voice"),
                     false));
             }
         } else if (!ringing && wasRinging)
@@ -428,7 +449,9 @@ public sealed class AppController(
             throw new InvalidOperationException("unsupported");
         var room = Store.Value.Rooms.FirstOrDefault(r => r.Id == roomId);
         var details = rooms is null ? null : await rooms.Details(roomId);
-        var other = details?.Members.FirstOrDefault(m => m.UserId != Store.Value.UserId);
+        var other =
+            details?.Members.FirstOrDefault(m =>
+                m.UserId != Store.Value.UserId);
         if (room is not { IsDirect: true } || other is null)
             throw new InvalidOperationException("direct");
         await Signalling().Place(roomId, other.UserId, video);
@@ -536,7 +559,8 @@ public sealed class AppController(
     }
 
     /// <summary>Searches the public rooms of the homeserver (or of <paramref name="server"/>).</summary>
-    public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server = null)
+    public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter,
+        string? server = null)
     {
         return rooms is null
             ? Task.FromResult<IReadOnlyList<PublicRoom>>([])
@@ -689,11 +713,14 @@ public sealed class AppController(
     {
         var content = Forward.Content(item) ?? throw new EngineException(
             EngineErrorCode.Unsupported, "This cannot be forwarded.");
-        return chats is null ? Task.CompletedTask : chats.SendMessageContent(roomId, content);
+        return chats is null
+            ? Task.CompletedTask
+            : chats.SendMessageContent(roomId, content);
     }
 
     /// <summary>Fetches the picture of a message and asks where to keep a copy (the save of the photo viewer); says so when it is kept.</summary>
-    public async Task SavePicture(Avalonia.Controls.TopLevel window, string source, string name)
+    public async Task SavePicture(Avalonia.Controls.TopLevel window,
+        string source, string name)
     {
         if (media is null)
             return;
@@ -701,7 +728,8 @@ public sealed class AppController(
             var path = await media.Download(source, name, "");
             if (path is null)
                 throw new IOException();
-            if (Store.Value.Prefs.DownloadFolder is { Length: > 0 } folder && Directory.Exists(folder)) {
+            if (Store.Value.Prefs.DownloadFolder is { Length: > 0 } folder &&
+                Directory.Exists(folder)) {
                 var kept = Path.Combine(folder, Path.GetFileName(name));
                 File.Copy(path, kept, true);
                 ShowNotice(Strings.T(Store.Value.Locale, "viewer.saved"));
@@ -719,7 +747,8 @@ public sealed class AppController(
                 await from.CopyToAsync(to);
             ShowNotice(Strings.T(Store.Value.Locale, "viewer.saved"));
         } catch (Exception) {
-            ShowNotice(Strings.T(Store.Value.Locale, "copyFailed"), NoticeKind.Error);
+            ShowNotice(Strings.T(Store.Value.Locale, "copyFailed"),
+                NoticeKind.Error);
         }
     }
 
@@ -735,7 +764,8 @@ public sealed class AppController(
     public async Task SendShared(string roomId, SharedContent content)
     {
         if (chats is null)
-            throw new EngineException(EngineErrorCode.Unsupported, "Not available.");
+            throw new EngineException(EngineErrorCode.Unsupported,
+                "Not available.");
         using var session = await chats.Open(roomId);
         if (content.Text is { Length: > 0 } text)
             await session.Send(text);
@@ -746,7 +776,8 @@ public sealed class AppController(
             if (MimeTypes.IsImage(mime)) {
                 try {
                     using var stream = File.OpenRead(path);
-                    using var bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                    using var bitmap =
+                        new Avalonia.Media.Imaging.Bitmap(stream);
                     width = bitmap.PixelSize.Width;
                     height = bitmap.PixelSize.Height;
                 } catch (Exception) {
@@ -768,7 +799,8 @@ public sealed class AppController(
         OpenSpace(id);
     }
 
-    public Task AddSpaceChild(string spaceId, string roomId) => spacesEngine!.AddChild(spaceId, roomId);
+    public Task AddSpaceChild(string spaceId, string roomId) =>
+        spacesEngine!.AddChild(spaceId, roomId);
 
     public Task RemoveSpaceChild(string spaceId, string roomId) =>
         spacesEngine!.RemoveChild(spaceId, roomId);
@@ -787,15 +819,22 @@ public sealed class AppController(
     public bool CanSearchMessages => searchEngine is not null;
 
     /// <summary>A page of the messages with a term, in one room or all of them.</summary>
-    public async Task<SearchPage> SearchMessages(string term, string? roomId, string? from)
+    public async Task<SearchPage> SearchMessages(string term, string? roomId,
+        string? from)
     {
         if (searchEngine is null)
             return new SearchPage([], null);
         var page = await searchEngine.Messages(term, roomId, from);
         var names = Store.Value.Rooms.ToDictionary(r => r.Id, r => r.Name);
         return page with {
-            Results = [.. page.Results.Select(r => names.TryGetValue(r.RoomId, out var n)
-                ? r with { RoomName = n } : r)]
+            Results = [
+                .. page.Results.Select(r =>
+                    names.TryGetValue(r.RoomId, out var n)
+                        ? r with {
+                            RoomName = n
+                        }
+                        : r)
+            ]
         };
     }
 
@@ -810,7 +849,8 @@ public sealed class AppController(
     }
 
     /// <summary>A page of the shared media of a room (see <see cref="IChatEngine.SharedMedia"/>).</summary>
-    public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind, int offset, int want)
+    public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind,
+        int offset, int want)
     {
         return chats is null
             ? Task.FromResult(new SharedMediaPage([], null))
@@ -844,13 +884,16 @@ public sealed class AppController(
     /// <summary>Puts the picture of a message in my pack, in a group.</summary>
     public async Task AddStickerFrom(TimelineItem item, string groupId)
     {
-        var picture = item.Image ?? throw new EngineException(EngineErrorCode.Unsupported,
+        var picture = item.Image ?? throw new EngineException(
+            EngineErrorCode.Unsupported,
             "Not a picture.");
         if (!picture.Source.StartsWith("mxc://", StringComparison.Ordinal))
             throw new EngineException(EngineErrorCode.Unsupported,
                 "A picture in a private room cannot be added without downloading it.");
-        var mime = StickerPack.Mime(picture.FileName, MimeTypes.For(picture.FileName));
-        await stickersEngine!.AddExisting(new Sticker(picture.FileName, picture.Source, mime,
+        var mime = StickerPack.Mime(picture.FileName,
+            MimeTypes.For(picture.FileName));
+        await stickersEngine!.AddExisting(new Sticker(picture.FileName,
+            picture.Source, mime,
             picture.Width, picture.Height), groupId);
         await LoadStickers();
     }
@@ -858,12 +901,14 @@ public sealed class AppController(
     private static StickerUpload ReadUpload(string path)
     {
         var name = Path.GetFileName(path);
-        var mime = StickerPack.Check(name, MimeTypes.For(path), new FileInfo(path).Length);
+        var mime = StickerPack.Check(name, MimeTypes.For(path),
+            new FileInfo(path).Length);
         var data = File.ReadAllBytes(path);
         int? width = null;
         int? height = null;
         try {
-            using var bitmap = new Avalonia.Media.Imaging.Bitmap(new MemoryStream(data));
+            using var bitmap =
+                new Avalonia.Media.Imaging.Bitmap(new MemoryStream(data));
             width = bitmap.PixelSize.Width;
             height = bitmap.PixelSize.Height;
         } catch (Exception) {
@@ -898,7 +943,8 @@ public sealed class AppController(
     /// <summary>Sends one of my stickers to the open chat.</summary>
     public Task SendSticker(string shortcode)
     {
-        return Store.Value.SelectedRoomId is { } room && stickersEngine is not null
+        return Store.Value.SelectedRoomId is { } room &&
+               stickersEngine is not null
             ? stickersEngine.Send(room, shortcode)
             : Task.CompletedTask;
     }
@@ -915,7 +961,9 @@ public sealed class AppController(
     /// <summary>Pins a message of the open chat, or takes the pin away.</summary>
     public Task SetMessagePinned(string itemId, bool pinned)
     {
-        return chat is null ? Task.CompletedTask : chat.SetPinned(itemId, pinned);
+        return chat is null
+            ? Task.CompletedTask
+            : chat.SetPinned(itemId, pinned);
     }
 
     /// <summary>Removes one of my messages for everyone.</summary>
@@ -939,7 +987,9 @@ public sealed class AppController(
     /// <summary>Adds my reaction to a message, or takes it away.</summary>
     public Task ToggleReaction(string itemId, string key)
     {
-        return chat is null ? Task.CompletedTask : chat.ToggleReaction(itemId, key);
+        return chat is null
+            ? Task.CompletedTask
+            : chat.ToggleReaction(itemId, key);
     }
 
     /// <summary>Loads older messages of the open chat.</summary>
@@ -998,8 +1048,11 @@ public sealed class AppController(
     {
         var last = items.LastOrDefault(i => !i.Sending
                                             && (i.Kind == TimelineKind.Message
-                                                || (i.Kind == TimelineKind.Service
-                                                    && i.Body != TimelineItem.Undecryptable)));
+                                                || (i.Kind ==
+                                                    TimelineKind.Service
+                                                    && i.Body !=
+                                                    TimelineItem
+                                                        .Undecryptable)));
         var index = -1;
         for (var i = 0; i < rooms.Count; i++) {
             if (rooms[i].Id == roomId)
@@ -1014,7 +1067,9 @@ public sealed class AppController(
         var copy = rooms.ToList();
         copy[index] = copy[index] with {
             LastMessage = text,
-            LastSender = last.IsOwn || last.Kind == TimelineKind.Service ? null : last.SenderName,
+            LastSender = last.IsOwn || last.Kind == TimelineKind.Service
+                ? null
+                : last.SenderName,
             LastIsLine = last.Kind == TimelineKind.Service,
             LastActivityTs = last.Ts,
         };
@@ -1214,9 +1269,10 @@ public sealed class AppController(
             return;
         if (!verifyHooked) {
             verifyHooked = true;
-            verification.Changed += next => Post(() => Store.Update(s => s with {
-                Verification = VerifyFlow.After(s.Verification, next)
-            }));
+            verification.Changed += next => Post(() => Store.Update(s =>
+                s with {
+                    Verification = VerifyFlow.After(s.Verification, next)
+                }));
         }
 
         await Quietly(verification.Listen);
@@ -1238,7 +1294,8 @@ public sealed class AppController(
                     Rooms = Order(list)
                 });
                 Announce(before, Store.Value.Rooms);
-                if (Store.Value is { SyncState: SyncState.Syncing, RoomsSettled: false })
+                if (Store.Value is
+                    { SyncState: SyncState.Syncing, RoomsSettled: false })
                     Settle(false);
             });
             rooms.SyncChanged += state => Post(() => {
@@ -1296,7 +1353,8 @@ public sealed class AppController(
     /// Tells of the messages that came in since the list was last seen: a chat whose unread count went up, that is not muted. The first list (the
     /// start-up) and a chat not known before are not announced.
     /// </summary>
-    private void Announce(IReadOnlyList<RoomSummary> before, IReadOnlyList<RoomSummary> now)
+    private void Announce(IReadOnlyList<RoomSummary> before,
+        IReadOnlyList<RoomSummary> now)
     {
         var prefs = Store.Value.Prefs;
         if (notifier is null || !prefs.Notifications || before.Count == 0)
@@ -1305,12 +1363,14 @@ public sealed class AppController(
         var locale = Store.Value.Locale;
         foreach (var room in now) {
             if (room.Muted || room.Invite || room.UnreadCount == 0
-                || !known.TryGetValue(room.Id, out var was) || room.UnreadCount <= was.UnreadCount)
+                || !known.TryGetValue(room.Id, out var was) ||
+                room.UnreadCount <= was.UnreadCount)
                 continue;
             var text = room.LastMessage is null
                 ? ""
                 : string.Join(" ",
-                    room.LastMessage.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                    room.LastMessage.Split((char[]?)null,
+                        StringSplitOptions.RemoveEmptyEntries));
             var body = !prefs.NotificationPreview || text.Length == 0
                 ? I18n.Strings.T(locale, "notif.new")
                 : room.LastSender is { Length: > 0 } who && !room.IsDirect
@@ -1330,9 +1390,11 @@ public sealed class AppController(
     }
 
     /// <summary>Pinned chats first, then the latest activity first.</summary>
-    public static IReadOnlyList<RoomSummary> Order(IEnumerable<RoomSummary> list)
+    public static IReadOnlyList<RoomSummary> Order(
+        IEnumerable<RoomSummary> list)
     {
-        return list.OrderByDescending(r => r.Pinned).ThenByDescending(r => r.LastActivityTs)
+        return list.OrderByDescending(r => r.Pinned)
+            .ThenByDescending(r => r.LastActivityTs)
             .ToList();
     }
 

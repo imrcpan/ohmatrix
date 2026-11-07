@@ -9,7 +9,8 @@ namespace OhMatrix.Core.Audio;
 /// used, which the callers turn into "not available".
 /// </summary>
 internal static class NativeLibs {
-    private const string Frameworks = "/Library/Frameworks/GStreamer.framework/Libraries/";
+    private const string Frameworks =
+        "/Library/Frameworks/GStreamer.framework/Libraries/";
 
     private static readonly Dictionary<string, string[]> Candidates = new() {
         ["vlc"] = [
@@ -18,27 +19,33 @@ internal static class NativeLibs {
             "C:\\Program Files\\VideoLAN\\VLC\\libvlc.dll",
         ],
         ["gst"] = [
-            "libgstreamer-1.0.so.0", "gstreamer-1.0-0.dll", Frameworks + "libgstreamer-1.0.0.dylib",
+            "libgstreamer-1.0.so.0", "gstreamer-1.0-0.dll",
+            Frameworks + "libgstreamer-1.0.0.dylib",
             "libgstreamer-1.0.0.dylib",
         ],
         ["gobject"] = [
-            "libgobject-2.0.so.0", "gobject-2.0-0.dll", Frameworks + "libgobject-2.0.0.dylib",
+            "libgobject-2.0.so.0", "gobject-2.0-0.dll",
+            Frameworks + "libgobject-2.0.0.dylib",
             "libgobject-2.0.0.dylib",
         ],
         ["glib"] = [
-            "libglib-2.0.so.0", "glib-2.0-0.dll", Frameworks + "libglib-2.0.0.dylib",
+            "libglib-2.0.so.0", "glib-2.0-0.dll",
+            Frameworks + "libglib-2.0.0.dylib",
             "libglib-2.0.0.dylib",
         ],
         ["gstsdp"] = [
-            "libgstsdp-1.0.so.0", "gstsdp-1.0-0.dll", Frameworks + "libgstsdp-1.0.0.dylib",
+            "libgstsdp-1.0.so.0", "gstsdp-1.0-0.dll",
+            Frameworks + "libgstsdp-1.0.0.dylib",
             "libgstsdp-1.0.0.dylib",
         ],
         ["gstwebrtc"] = [
-            "libgstwebrtc-1.0.so.0", "gstwebrtc-1.0-0.dll", Frameworks + "libgstwebrtc-1.0.0.dylib",
+            "libgstwebrtc-1.0.so.0", "gstwebrtc-1.0-0.dll",
+            Frameworks + "libgstwebrtc-1.0.0.dylib",
             "libgstwebrtc-1.0.0.dylib",
         ],
         ["gstapp"] = [
-            "libgstapp-1.0.so.0", "gstapp-1.0-0.dll", Frameworks + "libgstapp-1.0.0.dylib",
+            "libgstapp-1.0.so.0", "gstapp-1.0-0.dll",
+            Frameworks + "libgstapp-1.0.0.dylib",
             "libgstapp-1.0.0.dylib",
         ],
     };
@@ -47,7 +54,8 @@ internal static class NativeLibs {
 
     static NativeLibs()
     {
-        NativeLibrary.SetDllImportResolver(typeof(NativeLibs).Assembly, Resolve);
+        NativeLibrary.SetDllImportResolver(typeof(NativeLibs).Assembly,
+            Resolve);
     }
 
     /// <summary>Makes sure the resolver is in place before the first call into a library.</summary>
@@ -55,7 +63,8 @@ internal static class NativeLibs {
     {
     }
 
-    private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? path)
+    private static IntPtr Resolve(string name, Assembly assembly,
+        DllImportSearchPath? path)
     {
         if (!Candidates.TryGetValue(name, out var names))
             return IntPtr.Zero;

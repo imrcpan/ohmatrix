@@ -9,14 +9,17 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Engine;
 
 /// <summary>The sessions of the account over the client-server API of the homeserver (<c>devices.ts</c> of the Rust engine package).</summary>
-public sealed class HttpDevicesEngine(Func<Session?> session, HttpClient? http = null)
+public sealed class HttpDevicesEngine(
+    Func<Session?> session,
+    HttpClient? http = null)
     : IDevicesEngine {
     private readonly HttpClient web = http ?? new HttpClient();
 
     private Session Account()
     {
         return session() ??
-               throw new EngineException(EngineErrorCode.Unauthorized, "Not signed in.");
+               throw new EngineException(EngineErrorCode.Unauthorized,
+                   "Not signed in.");
     }
 
     private static string Base(Session a)
@@ -32,10 +35,12 @@ public sealed class HttpDevicesEngine(Func<Session?> session, HttpClient? http =
     )
     {
         var request = new HttpRequestMessage(method, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", a.AccessToken);
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", a.AccessToken);
         if (body is not null)
             request.Content =
-                new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+                new StringContent(body.ToJsonString(), Encoding.UTF8,
+                    "application/json");
         try {
             using var response = await web.SendAsync(request);
             var text = await response.Content.ReadAsStringAsync();
@@ -54,7 +59,9 @@ public sealed class HttpDevicesEngine(Func<Session?> session, HttpClient? http =
 
     private static string? Text(JsonObject o, string key)
     {
-        return o[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+        return o[key] is JsonValue v && v.TryGetValue<string>(out var s)
+            ? s
+            : null;
     }
 
     public async Task<IReadOnlyList<DeviceInfo>> ListDevices()
@@ -71,11 +78,13 @@ public sealed class HttpDevicesEngine(Func<Session?> session, HttpClient? http =
         var list = new List<DeviceInfo>();
         if (body["devices"] is JsonArray devices) {
             foreach (var node in devices) {
-                if (node is not JsonObject d || Text(d, "device_id") is not { } id)
+                if (node is not JsonObject d ||
+                    Text(d, "device_id") is not { } id)
                     continue;
                 var name = Text(d, "display_name");
                 var ip = Text(d, "last_seen_ip")?.Replace("::ffff:", "");
-                long? seen = d["last_seen_ts"] is JsonValue t && t.TryGetValue<long>(out var ts)
+                long? seen = d["last_seen_ts"] is JsonValue t &&
+                             t.TryGetValue<long>(out var ts)
                     ? ts
                     : null;
                 list.Add(new DeviceInfo(
@@ -89,7 +98,8 @@ public sealed class HttpDevicesEngine(Func<Session?> session, HttpClient? http =
         }
 
         return [
-            .. list.OrderByDescending(d => d.Current).ThenByDescending(d => d.LastSeenTs ?? 0)
+            .. list.OrderByDescending(d => d.Current)
+                .ThenByDescending(d => d.LastSeenTs ?? 0)
         ];
     }
 
@@ -103,7 +113,9 @@ public sealed class HttpDevicesEngine(Func<Session?> session, HttpClient? http =
         JsonObject Devices()
         {
             return new JsonObject {
-                ["devices"] = new JsonArray([.. ids.Select(i => (JsonNode?)JsonValue.Create(i))])
+                ["devices"] = new JsonArray([
+                    .. ids.Select(i => (JsonNode?)JsonValue.Create(i))
+                ])
             };
         }
 

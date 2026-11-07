@@ -13,7 +13,10 @@ public sealed record Sticker(
 );
 
 /// <summary>A sticker group's cover: a standard emoji or a small picture.</summary>
-public sealed record StickerIcon(string? Emoji, string? Url = null, string? MimeType = null) {
+public sealed record StickerIcon(
+    string? Emoji,
+    string? Url = null,
+    string? MimeType = null) {
     public static StickerIcon OfEmoji(string emoji)
     {
         return new StickerIcon(emoji);
@@ -60,21 +63,25 @@ public static class StickerPack {
 
     private static int? Int(JsonNode? node)
     {
-        return node is JsonValue v && v.TryGetValue<double>(out var d) && double.IsFinite(d)
+        return node is JsonValue v && v.TryGetValue<double>(out var d) &&
+               double.IsFinite(d)
             ? (int)d
             : null;
     }
 
     private static long? Long(JsonNode? node)
     {
-        return node is JsonValue v && v.TryGetValue<double>(out var d) && double.IsFinite(d)
+        return node is JsonValue v && v.TryGetValue<double>(out var d) &&
+               double.IsFinite(d)
             ? (long)d
             : null;
     }
 
     private static string? Text(JsonNode? node)
     {
-        return node is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+        return node is JsonValue v && v.TryGetValue<string>(out var s)
+            ? s
+            : null;
     }
 
     private static bool HasUsage(JsonNode? image, out bool sticker)
@@ -95,13 +102,15 @@ public static class StickerPack {
             return list;
         foreach (var (shortcode, image) in images) {
             var url = Text(image?["url"]);
-            if (url is null || !url.StartsWith("mxc://", StringComparison.Ordinal))
+            if (url is null ||
+                !url.StartsWith("mxc://", StringComparison.Ordinal))
                 continue;
             HasUsage(image, out var sticker);
             if (!sticker)
                 continue;
             var info = image?["info"];
-            list.Add(new Sticker(shortcode, url, Text(info?["mimetype"]) ?? "image/png",
+            list.Add(new Sticker(shortcode, url,
+                Text(info?["mimetype"]) ?? "image/png",
                 Int(info?["w"]), Int(info?["h"]), Long(info?["size"])));
         }
 
@@ -173,14 +182,16 @@ public static class StickerPack {
     public static string NewShortcode(string? name, ISet<string> taken)
     {
         var text =
-            System.Text.RegularExpressions.Regex.Replace(name ?? "", @"\.[A-Za-z0-9]{1,5}$", "");
-        text = string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            System.Text.RegularExpressions.Regex.Replace(name ?? "",
+                @"\.[A-Za-z0-9]{1,5}$", "");
+        text = string.Join(" ",
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         var baseName = text.Length > 40 ? text[..40].Trim() : text;
         if (baseName.Length == 0)
             baseName = "sticker";
         if (!taken.Contains(baseName))
             return baseName;
-        for (var n = 2; ; n++) {
+        for (var n = 2;; n++) {
             if (!taken.Contains($"{baseName} {n}"))
                 return $"{baseName} {n}";
         }
@@ -200,13 +211,15 @@ public static class StickerPack {
     /// </summary>
     public static string Mime(string? name, string mimeType)
     {
-        var given = mimeType.ToLowerInvariant().Replace("image/jpg", "image/jpeg");
+        var given = mimeType.ToLowerInvariant()
+            .Replace("image/jpg", "image/jpeg");
         var ending = (name ?? "").Split('.').Last().ToLowerInvariant();
         Kinds.TryGetValue(ending, out var byName);
         var mime = Kinds.ContainsValue(given) ? given
             : given.Length == 0 || given == "application/octet-stream" ? byName
             : null;
-        return mime ?? throw new EngineException(EngineErrorCode.UnsupportedType,
+        return mime ?? throw new EngineException(
+            EngineErrorCode.UnsupportedType,
             "A sticker has to be a PNG, JPEG, GIF or WebP picture");
     }
 
@@ -228,7 +241,8 @@ public static class StickerPack {
         if (kind == "emoji" && Text(node?["emoji"]) is { Length: > 0 } emoji)
             return StickerIcon.OfEmoji(emoji);
         if (kind == "image" && Text(node?["url"]) is { } url
-                            && url.StartsWith("mxc://", StringComparison.Ordinal)
+                            && url.StartsWith("mxc://",
+                                StringComparison.Ordinal)
                             && Text(node?["mimeType"]) is { } mime)
             return StickerIcon.OfImage(url, mime);
         return null;
@@ -251,10 +265,12 @@ public static class StickerPack {
             if (string.IsNullOrEmpty(id) || !ids.Add(id))
                 continue;
             var isDefault = id == DefaultGroup;
-            if (!isDefault && result.Count(x => x.Id != DefaultGroup) >= GroupsMax)
+            if (!isDefault &&
+                result.Count(x => x.Id != DefaultGroup) >= GroupsMax)
                 continue;
             var stickers = (g?["stickers"] as JsonArray ?? [])
-                .Select(Text).OfType<string>().Where(s => !used.Contains(s)).Distinct().ToList();
+                .Select(Text).OfType<string>().Where(s => !used.Contains(s))
+                .Distinct().ToList();
             foreach (var s in stickers)
                 used.Add(s);
             result.Add(new StickerGroup(id, (Text(g?["name"]) ?? "").Trim(),
@@ -268,7 +284,8 @@ public static class StickerPack {
     public static string WriteGroups(IReadOnlyList<StickerGroup> groups)
     {
         if (groups.Count(g => g.Id != DefaultGroup) > GroupsMax)
-            throw new EngineException(EngineErrorCode.Unsupported, $"At most {GroupsMax} groups");
+            throw new EngineException(EngineErrorCode.Unsupported,
+                $"At most {GroupsMax} groups");
         if (groups.Any(g => g.Id == DefaultGroup && g.Icon is not null))
             throw new EngineException(EngineErrorCode.Unsupported,
                 "The default group's cover cannot be changed");
@@ -277,7 +294,8 @@ public static class StickerPack {
             var item = new JsonObject {
                 ["id"] = g.Id,
                 ["name"] = g.Name,
-                ["stickers"] = new JsonArray(g.Stickers.Select(s => (JsonNode?)JsonValue.Create(s))
+                ["stickers"] = new JsonArray(g.Stickers
+                    .Select(s => (JsonNode?)JsonValue.Create(s))
                     .ToArray()),
             };
             if (g.Icon is { } icon)
@@ -298,12 +316,14 @@ public static class StickerPack {
             ["groups"] = array
         }.ToJsonString();
         if (ParseGroups(text).Count != groups.Count)
-            throw new EngineException(EngineErrorCode.Unknown, "The groups are not valid");
+            throw new EngineException(EngineErrorCode.Unknown,
+                "The groups are not valid");
         return text;
     }
 
     /// <summary>The groups with these stickers taken out of them (after the stickers are removed from the pack).</summary>
-    public static IReadOnlyList<StickerGroup> Without(IReadOnlyList<StickerGroup> groups,
+    public static IReadOnlyList<StickerGroup> Without(
+        IReadOnlyList<StickerGroup> groups,
         IEnumerable<string> shortcodes)
     {
         var gone = shortcodes.ToHashSet();
@@ -315,7 +335,8 @@ public static class StickerPack {
     }
 
     /// <summary>A new group id that none of <paramref name="groups"/> has.</summary>
-    public static string NewGroupId(IReadOnlyList<StickerGroup> groups, Random? random = null)
+    public static string NewGroupId(IReadOnlyList<StickerGroup> groups,
+        Random? random = null)
     {
         random ??= Random.Shared;
         var taken = groups.Select(g => g.Id).ToHashSet();
@@ -323,7 +344,8 @@ public static class StickerPack {
             var value = random.NextInt64(0, 2176782336L);
             var digits = new char[6];
             for (var i = 5; i >= 0; i--, value /= 36)
-                digits[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[(int)(value % 36)];
+                digits[i] =
+                    "0123456789abcdefghijklmnopqrstuvwxyz"[(int)(value % 36)];
             var id = new string(digits);
             if (!taken.Contains(id))
                 return id;
@@ -331,11 +353,13 @@ public static class StickerPack {
     }
 
     /// <summary>What a group shows as its cover: the one chosen, else its first sticker (that is in the pack), else a smiling face.</summary>
-    public static StickerIcon CoverOf(StickerGroup group, IReadOnlyList<Sticker> pack)
+    public static StickerIcon CoverOf(StickerGroup group,
+        IReadOnlyList<Sticker> pack)
     {
         if (group.Icon is { } icon)
             return icon;
-        var first = group.Stickers.Select(c => pack.FirstOrDefault(s => s.Shortcode == c))
+        var first = group.Stickers
+            .Select(c => pack.FirstOrDefault(s => s.Shortcode == c))
             .FirstOrDefault(s => s is not null);
         return first is null
             ? StickerIcon.OfEmoji(FallbackEmoji)
@@ -346,7 +370,8 @@ public static class StickerPack {
     public static List<T> MoveItem<T>(IReadOnlyList<T> list, int from, int to)
     {
         var result = list.ToList();
-        if (from == to || from < 0 || to < 0 || from >= list.Count || to >= list.Count)
+        if (from == to || from < 0 || to < 0 || from >= list.Count ||
+            to >= list.Count)
             return result;
         var item = result[from];
         result.RemoveAt(from);
@@ -358,7 +383,8 @@ public static class StickerPack {
     /// The groups as the screen shows them: the default group first (made when none is stored), with the stickers no other group has, in the order
     /// it kept them and the pack's order for the rest; the others as stored, without a sticker the pack no longer has.
     /// </summary>
-    public static IReadOnlyList<StickerGroup> WithDefault(IReadOnlyList<StickerGroup> stored,
+    public static IReadOnlyList<StickerGroup> WithDefault(
+        IReadOnlyList<StickerGroup> stored,
         IReadOnlyList<Sticker> pack)
     {
         var have = pack.Select(s => s.Shortcode).ToHashSet();
@@ -368,11 +394,13 @@ public static class StickerPack {
             }).ToList();
         var taken = others.SelectMany(g => g.Stickers).ToHashSet();
         var mine = stored.FirstOrDefault(g => g.Id == DefaultGroup);
-        var listed = (mine?.Stickers ?? []).Where(c => have.Contains(c) && !taken.Contains(c))
+        var listed = (mine?.Stickers ?? [])
+            .Where(c => have.Contains(c) && !taken.Contains(c))
             .ToList();
         var rest = pack.Select(s => s.Shortcode)
             .Where(c => !taken.Contains(c) && !listed.Contains(c));
-        var first = new StickerGroup(DefaultGroup, mine?.Name ?? "", null, [.. listed, .. rest]);
+        var first = new StickerGroup(DefaultGroup, mine?.Name ?? "", null,
+            [.. listed, .. rest]);
         return [first, .. others];
     }
 
@@ -380,7 +408,8 @@ public static class StickerPack {
     /// The groups with sticker <paramref name="code"/> in group <paramref name="groupId"/> (at the end) and in no other. The default group holds
     /// what no group has, so putting a sticker there takes it out of the others; an id that is no group leaves them as they are.
     /// </summary>
-    public static IReadOnlyList<StickerGroup> Place(IReadOnlyList<StickerGroup> groups, string code,
+    public static IReadOnlyList<StickerGroup> Place(
+        IReadOnlyList<StickerGroup> groups, string code,
         string groupId)
     {
         if (groupId != DefaultGroup && groups.All(g => g.Id != groupId))

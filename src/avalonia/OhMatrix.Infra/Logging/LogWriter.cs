@@ -11,7 +11,8 @@ internal static class LogWriter {
         }
     }
 
-    public static void ConsoleColorfulWriteLine(string message, ConsoleColor color)
+    public static void ConsoleColorfulWriteLine(string message,
+        ConsoleColor color)
     {
         lock (consoleLock) {
             Console.ForegroundColor = color;

@@ -72,10 +72,13 @@ public sealed class MediaPlayer : IDisposable {
         }
 
         if (player == IntPtr.Zero) {
-            var instance = Video is null ? LibVlc.Instance() : LibVlc.VideoInstance();
+            var instance = Video is null
+                ? LibVlc.Instance()
+                : LibVlc.VideoInstance();
             if (instance == IntPtr.Zero)
                 return false;
-            var media = LibVlc.libvlc_media_new_path(instance, LibVlc.Utf8(Path));
+            var media =
+                LibVlc.libvlc_media_new_path(instance, LibVlc.Utf8(Path));
             if (media == IntPtr.Zero)
                 return false;
             player = LibVlc.libvlc_media_player_new_from_media(media);

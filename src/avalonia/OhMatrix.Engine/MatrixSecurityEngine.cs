@@ -6,7 +6,8 @@ using uniffi.matrix_sdk_ffi;
 namespace OhMatrix.Engine;
 
 /// <summary>The encryption keys of the account over the Matrix SDK (<c>security</c> of <c>RustEngineCore</c>).</summary>
-public sealed class MatrixSecurityEngine(MatrixAuthEngine auth) : ISecurityEngine {
+public sealed class MatrixSecurityEngine(MatrixAuthEngine auth)
+    : ISecurityEngine {
     private Client Signed()
     {
         return auth.Client ?? throw new EngineException(
@@ -42,7 +43,8 @@ public sealed class MatrixSecurityEngine(MatrixAuthEngine auth) : ISecurityEngin
             // The keys of the account first (a new identity: the server wants the password for it), then the recovery that keeps them.
             using var handle = await encryption.ResetIdentity();
             if (handle is not null)
-                await handle.Reset(new AuthData.Password(new AuthDataPasswordDetails(client.UserId(), password)));
+                await handle.Reset(new AuthData.Password(
+                    new AuthDataPasswordDetails(client.UserId(), password)));
             return await encryption.EnableRecovery(false, null, new Progress());
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);

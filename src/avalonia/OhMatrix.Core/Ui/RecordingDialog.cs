@@ -15,6 +15,7 @@ namespace OhMatrix.Core.Ui;
 public sealed class RecordingDialog {
     private readonly AppController controller;
     private readonly Dialog dialog = new();
+
     private readonly TextBlock clock = new() {
         FontSize = 28,
         FontFamily = Fonts.System,
@@ -45,7 +46,8 @@ public sealed class RecordingDialog {
     /// <summary>Whether this machine can record sound, or a clip.</summary>
     public static bool Available(bool video) => MediaRecorder.Available(video);
 
-    private string T(string key) => Strings.T(controller.Store.Value.Locale, key);
+    private string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
 
     /// <summary>Opens the dialog and starts recording; why it could not start is shown in the dialog.</summary>
     public void Open(TopLevel window, bool video)
@@ -79,13 +81,16 @@ public sealed class RecordingDialog {
             ticker.Start();
         } catch (Exception) {
             rec.Cancel();
-            notice.Text = T(MediaRecorder.Available(video) ? "record.noDevice" : "record.unsupported");
+            notice.Text = T(MediaRecorder.Available(video)
+                ? "record.noDevice"
+                : "record.unsupported");
             notice.IsVisible = true;
             sendButton.IsEnabled = false;
             clock.Text = "";
         }
 
-        dialog.Show(window, c, T(video ? "record.video" : "record.voice"), null, clock, notice,
+        dialog.Show(window, c, T(video ? "record.video" : "record.voice"), null,
+            clock, notice,
             sendButton, cancel);
     }
 

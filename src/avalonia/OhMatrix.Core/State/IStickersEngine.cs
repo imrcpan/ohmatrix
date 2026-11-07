@@ -14,7 +14,8 @@ public sealed record StickerUpload(
 /// <summary>My own sticker pack and its groups, kept in the account so they follow me to every device (<c>StickersApi</c> of the TypeScript core).</summary>
 public interface IStickersEngine {
     /// <summary>The stickers, oldest added first, and the groups as stored.</summary>
-    Task<(IReadOnlyList<Sticker> Stickers, IReadOnlyList<StickerGroup> Groups)> Load();
+    Task<(IReadOnlyList<Sticker> Stickers, IReadOnlyList<StickerGroup> Groups)>
+        Load();
 
     /// <summary>
     /// Uploads a picture and adds it to the pack, in group <paramref name="groupId"/> and in no other when one is given. Gives the name it was

@@ -30,7 +30,8 @@ public sealed class AdvancedPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<AdvancedPage>((p, _) => p.Apply());
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<AdvancedPage>((p, _) => p.Apply());
         Apply();
     }
 

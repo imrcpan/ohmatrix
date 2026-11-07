@@ -42,7 +42,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
-    public async Task<string> CreateRoom(string? name, bool direct, IReadOnlyList<string> invite)
+    public async Task<string> CreateRoom(string? name, bool direct,
+        IReadOnlyList<string> invite)
     {
         try {
             var client = Signed();
@@ -51,7 +52,9 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                     name,
                     false,
                     new RoomVisibility.Private(),
-                    direct ? RoomPreset.TrustedPrivateChat : RoomPreset.PrivateChat,
+                    direct
+                        ? RoomPreset.TrustedPrivateChat
+                        : RoomPreset.PrivateChat,
                     null,
                     direct,
                     invite.Count == 0 ? null : [.. invite]
@@ -73,14 +76,16 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             var people = new List<RoomMemberInfo>();
             using var members = await room.Members();
             while (members.NextChunk(100) is { Length: > 0 } chunk) {
-                foreach (var m in chunk.Where(m => m.Membership is MembershipState.Join)) {
+                foreach (var m in chunk.Where(m =>
+                             m.Membership is MembershipState.Join)) {
                     people.Add(new RoomMemberInfo(
                         m.UserId,
                         m.DisplayName ?? m.UserId.TrimStart('@').Split(':')[0],
                         m.AvatarUrl,
                         m.SuggestedRoleForPowerLevel switch {
-                            RoomMemberRole.Administrator or RoomMemberRole.Creator => MemberRole
-                                .Admin,
+                            RoomMemberRole.Administrator
+                                or RoomMemberRole.Creator => MemberRole
+                                    .Admin,
                             RoomMemberRole.Moderator => MemberRole.Moderator,
                             _ => MemberRole.Member,
                         }
@@ -97,10 +102,13 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
             var rawJoinRule = info.JoinRule;
             var joinRule = rawJoinRule switch {
-                MatrixSdk.JoinRule.Public => OhMatrix.Core.Model.JoinRule.Public,
-                MatrixSdk.JoinRule.Invite => OhMatrix.Core.Model.JoinRule.Invite,
+                MatrixSdk.JoinRule.Public =>
+                    OhMatrix.Core.Model.JoinRule.Public,
+                MatrixSdk.JoinRule.Invite =>
+                    OhMatrix.Core.Model.JoinRule.Invite,
                 MatrixSdk.JoinRule.Knock => OhMatrix.Core.Model.JoinRule.Knock,
-                MatrixSdk.JoinRule.Restricted => OhMatrix.Core.Model.JoinRule.Restricted,
+                MatrixSdk.JoinRule.Restricted => OhMatrix.Core.Model.JoinRule
+                    .Restricted,
                 _ => OhMatrix.Core.Model.JoinRule.Other,
             };
 
@@ -133,15 +141,18 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             var me = Signed().UserId();
             var can = new RoomPermissions(
                 EditInfo: !isDirect &&
-                          levels.CanUserSendState(me, new StateEventType.RoomName()),
+                          levels.CanUserSendState(me,
+                              new StateEventType.RoomName()),
                 Invite: !isDirect && levels.CanUserInvite(me),
                 Kick: !isDirect && levels.CanUserKick(me),
                 Ban: !isDirect && levels.CanUserBan(me),
                 ChangeRoles: !isDirect &&
-                             levels.CanUserSendState(me, new StateEventType.RoomPowerLevels()),
+                             levels.CanUserSendState(me,
+                                 new StateEventType.RoomPowerLevels()),
                 Pin: !isDirect && levels.CanUserPinUnpin(me),
                 ChangeSettings: !isDirect &&
-                                levels.CanUserSendState(me, new StateEventType.RoomJoinRules())
+                                levels.CanUserSendState(me,
+                                    new StateEventType.RoomJoinRules())
             );
 
             return new RoomDetails(
@@ -169,13 +180,15 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.SetTopic(topic));
     }
 
-    public async Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter, string? server)
+    public async Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(
+        string filter, string? server)
     {
         try {
             using var search = Signed().RoomDirectorySearch();
             var listener = new DirectoryListener();
             using var handle = await search.Results(listener);
-            await search.Search(string.IsNullOrWhiteSpace(filter) ? null : filter.Trim(), 30,
+            await search.Search(
+                string.IsNullOrWhiteSpace(filter) ? null : filter.Trim(), 30,
                 server);
             // The entries come through the listener; the list is taken once it has stopped changing.
             var last = -1;
@@ -193,7 +206,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
-    private sealed class DirectoryListener : RoomDirectorySearchEntriesListener {
+    private sealed class
+        DirectoryListener : RoomDirectorySearchEntriesListener {
         private readonly List<RoomDescription> rooms = [];
         private int version;
 
@@ -236,23 +250,30 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                         case RoomDirectorySearchEntryUpdate.PushBack b:
                             rooms.Add(b.Value);
                             break;
-                        case RoomDirectorySearchEntryUpdate.PopFront when rooms.Count > 0:
+                        case RoomDirectorySearchEntryUpdate.PopFront
+                            when rooms.Count > 0:
                             rooms.RemoveAt(0);
                             break;
-                        case RoomDirectorySearchEntryUpdate.PopBack when rooms.Count > 0:
+                        case RoomDirectorySearchEntryUpdate.PopBack
+                            when rooms.Count > 0:
                             rooms.RemoveAt(rooms.Count - 1);
                             break;
-                        case RoomDirectorySearchEntryUpdate.Insert i when i.Index <= rooms.Count:
+                        case RoomDirectorySearchEntryUpdate.Insert i
+                            when i.Index <= rooms.Count:
                             rooms.Insert((int)i.Index, i.Value);
                             break;
-                        case RoomDirectorySearchEntryUpdate.Set s when s.Index < rooms.Count:
+                        case RoomDirectorySearchEntryUpdate.Set s
+                            when s.Index < rooms.Count:
                             rooms[(int)s.Index] = s.Value;
                             break;
-                        case RoomDirectorySearchEntryUpdate.Remove x when x.Index < rooms.Count:
+                        case RoomDirectorySearchEntryUpdate.Remove x
+                            when x.Index < rooms.Count:
                             rooms.RemoveAt((int)x.Index);
                             break;
-                        case RoomDirectorySearchEntryUpdate.Truncate t when t.Length < rooms.Count:
-                            rooms.RemoveRange((int)t.Length, rooms.Count - (int)t.Length);
+                        case RoomDirectorySearchEntryUpdate.Truncate t
+                            when t.Length < rooms.Count:
+                            rooms.RemoveRange((int)t.Length,
+                                rooms.Count - (int)t.Length);
                             break;
                     }
                 }
@@ -278,14 +299,15 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
             var rooms = await list.Rooms();
             return [
-                .. rooms.Where(r => r.RoomId != spaceId).Select(r => new SpaceChild(
-                    r.RoomId,
-                    r.DisplayName,
-                    string.IsNullOrWhiteSpace(r.Topic) ? null : r.Topic,
-                    r.AvatarUrl,
-                    (long)r.NumJoinedMembers,
-                    r.RoomType is RoomType.Space
-                ))
+                .. rooms.Where(r => r.RoomId != spaceId).Select(r =>
+                    new SpaceChild(
+                        r.RoomId,
+                        r.DisplayName,
+                        string.IsNullOrWhiteSpace(r.Topic) ? null : r.Topic,
+                        r.AvatarUrl,
+                        (long)r.NumJoinedMembers,
+                        r.RoomType is RoomType.Space
+                    ))
             ];
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
@@ -362,10 +384,14 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     public Task SetJoinRule(string roomId, OhMatrix.Core.Model.JoinRule rule)
     {
         uniffi.matrix_sdk_ffi.JoinRule sdk = rule switch {
-            OhMatrix.Core.Model.JoinRule.Public => new MatrixSdk.JoinRule.Public(),
-            OhMatrix.Core.Model.JoinRule.Invite => new MatrixSdk.JoinRule.Invite(),
-            OhMatrix.Core.Model.JoinRule.Knock => new MatrixSdk.JoinRule.Knock(),
-            OhMatrix.Core.Model.JoinRule.Restricted => new MatrixSdk.JoinRule.Restricted([]),
+            OhMatrix.Core.Model.JoinRule.Public =>
+                new MatrixSdk.JoinRule.Public(),
+            OhMatrix.Core.Model.JoinRule.Invite =>
+                new MatrixSdk.JoinRule.Invite(),
+            OhMatrix.Core.Model.JoinRule.Knock =>
+                new MatrixSdk.JoinRule.Knock(),
+            OhMatrix.Core.Model.JoinRule.Restricted =>
+                new MatrixSdk.JoinRule.Restricted([]),
             _ => new MatrixSdk.JoinRule.Invite(),
         };
         return Act(roomId, room => room.UpdateJoinRules(sdk));
@@ -415,13 +441,15 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
     public Task RemoveRoomAlias(string roomId, string alias)
     {
-        return Act(roomId, room => room.RemoveRoomAliasFromRoomDirectory(alias));
+        return Act(roomId,
+            room => room.RemoveRoomAliasFromRoomDirectory(alias));
     }
 
     public Task SetMainAlias(string roomId, string? alias)
     {
         return Act(roomId, async room => {
-            var alt = room.AlternativeAliases().Where(a => a != alias).ToArray();
+            var alt = room.AlternativeAliases().Where(a => a != alias)
+                .ToArray();
             await room.UpdateCanonicalAlias(alias, alt);
         });
     }
@@ -466,7 +494,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Run(async () => {
             var settings = await Signed().GetNotificationSettings();
             if (muted)
-                await settings.SetRoomNotificationMode(roomId, RoomNotificationMode.Mute);
+                await settings.SetRoomNotificationMode(roomId,
+                    RoomNotificationMode.Mute);
             else
                 await settings.RestoreDefaultRoomNotificationMode(roomId);
         });
@@ -519,8 +548,10 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             sync ??= await client.SyncService().Finish();
             stateTask = sync.State(new StateObserver(this));
             var list = await sync.RoomListService().AllRooms();
-            entries = list.EntriesWithDynamicAdapters(200, new EntriesListener(updates.Writer));
-            entries.Controller().SetFilter(new RoomListEntriesDynamicFilterKind.NonLeft());
+            entries = list.EntriesWithDynamicAdapters(200,
+                new EntriesListener(updates.Writer));
+            entries.Controller()
+                .SetFilter(new RoomListEntriesDynamicFilterKind.NonLeft());
             entriesTask = entries.EntriesStream();
             loop = new CancellationTokenSource();
             _ = Pump(loop.Token);
@@ -567,7 +598,9 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                     var id = room.Id();
                     if (watching.ContainsKey(id))
                         continue;
-                    watching[id] = room.SubscribeToRoomInfoUpdates(new InfoListener(this, room));
+                    watching[id] =
+                        room.SubscribeToRoomInfoUpdates(
+                            new InfoListener(this, room));
                 }
 
                 foreach (var room in added)
@@ -618,7 +651,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                         items.RemoveAt((int)r.Index);
                         break;
                     case RoomListEntriesUpdate.Truncate t:
-                        items.RemoveRange((int)t.Length, items.Count - (int)t.Length);
+                        items.RemoveRange((int)t.Length,
+                            items.Count - (int)t.Length);
                         break;
                     case RoomListEntriesUpdate.Reset r:
                         items.Clear();
@@ -629,7 +663,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             }
 
             var ids = items.Select(r => r.Id()).ToHashSet();
-            foreach (var gone in summaries.Keys.Where(k => !ids.Contains(k)).ToList())
+            foreach (var gone in summaries.Keys.Where(k => !ids.Contains(k))
+                         .ToList())
                 summaries.Remove(gone);
         }
 
@@ -675,18 +710,23 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         if (latest is LatestEventValue.Remote remote) {
             ts = (long)remote.Timestamp;
             if (remote.Content is TimelineItemContent.MsgLike {
-                Content.Kind: MsgLikeKind.Message m
-            })
+                    Content.Kind: MsgLikeKind.Message m
+                })
                 text = m.Content.Body;
             else
                 text = ServiceLines.For(
                     remote.Content,
-                    remote.Profile is ProfileDetails.Ready { DisplayName: { } who }
+                    remote.Profile is ProfileDetails.Ready {
+                        DisplayName: { } who
+                    }
                         ? who
                         : ServiceText.PersonName(null, remote.Sender)
                 );
-            if (!remote.IsOwn && remote.Content is TimelineItemContent.MsgLike) {
-                sender = remote.Profile is ProfileDetails.Ready { DisplayName: { } name }
+            if (!remote.IsOwn &&
+                remote.Content is TimelineItemContent.MsgLike) {
+                sender = remote.Profile is ProfileDetails.Ready {
+                    DisplayName: { } name
+                }
                     ? name
                     : remote.Sender;
             }
@@ -699,7 +739,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             Inviter = info.Membership == Membership.Invited
                 ? info.Inviter?.DisplayName ?? info.Inviter?.UserId ?? ""
                 : null,
-            Muted = info.CachedUserDefinedNotificationMode == RoomNotificationMode.Mute,
+            Muted = info.CachedUserDefinedNotificationMode ==
+                    RoomNotificationMode.Mute,
             Pinned = info.IsFavourite,
             MarkedUnread = info.IsMarkedUnread,
             IsDirect = info.IsDirect,
@@ -710,7 +751,9 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             LastMessage = text,
             LastSender = sender,
             LastIsLine =
-                latest is LatestEventValue.Remote { Content: not TimelineItemContent.MsgLike },
+                latest is LatestEventValue.Remote {
+                    Content: not TimelineItemContent.MsgLike
+                },
             LastActivityTs = ts,
             PinnedEventIds = info.PinnedEventIds,
         };
@@ -726,14 +769,16 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         };
     }
 
-    private sealed class StateObserver(MatrixRoomsEngine engine) : SyncServiceStateObserver {
+    private sealed class StateObserver(MatrixRoomsEngine engine)
+        : SyncServiceStateObserver {
         public void OnUpdate(SyncServiceState state)
         {
             engine.SyncChanged?.Invoke(ToState(state));
         }
     }
 
-    private sealed class EntriesListener(ChannelWriter<RoomListEntriesUpdate[]> writer)
+    private sealed class EntriesListener(
+        ChannelWriter<RoomListEntriesUpdate[]> writer)
         : RoomListEntriesListener {
         public void OnUpdate(RoomListEntriesUpdate[] roomEntriesUpdate)
         {
@@ -741,7 +786,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
-    private sealed class InfoListener(MatrixRoomsEngine engine, Room room) : RoomInfoListener {
+    private sealed class InfoListener(MatrixRoomsEngine engine, Room room)
+        : RoomInfoListener {
         // The info carries no newest event, so the room is read again as a whole.
         public void Call(RoomInfo roomInfo)
         {

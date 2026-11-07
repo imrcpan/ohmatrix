@@ -41,7 +41,8 @@ public class RichTextTests {
     [Fact]
     public void DecodesEntitiesAndKeepsTheNewlineFromBr()
     {
-        Assert.Equal("a & b <c>\nd", Text(RichText.ParseFormatted("a &amp; b &lt;c&gt;<br>d")));
+        Assert.Equal("a & b <c>\nd",
+            Text(RichText.ParseFormatted("a &amp; b &lt;c&gt;<br>d")));
     }
 
     [Fact]
@@ -52,7 +53,8 @@ public class RichTextTests {
         Assert.Equal("https://example.com/x", Mark(runs, "site")!.Href);
         Assert.Null(Mark(runs, "site")!.UserId);
         Assert.Equal("@ann:localhost", Mark(runs, "Ann")!.UserId);
-        Assert.Equal("https://matrix.to/#/@ann:localhost", Mark(runs, "Ann")!.Href);
+        Assert.Equal("https://matrix.to/#/@ann:localhost",
+            Mark(runs, "Ann")!.Href);
     }
 
     [Fact]
@@ -67,10 +69,13 @@ public class RichTextTests {
     [Fact]
     public void SpoilersAreMarkedAndListsGetABulletOrANumber()
     {
-        var spoiler = RichText.ParseFormatted("<span data-mx-spoiler>secret</span>");
+        var spoiler =
+            RichText.ParseFormatted("<span data-mx-spoiler>secret</span>");
         Assert.True(spoiler.First(r => r.Text.Contains("secret")).Spoiler);
-        var bullets = RichText.ParseFormatted("<ul><li>one</li><li>two</li></ul>");
-        Assert.Equal(["one", "two"], bullets.Where(r => r.Prefix == "• ").Select(r => r.Text));
+        var bullets =
+            RichText.ParseFormatted("<ul><li>one</li><li>two</li></ul>");
+        Assert.Equal(["one", "two"],
+            bullets.Where(r => r.Prefix == "• ").Select(r => r.Text));
         var ordered = RichText.ParseFormatted("<ol><li>a</li><li>b</li></ol>");
         Assert.Equal(["1. ", "2. "],
             ordered.Where(r => r.Prefix is not null).Select(r => r.Prefix));
@@ -86,7 +91,8 @@ public class RichTextTests {
     [Fact]
     public void PlainBodiesLinkifyBareUrlsButNotPunctuation()
     {
-        var runs = RichText.PlainRuns("see https://example.com/a. and http://b.c/d");
+        var runs =
+            RichText.PlainRuns("see https://example.com/a. and http://b.c/d");
         Assert.Equal(["https://example.com/a", "http://b.c/d"],
             runs.Where(r => r.Href is not null).Select(r => r.Href));
         Assert.Equal("see https://example.com/a. and http://b.c/d", Text(runs));

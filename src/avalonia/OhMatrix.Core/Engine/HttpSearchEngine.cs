@@ -8,14 +8,18 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Engine;
 
 /// <summary>Message search over <c>POST /search</c> of the client-server API. Rooms that are encrypted cannot be searched by the server.</summary>
-public sealed class HttpSearchEngine(Func<Session?> session, Func<string, string?> roomName,
+public sealed class HttpSearchEngine(
+    Func<Session?> session,
+    Func<string, string?> roomName,
     HttpClient? http = null) : ISearchEngine {
     private readonly HttpClient web = http ?? new HttpClient();
 
-    public async Task<SearchPage> Messages(string term, string? roomId, string? from)
+    public async Task<SearchPage> Messages(string term, string? roomId,
+        string? from)
     {
         var a = session() ??
-                throw new EngineException(EngineErrorCode.Unauthorized, "Not signed in.");
+                throw new EngineException(EngineErrorCode.Unauthorized,
+                    "Not signed in.");
         var filter = new JsonObject {
             ["limit"] = 20
         };
@@ -36,20 +40,27 @@ public sealed class HttpSearchEngine(Func<Session?> session, Func<string, string
             }
         };
         var url = a.Homeserver.TrimEnd('/') + "/_matrix/client/v3/search"
-                  + (from is null ? "" : "?next_batch=" + Uri.EscapeDataString(from));
+                                            + (from is null
+                                                ? ""
+                                                : "?next_batch=" +
+                                                  Uri.EscapeDataString(from));
         var request = new HttpRequestMessage(HttpMethod.Post, url) {
-            Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json")
+            Content = new StringContent(body.ToJsonString(), Encoding.UTF8,
+                "application/json")
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", a.AccessToken);
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", a.AccessToken);
         try {
             using var response = await web.SendAsync(request);
             var text = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
                 throw new EngineException(
                     response.StatusCode == HttpStatusCode.Unauthorized
-                        ? EngineErrorCode.Unauthorized : EngineErrorCode.Unknown,
+                        ? EngineErrorCode.Unauthorized
+                        : EngineErrorCode.Unknown,
                     "Could not search.");
-            var events = JsonNode.Parse(text)?["search_categories"]?["room_events"];
+            var events =
+                JsonNode.Parse(text)?["search_categories"]?["room_events"];
             var results = new List<SearchResult>();
             foreach (var hit in events?["results"]?.AsArray() ?? []) {
                 var e = hit?["result"];
@@ -59,13 +70,16 @@ public sealed class HttpSearchEngine(Func<Session?> session, Func<string, string
                 if (rid is null || id is null || msg is null)
                     continue;
                 var sender = (string?)e?["sender"] ?? "";
-                var profile = hit?["context"]?["profile_info"]?[sender]?["displayname"];
-                results.Add(new SearchResult(id, rid, roomName(rid) ?? rid, sender,
+                var profile =
+                    hit?["context"]?["profile_info"]?[sender]?["displayname"];
+                results.Add(new SearchResult(id, rid, roomName(rid) ?? rid,
+                    sender,
                     (string?)profile ?? ServiceText.PersonName(null, sender),
                     (long?)e?["origin_server_ts"] ?? 0, msg));
             }
 
-            return new SearchPage(results, results.Count == 0 ? null : (string?)events?["next_batch"]);
+            return new SearchPage(results,
+                results.Count == 0 ? null : (string?)events?["next_batch"]);
         } catch (HttpRequestException e) {
             throw new EngineException(EngineErrorCode.Network, e.Message);
         }
