@@ -64,6 +64,15 @@ public sealed record AppState {
     /// </summary>
     public bool RoomsSettled { get; init; }
 
+    /// <summary>The short message at the top of the screen, if there is one.</summary>
+    public Notice? Notice { get; init; }
+
+    /// <summary>My stickers, oldest added first (read when the picker opens).</summary>
+    public IReadOnlyList<Sticker> Stickers { get; init; } = [];
+
+    /// <summary>My sticker groups as stored: the default one may be missing (see <see cref="StickerPack.WithDefault"/>).</summary>
+    public IReadOnlyList<StickerGroup> StickerGroups { get; init; } = [];
+
     /// <summary>The open chat has been given its messages; until then grey bubbles stand over its place.</summary>
     public bool TimelineReady { get; init; }
 
@@ -111,3 +120,12 @@ public sealed record AppState {
 
 /// <summary>A zoom that is being tried; <c>Until</c> is a time of the clock of the controller.</summary>
 public sealed record ZoomTrial(double From, double To, DateTimeOffset Until);
+
+public enum NoticeKind {
+    Success,
+    Error,
+    Progress,
+}
+
+/// <summary>A short message in a pill at the top of the screen (<c>useNotice</c>): it goes away by itself after a few seconds, a message about something going on stays until the next one.</summary>
+public sealed record Notice(string Message, NoticeKind Kind, long Serial = 0);

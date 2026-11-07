@@ -22,7 +22,8 @@ public class App : Application {
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "OhMatrix"
             );
-            var (auth, rooms, chats, media, profiles, devices, links, security, verification, calls
+            var (auth, rooms, chats, media, profiles, devices, links, security, verification, calls,
+                    stickers
                     ) =
                 Engines.Create(data);
             AppController? opened = null;
@@ -47,7 +48,8 @@ public class App : Application {
                 verification,
                 calls,
                 new OhMatrix.Core.Calls.Gst.GstCallPlatform(),
-                new OhMatrix.Core.Calls.VlcCallSounds()
+                new OhMatrix.Core.Calls.VlcCallSounds(),
+                stickers
             );
             opened = controller;
             var root = new AppRoot(

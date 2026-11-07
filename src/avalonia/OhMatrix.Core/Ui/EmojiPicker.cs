@@ -39,6 +39,8 @@ public sealed class EmojiPicker {
         Height = PickerHeight,
     };
 
+    private readonly Grid emojiRoot = new();
+
     private readonly Border clip = new() {
         CornerRadius = new CornerRadius(14),
         ClipToBounds = true
@@ -69,9 +71,8 @@ public sealed class EmojiPicker {
 
     public EmojiPicker()
     {
-        var root = new Grid {
-            RowDefinitions = new RowDefinitions("Auto,*,Auto")
-        };
+        var root = emojiRoot;
+        root.RowDefinitions = new RowDefinitions("Auto,*,Auto");
         var top = new Border {
             Padding = new Thickness(10, 10, 10, 0),
             Child = search
@@ -131,10 +132,25 @@ public sealed class EmojiPicker {
         search.Watermark = searchLabel;
         Avalonia.Automation.AutomationProperties.SetName(search, searchLabel);
         group = recent.Count > 0 ? "recent" : EmojiData.Groups[0].Id;
-        Close();
-        layer = OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
-            return;
+        clip.Child = emojiRoot;
+        Style();
+        Build();
+        Place(anchor, window, PickerWidth, PickerHeight);
+        search.Focus();
+    }
+
+    /// <summary>Shows the stickers over the same surface: the picker is the sticker pane alone (no emoji groups, no search, no tabs).</summary>
+    public void ShowStickers(Control anchor, TopLevel window, ColorTokens tokens, StickerPane pane)
+    {
+        colors = tokens;
+        clip.Child = pane;
+        Style();
+        var width = StickerPane.WidthOf(StickerPane.Columns(window.ClientSize.Width - 2 * Margin));
+        Place(anchor, window, width, pane.Height);
+    }
+
+    private void Style()
+    {
         var dark = colors.Bg.R < 128;
         clip.Background = new SolidColorBrush(colors.Bg);
         surface.BorderThickness = dark ? new Thickness(1) : new Thickness(0);
@@ -163,12 +179,18 @@ public sealed class EmojiPicker {
         search.Resources["TextControlBorderBrushFocused"] = Brushes.Transparent;
         search.Resources["TextControlBorderBrushPointerOver"] = Brushes.Transparent;
         tabBar.BorderBrush = new SolidColorBrush(colors.Separator);
-        Build();
+    }
 
+    private void Place(Control anchor, TopLevel window, double wanted, double tall)
+    {
+        Close();
+        layer = OverlayLayer.GetOverlayLayer(window);
+        if (layer is null)
+            return;
         var origin = anchor.TranslatePoint(new Point(0, 0), window) ?? new Point();
-        var width = Math.Min(PickerWidth, window.ClientSize.Width - 2 * Margin);
+        var width = Math.Min(wanted, window.ClientSize.Width - 2 * Margin);
         surface.Width = width;
-        var height = Math.Min(PickerHeight, Math.Max(160, origin.Y - 2 * Margin));
+        var height = Math.Min(tall, Math.Max(160, origin.Y - 2 * Margin));
         surface.Height = height;
         // Above the anchor with a gap of 8, at its left edge, and inside the window.
         var left = Math.Max(Margin, Math.Min(origin.X, window.ClientSize.Width - width - Margin));
@@ -177,7 +199,6 @@ public sealed class EmojiPicker {
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
         layer.Children.Add(shade);
-        search.Focus();
     }
 
     public void Close()

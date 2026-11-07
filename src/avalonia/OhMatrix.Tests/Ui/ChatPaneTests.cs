@@ -186,6 +186,60 @@ public class ChatPaneTests {
     }
 
     private static readonly Security Keys = new();
+
+    private sealed class StickersFake : IStickersEngine {
+        public List<Sticker> Pack = [
+            new("cat", "mxc://s/cat", "image/png", 64, 64, 900),
+            new("dog", "mxc://s/dog", "image/png", 64, 64, 900),
+            new("owl", "mxc://s/owl", "image/png", 64, 64, 900),
+        ];
+
+        public IReadOnlyList<StickerGroup> Groups = [];
+        public readonly List<string> Calls = [];
+
+        public Task<(IReadOnlyList<Sticker> Stickers, IReadOnlyList<StickerGroup> Groups)> Load()
+        {
+            return Task.FromResult<(IReadOnlyList<Sticker>, IReadOnlyList<StickerGroup>)>((Pack,
+                Groups));
+        }
+
+        public Task<string> Add(StickerUpload file, string? groupId)
+        {
+            var code =
+                StickerPack.NewShortcode(file.Name, Pack.Select(p => p.Shortcode).ToHashSet());
+            Pack.Add(new Sticker(code, "mxc://s/" + code, file.MimeType, file.Width, file.Height));
+            Calls.Add("add " + code);
+            return Task.FromResult(code);
+        }
+
+        public Task Remove(IReadOnlyList<string> shortcodes)
+        {
+            Pack.RemoveAll(p => shortcodes.Contains(p.Shortcode));
+            Groups = StickerPack.Without(Groups, shortcodes);
+            Calls.Add("remove " + string.Join(",", shortcodes));
+            return Task.CompletedTask;
+        }
+
+        public Task SetGroups(IReadOnlyList<StickerGroup> groups)
+        {
+            Groups = groups;
+            Calls.Add("groups " + groups.Count);
+            return Task.CompletedTask;
+        }
+
+        public Task<StickerIcon> UploadGroupIcon(StickerUpload file)
+        {
+            return Task.FromResult(StickerIcon.OfImage("mxc://s/icon", file.MimeType));
+        }
+
+        public Task Send(string roomId, string shortcode)
+        {
+            Calls.Add($"send {roomId} {shortcode}");
+            return Task.CompletedTask;
+        }
+    }
+
+    private static readonly StickersFake Stickers = new();
     private static readonly Verifier Verify = new();
 
     private sealed class CallsFake : ICallsEngine {
@@ -628,12 +682,12 @@ public class ChatPaneTests {
 
     private static async Task<(Window Window, AppController Controller, Engine Engine, MainScreen
             Screen)>
-        Open(string theme, double width)
+        Open(string theme, double width, bool withStickers = false)
     {
         var engine = new Engine();
         var controller = new AppController(engine, new NoSessions(), null, null, engine, engine,
             new Media(), new Profiles(), Sessions, null, Keys, CallNotes, Verify, CallLine,
-            CallMedia, CallSound);
+            CallMedia, CallSound, withStickers ? Stickers : null);
         controller.SetPreferences(p => p with {
             Locale = "en",
             Theme = theme
@@ -1383,6 +1437,140 @@ public class ChatPaneTests {
         Assert.Equal("recent", pane.Emoji.TabIds[0]);
         Assert.Equal(["🎉", "😀"], pane.Emoji.Shown);
         Save(window, "emoji-recent");
+    }
+
+    private static string Png(string name, int w, int h)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ohmatrix-sticker-tests");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, name);
+        using var target =
+            new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(w, h));
+        using var stream = File.Create(path);
+        target.Save(stream);
+        return path;
+    }
+
+    private static void Reset()
+    {
+        Stickers.Pack = [
+            new("cat", "mxc://s/cat", "image/png", 64, 64, 900),
+            new("dog", "mxc://s/dog", "image/png", 64, 64, 900),
+            new("owl", "mxc://s/owl", "image/png", 64, 64, 900),
+        ];
+        Stickers.Groups = [];
+        Stickers.Calls.Clear();
+    }
+
+    private static async Task Settle()
+    {
+        await Task.Delay(80);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task The_sticker_pane_shows_the_pack_and_a_press_sends_one()
+    {
+        Reset();
+        var (window, controller, _, screen) = await Open("light", 1000, true);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        pane.EmojiButton.RaiseClick();
+        await Settle();
+        Assert.True(pane.Emoji.IsOpen);
+        var stickers = pane.Stickers!;
+        // The add tile and the three stickers; the default group is the only tab, with the new-group tab after it.
+        Assert.Equal(4, stickers.Tiles.Count);
+        Assert.Equal(2, stickers.Tabs!.Children.Count);
+        Save(window, "stickers");
+        // A press on a sticker sends it and shuts the picker.
+        ((Avalonia.Controls.Border)stickers.Tiles[2]).RaiseEvent(
+            new Avalonia.Input.PointerPressedEventArgs(
+                stickers.Tiles[2],
+                new Avalonia.Input.Pointer(0, Avalonia.Input.PointerType.Mouse, true),
+                (Avalonia.Visual)stickers.Tiles[2], default, 0,
+                new Avalonia.Input.PointerPointProperties(
+                    Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                    Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+                Avalonia.Input.KeyModifiers.None) {
+                RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent
+            });
+        await Settle();
+        Assert.Equal(["send !g dog"], Stickers.Calls);
+        Assert.False(pane.Emoji.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task Stickers_are_added_chosen_and_removed()
+    {
+        Reset();
+        var (window, controller, _, screen) = await Open("dark", 1000, true);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        pane.EmojiButton.RaiseClick();
+        await Settle();
+        var stickers = pane.Stickers!;
+        await stickers.Add([Png("fox.png", 40, 30), Png("fox2.txt", 10, 10)]);
+        await Settle();
+        // The picture was added; the other is not a picture the pack takes.
+        Assert.Equal(["add fox", "groups 1"], Stickers.Calls);
+        Assert.Equal(4, controller.Store.Value.Stickers.Count);
+        Assert.Contains("fox", controller.Store.Value.StickerGroups.SelectMany(g => g.Stickers));
+        Assert.Equal(NoticeKind.Error, controller.Store.Value.Notice!.Kind);
+        Save(window, "stickers-added");
+        // Choosing and deleting.
+        stickers.SetMode(StickerPane.PaneMode.Choose);
+        stickers.Choose("cat");
+        stickers.Choose("owl");
+        stickers.Choose("owl");
+        Assert.Equal(["cat"], stickers.Chosen);
+        Save(window, "stickers-choose");
+        await stickers.RemoveChosen();
+        await Settle();
+        Assert.Equal(["dog", "fox", "owl"],
+            controller.Store.Value.Stickers.Select(s => s.Shortcode).Order());
+        Assert.Equal(StickerPane.PaneMode.Browse, stickers.Mode);
+    }
+
+    [AvaloniaFact]
+    public async Task Groups_are_made_named_reordered_and_deleted()
+    {
+        Reset();
+        var (window, controller, _, screen) = await Open("light", 1000, true);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        pane.EmojiButton.RaiseClick();
+        await Settle();
+        var stickers = pane.Stickers!;
+        Assert.Equal(["Select to delete", "Reorder", "Set group name"], stickers.SettingsLabels);
+        await controller.SetStickerGroups([new("g1", "Pets", null, ["owl"])]);
+        await Settle();
+        stickers.Show("g1");
+        await Settle();
+        Assert.Equal("g1", stickers.CurrentId);
+        Assert.Equal("g1", controller.Store.Value.Prefs.StickerGroup);
+        Assert.Equal(["Select to delete", "Set group name", "Set group cover", "Delete group"],
+            stickers.SettingsLabels);
+        Assert.Equal(2, stickers.Tiles.Count);
+        Save(window, "stickers-group");
+        await stickers.Move(0, 0);
+        // Reordering in the default group.
+        stickers.Show("default");
+        await stickers.Move(0, 1);
+        await Settle();
+        var order = StickerPack.WithDefault(controller.Store.Value.StickerGroups,
+            controller.Store.Value.Stickers)[0].Stickers;
+        Assert.Equal(["dog", "cat"], order);
+        // Deleting the group takes its stickers with it.
+        stickers.Show("g1");
+        await stickers.DeleteGroup();
+        await Settle();
+        Assert.DoesNotContain(controller.Store.Value.Stickers, s => s.Shortcode == "owl");
+        Assert.DoesNotContain(controller.Store.Value.StickerGroups, g => g.Id == "g1");
+        Assert.Equal("default", stickers.CurrentId);
     }
 
     [Xunit.Theory]

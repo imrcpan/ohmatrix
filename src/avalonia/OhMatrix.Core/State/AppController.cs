@@ -21,7 +21,8 @@ public sealed class AppController(
     IVerificationEngine? verification = null,
     ICallsEngine? callsEngine = null,
     ICallPlatform? callPlatform = null,
-    Calls.ICallSounds? callSounds = null
+    Calls.ICallSounds? callSounds = null,
+    IStickersEngine? stickersEngine = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -601,6 +602,105 @@ public sealed class AppController(
         }
 
         await chat.SendAttachment(path, mime, width, height);
+    }
+
+    private ITimer? noticeTimer;
+    private long noticeSerial;
+
+    /// <summary>Shows a message at the top of the screen, over whatever is showing.</summary>
+    public void ShowNotice(string message, NoticeKind kind = NoticeKind.Success,
+        TimeSpan? stay = null)
+    {
+        noticeTimer?.Dispose();
+        noticeTimer = null;
+        var serial = ++noticeSerial;
+        Store.Update(s => s with {
+            Notice = new Notice(message, kind, serial)
+        });
+        var wait = stay ?? kind switch {
+            NoticeKind.Progress => (TimeSpan?)null,
+            NoticeKind.Error => TimeSpan.FromSeconds(4),
+            _ => TimeSpan.FromSeconds(2.5),
+        };
+        if (wait is { } w)
+            noticeTimer = time.CreateTimer(_ => Post(() => {
+                if (Store.Value.Notice?.Serial == serial)
+                    Store.Update(s => s with {
+                        Notice = null
+                    });
+            }), null, w, Timeout.InfiniteTimeSpan);
+    }
+
+    /// <summary>Whether this account can keep a sticker pack (the picker has a stickers tab).</summary>
+    public bool CanStickers => stickersEngine is not null;
+
+    /// <summary>Reads my stickers and their groups from the account into the state.</summary>
+    public async Task LoadStickers()
+    {
+        if (stickersEngine is null)
+            return;
+        var (stickers, groups) = await stickersEngine.Load();
+        Store.Update(s => s with {
+            Stickers = stickers,
+            StickerGroups = groups
+        });
+    }
+
+    /// <summary>Puts a picture file in my pack (in a group, when given), and gives the name it got.</summary>
+    public async Task<string> AddSticker(string path, string? groupId = null)
+    {
+        var upload = ReadUpload(path);
+        var code = await stickersEngine!.Add(upload, groupId);
+        await LoadStickers();
+        return code;
+    }
+
+    private static StickerUpload ReadUpload(string path)
+    {
+        var name = Path.GetFileName(path);
+        var mime = StickerPack.Check(name, MimeTypes.For(path), new FileInfo(path).Length);
+        var data = File.ReadAllBytes(path);
+        int? width = null;
+        int? height = null;
+        try {
+            using var bitmap = new Avalonia.Media.Imaging.Bitmap(new MemoryStream(data));
+            width = bitmap.PixelSize.Width;
+            height = bitmap.PixelSize.Height;
+        } catch (Exception) {
+            // A picture whose size cannot be read is kept without one.
+        }
+
+        return new StickerUpload(name, mime, data, width, height);
+    }
+
+    /// <summary>Takes stickers out of my pack.</summary>
+    public async Task RemoveStickers(IReadOnlyList<string> shortcodes)
+    {
+        await stickersEngine!.Remove(shortcodes);
+        await LoadStickers();
+    }
+
+    /// <summary>Replaces my sticker groups.</summary>
+    public async Task SetStickerGroups(IReadOnlyList<StickerGroup> groups)
+    {
+        await stickersEngine!.SetGroups(groups);
+        Store.Update(s => s with {
+            StickerGroups = groups
+        });
+    }
+
+    /// <summary>Uploads a picture file to be the cover of a group.</summary>
+    public Task<StickerIcon> UploadGroupIcon(string path)
+    {
+        return stickersEngine!.UploadGroupIcon(ReadUpload(path));
+    }
+
+    /// <summary>Sends one of my stickers to the open chat.</summary>
+    public Task SendSticker(string shortcode)
+    {
+        return Store.Value.SelectedRoomId is { } room && stickersEngine is not null
+            ? stickersEngine.Send(room, shortcode)
+            : Task.CompletedTask;
     }
 
     /// <summary>Starts changing one of my messages: the composer takes its text, and the next send replaces it. Null cancels.</summary>

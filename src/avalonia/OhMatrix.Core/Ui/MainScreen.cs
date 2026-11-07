@@ -67,6 +67,7 @@ public sealed class MainScreen : Grid {
 
     private readonly VerifyDialog verifyDialog;
     private readonly CallScreen callScreen;
+    private readonly TopNotice notice;
 
     public MainScreen(AppController controller)
     {
@@ -112,6 +113,9 @@ public sealed class MainScreen : Grid {
         Children.Add(infoNarrow);
         Grid.SetColumnSpan(callScreen, 4);
         Children.Add(callScreen);
+        notice = new TopNotice(controller);
+        Grid.SetColumnSpan(notice, 4);
+        Children.Add(notice);
         controller.Store.Changed += _ => Apply();
         ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) => s.Apply());
         SizeChanged += (_, _) => Apply();
@@ -134,6 +138,7 @@ public sealed class MainScreen : Grid {
     public SpacePage SpaceScreen => spacePage;
     public VerifyDialog Verify => verifyDialog;
     public CallScreen Call => callScreen;
+    public TopNotice Notice => notice;
 
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
