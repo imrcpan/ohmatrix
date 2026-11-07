@@ -42,6 +42,8 @@ public sealed class RoomListPane : Grid {
     private readonly Border avatarHolder = new();
     private readonly SearchField search = new();
     private readonly StackPanel rows = new();
+    private readonly StackPanel messageHits = new();
+    private MessageResultsView? hits;
 
     private readonly TextBlock empty = new() {
         FontSize = 15,
@@ -108,6 +110,7 @@ public sealed class RoomListPane : Grid {
             Height = Rail ? 0 : 4
         });
         list.Children.Add(rows);
+        list.Children.Add(messageHits);
         list.Children.Add(empty);
         list.Children.Add(new Border {
             Height = 4
@@ -256,7 +259,24 @@ public sealed class RoomListPane : Grid {
                 rows.Children.Add(new RoomRowSkeleton(i, Rail));
         }
 
-        empty.IsVisible = shownRooms.Count == 0 && s.SyncState == SyncState.Syncing && !Rail
+        // The messages with the typed words come under the chats, as in the React Native list.
+        var searchMessages = query.Length >= 2 && controller.CanSearchMessages;
+        messageHits.Children.Clear();
+        if (searchMessages) {
+            hits ??= new MessageResultsView(controller, null, true);
+            hits.SetTerm(query);
+            messageHits.Children.Add(new TextBlock {
+                Text = T("search.messages"),
+                FontSize = 13,
+                FontWeight = FontWeight.SemiBold,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                Margin = new Thickness(20, 12, 20, 4),
+            });
+            messageHits.Children.Add(hits);
+        } else
+            hits?.SetTerm("");
+        empty.IsVisible = shownRooms.Count == 0 && !searchMessages && s.SyncState == SyncState.Syncing && !Rail
                           && !loading;
         empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
         empty.Foreground = new SolidColorBrush(c.TextSecondary);

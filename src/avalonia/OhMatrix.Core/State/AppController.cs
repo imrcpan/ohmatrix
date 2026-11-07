@@ -22,7 +22,8 @@ public sealed class AppController(
     ICallsEngine? callsEngine = null,
     ICallPlatform? callPlatform = null,
     Calls.ICallSounds? callSounds = null,
-    IStickersEngine? stickersEngine = null
+    IStickersEngine? stickersEngine = null,
+    ISearchEngine? searchEngine = null
 ) {
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
@@ -686,6 +687,32 @@ public sealed class AppController(
         var content = Forward.Content(item) ?? throw new EngineException(
             EngineErrorCode.Unsupported, "This cannot be forwarded.");
         return chats is null ? Task.CompletedTask : chats.SendMessageContent(roomId, content);
+    }
+
+    /// <summary>Whether messages can be searched through the server.</summary>
+    public bool CanSearchMessages => searchEngine is not null;
+
+    /// <summary>A page of the messages with a term, in one room or all of them.</summary>
+    public async Task<SearchPage> SearchMessages(string term, string? roomId, string? from)
+    {
+        if (searchEngine is null)
+            return new SearchPage([], null);
+        var page = await searchEngine.Messages(term, roomId, from);
+        var names = Store.Value.Rooms.ToDictionary(r => r.Id, r => r.Name);
+        return page with {
+            Results = [.. page.Results.Select(r => names.TryGetValue(r.RoomId, out var n)
+                ? r with { RoomName = n } : r)]
+        };
+    }
+
+    /// <summary>Opens a chat at a message: the chat shows it as soon as it is loaded.</summary>
+    public void OpenMessage(string roomId, string eventId)
+    {
+        if (Store.Value.SelectedRoomId != roomId)
+            SelectRoom(roomId);
+        Store.Update(s => s with {
+            JumpToEventId = eventId
+        });
     }
 
     /// <summary>A page of the shared media of a room (see <see cref="IChatEngine.SharedMedia"/>).</summary>
