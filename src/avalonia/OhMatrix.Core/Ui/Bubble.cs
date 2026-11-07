@@ -30,6 +30,7 @@ public sealed class Bubble : Border {
     private readonly StackPanel stack;
     private readonly StackPanel metaRow;
     private readonly TextBlock metaLabel;
+    private readonly IReadOnlyList<TextRun> cachedRuns;
 
     private readonly Border timeSpace = new() {
         Height = 1
@@ -83,7 +84,7 @@ public sealed class Bubble : Border {
             Background = Brushes.Transparent,
             TextWrapping = TextWrapping.Wrap,
         };
-        var runs = formatted is null
+        cachedRuns = formatted is null
             ? RichText.PlainRuns(text)
             : RichText.ParseFormatted(formatted);
         var linkColor = linkForeground;
@@ -97,7 +98,7 @@ public sealed class Bubble : Border {
             body.Inlines!.Clear();
             spans.Clear();
             var at = 0;
-            foreach (var run in runs) {
+            foreach (var run in cachedRuns) {
                 if (run.Br) {
                     body.Inlines.Add(new LineBreak());
                     at += 1;
@@ -148,7 +149,7 @@ public sealed class Bubble : Border {
         }
 
         Fill();
-        var hasSpoiler = runs.Any(r => r.Spoiler);
+        var hasSpoiler = cachedRuns.Any(r => r.Spoiler);
         body.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent,
             (_, e) => {
                 if (e.InitialPressMouseButton !=
@@ -328,7 +329,8 @@ public sealed class Bubble : Border {
         if (hasText)
             stack.Children.Add(body);
         if (preview is not null && hasText
-                                && runs.FirstOrDefault(r => r.Href is { } h &&
+                                && cachedRuns.FirstOrDefault(r =>
+                                        r.Href is { } h &&
                                         r.UserId is null
                                         && (h.StartsWith("http://") ||
                                             h.StartsWith("https://")))
