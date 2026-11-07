@@ -59,6 +59,14 @@ public sealed class RoomListPane : Grid {
     private readonly PromptDialog prompt = new();
     private bool connectedOnce;
 
+    // While the profile has not come, grey shapes stand where the picture and the name will be.
+    private readonly Pulse nameSkeleton = new() {
+        VerticalAlignment = VerticalAlignment.Center,
+        Children = {
+            new SkeletonBlock(110, 20)
+        },
+    };
+
     public RoomListPane(AppController controller, bool rail = false, TimeProvider? time = null)
     {
         this.controller = controller;
@@ -80,6 +88,7 @@ public sealed class RoomListPane : Grid {
         };
         line.Children.Add(avatarHolder);
         line.Children.Add(name);
+        line.Children.Add(nameSkeleton);
         profile.Child = line;
         profile.PointerPressed += (_, e) => {
             e.Handled = true;
@@ -205,11 +214,23 @@ public sealed class RoomListPane : Grid {
         var shown = s.Profile?.DisplayName is { Length: > 0 } dn
             ? dn
             : me.TrimStart('@').Split(':')[0];
-        var mine = new Avatar(me, shown.Length == 0 ? "?" : shown, Rail ? 44 : 34);
-        controller.Pictures.Attach(mine, s.Profile?.AvatarUrl, Rail ? 44 : 34);
-        avatarHolder.Child = mine;
+        var size = Rail ? 44 : 34;
+        if (s.Profile is null) {
+            avatarHolder.Child = new Pulse {
+                Children = {
+                    new SkeletonBlock(size, size, true)
+                }
+            };
+        } else {
+            var mine = new Avatar(me, shown.Length == 0 ? "?" : shown, size);
+            controller.Pictures.Attach(mine, s.Profile.AvatarUrl, size);
+            avatarHolder.Child = mine;
+        }
+
+        var waiting = s.SyncState == SyncState.Syncing && s.Profile is null;
         name.Text = s.SyncState == SyncState.Syncing || !connectedOnce ? shown : T("connecting");
-        name.IsVisible = !Rail;
+        name.IsVisible = !Rail && !waiting;
+        nameSkeleton.IsVisible = !Rail && waiting;
         Avalonia.Automation.AutomationProperties.SetName(profile, T("profile"));
         bar.Padding = Rail ? new Thickness(6, 10, 6, 0) : new Thickness(12, 10, 12, 8);
         Avalonia.Automation.AutomationProperties.SetName(plus, T("newChat.menu"));
@@ -228,7 +249,15 @@ public sealed class RoomListPane : Grid {
         ticker.IsEnabled = s.Joining.Count > 0;
         foreach (var room in shownRooms)
             rows.Children.Add(MakeRow(room, s, now));
-        empty.IsVisible = shownRooms.Count == 0 && s.SyncState == SyncState.Syncing && !Rail;
+        // Until the first load is over, grey rows stand where the chats will be.
+        var loading = !s.RoomsSettled && s.Rooms.Count == 0 && query.Length == 0;
+        if (loading) {
+            for (var i = 0; i < 12; i++)
+                rows.Children.Add(new RoomRowSkeleton(i, Rail));
+        }
+
+        empty.IsVisible = shownRooms.Count == 0 && s.SyncState == SyncState.Syncing && !Rail
+                          && !loading;
         empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
     }

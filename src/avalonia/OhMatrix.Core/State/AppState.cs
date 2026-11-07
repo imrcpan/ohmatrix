@@ -58,6 +58,15 @@ public sealed record AppState {
 
     public SyncState SyncState { get; init; } = SyncState.Stopped;
 
+    /// <summary>
+    /// The first load of the list is over: it has been still for a moment once syncing, or a while has passed. Until then grey rows stand
+    /// where the chats will be.
+    /// </summary>
+    public bool RoomsSettled { get; init; }
+
+    /// <summary>The open chat has been given its messages; until then grey bubbles stand over its place.</summary>
+    public bool TimelineReady { get; init; }
+
     /// <summary>Where the account stands with its encryption keys.</summary>
     public SecurityState Security { get; init; } = SecurityState.Unavailable;
 
