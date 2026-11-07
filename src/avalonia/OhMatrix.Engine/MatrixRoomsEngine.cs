@@ -4,6 +4,7 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using uniffi.matrix_sdk;
 using uniffi.matrix_sdk_ffi;
+using MatrixSdk = uniffi.matrix_sdk_ffi;
 
 namespace OhMatrix.Engine;
 
@@ -86,9 +87,71 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                 }
             }
 
+            var canonical = room.CanonicalAlias();
+            var alt = room.AlternativeAliases();
+            var aliases = new List<string>();
+            if (canonical is not null)
+                aliases.Add(canonical);
+            aliases.AddRange(alt.Where(a => a != canonical));
+
+            var rawJoinRule = info.JoinRule;
+            var joinRule = rawJoinRule switch {
+                MatrixSdk.JoinRule.Public => OhMatrix.Core.Model.JoinRule.Public,
+                MatrixSdk.JoinRule.Invite => OhMatrix.Core.Model.JoinRule.Invite,
+                MatrixSdk.JoinRule.Knock => OhMatrix.Core.Model.JoinRule.Knock,
+                MatrixSdk.JoinRule.Restricted => OhMatrix.Core.Model.JoinRule.Restricted,
+                _ => OhMatrix.Core.Model.JoinRule.Other,
+            };
+
+            var rawHistory = info.HistoryVisibility;
+            var history = rawHistory switch {
+                MatrixSdk.RoomHistoryVisibility.Invited =>
+                    OhMatrix.Core.Model.HistoryVisibility.Invited,
+                MatrixSdk.RoomHistoryVisibility.Joined =>
+                    OhMatrix.Core.Model.HistoryVisibility.Joined,
+                MatrixSdk.RoomHistoryVisibility.Shared =>
+                    OhMatrix.Core.Model.HistoryVisibility.Shared,
+                MatrixSdk.RoomHistoryVisibility.WorldReadable =>
+                    OhMatrix.Core.Model.HistoryVisibility.WorldReadable,
+                _ => OhMatrix.Core.Model.HistoryVisibility.Shared,
+            };
+
+            var levels = await room.GetPowerLevels();
+            var vals = levels.Values();
+            var thresholds = new PowerThresholds(
+                (int)vals.Invite,
+                (int)vals.Kick,
+                (int)vals.Ban,
+                (int)vals.Redact,
+                (int)vals.EventsDefault,
+                (int)vals.StateDefault,
+                (int)vals.StateDefault
+            );
+
+            var isDirect = info.IsDirect;
+            var me = Signed().UserId();
+            var can = new RoomPermissions(
+                EditInfo: !isDirect &&
+                    levels.CanUserSendState(me, new StateEventType.RoomName()),
+                Invite: !isDirect && levels.CanUserInvite(me),
+                Kick: !isDirect && levels.CanUserKick(me),
+                Ban: !isDirect && levels.CanUserBan(me),
+                ChangeRoles: !isDirect &&
+                    levels.CanUserSendState(me, new StateEventType.RoomPowerLevels()),
+                Pin: !isDirect && levels.CanUserPinUnpin(me),
+                ChangeSettings: !isDirect &&
+                    levels.CanUserSendState(me, new StateEventType.RoomJoinRules())
+            );
+
             return new RoomDetails(
                 string.IsNullOrWhiteSpace(info.Topic) ? null : info.Topic,
-                [.. people.OrderByDescending(p => p.Role).ThenBy(p => p.Name)]
+                [.. people.OrderByDescending(p => p.Role).ThenBy(p => p.Name)],
+                aliases,
+                joinRule,
+                history,
+                thresholds,
+                can,
+                isDirect
             );
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
@@ -295,6 +358,77 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     public Task BanMember(string roomId, string userId, string? reason)
     {
         return Act(roomId, room => room.BanUser(userId, reason));
+    }
+
+    public Task SetJoinRule(string roomId, OhMatrix.Core.Model.JoinRule rule)
+    {
+        uniffi.matrix_sdk_ffi.JoinRule sdk = rule switch {
+            OhMatrix.Core.Model.JoinRule.Public => new MatrixSdk.JoinRule.Public(),
+            OhMatrix.Core.Model.JoinRule.Invite => new MatrixSdk.JoinRule.Invite(),
+            OhMatrix.Core.Model.JoinRule.Knock => new MatrixSdk.JoinRule.Knock(),
+            OhMatrix.Core.Model.JoinRule.Restricted => new MatrixSdk.JoinRule.Restricted([]),
+            _ => new MatrixSdk.JoinRule.Invite(),
+        };
+        return Act(roomId, room => room.UpdateJoinRules(sdk));
+    }
+
+    public Task SetHistoryVisibility(string roomId,
+        OhMatrix.Core.Model.HistoryVisibility visibility)
+    {
+        uniffi.matrix_sdk_ffi.RoomHistoryVisibility sdk = visibility switch {
+            OhMatrix.Core.Model.HistoryVisibility.Invited =>
+                new MatrixSdk.RoomHistoryVisibility.Invited(),
+            OhMatrix.Core.Model.HistoryVisibility.Joined =>
+                new MatrixSdk.RoomHistoryVisibility.Joined(),
+            OhMatrix.Core.Model.HistoryVisibility.Shared =>
+                new MatrixSdk.RoomHistoryVisibility.Shared(),
+            OhMatrix.Core.Model.HistoryVisibility.WorldReadable =>
+                new MatrixSdk.RoomHistoryVisibility.WorldReadable(),
+            _ => new MatrixSdk.RoomHistoryVisibility.Shared(),
+        };
+        return Act(roomId, room => room.UpdateHistoryVisibility(sdk));
+    }
+
+    public async Task<bool> IsAliasAvailable(string alias)
+    {
+        try {
+            return await Signed().RoomAliasExists(alias);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    public Task AddRoomAlias(string roomId, string alias)
+    {
+        return Act(roomId, room => room.PublishRoomAliasInRoomDirectory(alias));
+    }
+
+    public Task RemoveRoomAlias(string roomId, string alias)
+    {
+        return Act(roomId, room => room.RemoveRoomAliasFromRoomDirectory(alias));
+    }
+
+    public Task SetMainAlias(string roomId, string? alias)
+    {
+        return Act(roomId, async room => {
+            var alt = room.AlternativeAliases().Where(a => a != alias).ToArray();
+            await room.UpdateCanonicalAlias(alias, alt);
+        });
+    }
+
+    public Task SetPowerThresholds(string roomId, PowerThresholds thresholds)
+    {
+        return Act(roomId, async room => {
+            var changes = new uniffi.matrix_sdk.RoomPowerLevelChanges(
+                Ban: (long)thresholds.Ban,
+                Invite: (long)thresholds.Invite,
+                Kick: (long)thresholds.Kick,
+                Redact: (long)thresholds.Redact,
+                EventsDefault: (long)thresholds.SendMessages,
+                StateDefault: (long)thresholds.ChangeSettings
+            );
+            await room.ApplyPowerLevelChanges(changes);
+        });
     }
 
     public Task AcceptInvite(string roomId)

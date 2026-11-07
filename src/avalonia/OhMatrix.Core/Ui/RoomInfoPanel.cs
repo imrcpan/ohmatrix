@@ -1,6 +1,7 @@
 using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.I18n;
@@ -493,6 +494,11 @@ public sealed class RoomInfoPanel : Grid {
             content.Children.Add(InviteButton);
         }
 
+        if (!room.IsDirect && details.Can.ChangeSettings) {
+            content.Children.Add(Section(c, T("access.title")));
+            AddAccessSettings(c, room, details);
+        }
+
         AddShared(c, s.Timeline);
         content.Children.Add(Section(c, T("membersTitle")));
         foreach (var member in details.Members)
@@ -509,6 +515,96 @@ public sealed class RoomInfoPanel : Grid {
         content.Children.Add(new Border {
             Height = 16
         });
+    }
+
+    private void AddAccessSettings(ColorTokens c, RoomSummary room, RoomDetails details)
+    {
+        var joinLabel = details.JoinRule switch {
+            JoinRule.Public => "join.public",
+            JoinRule.Invite => "join.invite",
+            JoinRule.Knock => "join.knock",
+            JoinRule.Restricted => "join.restricted",
+            _ => "join.other",
+        };
+        content.Children.Add(SettingRow(c, T("join.title"), T(joinLabel), "lock", () => {
+            if (!details.Can.ChangeSettings)
+                return;
+            ShowJoinRuleMenu(room.Id);
+        }));
+
+        var historyLabel = details.HistoryVisibility switch {
+            HistoryVisibility.Shared => "history.shared",
+            HistoryVisibility.Invited => "history.invited",
+            HistoryVisibility.Joined => "history.joined",
+            HistoryVisibility.WorldReadable => "history.world_readable",
+            _ => "history.shared",
+        };
+        content.Children.Add(SettingRow(c, T("history.title"), T(historyLabel), "clock", () => {
+            if (!details.Can.ChangeSettings)
+                return;
+            ShowHistoryMenu(room.Id);
+        }));
+    }
+
+    private void ShowJoinRuleMenu(string roomId)
+    {
+        // TODO: implement menu
+    }
+
+    private void ShowHistoryMenu(string roomId)
+    {
+        // TODO: implement menu
+    }
+
+    private Border SettingRow(ColorTokens c, string label, string value, string icon,
+        Action onPress)
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
+        };
+        grid.Children.Add(new Icon {
+            Glyph = icon,
+            Size = 22,
+            Color = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var text = new TextBlock {
+            Text = label,
+            FontSize = 16,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Text),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        var valueText = new TextBlock {
+            Text = value,
+            FontSize = 15,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(12, 0, 6, 0),
+            MaxWidth = 170,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(valueText, 2);
+        grid.Children.Add(valueText);
+
+        var row = new Border {
+            Margin = new Thickness(12, 4, 12, 0),
+            Padding = new Thickness(14, 0),
+            Height = 48,
+            CornerRadius = new CornerRadius(Radius.Control),
+            Background = new SolidColorBrush(c.BgSecondary),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = grid,
+        };
+        row.PointerPressed += (_, e) => {
+            e.Handled = true;
+            onPress();
+        };
+        return row;
     }
 
     /// <summary>The pictures and files of the messages loaded.</summary>
