@@ -1679,6 +1679,43 @@ public class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_chat_that_is_gone_says_so_and_goes_back_to_the_list()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        var pane = FindPane(screen);
+        Assert.False(pane.NotFound.IsVisible);
+        controller.SelectRoom("!gone");
+        Dispatcher.UIThread.RunJobs();
+        // Not before the list is known: until then a room may still turn up.
+        Assert.False(pane.NotFound.IsVisible);
+        await Task.Delay(1200);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(controller.Store.Value.RoomsSettled);
+        Assert.True(pane.NotFound.IsVisible);
+        controller.SelectRoom(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(pane.NotFound.IsVisible);
+        Assert.False(pane.DropHint.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task People_chosen_to_invite_show_as_chips_that_remove_them()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        var picker = new PeoplePicker(controller);
+        picker.Show(window, ThemeScope.GetColors(window), "Invite", "", true,
+            n => n.ToString(), _ => Task.CompletedTask);
+        Assert.False(picker.Chips.IsVisible);
+        picker.Toggle(new PersonInfo("@ann:s", "Ann Lee", null));
+        picker.Toggle(new PersonInfo("@bob:s", "Bob", null));
+        Assert.Equal(2, picker.Chips.Children.Count);
+        Assert.True(picker.Chips.IsVisible);
+        picker.Toggle(new PersonInfo("@ann:s", "Ann Lee", null));
+        Assert.Equal(["@bob:s"], picker.Chosen);
+        Assert.Single(picker.Chips.Children);
+    }
+
+    [AvaloniaFact]
     public async Task The_gallery_page_shows_the_media_of_a_kind_and_goes_back()
     {
         var (window, controller, _, screen) = await Open("light", 1000);

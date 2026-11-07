@@ -40,6 +40,9 @@ public sealed record TimelineItem {
     /// <summary>Mine, and someone else has read up to it.</summary>
     public bool Read { get; init; }
 
+    /// <summary>The people other than the sender whose read marker is at or past this line (the ids), for the label of the tick.</summary>
+    public IReadOnlyList<string> ReadBy { get; init; } = [];
+
     public bool Edited { get; init; }
 
     /// <summary>The id the server gave the event; null while it is being sent.</summary>

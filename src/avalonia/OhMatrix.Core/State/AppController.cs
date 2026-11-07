@@ -147,8 +147,17 @@ public sealed class AppController(
     /// Joins a room of the public directory behind a row of the chat list that says so; the failure is in <see cref="AppState.JoinError"/>. The
     /// caller does not wait: the page can go away at once.
     /// </summary>
+    /// <summary>Rooms with more people than this can take a while to join.</summary>
+    public const long BigRoom = 1000;
+
     public async Task JoinPublicRoom(PublicRoom room)
     {
+        var joiningName = Strings.T(Store.Value.Locale, "explore.joining",
+            ("name", room.Name));
+        ShowNotice(room.Members > BigRoom
+            ? joiningName + " " + Strings.T(Store.Value.Locale,
+                "explore.joining.big")
+            : joiningName, NoticeKind.Progress);
         if (Store.Value.Joining.Any(j => j.Id == room.RoomId))
             return;
         var joining = new JoiningRoom(room.RoomId, room.Name, room.AvatarUrl,
@@ -159,9 +168,12 @@ public sealed class AppController(
         });
         try {
             await JoinRoom(room.Alias ?? room.RoomId);
+            ShowNotice(Strings.T(Store.Value.Locale, "explore.joined",
+                ("name", room.Name)));
         } catch (EngineException e) {
             Store.Update(s => s with {
-                JoinError = e.Message
+                JoinError = e.Message,
+                Notice = null
             });
         } finally {
             Store.Update(s => s with {

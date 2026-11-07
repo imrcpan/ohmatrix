@@ -488,8 +488,11 @@ public sealed class RoomInfoPanel : Grid {
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
         LeaveDialog.Show(window, c,
-            T(room.IsDirect ? "deleteChat.title" : "leaveGroup.title"),
-            T(room.IsDirect ? "deleteChat.body" : "leaveGroup.body"), yes, no);
+            T(room.IsDirect ? "deleteChat.title"
+                : room.IsSpace ? "leaveSpace.title" : "leaveGroup.title"),
+            T(room.IsDirect ? "deleteChat.body"
+                : room.IsSpace ? "leaveSpace.body" : "leaveGroup.body"),
+            yes, no);
     }
 
     private string T(string key, params (string, object)[] values)

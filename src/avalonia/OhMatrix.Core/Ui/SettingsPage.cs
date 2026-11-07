@@ -120,6 +120,19 @@ public sealed class SettingsPage : Grid {
         confirm.Show(window, c, T("signOut.title"), T("signOut.body"), yes, no);
     }
 
+    /// <summary>The small explanation under a setting.</summary>
+    private void Footer(ColorTokens c, string text)
+    {
+        content.Children.Add(new TextBlock {
+            Text = text,
+            FontSize = 13,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(26, 6, 20, 0),
+        });
+    }
+
     private void Group(ColorTokens c, string title)
     {
         content.Children.Add(new TextBlock {
@@ -182,6 +195,7 @@ public sealed class SettingsPage : Grid {
             ZoomPicker.Percent(s.Prefs.UiScale));
         zoomAnchor = zoomRow;
         content.Children.Add(zoomRow);
+        Footer(c, T("zoom.footer"));
         content.Children.Add(ProfilePage.NavRow(c, "font", T("font"),
             () => controller.OpenSidebarPage(SidebarPage.Font), 12,
             s.Prefs.Font ?? T("font.system")));
@@ -202,6 +216,7 @@ public sealed class SettingsPage : Grid {
             on => controller.SetPreferences(p => p with {
                 OwnBubbleAccent = on
             }), 12));
+        Footer(c, T("ownAccent.footer"));
 
         Group(c, T("advanced"));
         content.Children.Add(ProfilePage.NavRow(c, "gear",
@@ -237,6 +252,7 @@ public sealed class SettingsPage : Grid {
         content.Children.Add(row);
 
         Group(c, T("about"));
+        Footer(c, T("about.feedback"));
         content.Children.Add(ProfilePage.NavRow(c, "external", "GitHub",
             OpenRepository, 6,
             Repository.Replace("https://github.com/", "")));

@@ -471,7 +471,8 @@ public sealed class SpacePage : Grid {
             controller.OpenSidebarPage(SidebarPage.Chats);
         };
         no.Click += (_, _) => SpaceDialog.Close();
-        SpaceDialog.Show(window, c, T("space.leave"), null, yes, no);
+        SpaceDialog.Show(window, c, T("leaveSpace.title"), T("leaveSpace.body"),
+            yes, no);
     }
 
     /// <summary>The menu of a room of the space: move it to the top or the bottom, or take it out.</summary>
