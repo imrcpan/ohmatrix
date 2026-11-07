@@ -434,33 +434,42 @@ public sealed class GstPeer : IPeer, IDisposable {
         }
     }
 
+    // The names asked of the caps of every frame, made once.
+    private static readonly byte[] WidthName = LibGst.Utf8("width");
+    private static readonly byte[] HeightName = LibGst.Utf8("height");
+
     /// <summary>Hands the newest picture of the other side to <paramref name="copy"/> (the pixels, width, height), if there is one not taken yet.</summary>
     public bool TryTakeFrame(Action<IntPtr, int, int> copy)
     {
-        lock (frameGate)
-            return Pull(remoteVideo, copy);
+        return Pull(false, copy);
     }
 
     /// <summary>The same for my own camera.</summary>
     public bool TryTakeLocalFrame(Action<IntPtr, int, int> copy)
     {
-        lock (frameGate)
-            return Pull(localVideo, copy);
+        return Pull(true, copy);
     }
 
-    private unsafe bool Pull(IntPtr sink, Action<IntPtr, int, int> copy)
+    private unsafe bool Pull(bool local, Action<IntPtr, int, int> copy)
     {
-        if (sink == IntPtr.Zero || closed)
-            return false;
-        var sample = LibGst.gst_app_sink_try_pull_sample(sink, 0);
+        // The lock is only for taking the sample from the sink, which the
+        // end of the call frees; the sample is a thing of its own, so the
+        // pixels are copied outside it.
+        IntPtr sample;
+        lock (frameGate) {
+            var sink = local ? localVideo : remoteVideo;
+            if (sink == IntPtr.Zero || closed)
+                return false;
+            sample = LibGst.gst_app_sink_try_pull_sample(sink, 0);
+        }
+
         if (sample == IntPtr.Zero)
             return false;
         try {
             var caps = LibGst.gst_sample_get_caps(sample);
             var structure = LibGst.gst_caps_get_structure(caps, 0);
-            LibGst.gst_structure_get_int(structure, LibGst.Utf8("width"),
-                out var width);
-            LibGst.gst_structure_get_int(structure, LibGst.Utf8("height"),
+            LibGst.gst_structure_get_int(structure, WidthName, out var width);
+            LibGst.gst_structure_get_int(structure, HeightName,
                 out var height);
             var buffer = LibGst.gst_sample_get_buffer(sample);
             var info = default(GstMapInfo);

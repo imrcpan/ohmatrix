@@ -11,10 +11,19 @@ public sealed unsafe class VideoOutput : IDisposable {
     /// <summary>The biggest picture asked of libvlc, which scales to it: a chat clip needs no more.</summary>
     private const uint MaxWidth = 960;
 
+    // Three buffers, so that nobody waits for anybody to copy: libvlc draws
+    // into one, the last drawn frame waits in another, and the screen copies
+    // the third. Frames pass between them by swapping, which is all that is
+    // done under the lock.
+    private const int Draw = 0;
+    private const int Ready = 1;
+    private const int Read = 2;
+
     private readonly object gate = new();
+    private readonly IntPtr[] buffers = new IntPtr[3];
     private GCHandle self;
-    private byte* buffer;
     private bool fresh;
+    private int readers;
 
     public int Width { get; private set; }
 
@@ -23,12 +32,47 @@ public sealed unsafe class VideoOutput : IDisposable {
     /// <summary>Hands the latest frame to <paramref name="copy"/> (the buffer, its width, height and bytes in a row) when there is one not seen yet.</summary>
     public bool TryTakeFrame(Action<IntPtr, int, int> copy)
     {
+        IntPtr frame;
+        int width;
+        int height;
         lock (gate) {
-            if (!fresh || buffer == null)
+            if (!fresh || buffers[Ready] == IntPtr.Zero)
                 return false;
             fresh = false;
-            copy((IntPtr)buffer, Width, Height);
-            return true;
+            (buffers[Ready], buffers[Read]) = (buffers[Read], buffers[Ready]);
+            frame = buffers[Read];
+            width = Width;
+            height = Height;
+            readers++;
+        }
+
+        // The copy runs outside the lock: the decoder goes on drawing into
+        // another buffer meanwhile.
+        try {
+            copy(frame, width, height);
+        } finally {
+            lock (gate) {
+                readers--;
+                Monitor.PulseAll(gate);
+            }
+        }
+
+        return true;
+    }
+
+    // Buffers are only freed or replaced when no copy is going on.
+    private void WaitForReaders()
+    {
+        while (readers > 0)
+            Monitor.Wait(gate);
+    }
+
+    private void FreeBuffers()
+    {
+        for (var i = 0; i < buffers.Length; i++) {
+            if (buffers[i] != IntPtr.Zero)
+                NativeMemory.Free((void*)buffers[i]);
+            buffers[i] = IntPtr.Zero;
         }
     }
 
@@ -64,12 +108,14 @@ public sealed unsafe class VideoOutput : IDisposable {
         *width &= ~1u;
         *height &= ~1u;
         lock (output.gate) {
-            if (output.buffer != null)
-                NativeMemory.Free(output.buffer);
+            output.WaitForReaders();
+            output.FreeBuffers();
             output.Width = (int)*width;
             output.Height = (int)*height;
-            output.buffer =
-                (byte*)NativeMemory.AllocZeroed(*width * *height * 4);
+            for (var i = 0; i < output.buffers.Length; i++)
+                output.buffers[i] = (IntPtr)NativeMemory.AllocZeroed(
+                    *width * *height * 4);
+            output.fresh = false;
         }
 
         pitches[0] = *width * 4;
@@ -82,13 +128,13 @@ public sealed unsafe class VideoOutput : IDisposable {
     {
     }
 
-    // Held from lock to unlock, so the screen never copies a half-drawn frame.
+    // libvlc draws into the buffer it is given between lock and unlock; only
+    // the decoder uses that one, so no lock is held while it draws.
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static IntPtr Lock(IntPtr opaque, IntPtr* planes)
     {
         var output = Of(opaque);
-        Monitor.Enter(output.gate);
-        *planes = (IntPtr)output.buffer;
+        *planes = output.buffers[Draw];
         return IntPtr.Zero;
     }
 
@@ -96,8 +142,11 @@ public sealed unsafe class VideoOutput : IDisposable {
     private static void Unlock(IntPtr opaque, IntPtr picture, IntPtr* planes)
     {
         var output = Of(opaque);
-        output.fresh = true;
-        Monitor.Exit(output.gate);
+        lock (output.gate) {
+            (output.buffers[Draw], output.buffers[Ready]) =
+                (output.buffers[Ready], output.buffers[Draw]);
+            output.fresh = true;
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -108,9 +157,8 @@ public sealed unsafe class VideoOutput : IDisposable {
     public void Dispose()
     {
         lock (gate) {
-            if (buffer != null)
-                NativeMemory.Free(buffer);
-            buffer = null;
+            WaitForReaders();
+            FreeBuffers();
         }
 
         if (self.IsAllocated)
