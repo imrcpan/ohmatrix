@@ -23,6 +23,17 @@ public sealed class Spinner : Control {
 
     private CancellationTokenSource? turning;
 
+    // The ring is drawn about sixty times a second and only its angle
+    // changes, so what does not change with the angle is made once: the path
+    // while the size stays, the pen while its brush and thickness stay, and
+    // the brush of the theme's accent while the accent stays.
+    private Geometry? ring;
+    private double ringSize;
+    private Pen? pen;
+    private IBrush? penBrush;
+    private double penThickness;
+    private SolidColorBrush? accent;
+
     static Spinner()
     {
         AffectsRender<Spinner>(SizeProperty, ColorProperty, AngleProperty);
@@ -87,32 +98,54 @@ public sealed class Spinner : Control {
 
     public override void Render(DrawingContext context)
     {
-        var brush = Color ??
-                    new SolidColorBrush(ThemeScope.GetColors(this).Accent);
+        var brush = Color ?? AccentBrush();
         var thickness = Math.Max(2, Size / 12);
-        var radius = (Size - thickness) / 2;
         var centre = new Point(Size / 2, Size / 2);
-        // From the top, three quarters round, as the "spinner" icon is.
-        var start = new Point(centre.X, centre.Y - radius);
-        var end = new Point(centre.X - radius, centre.Y);
+        if (ring is null || ringSize != Size) {
+            ring = Ring(Size, thickness);
+            ringSize = Size;
+        }
+
+        if (pen is null || !ReferenceEquals(penBrush, brush) ||
+            penThickness != thickness) {
+            pen = new Pen(brush, thickness, lineCap: PenLineCap.Round);
+            penBrush = brush;
+            penThickness = thickness;
+        }
+
+        using (context.PushTransform(
+                   Matrix.CreateTranslation(-centre.X, -centre.Y) *
+                   Matrix.CreateRotation(Angle * Math.PI / 180) *
+                   Matrix.CreateTranslation(centre.X, centre.Y))) {
+            context.DrawGeometry(null, pen, ring);
+        }
+    }
+
+    private IBrush AccentBrush()
+    {
+        var colour = ThemeScope.GetColors(this).Accent;
+        if (accent is null || accent.Color != colour)
+            accent = new SolidColorBrush(colour);
+        return accent;
+    }
+
+    // From the top, three quarters round, as the "spinner" icon is.
+    private static PathGeometry Ring(double size, double thickness)
+    {
+        var radius = (size - thickness) / 2;
+        var centre = new Point(size / 2, size / 2);
         var figure = new PathFigure {
-            StartPoint = start,
+            StartPoint = new Point(centre.X, centre.Y - radius),
             IsClosed = false
         };
         figure.Segments!.Add(new ArcSegment {
-            Point = end,
+            Point = new Point(centre.X - radius, centre.Y),
             Size = new Size(radius, radius),
             SweepDirection = SweepDirection.Clockwise,
             IsLargeArc = true,
         });
         var geometry = new PathGeometry();
         geometry.Figures!.Add(figure);
-        var pen = new Pen(brush, thickness, lineCap: PenLineCap.Round);
-        using (context.PushTransform(
-                   Matrix.CreateTranslation(-centre.X, -centre.Y) *
-                   Matrix.CreateRotation(Angle * Math.PI / 180) *
-                   Matrix.CreateTranslation(centre.X, centre.Y))) {
-            context.DrawGeometry(null, pen, geometry);
-        }
+        return geometry;
     }
 }
