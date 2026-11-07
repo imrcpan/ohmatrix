@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace OhMatrix.Core.Model;
@@ -94,6 +95,20 @@ public static partial class RichText {
         };
         var li = 0;
         var i = 0;
+        // The text of the last run while pieces of the same style are added
+        // to it: joining strings piece by piece would copy the start again
+        // for every piece.
+        StringBuilder? open = null;
+
+        void Flush()
+        {
+            if (open is null)
+                return;
+            runs[^1] = runs[^1] with {
+                Text = open.ToString()
+            };
+            open = null;
+        }
 
         void Push(string text)
         {
@@ -102,12 +117,13 @@ public static partial class RichText {
             var run = stack[^1].Style with {
                 Text = text
             };
-            if (runs.Count > 0 && SameStyle(runs[^1], run))
-                runs[^1] = runs[^1] with {
-                    Text = runs[^1].Text + text
-                };
-            else
+            if (runs.Count > 0 && SameStyle(runs[^1], run)) {
+                open ??= new StringBuilder(runs[^1].Text);
+                open.Append(text);
+            } else {
+                Flush();
                 runs.Add(run);
+            }
         }
 
         while (i < html.Length) {
@@ -138,10 +154,13 @@ public static partial class RichText {
             var name = (cut < 0 ? tag : tag[..cut]).ToLowerInvariant();
             var attrs = closing ? "" : raw[name.Length..];
             if (name is "br" or "hr" or "img") {
-                if (name == "br")
+                if (name == "br") {
+                    Flush();
                     runs.Add(new TextRun("\n") {
                         Br = true
                     });
+                }
+
                 continue;
             }
 
@@ -149,10 +168,13 @@ public static partial class RichText {
                 stack.RemoveAt(stack.Count - 1);
                 if (stack.Count == 0)
                     stack.Add(new Frame());
-                if (name is "p" or "blockquote" or "pre" or "li")
+                if (name is "p" or "blockquote" or "pre" or "li") {
+                    Flush();
                     runs.Add(new TextRun("\n") {
                         Br = true
                     });
+                }
+
                 continue;
             }
 
@@ -239,6 +261,7 @@ public static partial class RichText {
             stack.Add(frame);
         }
 
+        Flush();
         while (runs.Count > 0 && runs[^1].Text == "\n")
             runs.RemoveAt(runs.Count - 1);
         return runs;
