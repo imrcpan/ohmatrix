@@ -664,6 +664,7 @@ public sealed partial class ChatPane : Grid {
     // the message is there.
     private int revealSerial;
     private string? revealTarget;
+    private string? revealRoom;
     private bool revealPending;
 
     private void StopRevealing()
@@ -671,13 +672,16 @@ public sealed partial class ChatPane : Grid {
         if (!revealing)
             return;
         var target = revealPending ? revealTarget : null;
+        var sameRoom = controller.Store.Value.SelectedRoomId == revealRoom;
         revealSerial++;
         revealing = false;
         revealPending = false;
         ClearRevealNotice();
         // A search that had not found the message is given to the pane that
-        // is on the screen now, which asks for it as for any jump.
-        if (target is not null)
+        // is on the screen now, which asks for it as for any jump. That is
+        // for a change between wide and narrow; when the chat was closed or
+        // another one chosen the search is just over.
+        if (target is not null && sameRoom)
             controller.Store.Update(s => s with {
                 JumpToEventId = target
             });
@@ -696,6 +700,7 @@ public sealed partial class ChatPane : Grid {
         revealing = true;
         revealRoomVersion = generation;
         revealTarget = eventId;
+        revealRoom = controller.Store.Value.SelectedRoomId;
         revealPending = true;
         var mine = ++revealSerial;
         bool Superseded() => generation != roomVersion || mine != revealSerial;

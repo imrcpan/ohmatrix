@@ -129,6 +129,8 @@ public sealed class AppController(
             ReplyTo = null,
             Editing = null,
             Details = null,
+            // A jump to a message is for the room it was asked in.
+            JumpToEventId = null,
         });
         if (roomId is not null && Store.Value.RoomInfoOpen)
             _ = LoadDetails(roomId);

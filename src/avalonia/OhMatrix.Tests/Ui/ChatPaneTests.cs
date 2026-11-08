@@ -1561,6 +1561,41 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_search_is_dropped_when_the_chat_is_closed_or_changed()
+    {
+        var (_, controller, engine, screen) = await Open("light", 420);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var chat = engine.Opened.Last();
+        chat.OlderGate = new TaskCompletionSource<bool>();
+        var search = screen.Narrow.Reveal("$old");
+        Assert.Equal(NoticeKind.Progress, controller.Store.Value.Notice?.Kind);
+
+        // The chat is closed while the history is awaited: the narrow pane
+        // is hidden, and nothing is left for the next chat.
+        controller.SelectRoom(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(controller.Store.Value.JumpToEventId);
+        Assert.Null(controller.Store.Value.Notice);
+
+        controller.SelectRoom("!d");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        chat.OlderGate.SetResult(false);
+        await search;
+        await Task.Delay(300);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(controller.Store.Value.JumpToEventId);
+        Assert.Null(controller.Store.Value.Notice);
+
+        // A jump asked for in a room is cleared when another is chosen.
+        controller.OpenMessage("!g", "$later");
+        controller.SelectRoom("!d");
+        Assert.Null(controller.Store.Value.JumpToEventId);
+    }
+
+    [AvaloniaFact]
     public async Task A_reply_quotes_and_is_sent_as_an_answer()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
