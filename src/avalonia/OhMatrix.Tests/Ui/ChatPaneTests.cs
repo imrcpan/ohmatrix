@@ -2158,6 +2158,35 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_sticker_tiles_are_made_again_only_for_the_stickers()
+    {
+        Reset();
+        var (_, controller, _, screen) = await Open("light", 1000, true);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        pane.EmojiButton.RaiseClick();
+        await Settle();
+        var stickers = pane.Stickers!;
+        var tile = stickers.Tiles[2];
+
+        // Typing, a notice: the store changes, the stickers do not.
+        controller.Store.Update(s => s with {
+            Typing = ["Alice"]
+        });
+        controller.Store.Update(s => s with {
+            Timeline = [.. s.Timeline]
+        });
+        Assert.Same(tile, stickers.Tiles[2]);
+
+        // A sticker less is a new set of tiles.
+        controller.Store.Update(s => s with {
+            Stickers = [.. s.Stickers.Skip(1)]
+        });
+        Assert.Equal(3, stickers.Tiles.Count);
+    }
+
+    [AvaloniaFact]
     public async Task Stickers_are_added_chosen_and_removed()
     {
         Reset();

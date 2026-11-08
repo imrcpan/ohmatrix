@@ -69,7 +69,10 @@ public sealed class StickerPane : Grid {
         Children.Add(scroller);
         Grid.SetRow(tabs, 2);
         Children.Add(tabs);
-        controller.Store.Changed += _ => Apply();
+        controller.Store.Changed += state => {
+            if (Differs(state))
+                Apply();
+        };
         ThemeScope.ColorsProperty.Changed.AddClassHandler<StickerPane>((p, _) =>
             p.Apply());
         Apply();
@@ -633,10 +636,30 @@ public sealed class StickerPane : Grid {
         return button;
     }
 
+    // What the pane shows comes from these parts of the state; the store
+    // changes for many other reasons (every message, every typing mark),
+    // and the tiles are not made again for those.
+    private IReadOnlyList<Sticker>? seenStickers;
+    private IReadOnlyList<StickerGroup>? seenGroups;
+    private string? seenGroup;
+    private string? seenLocale;
+
+    private bool Differs(AppState state)
+    {
+        return !ReferenceEquals(seenStickers, state.Stickers) ||
+               !ReferenceEquals(seenGroups, state.StickerGroups) ||
+               seenGroup != state.Prefs.StickerGroup ||
+               seenLocale != state.Locale;
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
+        seenStickers = s.Stickers;
+        seenGroups = s.StickerGroups;
+        seenGroup = s.Prefs.StickerGroup;
+        seenLocale = s.Locale;
         Background = new SolidColorBrush(c.Bg);
         tabs.BorderBrush = new SolidColorBrush(c.Separator);
         var (groups, group, index) = Current();
