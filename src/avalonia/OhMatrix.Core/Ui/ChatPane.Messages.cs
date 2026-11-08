@@ -109,17 +109,30 @@ public sealed partial class ChatPane {
         };
     }
 
-    private string? cachedRoomId;
+    // Whether the open room is a group. The room is looked for again when
+    // the snapshot of the rooms or the open room changes (its summary can
+    // arrive after it is selected, and IsDirect can change); a room that is
+    // not there yet is not remembered.
+    private IReadOnlyList<RoomSummary>? groupRooms;
+    private string? groupRoomId;
     private bool cachedIsGroup;
 
     private bool IsGroup(AppState state)
     {
-        if (cachedRoomId == state.SelectedRoomId)
+        if (ReferenceEquals(groupRooms, state.Rooms) &&
+            groupRoomId == state.SelectedRoomId)
             return cachedIsGroup;
-        cachedRoomId = state.SelectedRoomId;
-        cachedIsGroup = state.Rooms
-                .FirstOrDefault(r => r.Id == state.SelectedRoomId) is
-            { IsDirect: false };
+        var room = state.Rooms.FirstOrDefault(r =>
+            r.Id == state.SelectedRoomId);
+        cachedIsGroup = room is { IsDirect: false };
+        if (room is null) {
+            groupRooms = null;
+            groupRoomId = null;
+        } else {
+            groupRooms = state.Rooms;
+            groupRoomId = state.SelectedRoomId;
+        }
+
         return cachedIsGroup;
     }
 

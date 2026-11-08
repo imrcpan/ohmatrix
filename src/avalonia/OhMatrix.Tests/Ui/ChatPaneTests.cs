@@ -907,6 +907,76 @@ public partial class ChatPaneTests {
             new PngBitmapEncoderOptions());
     }
 
+    // "Bob" is only the name above a message in the history of "!g".
+    private static bool ShowsSender(ChatPane pane)
+    {
+        return pane.Messages.GetVisualDescendants().OfType<TextBlock>()
+            .Any(t => t.Text == "Bob" && t.IsEffectivelyVisible);
+    }
+
+    private static async Task RoomsArrive()
+    {
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task A_summary_that_comes_after_the_chat_is_selected_is_used()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        engine.Push(new RoomSummary {
+            Id = "!d",
+            Name = "Alice",
+            IsDirect = true,
+            LastActivityTs = Now - 1000
+        });
+        Dispatcher.UIThread.RunJobs();
+        controller.SelectRoom("!g");
+        await RoomsArrive();
+        var pane = FindPane(screen);
+        Assert.False(ShowsSender(pane));
+
+        engine.Push(new RoomSummary {
+            Id = "!g",
+            Name = "Demo team",
+            MemberCount = 4,
+            LastActivityTs = Now
+        });
+        await RoomsArrive();
+        window.UpdateLayout();
+        Assert.True(ShowsSender(pane));
+    }
+
+    [AvaloniaFact]
+    public async Task A_room_that_changes_between_direct_and_group_follows()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await RoomsArrive();
+        var pane = FindPane(screen);
+        Assert.True(ShowsSender(pane));
+
+        engine.Push(new RoomSummary {
+            Id = "!g",
+            Name = "Demo team",
+            IsDirect = true,
+            LastActivityTs = Now
+        });
+        await RoomsArrive();
+        window.UpdateLayout();
+        Assert.False(ShowsSender(pane));
+
+        engine.Push(new RoomSummary {
+            Id = "!g",
+            Name = "Demo team",
+            MemberCount = 4,
+            LastActivityTs = Now
+        });
+        await RoomsArrive();
+        window.UpdateLayout();
+        Assert.True(ShowsSender(pane));
+    }
+
     [AvaloniaFact]
     public async Task Opening_a_chat_shows_its_messages_and_dividers()
     {
