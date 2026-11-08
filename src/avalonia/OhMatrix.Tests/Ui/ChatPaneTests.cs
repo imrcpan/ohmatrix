@@ -120,9 +120,18 @@ public partial class ChatPaneTests {
             return Task.CompletedTask;
         }
 
+        // When it is set, older history is not there until it is completed.
+        public TaskCompletionSource<bool>? OlderGate;
+
         public Task<bool> LoadOlder()
         {
-            return Task.FromResult(true);
+            return OlderGate?.Task ?? Task.FromResult(true);
+        }
+
+        public void Replace(IReadOnlyList<TimelineItem> items)
+        {
+            Items = items;
+            Changed?.Invoke(items);
         }
 
         public Task MarkRead()
@@ -1505,6 +1514,50 @@ public partial class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
         Assert.True(screen.Narrow.Messages.ItemCount > 0);
+    }
+
+    [AvaloniaFact]
+    public async Task A_search_for_old_history_goes_on_in_the_pane_now_shown()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var chat = engine.Opened.Last();
+        chat.OlderGate = new TaskCompletionSource<bool>();
+
+        // The wide pane looks for a message that is not loaded and waits for
+        // the older history.
+        var search = screen.Wide.Reveal("$old");
+        Assert.Equal(NoticeKind.Progress, controller.Store.Value.Notice?.Kind);
+
+        // The window gets narrow: the wide pane is hidden.
+        window.Width = 420;
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+
+        // The history comes, with the message.
+        chat.Replace([
+            new TimelineItem {
+                Id = "old",
+                EventId = "$old",
+                Body = "Long ago",
+                SenderId = "@bob",
+                SenderName = "Bob",
+                Ts = Now - 90 * 86400_000L
+            },
+            .. chat.Items
+        ]);
+        chat.OlderGate.SetResult(false);
+        await search;
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+
+        // Nobody said it was not found, and the pane on the screen has it.
+        Assert.NotEqual(NoticeKind.Error,
+            controller.Store.Value.Notice?.Kind);
+        Assert.Equal(12, screen.Narrow.Messages.ItemCount);
+        Assert.NotNull(screen.Narrow.Messages.ContainerFromIndex(0));
     }
 
     [AvaloniaFact]

@@ -657,6 +657,32 @@ public sealed partial class ChatPane : Grid {
     private int revealRoomVersion;
     private Notice? revealNotice;
 
+    // Each search for a message has its own number, and a pane that is
+    // hidden takes the number on: the search that was waiting for older
+    // history sees it is not the current one and ends. The index of a
+    // hidden pane is not kept up to date, so it must not be asked whether
+    // the message is there.
+    private int revealSerial;
+    private string? revealTarget;
+    private bool revealPending;
+
+    private void StopRevealing()
+    {
+        if (!revealing)
+            return;
+        var target = revealPending ? revealTarget : null;
+        revealSerial++;
+        revealing = false;
+        revealPending = false;
+        ClearRevealNotice();
+        // A search that had not found the message is given to the pane that
+        // is on the screen now, which asks for it as for any jump.
+        if (target is not null)
+            controller.Store.Update(s => s with {
+                JumpToEventId = target
+            });
+    }
+
     /// <summary>
     /// Goes to a message and marks it for a moment, reading older history
     /// first when it is not loaded (<c>useReveal</c>); says so when it cannot
@@ -669,6 +695,10 @@ public sealed partial class ChatPane : Grid {
             return;
         revealing = true;
         revealRoomVersion = generation;
+        revealTarget = eventId;
+        revealPending = true;
+        var mine = ++revealSerial;
+        bool Superseded() => generation != roomVersion || mine != revealSerial;
         try {
             TimelineItem? Find() => controller.Store.Value.Timeline
                 .FirstOrDefault(i => i.EventId == eventId);
@@ -677,11 +707,11 @@ public sealed partial class ChatPane : Grid {
                 controller.ShowNotice(T("jump.looking"), NoticeKind.Progress);
                 revealNotice = controller.Store.Value.Notice;
                 for (var n = 0; n < 40 && Find() is null; n++) {
-                    if (generation != roomVersion)
+                    if (Superseded())
                         return;
                     var before = controller.Store.Value.Timeline.Count;
                     var atStart = await controller.LoadOlder();
-                    if (generation != roomVersion)
+                    if (Superseded())
                         return;
                     if (atStart && Find() is null)
                         break;
@@ -690,7 +720,7 @@ public sealed partial class ChatPane : Grid {
                          controller.Store.Value.Timeline.Count == before;
                          w++) {
                         await Task.Delay(50);
-                        if (generation != roomVersion)
+                        if (Superseded())
                             return;
                     }
 
@@ -700,10 +730,10 @@ public sealed partial class ChatPane : Grid {
             }
 
             await Task.Yield();
-            if (generation != roomVersion)
+            if (Superseded())
                 return;
             Dispatcher.UIThread.RunJobs();
-            if (generation != roomVersion)
+            if (Superseded())
                 return;
             if (Find() is not { } hit || !ScrollToMessage(hit.Id)) {
                 controller.ShowNotice(T("jump.notFound"), NoticeKind.Error);
@@ -711,20 +741,22 @@ public sealed partial class ChatPane : Grid {
                 return;
             }
 
+            revealPending = false;
             ClearRevealNotice();
             highlightId = hit.Id;
             Mark(false);
             await Task.Delay(3000);
-            if (generation != roomVersion)
+            if (Superseded())
                 return;
             if (highlightId == hit.Id)
                 highlightId = null;
             Mark(false);
         } finally {
-            if (revealRoomVersion == generation) {
+            if (mine == revealSerial) {
                 if (revealNotice?.Kind == NoticeKind.Progress)
                     ClearRevealNotice();
                 revealing = false;
+                revealPending = false;
             }
         }
     }
@@ -846,6 +878,8 @@ public sealed partial class ChatPane : Grid {
             if (showing == value)
                 return;
             showing = value;
+            if (!value)
+                StopRevealing();
             if (value && stale)
                 Apply();
         }
