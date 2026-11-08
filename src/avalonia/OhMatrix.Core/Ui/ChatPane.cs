@@ -944,8 +944,11 @@ public sealed partial class ChatPane : Grid {
                 input.Text = e.Body;
         }
 
+        // A jump that is asked for is taken even when the timeline did not
+        // change (it can be loaded already).
         if (!ReferenceEquals(shownItems, s.Timeline) ||
-            MessagePresentationChanged(s, c)) {
+            MessagePresentationChanged(s, c) ||
+            s is { JumpToEventId: not null, TimelineReady: true }) {
             Rebuild();
         } else
             BuildHeader(c, s);

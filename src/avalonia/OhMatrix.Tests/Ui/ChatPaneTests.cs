@@ -1560,6 +1560,15 @@ public partial class ChatPaneTests {
         Assert.NotNull(screen.Narrow.Messages.ContainerFromIndex(0));
     }
 
+    private static TimelineItem OldMessage() => new() {
+        Id = "old",
+        EventId = "$old",
+        Body = "Long ago",
+        SenderId = "@bob",
+        SenderName = "Bob",
+        Ts = Now - 90 * 86400_000L
+    };
+
     [AvaloniaFact]
     public async Task A_search_is_dropped_when_the_chat_is_closed_or_changed()
     {
@@ -1593,6 +1602,35 @@ public partial class ChatPaneTests {
         controller.OpenMessage("!g", "$later");
         controller.SelectRoom("!d");
         Assert.Null(controller.Store.Value.JumpToEventId);
+    }
+
+    [AvaloniaFact]
+    public async Task
+        A_search_whose_target_came_first_is_taken_by_the_pane_now_shown()
+    {
+        var (window, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var chat = engine.Opened.Last();
+        chat.OlderGate = new TaskCompletionSource<bool>();
+        var search = screen.Wide.Reveal("$old");
+
+        // The message is in the timeline while the search still waits.
+        chat.Replace([OldMessage(), .. chat.Items]);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+
+        // Then the layout changes, and no snapshot comes after it.
+        window.Width = 420;
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        await Task.Delay(200);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("old", screen.Narrow.Highlighted);
+        Assert.Null(controller.Store.Value.JumpToEventId);
+        chat.OlderGate.SetResult(false);
+        await search;
     }
 
     [AvaloniaFact]
