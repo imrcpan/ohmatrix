@@ -4,8 +4,10 @@ using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
+using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
 
@@ -19,6 +21,13 @@ public sealed class LogPage : Grid {
     private readonly TextButton clear = new();
     private bool copied;
     private bool refreshQueued;
+
+    // The page is not built while it is not on the screen (it is not, most
+    // of the time): stale says it has to catch up when it is shown. The lines it shows
+    // are kept, so a new line adds one control instead of making 2000.
+    private bool stale;
+    private readonly List<LogLine> shown = [];
+    private ColorTokens? shownColors;
 
     private readonly Border bar = new() {
         Height = 56,
@@ -71,6 +80,14 @@ public sealed class LogPage : Grid {
         Apply();
     }
 
+    protected override void OnAttachedToVisualTree(
+        VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (stale)
+            Apply();
+    }
+
     public int LineCount => lines.Children.Count;
 
     public TextButton CopyButton => copy;
@@ -83,6 +100,12 @@ public sealed class LogPage : Grid {
 
     private void Apply()
     {
+        if (!this.IsAttachedToVisualTree()) {
+            stale = true;
+            return;
+        }
+
+        stale = false;
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
@@ -99,26 +122,73 @@ public sealed class LogPage : Grid {
         empty.FontFamily = Fonts.System;
         empty.TextAlignment = TextAlignment.Center;
         empty.Margin = new Thickness(0, 24);
-        lines.Children.Clear();
-        foreach (var line in all) {
-            var color = line.Level switch {
-                LogLevel.Error => c.Danger,
-                LogLevel.Warn => Color.FromRgb(0xE0, 0xA1, 0x00),
-                _ => c.Text,
-            };
-            lines.Children.Add(new SelectableTextBlock {
-                Text = $"{line.Time:HH:mm:ss.fff} {line.Text}",
-                FontFamily = new FontFamily("monospace"),
-                FontSize = 12,
-                LineHeight = 17,
-                Foreground = new SolidColorBrush(color),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(14, 2),
-            });
-        }
-
-        if (all.Count > 0)
+        var grew = SyncLines(all, c);
+        if (grew && all.Count > 0)
             Dispatcher.UIThread.Post(() => scroller.ScrollToEnd(),
                 DispatcherPriority.Background);
+    }
+
+    // Makes the controls the lines of the log. The log only loses its
+    // oldest lines and gets new ones at the end, so when the lines that are
+    // shown still lead to the new log, the old ones are taken off the start
+    // and the new ones put at the end. In any other case (another theme, the
+    // log emptied) all are made again. True when a line was added.
+    private bool SyncLines(IReadOnlyList<LogLine> all, ColorTokens c)
+    {
+        var dropped = ReferenceEquals(shownColors, c)
+            ? Dropped(all)
+            : -1;
+        if (dropped < 0) {
+            lines.Children.Clear();
+            shown.Clear();
+        } else {
+            lines.Children.RemoveRange(0, dropped);
+            shown.RemoveRange(0, dropped);
+        }
+
+        shownColors = c;
+        var before = shown.Count;
+        for (var i = before; i < all.Count; i++) {
+            lines.Children.Add(Row(all[i], c));
+            shown.Add(all[i]);
+        }
+
+        return all.Count > before;
+    }
+
+    // How many of the lines shown have left the start of the log, or -1
+    // when the shown ones are not the start of it any more.
+    private int Dropped(IReadOnlyList<LogLine> all)
+    {
+        if (shown.Count == 0)
+            return 0;
+        if (all.Count == 0)
+            return -1;
+        var dropped = shown.FindIndex(l => ReferenceEquals(l, all[0]));
+        if (dropped < 0)
+            return -1;
+        var left = shown.Count - dropped;
+        return left <= all.Count &&
+               ReferenceEquals(shown[^1], all[left - 1])
+            ? dropped
+            : -1;
+    }
+
+    private static SelectableTextBlock Row(LogLine line, ColorTokens c)
+    {
+        var color = line.Level switch {
+            LogLevel.Error => c.Danger,
+            LogLevel.Warn => Color.FromRgb(0xE0, 0xA1, 0x00),
+            _ => c.Text,
+        };
+        return new SelectableTextBlock {
+            Text = $"{line.Time:HH:mm:ss.fff} {line.Text}",
+            FontFamily = new FontFamily("monospace"),
+            FontSize = 12,
+            LineHeight = 17,
+            Foreground = new SolidColorBrush(color),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(14, 2),
+        };
     }
 }

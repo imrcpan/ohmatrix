@@ -2796,6 +2796,50 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task
+        The_log_page_builds_nothing_off_screen_and_adds_only_new_lines()
+    {
+        var (_, controller, _, _) = await Open("light", 1000);
+        AppLog.Clear();
+        var page = new LogPage(controller);
+        AppLog.Add(LogLevel.Info, "one");
+        AppLog.Add(LogLevel.Info, "two");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0, page.LineCount);
+
+        var host = new Window {
+            Content = page,
+            Width = 400,
+            Height = 300
+        };
+        host.Show();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(2, page.LineCount);
+        var first = page.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .First();
+
+        AppLog.Add(LogLevel.Warn, "three");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var rows = page.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .ToList();
+        Assert.Equal(3, rows.Count);
+        Assert.Same(first, rows[0]);
+
+        // Past its capacity the log loses the oldest lines.
+        for (var i = 0; i < AppLog.Capacity; i++)
+            AppLog.Add(LogLevel.Info, "line " + i);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(AppLog.Capacity, page.LineCount);
+        Assert.EndsWith("line 0", page.GetVisualDescendants()
+            .OfType<SelectableTextBlock>().First().Text);
+        AppLog.Clear();
+        host.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Resetting_the_keys_warns_first_then_asks_the_password()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
