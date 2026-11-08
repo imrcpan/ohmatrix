@@ -643,13 +643,15 @@ public sealed class StickerPane : Grid {
     private IReadOnlyList<StickerGroup>? seenGroups;
     private string? seenGroup;
     private string? seenLocale;
+    private FontFamily? seenFont;
 
     private bool Differs(AppState state)
     {
         return !ReferenceEquals(seenStickers, state.Stickers) ||
                !ReferenceEquals(seenGroups, state.StickerGroups) ||
                seenGroup != state.Prefs.StickerGroup ||
-               seenLocale != state.Locale;
+               seenLocale != state.Locale ||
+               !Equals(seenFont, Fonts.System);
     }
 
     private void Apply()
@@ -660,6 +662,7 @@ public sealed class StickerPane : Grid {
         seenGroups = s.StickerGroups;
         seenGroup = s.Prefs.StickerGroup;
         seenLocale = s.Locale;
+        seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
         tabs.BorderBrush = new SolidColorBrush(c.Separator);
         var (groups, group, index) = Current();

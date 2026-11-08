@@ -512,6 +512,7 @@ public sealed class RoomInfoPanel : Grid {
     private IReadOnlyList<TimelineItem>? seenTimeline;
     private string? seenLocale;
     private string? seenUser;
+    private FontFamily? seenFont;
 
     private bool Differs(AppState state)
     {
@@ -527,7 +528,8 @@ public sealed class RoomInfoPanel : Grid {
 
         return !ReferenceEquals(seenDetails, state.Details) ||
                !ReferenceEquals(seenTimeline, state.Timeline) ||
-               seenLocale != state.Locale || seenUser != state.UserId;
+               seenLocale != state.Locale || seenUser != state.UserId ||
+               !Equals(seenFont, Fonts.System);
     }
 
     private const int MemberPage = 50;
@@ -563,6 +565,7 @@ public sealed class RoomInfoPanel : Grid {
         seenTimeline = s.Timeline;
         seenLocale = s.Locale;
         seenUser = s.UserId;
+        seenFont = Fonts.System;
         if (!showing) {
             stale = true;
             return;

@@ -1985,6 +1985,58 @@ public partial class ChatPaneTests {
         Assert.Equal(120, Rows());
     }
 
+    private static bool Uses(Control root, FontFamily font)
+    {
+        var texts = root.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => !string.IsNullOrEmpty(t.Text)).ToList();
+        return texts.Count > 0 && texts.All(t => Equals(t.FontFamily, font));
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_follows_a_change_of_font_alone()
+    {
+        var (controller, panel, hidden) = await OpenInfo();
+        try {
+            var old = Fonts.System;
+            Assert.True(Uses(panel, old));
+            controller.SetPreferences(p => p with {
+                Font = "monospace"
+            });
+            Assert.NotEqual(old, Fonts.System);
+            Assert.True(Uses(panel, Fonts.System));
+
+            // The panel that was not on the screen takes the font when it is.
+            Assert.Empty(hidden.Content.Children);
+            hidden.Showing = true;
+            Assert.True(Uses(hidden, Fonts.System));
+        } finally {
+            Fonts.Use(null);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task The_sticker_pane_follows_a_change_of_font_alone()
+    {
+        Reset();
+        var (_, controller, _, screen) = await Open("light", 1000, true);
+        controller.SelectRoom("!g");
+        await Settle();
+        var pane = FindPane(screen);
+        pane.EmojiButton.RaiseClick();
+        await Settle();
+        try {
+            var old = Fonts.System;
+            Assert.True(Uses(pane.Stickers!, old));
+            controller.SetPreferences(p => p with {
+                Font = "monospace"
+            });
+            Assert.NotEqual(old, Fonts.System);
+            Assert.True(Uses(pane.Stickers!, Fonts.System));
+        } finally {
+            Fonts.Use(null);
+        }
+    }
+
     [AvaloniaFact]
     public async Task The_info_panel_renames_changes_the_topic_and_leaves()
     {
