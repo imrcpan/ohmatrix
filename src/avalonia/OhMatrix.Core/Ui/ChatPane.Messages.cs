@@ -147,6 +147,9 @@ public sealed partial class ChatPane {
                messageDay != time.GetUtcNow().LocalDateTime.Date;
     }
 
+    // A request that comes while a refresh runs (the store is changed from
+    // inside it) only marks it; the refresh is run again, from the newest
+    // state, when the one in progress is over.
     private void RefreshMessages()
     {
         if (updatingMessages) {
@@ -154,6 +157,14 @@ public sealed partial class ChatPane {
             return;
         }
 
+        do {
+            messagesDirty = false;
+            RefreshMessagesOnce();
+        } while (messagesDirty);
+    }
+
+    private void RefreshMessagesOnce()
+    {
         updatingMessages = true;
         try {
             var state = controller.Store.Value;
@@ -304,10 +315,6 @@ public sealed partial class ChatPane {
 
         UpdateMessage(entry);
         return entry.View.Root;
-        if (messagesDirty) {
-            messagesDirty = false;
-            RefreshMessages();
-        }
     }
 
     private void UpdateMessage(MessageEntry entry)

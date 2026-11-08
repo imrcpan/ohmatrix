@@ -978,6 +978,48 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_timeline_submitted_during_a_refresh_is_shown_after_it()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await RoomsArrive();
+        var pane = FindPane(screen);
+        // The pane owns the notice of a search for a message; leaving the
+        // room clears it from inside the refresh for the new room.
+        _ = pane.Reveal("$not-there");
+        Assert.NotNull(controller.Store.Value.Notice);
+
+        var armed = true;
+        controller.Store.Changed += s => {
+            if (!armed || s.Notice is not null)
+                return;
+            armed = false;
+            controller.Store.Update(x => x with {
+                Timeline = [
+                    .. x.Timeline,
+                    new TimelineItem {
+                        Id = "late",
+                        Body = "Late",
+                        SenderId = "@bob",
+                        SenderName = "Bob",
+                        Ts = Now
+                    }
+                ]
+            });
+        };
+        // The store is changed directly: opening a chat would replace the
+        // timeline once more, and the second one must be the last.
+        controller.Store.Update(s => s with {
+            SelectedRoomId = "!d",
+            Timeline = [],
+            TimelineReady = false
+        });
+        // Nothing else has run: only the refresh itself can have shown it.
+        Assert.False(armed);
+        Assert.True(pane.ScrollToMessage("late"));
+    }
+
+    [AvaloniaFact]
     public async Task Opening_a_chat_shows_its_messages_and_dividers()
     {
         var (window, controller, engine, _) = await Open("light", 1000);
