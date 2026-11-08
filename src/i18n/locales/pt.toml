@@ -263,6 +263,7 @@
 "topic" = "Descrição"
 "address" = "Endereço"
 "membersTitle" = "Membros"
+"members.more" = "Mostrar mais {n}"
 "participant" = "Participante"
 "role.member" = "Membro"
 "level.custom" = "Nível {n}"

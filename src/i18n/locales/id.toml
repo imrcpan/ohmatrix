@@ -263,6 +263,7 @@
 "topic" = "Deskripsi"
 "address" = "Alamat"
 "membersTitle" = "Anggota"
+"members.more" = "Tampilkan {n} lagi"
 "participant" = "Peserta"
 "role.member" = "Anggota"
 "level.custom" = "Level {n}"

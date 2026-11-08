@@ -263,6 +263,7 @@
 "topic" = "説明"
 "address" = "アドレス"
 "membersTitle" = "メンバー"
+"members.more" = "さらに{n}件を表示"
 "participant" = "参加者"
 "role.member" = "メンバー"
 "level.custom" = "レベル {n}"

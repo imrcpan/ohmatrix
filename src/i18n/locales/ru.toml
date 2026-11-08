@@ -263,6 +263,7 @@
 "topic" = "Описание"
 "address" = "Адрес"
 "membersTitle" = "Участники"
+"members.more" = "Показать ещё {n}"
 "participant" = "Участник"
 "role.member" = "Участник"
 "level.custom" = "Уровень {n}"

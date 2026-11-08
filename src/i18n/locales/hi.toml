@@ -263,6 +263,7 @@
 "topic" = "विवरण"
 "address" = "पता"
 "membersTitle" = "सदस्य"
+"members.more" = "{n} और दिखाएँ"
 "participant" = "प्रतिभागी"
 "role.member" = "सदस्य"
 "level.custom" = "स्तर {n}"

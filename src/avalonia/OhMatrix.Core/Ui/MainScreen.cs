@@ -203,9 +203,11 @@ public sealed class MainScreen : Grid {
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
         infoDockHost.IsVisible = split && open && s.RoomInfoOpen;
+        infoDock.Showing = infoDockHost.IsVisible;
         infoDockHost.BorderBrush = new SolidColorBrush(c.Separator);
         // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
         infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
+        infoNarrow.Showing = infoNarrow.IsVisible;
         // The profile takes the place of the list (what opens from it is the left pane's, whatever its width).
         listHost.Child = s.SidebarPage switch {
             SidebarPage.Profile => profilePage,

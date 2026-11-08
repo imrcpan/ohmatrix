@@ -263,6 +263,7 @@
 "topic" = "說明"
 "address" = "位址"
 "membersTitle" = "成員"
+"members.more" = "再顯示 {n} 位"
 "participant" = "參與者"
 "role.member" = "成員"
 "level.custom" = "等級 {n}"

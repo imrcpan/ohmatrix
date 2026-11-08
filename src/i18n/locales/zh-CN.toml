@@ -263,6 +263,7 @@
 "topic" = "简介"
 "address" = "地址"
 "membersTitle" = "成员"
+"members.more" = "再显示 {n} 位"
 "participant" = "对方"
 "role.member" = "成员"
 "level.custom" = "等级 {n}"

@@ -263,6 +263,7 @@
 "topic" = "설명"
 "address" = "주소"
 "membersTitle" = "멤버"
+"members.more" = "{n}명 더 보기"
 "participant" = "참가자"
 "role.member" = "멤버"
 "level.custom" = "레벨 {n}"

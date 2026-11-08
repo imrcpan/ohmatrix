@@ -35,7 +35,10 @@ public sealed class RoomInfoPanel : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        controller.Store.Changed += _ => Apply();
+        controller.Store.Changed += state => {
+            if (Differs(state))
+                Apply();
+        };
         ThemeScope.ColorsProperty.Changed
             .AddClassHandler<RoomInfoPanel>((p, _) => p.Apply());
         Apply();
@@ -500,10 +503,72 @@ public sealed class RoomInfoPanel : Grid {
         return Strings.T(controller.Store.Value.Locale, key, values);
     }
 
+    // The store changes for many reasons (every message, every typing
+    // mark); the panel is made again only when a part it shows changed.
+    private IReadOnlyList<RoomSummary>? seenRooms;
+    private RoomSummary? seenRoom;
+    private string? seenRoomId;
+    private RoomDetails? seenDetails;
+    private IReadOnlyList<TimelineItem>? seenTimeline;
+    private string? seenLocale;
+    private string? seenUser;
+
+    private bool Differs(AppState state)
+    {
+        if (!ReferenceEquals(seenRooms, state.Rooms) ||
+            seenRoomId != state.SelectedRoomId) {
+            var room = state.Rooms.FirstOrDefault(r =>
+                r.Id == state.SelectedRoomId);
+            if (!ReferenceEquals(room, seenRoom) ||
+                seenRoomId != state.SelectedRoomId)
+                return true;
+            seenRooms = state.Rooms;
+        }
+
+        return !ReferenceEquals(seenDetails, state.Details) ||
+               !ReferenceEquals(seenTimeline, state.Timeline) ||
+               seenLocale != state.Locale || seenUser != state.UserId;
+    }
+
+    private const int MemberPage = 50;
+    private string? memberRoom;
+    private int memberLimit = MemberPage;
+
+    private bool showing = true;
+    private bool stale;
+
+    /// <summary>
+    /// Whether the panel is on the screen. There are two (beside the chat,
+    /// over it) and one is hidden; it is not built until it is shown.
+    /// </summary>
+    public bool Showing {
+        get => showing;
+        set {
+            if (showing == value)
+                return;
+            showing = value;
+            if (value && stale)
+                Apply();
+        }
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
+        seenRooms = s.Rooms;
+        seenRoomId = s.SelectedRoomId;
+        seenRoom = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
+        seenDetails = s.Details;
+        seenTimeline = s.Timeline;
+        seenLocale = s.Locale;
+        seenUser = s.UserId;
+        if (!showing) {
+            stale = true;
+            return;
+        }
+
+        stale = false;
         Background = new SolidColorBrush(c.Bg);
         var close = new IconButton("close", T("cancel"), 22) {
             Tint = c.TextSecondary
@@ -660,8 +725,28 @@ public sealed class RoomInfoPanel : Grid {
         if (!room.IsDirect && details.Banned.Count > 0)
             AddBanned(c, room, details);
         content.Children.Add(Section(c, T("membersTitle")));
-        foreach (var member in details.Members)
+        // A big room has a thousand members; the rows come a page at a time.
+        if (memberRoom != room.Id) {
+            memberRoom = room.Id;
+            memberLimit = MemberPage;
+        }
+
+        foreach (var member in details.Members.Take(memberLimit))
             content.Children.Add(MemberRow(c, member, room));
+        if (details.Members.Count > memberLimit) {
+            var more = new TextButton {
+                Title = T("members.more",
+                    ("n", Math.Min(MemberPage,
+                        details.Members.Count - memberLimit)))
+            };
+            more.Click += (_, _) => {
+                memberLimit += MemberPage;
+                Apply();
+            };
+            ThemeScope.SetColors(more, c);
+            content.Children.Add(more);
+        }
+
         LeaveButton = new TextButton {
             Title = T(room.IsDirect ? "deleteChat" : "leaveGroup"),
             Margin = new Thickness(0, 16, 0, 0),

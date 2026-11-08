@@ -1907,6 +1907,84 @@ public partial class ChatPaneTests {
         Save(window, "info-closed");
     }
 
+    private static async Task<(AppController Controller, RoomInfoPanel Panel,
+        RoomInfoPanel Hidden)> OpenInfo()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panels = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .ToList();
+        Assert.Equal(2, panels.Count);
+        return (controller, panels.Single(p => p.IsEffectivelyVisible),
+            panels.Single(p => !p.IsEffectivelyVisible));
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_is_not_made_again_for_other_changes()
+    {
+        var (controller, panel, hidden) = await OpenInfo();
+        // The panel that is not on the screen has not been built.
+        Assert.Empty(hidden.Content.Children);
+        var first = panel.Content.Children[0];
+
+        controller.Store.Update(s => s with {
+            Typing = ["Alice"]
+        });
+        controller.Store.Update(s => s with {
+            Prefs = s.Prefs with {
+                OwnBubbleAccent = !s.Prefs.OwnBubbleAccent
+            }
+        });
+        Assert.Same(first, panel.Content.Children[0]);
+        Assert.Empty(hidden.Content.Children);
+
+        // What it shows changing makes it again.
+        controller.Store.Update(s => s with {
+            Details = s.Details! with {
+                Topic = "A new topic"
+            }
+        });
+        Assert.NotSame(first, panel.Content.Children[0]);
+        Assert.Empty(hidden.Content.Children);
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_lists_a_big_room_a_page_at_a_time()
+    {
+        var (controller, panel, _) = await OpenInfo();
+        controller.Store.Update(s => s with {
+            Details = s.Details! with {
+                Members = [
+                    .. Enumerable.Range(0, 120).Select(i =>
+                        new RoomMemberInfo($"@p{i}:s", $"Person {i}", null,
+                            MemberRole.Member))
+                ]
+            }
+        });
+
+        int Rows() => panel.GetVisualDescendants().OfType<TextBlock>()
+            .Count(t => t.Text?.StartsWith("Person ") == true);
+
+        TextButton? More() => panel.GetVisualDescendants()
+            .OfType<TextButton>()
+            .FirstOrDefault(b => b.Title == "Show 50 more");
+
+        Assert.Equal(50, Rows());
+        More()!.RaiseClick();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(100, Rows());
+        Assert.Null(More());
+        var last = panel.GetVisualDescendants().OfType<TextButton>()
+            .First(b => b.Title == "Show 20 more");
+        last.RaiseClick();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(120, Rows());
+    }
+
     [AvaloniaFact]
     public async Task The_info_panel_renames_changes_the_topic_and_leaves()
     {

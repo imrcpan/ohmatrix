@@ -263,6 +263,7 @@
 "topic" = "বিবরণ"
 "address" = "ঠিকানা"
 "membersTitle" = "সদস্য"
+"members.more" = "আরও {n} দেখান"
 "participant" = "অংশগ্রহণকারী"
 "role.member" = "সদস্য"
 "level.custom" = "স্তর {n}"
