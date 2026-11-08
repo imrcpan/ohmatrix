@@ -95,7 +95,16 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         private readonly Channel<TimelineDiff[]> diffs =
             Channel.CreateUnbounded<TimelineDiff[]>();
 
-        private readonly List<SdkTimelineItem> items = [];
+        // One slot per item of the SDK, in order: the item, its id and the
+        // line made from it (null for what is not shown). A diff makes
+        // lines only for the items it adds or replaces.
+        private sealed record Slot(
+            SdkTimelineItem Item,
+            string Id,
+            TimelineItem? Line
+        );
+
+        private readonly List<Slot> items = [];
         private readonly CancellationTokenSource stop = new();
         private TaskHandle? handle;
         private TaskHandle? typingHandle;
@@ -295,16 +304,13 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             try {
                 await foreach (var batch in diffs.Reader.ReadAllAsync(token)) {
-                    foreach (var d in batch)
-                        Apply(d);
                     lock (byId) {
-                        byId.Clear();
-                        foreach (var i in items)
-                            byId[i.UniqueId().Id] = i;
+                        foreach (var d in batch)
+                            Apply(d);
                     }
 
-                    Items = items.Select(i => Convert(i, me))
-                        .OfType<TimelineItem>().ToList();
+                    Items = items.Select(i => i.Line).OfType<TimelineItem>()
+                        .ToList();
                     Changed?.Invoke(Items);
                 }
             } catch (OperationCanceledException) {
@@ -312,45 +318,71 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        private Slot Make(SdkTimelineItem item)
+        {
+            var slot = new Slot(item, item.UniqueId().Id, Convert(item, me));
+            byId[slot.Id] = item;
+            return slot;
+        }
+
+        private void Forget(Slot slot)
+        {
+            byId.Remove(slot.Id);
+        }
+
+        private void RemoveAt(int index)
+        {
+            Forget(items[index]);
+            items.RemoveAt(index);
+        }
+
+        // Called with the lock of byId held.
         private void Apply(TimelineDiff d)
         {
             switch (d) {
                 case TimelineDiff.Append a:
-                    items.AddRange(a.Values);
+                    items.AddRange(a.Values.Select(Make));
                     break;
                 case TimelineDiff.Clear:
-                    items.Clear();
+                    ClearAll();
                     break;
                 case TimelineDiff.PushFront f:
-                    items.Insert(0, f.Value);
+                    items.Insert(0, Make(f.Value));
                     break;
                 case TimelineDiff.PushBack b:
-                    items.Add(b.Value);
+                    items.Add(Make(b.Value));
                     break;
                 case TimelineDiff.PopFront:
-                    items.RemoveAt(0);
+                    RemoveAt(0);
                     break;
                 case TimelineDiff.PopBack:
-                    items.RemoveAt(items.Count - 1);
+                    RemoveAt(items.Count - 1);
                     break;
                 case TimelineDiff.Insert i:
-                    items.Insert((int)i.Index, i.Value);
+                    items.Insert((int)i.Index, Make(i.Value));
                     break;
                 case TimelineDiff.Set s:
-                    items[(int)s.Index] = s.Value;
+                    Forget(items[(int)s.Index]);
+                    items[(int)s.Index] = Make(s.Value);
                     break;
                 case TimelineDiff.Remove r:
-                    items.RemoveAt((int)r.Index);
+                    RemoveAt((int)r.Index);
                     break;
                 case TimelineDiff.Truncate t:
-                    items.RemoveRange((int)t.Length,
-                        items.Count - (int)t.Length);
+                    for (var k = items.Count - 1; k >= (int)t.Length; k--)
+                        RemoveAt(k);
                     break;
                 case TimelineDiff.Reset r:
-                    items.Clear();
-                    items.AddRange(r.Values);
+                    ClearAll();
+                    items.AddRange(r.Values.Select(Make));
                     break;
             }
+        }
+
+        private void ClearAll()
+        {
+            items.Clear();
+            byId.Clear();
         }
 
         /// <summary>The line for an item of the SDK; null for what is not shown yet (read markers, kinds not ported).</summary>
