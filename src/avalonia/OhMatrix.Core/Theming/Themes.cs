@@ -94,12 +94,16 @@ public static class Themes {
         if (!Registry.ContainsKey(theme.Id))
             Order.Add(theme.Id);
         Registry[theme.Id] = theme;
+        Listed = [.. Order.Select(id => Registry[id])];
     }
+
+    // The list All() gives, made when a theme is registered, not at each call.
+    private static IReadOnlyList<ThemeDefinition> Listed = [];
 
     /// <summary>The registered themes, in the order they were registered (the order of the picker).</summary>
     public static IReadOnlyList<ThemeDefinition> All()
     {
-        return Order.Select(id => Registry[id]).ToList();
+        return Listed;
     }
 
     public static ThemeDefinition? Get(string id)

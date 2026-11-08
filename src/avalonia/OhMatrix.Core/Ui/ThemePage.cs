@@ -45,7 +45,10 @@ public sealed class ThemePage : Grid {
         };
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
-        controller.Store.Changed += _ => Apply();
+        controller.Store.Changed += state => {
+            if (Differs(state))
+                Apply();
+        };
         ThemeScope.ColorsProperty.Changed.AddClassHandler<ThemePage>((p, _) =>
             p.Apply());
         Apply();
@@ -58,10 +61,28 @@ public sealed class ThemePage : Grid {
         return Strings.T(controller.Store.Value.Locale, key);
     }
 
+    // The page shows the language, the chosen theme, the themes there are
+    // and the font; the store changes for many other reasons.
+    private string? seenLocale;
+    private string? seenTheme;
+    private IReadOnlyList<ThemeDefinition>? seenThemes;
+    private FontFamily? seenFont;
+
+    private bool Differs(AppState state)
+    {
+        return seenLocale != state.Locale || seenTheme != state.Prefs.Theme ||
+               !ReferenceEquals(seenThemes, Themes.All()) ||
+               !Equals(seenFont, Fonts.System);
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
+        seenLocale = s.Locale;
+        seenTheme = s.Prefs.Theme;
+        seenThemes = Themes.All();
+        seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
         PageBar.Fill(bar, c, T("theme"), T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));

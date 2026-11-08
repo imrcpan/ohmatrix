@@ -1412,6 +1412,31 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_theme_cards_are_made_again_only_for_the_theme_page()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Theme);
+        Dispatcher.UIThread.RunJobs();
+        var cards = screen.ThemeScreen.Cards;
+        var first = cards.Children[1];
+        Assert.Same(Themes.All(), Themes.All());
+
+        controller.Store.Update(s => s with {
+            Typing = ["Alice"]
+        });
+        controller.Store.Update(s => s with {
+            Timeline = [.. s.Timeline]
+        });
+        Assert.Same(first, cards.Children[1]);
+
+        // Another theme chosen is what the page shows.
+        controller.SetPreferences(p => p with {
+            Theme = Themes.All()[2].Id
+        });
+        Assert.NotSame(first, cards.Children[1]);
+    }
+
+    [AvaloniaFact]
     public async Task A_reply_quotes_and_is_sent_as_an_answer()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
