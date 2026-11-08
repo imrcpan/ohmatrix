@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.I18n;
+using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
 
@@ -135,7 +137,10 @@ public sealed class MainScreen : Grid {
         notice = new TopNotice(controller);
         Grid.SetColumnSpan(notice, 4);
         Children.Add(notice);
-        controller.Store.Changed += _ => Apply();
+        controller.Store.Changed += state => {
+            if (Differs(state))
+                Apply();
+        };
         ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) =>
             s.Apply());
         SizeChanged += (_, _) => Apply();
@@ -163,6 +168,7 @@ public sealed class MainScreen : Grid {
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
 
+
     /// <summary>The width of the chat list in the two-pane layout: a third of the window, between 280 and 420.</summary>
     public static double AutoSidebar(double width)
     {
@@ -185,14 +191,42 @@ public sealed class MainScreen : Grid {
     /// <summary>The divider that can be dragged.</summary>
     public SidebarResizer Resizer => resizer;
 
+    // The screen is laid out from these parts of the state (and from its
+    // size and colours, which call Apply themselves); the store changes
+    // for many other reasons.
+    private VerifyFlow? seenVerification;
+    private string? seenRoom;
+    private bool seenInfo;
+    private SidebarPage seenPage;
+    private string? seenLocale;
+    private double? seenWidth;
+    private FontFamily? seenFont;
+    private ColorTokens? seenColors;
+
+    private bool Differs(AppState state)
+    {
+        return !ReferenceEquals(seenVerification, state.Verification) ||
+               seenRoom != state.SelectedRoomId ||
+               seenInfo != state.RoomInfoOpen ||
+               seenPage != state.SidebarPage || seenLocale != state.Locale ||
+               seenWidth != state.Prefs.SidebarWidth ||
+               !Equals(seenFont, Fonts.System);
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
+        seenVerification = s.Verification;
+        seenRoom = s.SelectedRoomId;
+        seenInfo = s.RoomInfoOpen;
+        seenPage = s.SidebarPage;
+        seenLocale = s.Locale;
+        seenWidth = s.Prefs.SidebarWidth;
+        seenFont = Fonts.System;
         var split = Bounds.Width >= SplitBreakpoint;
         verifyDialog.Update(s.Verification);
-        Background = new SolidColorBrush(c.Bg);
-        divider.Background = new SolidColorBrush(c.Separator);
+        Paint(c);
         divider.IsVisible = split;
         detail.IsVisible = split;
         var sidebar = split ? SidebarWidth() : Bounds.Width;
@@ -204,7 +238,6 @@ public sealed class MainScreen : Grid {
         narrowChat.IsVisible = !split && open;
         infoDockHost.IsVisible = split && open && s.RoomInfoOpen;
         infoDock.Showing = infoDockHost.IsVisible;
-        infoDockHost.BorderBrush = new SolidColorBrush(c.Separator);
         // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
         infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
         infoNarrow.Showing = infoNarrow.IsVisible;
@@ -225,10 +258,22 @@ public sealed class MainScreen : Grid {
             _ => strip ? rail ??= new RoomListPane(controller, true) : list,
         };
         detail.Child = split && open ? wideChat : chip;
+        chipText.FontFamily = Fonts.System;
+        chipText.Text = Strings.T(s.Locale, "selectChat");
+    }
+
+    // The brushes are made again only when the colours are other ones.
+    private void Paint(ColorTokens c)
+    {
+        if (Equals(seenColors, c))
+            return;
+        seenColors = c;
+        Background = new SolidColorBrush(c.Bg);
+        divider.Background = new SolidColorBrush(c.Separator);
+        infoDockHost.BorderBrush = new SolidColorBrush(c.Separator);
         detail.Background = new SolidColorBrush(c.ChatBg);
         chip.Background = new SolidColorBrush(c.ServiceChip);
         chipText.Foreground = new SolidColorBrush(c.ServiceChipText);
         chipIcon.Color = new SolidColorBrush(c.ServiceChipText);
-        chipText.Text = Strings.T(s.Locale, "selectChat");
     }
 }

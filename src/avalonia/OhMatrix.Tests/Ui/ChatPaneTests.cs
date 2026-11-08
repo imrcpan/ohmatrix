@@ -1472,6 +1472,25 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_main_screen_keeps_its_brushes_for_other_changes()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        var background = screen.Background;
+        controller.Store.Update(s => s with {
+            Typing = ["Alice"]
+        });
+        controller.Store.Update(s => s with {
+            Timeline = [.. s.Timeline]
+        });
+        Assert.Same(background, screen.Background);
+
+        // A change of what the layout is made from lays it out again.
+        controller.OpenSidebarPage(SidebarPage.Theme);
+        Assert.True(screen.ThemeScreen.IsAttachedToVisualTree());
+        Assert.Same(background, screen.Background);
+    }
+
+    [AvaloniaFact]
     public async Task A_reply_quotes_and_is_sent_as_an_answer()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
