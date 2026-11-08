@@ -38,6 +38,8 @@ public sealed class RoomInfoPanel : Grid {
         controller.Store.Changed += state => {
             if (Differs(state))
                 Apply();
+            else if (!ReferenceEquals(seenTimeline, state.Timeline))
+                RefreshShared(state);
         };
         ThemeScope.ColorsProperty.Changed
             .AddClassHandler<RoomInfoPanel>((p, _) => p.Apply());
@@ -527,10 +529,65 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         return !ReferenceEquals(seenDetails, state.Details) ||
-               !ReferenceEquals(seenTimeline, state.Timeline) ||
                seenLocale != state.Locale || seenUser != state.UserId ||
                !Equals(seenFont, Fonts.System);
     }
+
+    // The timeline changes with every message and every receipt, and the
+    // panel shows only a few pictures and files of it: when those are the
+    // same nothing is made, and when they are not only that part is.
+    private readonly StackPanel sharedHost = new();
+    private bool sharedBuilt;
+    private List<object>? sharedKey;
+
+    private static List<object> SharedKeyOf(
+        IReadOnlyList<TimelineItem> timeline)
+    {
+        return [
+            .. timeline.Where(i => i.Image is not null).Reverse()
+                .Take(MediaShown).Select(i => (object)i.Image!),
+            .. timeline.Where(i => i.File is not null).Reverse()
+                .Take(FilesShown).Select(i => (object)i.File!),
+        ];
+    }
+
+    private void RefreshShared(AppState state)
+    {
+        seenTimeline = state.Timeline;
+        if (!showing) {
+            stale = true;
+            return;
+        }
+
+        // A member's page or the gallery is open: the part is made when
+        // the page is left.
+        if (!sharedBuilt)
+            return;
+        var key = SharedKeyOf(state.Timeline);
+        if (sharedKey is not null && sharedKey.SequenceEqual(key))
+            return;
+        sharedKey = key;
+        AddShared(ThemeScope.GetColors(this), state.Timeline);
+    }
+
+    // The rows of the members: what they are made from, kept to know
+    // whether they are still right.
+    private readonly StackPanel membersHost = new();
+
+    private readonly record struct MembersKey(
+        IReadOnlyList<RoomMemberInfo> Members,
+        RoomPermissions Can,
+        PowerThresholds Levels,
+        ColorTokens Colors,
+        string Locale,
+        string? User,
+        string RoomId,
+        bool Direct,
+        int Limit,
+        FontFamily Font
+    );
+
+    private MembersKey? membersKey;
 
     private const int MemberPage = 50;
     private string? memberRoom;
@@ -597,6 +654,7 @@ public sealed class RoomInfoPanel : Grid {
         bar.BorderBrush = new SolidColorBrush(c.Separator);
 
         content.Children.Clear();
+        sharedBuilt = false;
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         if (room is null)
             return;
@@ -724,6 +782,9 @@ public sealed class RoomInfoPanel : Grid {
             AddAccessSettings(c, room, details);
         }
 
+        content.Children.Add(sharedHost);
+        sharedBuilt = true;
+        sharedKey = SharedKeyOf(s.Timeline);
         AddShared(c, s.Timeline);
         if (!room.IsDirect && details.Banned.Count > 0)
             AddBanned(c, room, details);
@@ -734,22 +795,15 @@ public sealed class RoomInfoPanel : Grid {
             memberLimit = MemberPage;
         }
 
-        foreach (var member in details.Members.Take(memberLimit))
-            content.Children.Add(MemberRow(c, member, room));
-        if (details.Members.Count > memberLimit) {
-            var more = new TextButton {
-                Title = T("members.more",
-                    ("n", Math.Min(MemberPage,
-                        details.Members.Count - memberLimit)))
-            };
-            more.Click += (_, _) => {
-                memberLimit += MemberPage;
-                Apply();
-            };
-            ThemeScope.SetColors(more, c);
-            content.Children.Add(more);
+        var key = new MembersKey(details.Members, details.Can,
+            details.Levels, c, s.Locale, s.UserId, room.Id, room.IsDirect,
+            memberLimit, Fonts.System);
+        if (membersKey != key) {
+            membersKey = key;
+            BuildMembers(c, room, details);
         }
 
+        content.Children.Add(membersHost);
         LeaveButton = new TextButton {
             Title = T(room.IsDirect ? "deleteChat" : "leaveGroup"),
             Margin = new Thickness(0, 16, 0, 0),
@@ -1142,18 +1196,40 @@ public sealed class RoomInfoPanel : Grid {
     }
 
     /// <summary>The pictures and files of the messages loaded.</summary>
+    private void BuildMembers(ColorTokens c, RoomSummary room,
+        RoomDetails details)
+    {
+        membersHost.Children.Clear();
+        foreach (var member in details.Members.Take(memberLimit))
+            membersHost.Children.Add(MemberRow(c, member, room));
+        if (details.Members.Count <= memberLimit)
+            return;
+        var more = new TextButton {
+            Title = T("members.more",
+                ("n", Math.Min(MemberPage,
+                    details.Members.Count - memberLimit)))
+        };
+        more.Click += (_, _) => {
+            memberLimit += MemberPage;
+            Apply();
+        };
+        ThemeScope.SetColors(more, c);
+        membersHost.Children.Add(more);
+    }
+
     private void AddShared(ColorTokens c, IReadOnlyList<TimelineItem> timeline)
     {
+        sharedHost.Children.Clear();
         mediaThumbs.Clear();
         var pictures = timeline.Where(i => i.Image is not null).Reverse()
             .Take(MediaShown).ToList();
         var files = timeline.Where(i => i.File is not null).Reverse()
             .Take(FilesShown).ToList();
-        content.Children.Add(Section(c, T("sharedMedia")));
-        content.Children.Add(ProfilePage.NavRow(c, "image", T("viewAll"),
+        sharedHost.Children.Add(Section(c, T("sharedMedia")));
+        sharedHost.Children.Add(ProfilePage.NavRow(c, "image", T("viewAll"),
             OpenGallery, 0));
         if (pictures.Count == 0 && files.Count == 0) {
-            content.Children.Add(new TextBlock {
+            sharedHost.Children.Add(new TextBlock {
                 Text = T("media.none"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
@@ -1200,11 +1276,11 @@ public sealed class RoomInfoPanel : Grid {
                 grid.Children.Add(cell);
             }
 
-            content.Children.Add(grid);
+            sharedHost.Children.Add(grid);
         }
 
         if (files.Count > 0) {
-            content.Children.Add(Section(c, T("sharedFiles")));
+            sharedHost.Children.Add(Section(c, T("sharedFiles")));
             foreach (var item in files) {
                 var row = new Grid {
                     ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
@@ -1237,7 +1313,7 @@ public sealed class RoomInfoPanel : Grid {
                 };
                 Grid.SetColumn(size, 2);
                 row.Children.Add(size);
-                content.Children.Add(row);
+                sharedHost.Children.Add(row);
             }
         }
     }

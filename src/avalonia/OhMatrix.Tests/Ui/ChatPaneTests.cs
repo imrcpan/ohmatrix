@@ -2038,6 +2038,74 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task
+        The_info_panel_keeps_its_members_for_messages_and_receipts()
+    {
+        var (controller, panel, _) = await OpenInfo();
+
+        TextBlock Alice() => panel.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.Text == "Alice");
+
+        var alice = Alice();
+        var thumbs = panel.MediaThumbnails.ToList();
+        Assert.Single(thumbs);
+
+        // A message, an edit, a receipt: new timelines, the same pictures.
+        controller.Store.Update(s => s with {
+            Timeline = [
+                .. s.Timeline,
+                new TimelineItem {
+                    Id = "plain",
+                    Body = "Just text",
+                    SenderId = "@bob",
+                    SenderName = "Bob",
+                    Ts = Now
+                }
+            ]
+        });
+        controller.Store.Update(s => s with {
+            Timeline = [
+                .. s.Timeline.Select(i => i.Id == "plain"
+                    ? i with {
+                        Body = "Just text, edited",
+                        Edited = true
+                    }
+                    : i)
+            ]
+        });
+        controller.Store.Update(s => s with {
+            Timeline = [
+                .. s.Timeline.Select(i => i.Id == "plain"
+                    ? i with {
+                        Read = true,
+                        ReadBy = ["@alice:s"]
+                    }
+                    : i)
+            ]
+        });
+        Assert.Same(alice, Alice());
+        Assert.Equal(thumbs, panel.MediaThumbnails);
+
+        // A new picture makes the media part again, and only that.
+        controller.Store.Update(s => s with {
+            Timeline = [
+                .. s.Timeline,
+                new TimelineItem {
+                    Id = "pic",
+                    Body = "",
+                    SenderId = "@bob",
+                    SenderName = "Bob",
+                    Ts = Now,
+                    Image = new ImageAttachment("mxc://s/new", 10, 10,
+                        "new.png")
+                }
+            ]
+        });
+        Assert.Equal(2, panel.MediaThumbnails.Count);
+        Assert.Same(alice, Alice());
+    }
+
+    [AvaloniaFact]
     public async Task The_info_panel_renames_changes_the_topic_and_leaves()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
