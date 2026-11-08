@@ -665,12 +665,21 @@ public sealed partial class ChatPane : Grid {
     private int revealSerial;
     private string? revealTarget;
     private string? revealRoom;
+    private string? revealHighlight;
     private bool revealPending;
 
     private void StopRevealing()
     {
         if (!revealing)
             return;
+        // The mark the search put on the message goes with it: its wait
+        // for the end of the mark is over now.
+        if (revealHighlight is not null && highlightId == revealHighlight) {
+            highlightId = null;
+            Mark(false);
+        }
+
+        revealHighlight = null;
         var target = revealPending ? revealTarget : null;
         var sameRoom = controller.Store.Value.SelectedRoomId == revealRoom;
         revealSerial++;
@@ -749,12 +758,14 @@ public sealed partial class ChatPane : Grid {
             revealPending = false;
             ClearRevealNotice();
             highlightId = hit.Id;
+            revealHighlight = hit.Id;
             Mark(false);
             await Task.Delay(3000);
             if (Superseded())
                 return;
             if (highlightId == hit.Id)
                 highlightId = null;
+            revealHighlight = null;
             Mark(false);
         } finally {
             if (mine == revealSerial) {

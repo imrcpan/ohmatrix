@@ -1634,6 +1634,31 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_mark_of_a_search_goes_when_its_pane_is_hidden()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var search = screen.Wide.Reveal("$2");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        Assert.NotNull(screen.Wide.Highlighted);
+
+        // Within the three seconds the window gets narrow, and wide again.
+        window.Width = 420;
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Assert.Null(screen.Wide.Highlighted);
+        window.Width = 1000;
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Assert.Null(screen.Wide.Highlighted);
+        await search;
+        Assert.Null(screen.Wide.Highlighted);
+    }
+
+    [AvaloniaFact]
     public async Task A_reply_quotes_and_is_sent_as_an_answer()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
