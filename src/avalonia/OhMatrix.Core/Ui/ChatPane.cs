@@ -832,8 +832,33 @@ public sealed partial class ChatPane : Grid {
     /// <summary>The background of the send button now: the accent with text to send.</summary>
     public IBrush? SendBackground => send.Background;
 
+    private bool showing = true;
+    private bool stale;
+
+    /// <summary>
+    /// Whether the chat is on the screen. There are two (beside the list,
+    /// over it) and one is always hidden; it is not built, and does not
+    /// take a jump to a message, until it is shown.
+    /// </summary>
+    public bool Showing {
+        get => showing;
+        set {
+            if (showing == value)
+                return;
+            showing = value;
+            if (value && stale)
+                Apply();
+        }
+    }
+
     private void Apply()
     {
+        if (!showing) {
+            stale = true;
+            return;
+        }
+
+        stale = false;
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.ChatBg);
         composer.Background = new SolidColorBrush(c.Bg);

@@ -168,6 +168,7 @@ public sealed class MainScreen : Grid {
     /// <summary>The chat pane beside the list.</summary>
     public ChatPane Wide => wideChat;
 
+    public ChatPane Narrow => narrowChat;
 
     /// <summary>The width of the chat list in the two-pane layout: a third of the window, between 280 and 420.</summary>
     public static double AutoSidebar(double width)
@@ -236,6 +237,7 @@ public sealed class MainScreen : Grid {
         var open = s.SelectedRoomId is not null;
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
+        narrowChat.Showing = narrowChat.IsVisible;
         infoDockHost.IsVisible = split && open && s.RoomInfoOpen;
         infoDock.Showing = infoDockHost.IsVisible;
         // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
@@ -258,6 +260,7 @@ public sealed class MainScreen : Grid {
             _ => strip ? rail ??= new RoomListPane(controller, true) : list,
         };
         detail.Child = split && open ? wideChat : chip;
+        wideChat.Showing = split && open;
         chipText.FontFamily = Fonts.System;
         chipText.Text = Strings.T(s.Locale, "selectChat");
     }

@@ -1491,6 +1491,23 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_chat_that_is_not_on_the_screen_is_built_when_it_is()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(screen.Wide.Messages.ItemCount > 0);
+        Assert.Equal(0, screen.Narrow.Messages.ItemCount);
+
+        // Narrow, the other one is on the screen and has the messages.
+        window.Width = 420;
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Assert.True(screen.Narrow.Messages.ItemCount > 0);
+    }
+
+    [AvaloniaFact]
     public async Task A_reply_quotes_and_is_sent_as_an_answer()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);
