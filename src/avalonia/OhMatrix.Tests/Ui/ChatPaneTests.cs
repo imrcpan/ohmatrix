@@ -1437,6 +1437,41 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task
+        The_top_notice_keeps_its_ring_turning_and_ignores_other_changes()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        var notice = screen.Notice;
+        controller.ShowNotice("Joining", NoticeKind.Progress);
+        var ring = notice.GetVisualDescendants()
+            .OfType<OhMatrix.Core.Ui.Spinner>().Single();
+        var label = notice.GetVisualDescendants().OfType<TextBlock>().Single();
+
+        controller.Store.Update(s => s with {
+            Typing = ["Alice"]
+        });
+        Assert.Same(label, notice.GetVisualDescendants().OfType<TextBlock>()
+            .Single());
+
+        // Another message of the same kind goes on with the same ring.
+        controller.ShowNotice("Still joining", NoticeKind.Progress);
+        Assert.Equal("Still joining", notice.Text);
+        Assert.Same(ring, notice.GetVisualDescendants()
+            .OfType<OhMatrix.Core.Ui.Spinner>()
+            .Single());
+
+        // A good end puts a check in the place of the ring.
+        controller.ShowNotice("Joined", NoticeKind.Success);
+        Assert.Empty(notice.GetVisualDescendants()
+            .OfType<OhMatrix.Core.Ui.Spinner>());
+        Assert.Equal("Joined", notice.Text);
+        Assert.Single(notice.GetVisualDescendants().OfType<Icon>());
+        controller.ShowNotice("Failed", NoticeKind.Error);
+        Assert.Single(notice.GetVisualDescendants().OfType<Icon>());
+        Assert.Equal("Failed", notice.Text);
+    }
+
+    [AvaloniaFact]
     public async Task A_reply_quotes_and_is_sent_as_an_answer()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);

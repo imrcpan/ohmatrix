@@ -29,7 +29,11 @@ public sealed class TopNotice : Border {
             Blur = 12,
             Color = Color.FromArgb(90, 0, 0, 0)
         });
-        controller.Store.Changed += _ => Apply();
+        controller.Store.Changed += state => {
+            if (!ReferenceEquals(state.Notice, shownNotice) ||
+                !Equals(shownFont, Fonts.System))
+                Apply();
+        };
         ThemeScope.ColorsProperty.Changed.AddClassHandler<TopNotice>((n, _) =>
             n.Apply());
         Apply();
@@ -40,9 +44,32 @@ public sealed class TopNotice : Border {
 
     private string? text;
 
+    // What is shown is kept and changed in place: a turning ring that was
+    // made again would start from the top, and the store changes for many
+    // reasons that are not a notice.
+    private Notice? shownNotice;
+    private FontFamily? shownFont;
+    private Control? mark;
+
+    private readonly StackPanel row = new() {
+        Orientation = Orientation.Horizontal,
+        Spacing = 8
+    };
+
+    private readonly TextBlock label = new() {
+        FontSize = 16,
+        FontWeight = FontWeight.SemiBold,
+        TextWrapping = TextWrapping.Wrap,
+        MaxLines = 3,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
     private void Apply()
     {
         var notice = controller.Store.Value.Notice;
+        shownNotice = notice;
+        shownFont = Fonts.System;
         IsVisible = notice is not null;
         if (notice is null)
             return;
@@ -50,48 +77,64 @@ public sealed class TopNotice : Border {
         text = notice.Message;
         Background = new SolidColorBrush(c.Bg);
         BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128));
-        var row = new StackPanel {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8
-        };
-        if (notice.Kind == NoticeKind.Progress) {
-            row.Children.Add(new Spinner {
+        SetMark(notice.Kind);
+        label.Text = notice.Message;
+        label.FontFamily = Fonts.System;
+        label.Foreground = new SolidColorBrush(c.Text);
+        if (row.Children.Count == 1)
+            row.Children.Add(label);
+        if (!ReferenceEquals(Child, row))
+            Child = row;
+        Avalonia.Automation.AutomationProperties.SetName(this, notice.Message);
+    }
+
+    // The ring while something goes on, a check or a cross otherwise; the
+    // ring that is turning stays when the next message is another one of
+    // the same kind.
+    private void SetMark(NoticeKind kind)
+    {
+        if (kind == NoticeKind.Progress) {
+            if (mark is Spinner)
+                return;
+            Place(new Spinner {
                 Size = 20,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(2),
             });
-        } else {
-            var error = notice.Kind == NoticeKind.Error;
-            row.Children.Add(new Border {
+            return;
+        }
+
+        var error = kind == NoticeKind.Error;
+        if (mark is not Border { Child: Icon } badge) {
+            badge = new Border {
                 Width = 24,
                 Height = 24,
                 CornerRadius = new CornerRadius(12),
-                Background = new SolidColorBrush(error
-                    ? Color.FromRgb(0xFF, 0x3B, 0x30)
-                    : Color.FromRgb(0x34, 0xC7, 0x59)),
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = new Icon {
-                    Glyph = error ? "close" : "check",
                     Size = 16,
                     Color = Brushes.White,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 },
-            });
+            };
+            Place(badge);
         }
 
-        row.Children.Add(new TextBlock {
-            Text = notice.Message,
-            FontSize = 16,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Text),
-            TextWrapping = TextWrapping.Wrap,
-            MaxLines = 3,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        Child = row;
-        Avalonia.Automation.AutomationProperties.SetName(this, notice.Message);
+        badge.Background = new SolidColorBrush(error
+            ? Color.FromRgb(0xFF, 0x3B, 0x30)
+            : Color.FromRgb(0x34, 0xC7, 0x59));
+        ((Icon)badge.Child!).Glyph = error ? "close" : "check";
+    }
+
+    private void Place(Control next)
+    {
+        if (row.Children.Count == 0)
+            row.Children.Add(next);
+        else if (mark is not null)
+            row.Children[0] = next;
+        else
+            row.Children.Insert(0, next);
+        mark = next;
     }
 }
