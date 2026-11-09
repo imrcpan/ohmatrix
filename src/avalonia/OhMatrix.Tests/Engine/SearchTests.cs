@@ -58,4 +58,29 @@ public class SearchTests {
         Assert.EndsWith("...", s.After);
         Assert.Equal("", Snippet.Make("short", "zzz").Match);
     }
+
+    [Fact]
+    public void A_snippet_collapses_white_space_as_the_regular_expression_did()
+    {
+        // What the first version did, kept here to compare with.
+        static string Old(string s) =>
+            System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
+                .Trim();
+
+        string[] texts = [
+            "", " ", "a", "a b", "a  b", " a b ", "a\tb\nc\r\nd", "\n\n x \n",
+            "a\u00a0b", "a\u2003\u2003b", "\u3000a\u3000", "a\u0085b",
+            "a\u200bb", "x \v y \f z", "  Budget   for\nnext   year  ",
+        ];
+        foreach (var text in texts) {
+            var s = Snippet.Make(text, "zzz", 1000);
+            Assert.Equal(Old(text), s.After);
+        }
+
+        var hit =
+            Snippet.Make("the  budget\n\nis   ready", " Budget\tis ", 100);
+        Assert.Equal("budget is", hit.Match);
+        Assert.Equal("the ", hit.Before);
+        Assert.Equal(" ready", hit.After);
+    }
 }

@@ -20,9 +20,6 @@ public sealed record SearchPage(
 public sealed record Snippet(string Before, string Match, string After) {
     public static Snippet Make(string text, string term, int radius = 36)
     {
-        static string Collapse(string s) =>
-            System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
-
         var flat = Collapse(text);
         var needle = Collapse(term);
         var at = needle.Length == 0
@@ -39,5 +36,37 @@ public sealed record Snippet(string Before, string Match, string After) {
             flat.Substring(at, needle.Length),
             flat[(at + needle.Length)..to].TrimEnd() +
             (to < flat.Length ? "..." : ""));
+    }
+
+    // Every run of white space becomes one space and the ends are trimmed.
+    // Made by hand and not by a regular expression: the program is compiled
+    // ahead of time, and this is done for each hit of a search.
+    private static string Collapse(string s)
+    {
+        var clean = true;
+        for (var i = 0; i < s.Length && clean; i++) {
+            clean = !char.IsWhiteSpace(s[i]) ||
+                    s[i] == ' ' && i > 0 && i < s.Length - 1 &&
+                    !char.IsWhiteSpace(s[i + 1]) &&
+                    !char.IsWhiteSpace(s[i - 1]);
+        }
+
+        if (clean)
+            return s;
+        var text = new System.Text.StringBuilder(s.Length);
+        var space = false;
+        foreach (var ch in s) {
+            if (char.IsWhiteSpace(ch)) {
+                space = text.Length > 0;
+                continue;
+            }
+
+            if (space)
+                text.Append(' ');
+            space = false;
+            text.Append(ch);
+        }
+
+        return text.ToString();
     }
 }
