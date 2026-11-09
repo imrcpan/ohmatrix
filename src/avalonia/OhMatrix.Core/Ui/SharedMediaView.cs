@@ -33,6 +33,15 @@ public sealed class SharedMediaView : StackPanel {
     private readonly Func<string, string> t;
     private MediaKind kind = MediaKind.Image;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SharedMediaView()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharedMediaView>((v,
+            _) => v.Render());
+    }
+
     public SharedMediaView(AppController controller, string roomId,
         ImageViewer viewer)
     {
@@ -41,8 +50,6 @@ public sealed class SharedMediaView : StackPanel {
         this.viewer = viewer;
         var locale = controller.Store.Value.Prefs.Locale;
         t = key => Strings.T(locale, key);
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharedMediaView>((v,
-            _) => v.Render());
         Render();
         _ = More(kind);
     }

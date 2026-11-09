@@ -21,6 +21,15 @@ public sealed class EncryptionPage : Grid {
         BorderThickness = new Thickness(0, 0, 0, 1)
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static EncryptionPage()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<EncryptionPage>((p, _) => p.Apply());
+    }
+
     public EncryptionPage(AppController controller)
     {
         this.controller = controller;
@@ -34,8 +43,6 @@ public sealed class EncryptionPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<EncryptionPage>((p, _) => p.Apply());
         Apply();
     }
 

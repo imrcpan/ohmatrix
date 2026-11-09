@@ -27,6 +27,15 @@ public sealed class ThemePage : Grid {
         Margin = new Thickness(CardGap),
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static ThemePage()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<ThemePage>((p, _) =>
+            p.Apply());
+    }
+
     public ThemePage(AppController controller)
     {
         this.controller = controller;
@@ -49,8 +58,6 @@ public sealed class ThemePage : Grid {
             if (Differs(state))
                 Apply();
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<ThemePage>((p, _) =>
-            p.Apply());
         Apply();
     }
 

@@ -124,6 +124,33 @@ public class ControlsTests {
 
     // Writes the controls to a picture when OHMATRIX_CONTROLS_SHEET names a file, to look at them.
     [AvaloniaFact]
+    public void A_change_of_colours_repaints_a_control_once_however_many_exist()
+    {
+        // The handler of the colours is made once for a type; one made by
+        // each control stays in the property for good and runs for every
+        // control that was ever made.
+        var blocks = Enumerable.Range(0, 25)
+            .Select(_ => new SkeletonBlock(10, 10)).ToList();
+        var buttons = Enumerable.Range(0, 25)
+            .Select(_ => new PrimaryButton()).ToList();
+        var repainted = 0;
+        blocks[0].PropertyChanged += (_, e) => {
+            if (e.Property == Border.BackgroundProperty)
+                repainted++;
+        };
+        ThemeScope.SetColors(blocks[0], Themes.Get("dark")!.Colors);
+        Assert.Equal(1, repainted);
+
+        repainted = 0;
+        buttons[0].PropertyChanged += (_, e) => {
+            if (e.Property == Border.BackgroundProperty)
+                repainted++;
+        };
+        ThemeScope.SetColors(buttons[0], Themes.Get("dark")!.Colors);
+        Assert.Equal(1, repainted);
+    }
+
+    [AvaloniaFact]
     public void The_controls_can_be_drawn_in_a_light_and_a_dark_theme()
     {
         Control Form(string theme) => Column(theme,

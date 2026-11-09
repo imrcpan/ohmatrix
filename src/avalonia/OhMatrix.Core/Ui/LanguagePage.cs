@@ -18,6 +18,15 @@ public sealed class LanguagePage : Grid {
         Spacing = 2
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static LanguagePage()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<LanguagePage>((p, _) => p.Apply());
+    }
+
     public LanguagePage(AppController controller)
     {
         this.controller = controller;
@@ -31,8 +40,6 @@ public sealed class LanguagePage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<LanguagePage>((p, _) => p.Apply());
         Apply();
     }
 

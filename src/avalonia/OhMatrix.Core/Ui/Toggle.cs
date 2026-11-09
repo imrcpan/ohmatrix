@@ -27,6 +27,15 @@ public sealed class Toggle : Border {
 
     private bool isOn;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static Toggle()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<Toggle>((t, _) =>
+            t.Apply());
+    }
+
     public Toggle()
     {
         Width = W;
@@ -39,8 +48,6 @@ public sealed class Toggle : Border {
             e.Handled = true;
             Changed?.Invoke(!isOn);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<Toggle>((t, _) =>
-            t.Apply());
         Apply();
     }
 

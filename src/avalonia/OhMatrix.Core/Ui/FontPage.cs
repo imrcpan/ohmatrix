@@ -21,6 +21,15 @@ public sealed class FontPage : Grid {
 
     private IReadOnlyList<string>? installed;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static FontPage()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<FontPage>((p, _) =>
+            p.Apply());
+    }
+
     public FontPage(AppController controller)
     {
         this.controller = controller;
@@ -38,8 +47,6 @@ public sealed class FontPage : Grid {
         Children.Add(scroller);
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<FontPage>((p, _) =>
-            p.Apply());
         Apply();
     }
 

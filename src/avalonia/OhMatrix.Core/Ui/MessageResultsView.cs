@@ -30,6 +30,15 @@ public sealed class MessageResultsView : StackPanel {
     private string? next;
     private bool busy;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static MessageResultsView()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<MessageResultsView>((v, _) => v.Render());
+    }
+
     public MessageResultsView(AppController controller, string? roomId,
         bool showRoom)
     {
@@ -40,8 +49,6 @@ public sealed class MessageResultsView : StackPanel {
             debounce.Stop();
             _ = Load(null);
         };
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<MessageResultsView>((v, _) => v.Render());
     }
 
     /// <summary>The hits shown.</summary>

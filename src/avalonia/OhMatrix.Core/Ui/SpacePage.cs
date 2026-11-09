@@ -26,6 +26,15 @@ public sealed class SpacePage : Grid {
     private string? loadedFor;
     private int ticket;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SpacePage()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SpacePage>((p, _) =>
+            p.Apply());
+    }
+
     public SpacePage(AppController controller)
     {
         this.controller = controller;
@@ -43,8 +52,6 @@ public sealed class SpacePage : Grid {
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SpacePage>((p, _) =>
-            p.Apply());
         Apply();
     }
 

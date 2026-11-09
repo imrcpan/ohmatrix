@@ -84,6 +84,15 @@ public sealed class RoomListPane : Grid {
         },
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static RoomListPane()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<RoomListPane>((p, _) => p.Apply());
+    }
+
     public RoomListPane(AppController controller, bool rail = false,
         TimeProvider? time = null)
     {
@@ -151,8 +160,6 @@ public sealed class RoomListPane : Grid {
         plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<RoomListPane>((p, _) => p.Apply());
         Apply();
     }
 

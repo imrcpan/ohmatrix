@@ -34,6 +34,15 @@ public sealed class LogPage : Grid {
         BorderThickness = new Thickness(0, 0, 0, 1)
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static LogPage()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<LogPage>((p, _) =>
+            p.Apply());
+    }
+
     public LogPage(AppController controller)
     {
         this.controller = controller;
@@ -75,8 +84,6 @@ public sealed class LogPage : Grid {
             }, DispatcherPriority.Background);
         };
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<LogPage>((p, _) =>
-            p.Apply());
         Apply();
     }
 

@@ -15,12 +15,19 @@ public abstract class PressableButton : Border {
     private bool hovered;
     private bool pressed;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static PressableButton()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<PressableButton>((b,
+            _) => b.Refresh());
+    }
+
     protected PressableButton()
     {
         Cursor = new Cursor(StandardCursorType.Hand);
         Focusable = true;
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<PressableButton>((b,
-            _) => b.Refresh());
     }
 
     public event EventHandler? Click;

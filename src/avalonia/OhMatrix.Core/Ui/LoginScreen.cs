@@ -73,6 +73,15 @@ public sealed class LoginScreen : Grid {
     private bool creating;
     private string? revealLocale;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static LoginScreen()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<LoginScreen>((s, _) =>
+            s.Apply());
+    }
+
     /// <param name="defaultHomeserver">What the homeserver field holds when none was used before.</param>
     /// <param name="back">Another account to go to, with the label of its button; null when there is none.</param>
     public LoginScreen(
@@ -107,8 +116,6 @@ public sealed class LoginScreen : Grid {
         zoom = new ZoomPicker(controller, this, true, time);
         zoomButton.Click += (_, _) => zoom.Open(zoomButton);
         controller.Store.Changed += OnStateChanged;
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<LoginScreen>((s, _) =>
-            s.Apply());
         Apply();
     }
 

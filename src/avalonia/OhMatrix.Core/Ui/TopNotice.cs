@@ -13,6 +13,15 @@ namespace OhMatrix.Core.Ui;
 public sealed class TopNotice : Border {
     private readonly AppController controller;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static TopNotice()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<TopNotice>((n, _) =>
+            n.Apply());
+    }
+
     public TopNotice(AppController controller)
     {
         this.controller = controller;
@@ -34,8 +43,6 @@ public sealed class TopNotice : Border {
                 !Equals(shownFont, Fonts.System))
                 Apply();
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<TopNotice>((n, _) =>
-            n.Apply());
         Apply();
     }
 

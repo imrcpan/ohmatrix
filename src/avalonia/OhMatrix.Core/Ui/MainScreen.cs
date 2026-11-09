@@ -73,6 +73,15 @@ public sealed class MainScreen : Grid {
     private readonly CallScreen callScreen;
     private readonly TopNotice notice;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static MainScreen()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) =>
+            s.Apply());
+    }
+
     public MainScreen(AppController controller)
     {
         this.controller = controller;
@@ -141,8 +150,6 @@ public sealed class MainScreen : Grid {
             if (Differs(state))
                 Apply();
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<MainScreen>((s, _) =>
-            s.Apply());
         SizeChanged += (_, _) => Apply();
         Apply();
     }

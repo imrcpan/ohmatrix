@@ -24,6 +24,15 @@ public sealed class AccountsPage : Grid {
     private bool reordering;
     private AccountManager? watched;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static AccountsPage()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<AccountsPage>((p, _) => p.Apply());
+    }
+
     public AccountsPage(AppController controller)
     {
         this.controller = controller;
@@ -37,8 +46,6 @@ public sealed class AccountsPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<AccountsPage>((p, _) => p.Apply());
         Apply();
     }
 

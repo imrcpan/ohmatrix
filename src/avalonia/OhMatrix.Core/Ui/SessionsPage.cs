@@ -28,6 +28,15 @@ public sealed class SessionsPage : Grid {
     private bool wasOpen;
     private TimeProvider time = TimeProvider.System;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SessionsPage()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<SessionsPage>((p, _) => p.Apply());
+    }
+
     public SessionsPage(AppController controller)
     {
         this.controller = controller;
@@ -41,8 +50,6 @@ public sealed class SessionsPage : Grid {
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<SessionsPage>((p, _) => p.Apply());
         Apply();
     }
 

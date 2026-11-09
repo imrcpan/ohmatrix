@@ -24,6 +24,15 @@ public sealed class SearchField : Border {
         MinHeight = 0,
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SearchField()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SearchField>((f, _) =>
+            f.Apply());
+    }
+
     public SearchField()
     {
         Height = 36;
@@ -41,8 +50,6 @@ public sealed class SearchField : Border {
             if (e.Property == TextBox.TextProperty)
                 TextChanged?.Invoke(this, EventArgs.Empty);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SearchField>((f, _) =>
-            f.Apply());
     }
 
     public event EventHandler? TextChanged;

@@ -43,6 +43,15 @@ public sealed class TextField : Border {
     private bool shown;
     private string[]? revealLabels;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static TextField()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<TextField>((f, _) =>
+            f.Apply());
+    }
+
     public TextField()
     {
         Height = 44;
@@ -80,8 +89,6 @@ public sealed class TextField : Border {
             if (e.Key == Key.Enter)
                 Submit?.Invoke(this, EventArgs.Empty);
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<TextField>((f, _) =>
-            f.Apply());
     }
 
     public event EventHandler? TextChanged;

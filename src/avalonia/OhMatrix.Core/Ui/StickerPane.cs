@@ -54,6 +54,15 @@ public sealed class StickerPane : Grid {
     private string? view;
     private Control? gear;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static StickerPane()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<StickerPane>((p, _) =>
+            p.Apply());
+    }
+
     public StickerPane(AppController controller, Action close)
     {
         this.controller = controller;
@@ -73,8 +82,6 @@ public sealed class StickerPane : Grid {
             if (Differs(state))
                 Apply();
         };
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<StickerPane>((p, _) =>
-            p.Apply());
         Apply();
     }
 

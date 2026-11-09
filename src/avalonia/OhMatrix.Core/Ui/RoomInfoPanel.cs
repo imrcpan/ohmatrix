@@ -22,6 +22,15 @@ public sealed class RoomInfoPanel : Grid {
     private readonly Border bar = new();
     private readonly StackPanel content = new();
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static RoomInfoPanel()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<RoomInfoPanel>((p, _) => p.Apply());
+    }
+
     public RoomInfoPanel(AppController controller)
     {
         this.controller = controller;
@@ -41,8 +50,6 @@ public sealed class RoomInfoPanel : Grid {
             else if (!ReferenceEquals(seenTimeline, state.Timeline))
                 RefreshShared(state);
         };
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<RoomInfoPanel>((p, _) => p.Apply());
         Apply();
     }
 

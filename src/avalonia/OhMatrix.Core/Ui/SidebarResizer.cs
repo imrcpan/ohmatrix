@@ -34,6 +34,15 @@ public sealed class SidebarResizer : Border {
     public Action<double?> Commit { get; set; } = _ => {
     };
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SidebarResizer()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<SidebarResizer>((r, _) => r.Paint());
+    }
+
     public SidebarResizer()
     {
         Width = 9;
@@ -42,8 +51,6 @@ public sealed class SidebarResizer : Border {
         Child = line;
         Avalonia.Automation.AutomationProperties.SetName(this,
             "Resize chat list");
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<SidebarResizer>((r, _) => r.Paint());
         Paint();
     }
 

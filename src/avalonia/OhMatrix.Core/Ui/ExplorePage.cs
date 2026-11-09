@@ -28,6 +28,15 @@ public sealed class ExplorePage : Grid {
     private bool wasOpen;
     private int ticket;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static ExplorePage()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<ExplorePage>((p, _) =>
+            p.Apply());
+    }
+
     public ExplorePage(AppController controller)
     {
         this.controller = controller;
@@ -57,8 +66,6 @@ public sealed class ExplorePage : Grid {
             Apply();
         };
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<ExplorePage>((p, _) =>
-            p.Apply());
         Apply();
     }
 

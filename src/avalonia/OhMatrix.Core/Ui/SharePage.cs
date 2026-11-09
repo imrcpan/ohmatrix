@@ -25,6 +25,15 @@ public sealed class SharePage : Grid {
     private bool sending;
     private int failed;
 
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SharePage()
+    {
+        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharePage>((p, _) =>
+            p.Apply());
+    }
+
     public SharePage(AppController controller)
     {
         this.controller = controller;
@@ -47,8 +56,6 @@ public sealed class SharePage : Grid {
         Children.Add(scroller);
         filter.TextChanged += (_, _) => Apply();
         controller.Store.Changed += _ => Apply();
-        ThemeScope.ColorsProperty.Changed.AddClassHandler<SharePage>((p, _) =>
-            p.Apply());
         Apply();
     }
 

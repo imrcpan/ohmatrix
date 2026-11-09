@@ -52,6 +52,15 @@ public class Pulse : Panel {
 
 /// <summary>A grey shape where something is still to come: a circle, or a bar with rounded ends (<c>SkeletonBlock</c>).</summary>
 public sealed class SkeletonBlock : Border {
+    // Registered once for the type: a handler made in the constructor
+    // stays in the property's observers for good and runs once for each
+    // control that was ever made.
+    static SkeletonBlock()
+    {
+        ThemeScope.ColorsProperty.Changed
+            .AddClassHandler<SkeletonBlock>((b, _) => b.Fill());
+    }
+
     public SkeletonBlock(double width, double height, bool circle = false,
         double radius = 0)
     {
@@ -62,8 +71,6 @@ public sealed class SkeletonBlock : Border {
             radius > 0 ? radius : Math.Min(6, height / 2));
         HorizontalAlignment = HorizontalAlignment.Left;
         VerticalAlignment = VerticalAlignment.Center;
-        ThemeScope.ColorsProperty.Changed
-            .AddClassHandler<SkeletonBlock>((b, _) => b.Fill());
         Fill();
     }
 
