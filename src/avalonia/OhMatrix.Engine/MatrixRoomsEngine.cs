@@ -17,10 +17,28 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     private readonly Channel<RoomListEntriesUpdate[]> updates =
         Channel.CreateUnbounded<RoomListEntriesUpdate[]>();
 
-    private readonly List<Room> items = [];
-    private readonly Dictionary<string, RoomSummary> summaries = [];
+    // What the list knows (the rooms, their summaries in order, and the run of
+    // the sync they belong to); the ids of the rooms are asked of the SDK once.
+    private readonly RoomBook<Room> book = new(room => room.Id());
+
     private readonly Dictionary<string, TaskHandle> watching = [];
-    private readonly Lock gate = new();
+
+    // Handing the list on is one at a time, and a run that is over does not.
+    private readonly Lock emitGate = new();
+
+    // The notices of the rooms that come close together are one hand-over.
+    private readonly Burst burst = new(TimeSpan.FromMilliseconds(40),
+        TimeProvider.System);
+
+    // The rooms read at the same time are few, whatever the number of changes.
+    private readonly KeyedWork work = new(MaxReading);
+    private const int MaxReading = 16;
+
+    /// <summary>How many rooms have their changes watched; the rooms of the list, and no others.</summary>
+    public int WatchedRooms => Volatile.Read(ref watchedRooms);
+
+    private int watchedRooms;
+    private bool emitted;
 
     private SyncService? sync;
     private RoomListEntriesWithDynamicAdaptersResult? entries;
@@ -581,7 +599,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                 .SetFilter(new RoomListEntriesDynamicFilterKind.NonLeft());
             entriesTask = entries.EntriesStream();
             loop = new CancellationTokenSource();
-            _ = Pump(loop.Token);
+            _ = Pump(loop.Token, book.Begin());
             await sync.Start();
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
@@ -590,6 +608,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
     public async Task StopSync()
     {
+        // The run is over at once: a read that is on its way is not written.
+        book.End();
         loop?.Cancel();
         loop = null;
         try {
@@ -599,130 +619,112 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             foreach (var handle in watching.Values)
                 handle.Dispose();
             watching.Clear();
+            Volatile.Write(ref watchedRooms, 0);
+            emitted = false;
             entriesTask?.Dispose();
             stateTask?.Dispose();
             entriesTask = null;
             stateTask = null;
             entries = null;
             sync = null;
-            lock (gate) {
-                items.Clear();
-                summaries.Clear();
-            }
-
             SyncChanged?.Invoke(SyncState.Stopped);
-            RoomsChanged?.Invoke([]);
+            lock (emitGate)
+                RoomsChanged?.Invoke([]);
         }
     }
 
     // One reader, so that the changes are applied in the order the SDK made them.
-    private async Task Pump(CancellationToken stop)
+    private async Task Pump(CancellationToken stop, int gen)
     {
         try {
             await foreach (var batch in updates.Reader.ReadAllAsync(stop)) {
-                var added = Apply(batch);
+                var (added, left) = book.Apply(gen, batch.Select(ToOp));
+                // A room that left the list is not watched any more.
+                foreach (var id in left) {
+                    if (watching.Remove(id, out var handle)) {
+                        handle.Dispose();
+                        Interlocked.Decrement(ref watchedRooms);
+                    }
+                }
+
+                // Only the rooms that are in the list when the batch is over.
                 foreach (var room in added) {
                     var id = room.Id();
                     if (watching.ContainsKey(id))
                         continue;
-                    watching[id] =
-                        room.SubscribeToRoomInfoUpdates(
-                            new InfoListener(this, room));
+                    watching[id] = room.SubscribeToRoomInfoUpdates(
+                        new InfoListener(this, room, id, gen));
+                    Interlocked.Increment(ref watchedRooms);
                 }
 
-                foreach (var room in added)
-                    await Refresh(room);
-                Emit();
+                // Two calls to the SDK for each room, for rooms that do not
+                // wait for each other.
+                var changed = await Task.WhenAll(added.Select(room =>
+                    work.Limit(() => Refresh(room, gen))));
+                // The list is handed on when a row changed or a room left;
+                // a change of order alone is not a change of what is shown.
+                // The first batch is always handed on: it tells that the
+                // list has been read, even when it is empty.
+                if (!emitted || left.Count > 0 || changed.Contains(true)) {
+                    emitted = true;
+                    Emit(gen);
+                }
             }
         } catch (OperationCanceledException) {
             // Stopped.
         }
     }
 
-    private List<Room> Apply(RoomListEntriesUpdate[] batch)
+    private static ListOp<Room> ToOp(RoomListEntriesUpdate u)
     {
-        var added = new List<Room>();
-        lock (gate) {
-            foreach (var u in batch) {
-                switch (u) {
-                    case RoomListEntriesUpdate.Append a:
-                        items.AddRange(a.Values);
-                        added.AddRange(a.Values);
-                        break;
-                    case RoomListEntriesUpdate.Clear:
-                        items.Clear();
-                        break;
-                    case RoomListEntriesUpdate.PushFront f:
-                        items.Insert(0, f.Value);
-                        added.Add(f.Value);
-                        break;
-                    case RoomListEntriesUpdate.PushBack b:
-                        items.Add(b.Value);
-                        added.Add(b.Value);
-                        break;
-                    case RoomListEntriesUpdate.PopFront:
-                        items.RemoveAt(0);
-                        break;
-                    case RoomListEntriesUpdate.PopBack:
-                        items.RemoveAt(items.Count - 1);
-                        break;
-                    case RoomListEntriesUpdate.Insert i:
-                        items.Insert((int)i.Index, i.Value);
-                        added.Add(i.Value);
-                        break;
-                    case RoomListEntriesUpdate.Set s:
-                        items[(int)s.Index] = s.Value;
-                        added.Add(s.Value);
-                        break;
-                    case RoomListEntriesUpdate.Remove r:
-                        items.RemoveAt((int)r.Index);
-                        break;
-                    case RoomListEntriesUpdate.Truncate t:
-                        items.RemoveRange((int)t.Length,
-                            items.Count - (int)t.Length);
-                        break;
-                    case RoomListEntriesUpdate.Reset r:
-                        items.Clear();
-                        items.AddRange(r.Values);
-                        added.AddRange(r.Values);
-                        break;
-                }
-            }
-
-            var ids = items.Select(r => r.Id()).ToHashSet();
-            foreach (var gone in summaries.Keys.Where(k => !ids.Contains(k))
-                         .ToList())
-                summaries.Remove(gone);
-        }
-
-        return added;
+        return u switch {
+            RoomListEntriesUpdate.Append a =>
+                new ListOp<Room>(ListOpKind.Append, Values: a.Values),
+            RoomListEntriesUpdate.Clear => new ListOp<Room>(ListOpKind.Clear),
+            RoomListEntriesUpdate.PushFront f =>
+                new ListOp<Room>(ListOpKind.PushFront, Value: f.Value),
+            RoomListEntriesUpdate.PushBack b =>
+                new ListOp<Room>(ListOpKind.PushBack, Value: b.Value),
+            RoomListEntriesUpdate.PopFront =>
+                new ListOp<Room>(ListOpKind.PopFront),
+            RoomListEntriesUpdate.PopBack =>
+                new ListOp<Room>(ListOpKind.PopBack),
+            RoomListEntriesUpdate.Insert i =>
+                new ListOp<Room>(ListOpKind.Insert, Value: i.Value,
+                    Index: (int)i.Index),
+            RoomListEntriesUpdate.Set s =>
+                new ListOp<Room>(ListOpKind.Set, Value: s.Value,
+                    Index: (int)s.Index),
+            RoomListEntriesUpdate.Remove r =>
+                new ListOp<Room>(ListOpKind.Remove, Index: (int)r.Index),
+            RoomListEntriesUpdate.Truncate t =>
+                new ListOp<Room>(ListOpKind.Truncate, Index: (int)t.Length),
+            RoomListEntriesUpdate.Reset r =>
+                new ListOp<Room>(ListOpKind.Reset, Values: r.Values),
+            _ => throw new InvalidOperationException("Unknown change."),
+        };
     }
 
-    private async Task Refresh(Room room)
+    // True when the row of the room is not what it was. What is read after the
+    // run is over, or for a room that has left the list, is not written.
+    private async Task<bool> Refresh(Room room, int gen)
     {
         try {
             var info = await room.RoomInfo();
             var latest = await room.LatestEvent();
-            var summary = Summarize(info, latest);
-            lock (gate) {
-                if (summary is null)
-                    summaries.Remove(info.Id);
-                else
-                    summaries[info.Id] = summary;
-            }
+            return book.Write(gen, info.Id, Summarize(info, latest));
         } catch (Exception) {
             // The room is gone, or the SDK is not ready: the next change tries again.
+            return false;
         }
     }
 
-    private void Emit()
+    private void Emit(int gen)
     {
-        List<RoomSummary> all;
-        lock (gate) {
-            all = [.. summaries.Values];
+        lock (emitGate) {
+            if (book.Snapshot(gen) is { } all)
+                RoomsChanged?.Invoke(all);
         }
-
-        RoomsChanged?.Invoke(all);
     }
 
     /// <summary>The row of a room; null for a room that is not listed (left or banned).</summary>
@@ -813,14 +815,20 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         }
     }
 
-    private sealed class InfoListener(MatrixRoomsEngine engine, Room room)
-        : RoomInfoListener {
-        // The info carries no newest event, so the room is read again as a whole.
+    private sealed class InfoListener(
+        MatrixRoomsEngine engine,
+        Room room,
+        string id,
+        int gen
+    ) : RoomInfoListener {
+        // The info carries no newest event, so the room is read again as a
+        // whole; once for a burst of changes, and the list is handed on only
+        // when the row is another one.
         public void Call(RoomInfo roomInfo)
         {
-            _ = Task.Run(async () => {
-                await engine.Refresh(room);
-                engine.Emit();
+            engine.work.Request(id, async () => {
+                if (await engine.Refresh(room, gen))
+                    engine.burst.Poke(() => engine.Emit(gen));
             });
         }
     }

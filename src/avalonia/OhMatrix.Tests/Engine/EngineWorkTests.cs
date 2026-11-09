@@ -1,10 +1,241 @@
 using Microsoft.Extensions.Time.Testing;
+using OhMatrix.Core.Model;
 using OhMatrix.Engine;
 using Xunit;
 
 namespace OhMatrix.Tests.Engine;
 
 public class EngineWorkTests {
+    [Fact]
+    public void A_row_is_the_same_when_it_shows_the_same()
+    {
+        var a = new RoomSummary {
+            Id = "!a",
+            Name = "Team",
+            PinnedEventIds = ["$1", "$2"]
+        };
+        // Made again: the same things in other lists.
+        var b = new RoomSummary {
+            Id = "!a",
+            Name = "Team",
+            PinnedEventIds = ["$1", "$2"]
+        };
+        Assert.NotEqual(a, b);
+        Assert.True(a.SameAs(b));
+        Assert.False(a.SameAs(b with {
+            PinnedEventIds = ["$1"]
+        }));
+        Assert.False(a.SameAs(b with {
+            Name = "Crew"
+        }));
+        Assert.False(a.SameAs(b with {
+            UnreadCount = 1
+        }));
+    }
+
+    [Fact]
+    public async Task
+        Work_for_a_key_asked_in_a_burst_runs_once_more_not_for_each()
+    {
+        var work = new KeyedWork(4);
+        var runs = 0;
+        var first = new TaskCompletionSource();
+        work.Request("!a", async () => {
+            Interlocked.Increment(ref runs);
+            await first.Task;
+        });
+        // Asked 50 times while it runs.
+        for (var i = 0; i < 50; i++)
+            work.Request("!a", () => {
+                Interlocked.Increment(ref runs);
+                return Task.CompletedTask;
+            });
+        first.SetResult();
+        for (var i = 0; i < 100 && Volatile.Read(ref runs) < 2; i++)
+            await Task.Delay(20);
+        await Task.Delay(100);
+        Assert.Equal(2, Volatile.Read(ref runs));
+    }
+
+    [Fact]
+    public async Task No_more_than_the_limit_of_jobs_run_at_once()
+    {
+        var work = new KeyedWork(3);
+        var now = 0;
+        var most = 0;
+        var jobs = Enumerable.Range(0, 20).Select(_ => work.Limit(async () => {
+            var n = Interlocked.Increment(ref now);
+            int seen;
+            do {
+                seen = Volatile.Read(ref most);
+            } while (n > seen &&
+                     Interlocked.CompareExchange(ref most, n, seen) != seen);
+
+            await Task.Delay(20);
+            Interlocked.Decrement(ref now);
+        }));
+        await Task.WhenAll(jobs);
+        Assert.Equal(3, most);
+
+        // Different keys asked for at once are held to it too.
+        most = 0;
+        var done = new CountdownEvent(12);
+        for (var i = 0; i < 12; i++)
+            work.Request("!r" + i, async () => {
+                var n = Interlocked.Increment(ref now);
+                int seen;
+                do {
+                    seen = Volatile.Read(ref most);
+                } while (n > seen &&
+                         Interlocked.CompareExchange(ref most, n, seen) !=
+                         seen);
+
+                await Task.Delay(20);
+                Interlocked.Decrement(ref now);
+                done.Signal();
+            });
+        Assert.True(done.Wait(10000));
+        Assert.InRange(most, 1, 3);
+    }
+
+    [Fact]
+    public void A_room_put_in_and_taken_out_by_one_batch_is_not_watched()
+    {
+        var book = new RoomBook<string>(id => id);
+        var gen = book.Begin();
+        var (added, left) = book.Apply(gen, [Append("A"), Remove(0)]);
+        Assert.Empty(added);
+        Assert.Equal(["A"], left);
+        Assert.False(book.Has("A"));
+        Assert.False(book.Write(gen, "A", Row("A")));
+        Assert.Empty(book.Snapshot(gen)!);
+
+        // The same after a reset, and with other rooms in the batch.
+        (added, left) = book.Apply(gen, [
+            new ListOp<string>(ListOpKind.Reset, Values: ["B", "C", "D"]),
+            Remove(1),
+            new ListOp<string>(ListOpKind.PopBack),
+        ]);
+        Assert.Equal(["B"], added);
+        Assert.Equal(["C", "D"], left.Order());
+
+        // Put in, taken out and put in again: the last one is the room.
+        var again = new RoomBook<string>(id => id[..1]);
+        var g = again.Begin();
+        (added, left) = again.Apply(g, [
+            Append("A1"),
+            Remove(0),
+            Append("A2"),
+        ]);
+        Assert.Equal(["A2"], added);
+        Assert.Empty(left);
+    }
+
+    [Fact]
+    public void
+        A_read_that_comes_after_the_room_left_or_the_run_ended_is_not_written()
+    {
+        var book = new RoomBook<string>(id => id);
+        var gen = book.Begin();
+        book.Apply(gen, [Append("A", "B")]);
+        Assert.True(book.Write(gen, "A", Row("A", 5)));
+        Assert.True(book.Write(gen, "B", Row("B", 4)));
+
+        // B leaves while a read of it is on its way.
+        book.Apply(gen, [Remove(1)]);
+        Assert.False(book.Write(gen, "B", Row("B", 9)));
+        Assert.Equal(["A"], book.Snapshot(gen)!.Select(r => r.Id));
+
+        // The run is over (a stop) while a read of A is on its way: nothing
+        // is written, nothing is handed on, and the book is empty.
+        book.End();
+        Assert.False(book.Write(gen, "A", Row("A", 7)));
+        Assert.Null(book.Snapshot(gen));
+        Assert.Equal(0, book.Count);
+
+        // A new run does not take what the old one reads late.
+        var next = book.Begin();
+        book.Apply(next, [Append("A")]);
+        Assert.False(book.Write(gen, "A", Row("A", 8)));
+        Assert.True(book.Write(next, "A", Row("A", 8)));
+        // Nor the batches the old run was still to apply.
+        Assert.Empty(book.Apply(gen, [Append("Z")]).Added);
+        Assert.False(book.Has("Z"));
+    }
+
+    [Fact]
+    public void The_summaries_are_kept_in_the_order_of_the_chat_list()
+    {
+        var book = new RoomBook<string>(id => id);
+        var gen = book.Begin();
+        string[] ids = ["a", "b", "c", "d", "e"];
+        book.Apply(gen, [Append(ids)]);
+        var rows = new Dictionary<string, RoomSummary>();
+        var random = new Random(7);
+
+        List<string> Expected() => [
+            .. rows.Values.OrderByDescending(r => r.Pinned)
+                .ThenByDescending(r => r.LastActivityTs)
+                .ThenBy(r => r.Id, StringComparer.Ordinal).Select(r => r.Id)
+        ];
+
+        // Many changes, with equal times and pins that come and go.
+        for (var i = 0; i < 300; i++) {
+            var id = ids[random.Next(ids.Length)];
+            var row = Row(id, random.Next(4), random.Next(4) == 0);
+            book.Write(gen, id, row);
+            rows[id] = row;
+            Assert.Equal(Expected(), book.Snapshot(gen)!.Select(r => r.Id));
+        }
+
+        // The same row again changes nothing.
+        Assert.False(book.Write(gen, "a", rows["a"] with {
+        }));
+        // A room that is not listed any more is out of the order.
+        Assert.True(book.Write(gen, "a", null));
+        rows.Remove("a");
+        Assert.Equal(Expected(), book.Snapshot(gen)!.Select(r => r.Id));
+    }
+
+    [Fact]
+    public async Task Notices_that_come_together_are_one_hand_over()
+    {
+        var clock = new FakeTimeProvider();
+        var burst = new Burst(TimeSpan.FromMilliseconds(40), clock);
+        var done = new List<string>();
+        for (var i = 0; i < 50; i++) {
+            var name = "n" + i;
+            burst.Poke(() => {
+                lock (done)
+                    done.Add(name);
+            });
+        }
+
+        clock.Advance(TimeSpan.FromMilliseconds(39));
+        await Task.Delay(30);
+        lock (done)
+            Assert.Empty(done);
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await WaitFor(() => {
+            lock (done)
+                return done.Count == 1;
+        });
+        // The latest is what is done; the next notice starts a new pause.
+        lock (done)
+            Assert.Equal(["n49"], done);
+        burst.Poke(() => {
+            lock (done)
+                done.Add("later");
+        });
+        clock.Advance(TimeSpan.FromMilliseconds(40));
+        await WaitFor(() => {
+            lock (done)
+                return done.Count == 2;
+        });
+        lock (done)
+            Assert.Equal(["n49", "later"], done);
+    }
+
     [Fact]
     public async Task A_failed_try_is_made_again_after_a_pause_that_grows()
     {
@@ -71,6 +302,21 @@ public class EngineWorkTests {
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), clock));
         Assert.Equal(1, tries);
     }
+
+    private static ListOp<string> Append(params string[] ids) =>
+        new(ListOpKind.Append, Values: ids);
+
+    private static ListOp<string> Remove(int index) =>
+        new(ListOpKind.Remove, Index: index);
+
+    private static RoomSummary
+        Row(string id, long ts = 0, bool pinned = false) =>
+        new() {
+            Id = id,
+            Name = id,
+            LastActivityTs = ts,
+            Pinned = pinned
+        };
 
     private static async Task WaitFor(Func<bool> condition)
     {

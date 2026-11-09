@@ -723,4 +723,78 @@ public class MatrixChatEngineTests {
         await auth.Logout();
     }
 }
+
+[Collection("homeserver")]
+public class MatrixEngineWorkLiveTests {
+    private static async Task<MatrixAuthEngine> SignIn()
+    {
+        var server =
+            Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server),
+            "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(),
+                "ohm-work-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        return auth;
+    }
+
+    private static Task<string> NewRoom(MatrixAuthEngine auth, string name)
+    {
+        return auth.Client!.CreateRoom(
+            new uniffi.matrix_sdk_ffi.CreateRoomParameters(
+                name,
+                false,
+                new uniffi.matrix_sdk_ffi.RoomVisibility.Private(),
+                uniffi.matrix_sdk_ffi.RoomPreset.PrivateChat
+            )
+        );
+    }
+
+    private static async Task Until(Func<bool> condition, string what,
+        Func<string>? state = null)
+    {
+        for (var i = 0; i < 300 && !condition(); i++)
+            await Task.Delay(100);
+        Assert.True(condition(), what + (state is null ? "" : ": " + state()));
+    }
+
+    [Fact]
+    public async Task A_room_that_leaves_the_list_is_not_watched_any_more()
+    {
+        var auth = await SignIn();
+        var rooms = new MatrixRoomsEngine(auth);
+        var listed = new System.Collections.Concurrent.ConcurrentDictionary<
+            string, RoomSummary>();
+        rooms.RoomsChanged += list => {
+            listed.Clear();
+            foreach (var r in list)
+                listed[r.Id] = r;
+        };
+        var syncing = false;
+        rooms.SyncChanged += state => {
+            if (state == SyncState.Syncing)
+                syncing = true;
+        };
+        await rooms.StartSync();
+        await Until(() => syncing, "not syncing");
+        var name = "Watch " + Guid.NewGuid().ToString("N")[..8];
+        var id = await NewRoom(auth, name);
+        await Until(() => listed.ContainsKey(id), "the room did not come");
+        var with = rooms.WatchedRooms;
+        Assert.True(with >= 1);
+        // Every room in the list is watched, once.
+        Assert.Equal(listed.Count, with);
+
+        await rooms.LeaveRoom(id);
+        await Until(() => !listed.ContainsKey(id), "the room did not go");
+        await Until(() => rooms.WatchedRooms == with - 1,
+            $"still watching {rooms.WatchedRooms} rooms, was {with}");
+        await rooms.StopSync();
+        Assert.Equal(0, rooms.WatchedRooms);
+        await auth.Logout();
+    }
+}
+
 #endif

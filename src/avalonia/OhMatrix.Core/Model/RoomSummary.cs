@@ -43,4 +43,17 @@ public sealed record RoomSummary {
 
     /// <summary>The ids of the pinned messages, oldest pin first.</summary>
     public IReadOnlyList<string> PinnedEventIds { get; init; } = [];
+
+    /// <summary>
+    /// Whether another row shows the same: all that the record holds, with the
+    /// pinned messages compared by their ids (the lists are other objects each
+    /// time a row is made, so the equality of the record never says so).
+    /// </summary>
+    public bool SameAs(RoomSummary other)
+    {
+        return PinnedEventIds.SequenceEqual(other.PinnedEventIds) &&
+               this with {
+                   PinnedEventIds = other.PinnedEventIds
+               } == other;
+    }
 }
