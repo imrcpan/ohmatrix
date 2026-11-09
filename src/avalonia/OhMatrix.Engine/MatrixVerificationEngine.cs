@@ -6,8 +6,10 @@ using uniffi.matrix_sdk_ffi;
 namespace OhMatrix.Engine;
 
 /// <summary>The verification with another session over the Matrix SDK (<c>verification</c> of <c>RustEngineCore</c>).</summary>
-public sealed class MatrixVerificationEngine(MatrixAuthEngine auth)
-    : IVerificationEngine {
+public sealed class MatrixVerificationEngine(
+    MatrixAuthEngine auth,
+    TimeProvider? time = null
+) : IVerificationEngine {
     private SessionVerificationController? controller;
     private Client? owner;
     private bool incoming;
@@ -27,14 +29,11 @@ public sealed class MatrixVerificationEngine(MatrixAuthEngine auth)
         }
 
         // Right after sign-in the SDK has not fetched the account's own identity yet; it is asked for again for a while.
-        for (var i = 0; controller is null; i++) {
-            try {
-                controller = await client.GetSessionVerificationController();
-            } catch (ClientException) when (i < 30) {
-                await Task.Delay(1000);
-            }
-        }
-
+        // It is asked for soon at first and then every second, up to 30 times.
+        controller ??= await Retrying.Until(
+            () => client.GetSessionVerificationController(),
+            e => e is ClientException, 30, TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromSeconds(1), time ?? TimeProvider.System);
         return controller;
     }
 
