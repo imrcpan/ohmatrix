@@ -39,21 +39,33 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 EngineErrorCode.NotFound,
                 "No such chat."
             );
-            var timeline = await room.Timeline();
-            var session = new Session(timeline, room, client.UserId());
-            await session.Start();
-            return session;
+            return await OpenSession(client, room);
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
     }
 
-    private sealed class Gallery(IChatSession session) {
-        public IChatSession Session { get; } = session;
+    private static async Task<Session> OpenSession(Client client, Room room)
+    {
+        var timeline = await room.Timeline();
+        var session = new Session(timeline, room, client.UserId());
+        await session.Start();
+        return session;
+    }
+
+    private sealed class Gallery(Session session) {
+        public Session Session { get; } = session;
         public bool AtStart { get; set; }
     }
 
     private readonly Dictionary<string, Gallery> galleries = [];
+
+    // How long to wait for what a request for history brings, when it does
+    // not tell of a change; it comes at once otherwise.
+    private static readonly TimeSpan ArrivalWait =
+        TimeSpan.FromMilliseconds(100);
+
+    private static readonly TimeSpan FirstPageWait = TimeSpan.FromSeconds(2);
 
     public async Task<SharedMediaPage> SharedMedia(string roomId,
         MediaKind kind, int offset, int want)
@@ -61,32 +73,109 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         Gallery? gallery;
         lock (galleries)
             galleries.TryGetValue(roomId, out gallery);
+        using var change = new Change();
         if (gallery is null) {
-            gallery = new Gallery(await Open(roomId));
+            gallery = new Gallery(await OpenGallery(roomId));
             lock (galleries)
                 galleries[roomId] = gallery;
             // The first page of history comes with opening; let it arrive.
-            for (var i = 0; i < 20 && gallery.Session.Items.Count == 0; i++)
-                await Task.Delay(100);
+            change.Watch(gallery.Session);
+            var late = Task.Delay(FirstPageWait);
+            while (gallery.Session.Items.Count == 0) {
+                var next = change.Next;
+                if (gallery.Session.Items.Count != 0 ||
+                    await Task.WhenAny(next, late) != next)
+                    break;
+            }
         }
 
-        List<TimelineItem> Found() => [
-            .. gallery.Session.Items.Where(i => MediaKinds.Of(i) == kind)
-                .Reverse()
-        ];
+        change.Watch(gallery.Session);
 
-        // Ask the room for more until it has what the page needs (and one more, to know whether there is a next page).
+        // Ask the room for more until it has what the page needs (and one
+        // more, to know whether there is a next page). The session counts its
+        // media as the changes come, so each round asks a number and does not
+        // read the history again.
         for (var n = 0;
-             Found().Count <= offset + want && !gallery.AtStart && n < 40;
+             n < 40 && !gallery.AtStart &&
+             gallery.Session.MediaCount(kind) <= offset + want;
              n++) {
+            var next = change.Next;
             gallery.AtStart = await gallery.Session.LoadOlder();
-            await Task.Delay(100);
+            // What it brought comes as a change of the session a moment later.
+            await Task.WhenAny(next, Task.Delay(ArrivalWait));
         }
 
-        var all = Found();
-        var more = all.Count > offset + want || !gallery.AtStart;
-        return new SharedMediaPage([.. all.Skip(offset).Take(want)],
-            more ? offset + want : null);
+        // The page is read from the newest end and the read stops after the
+        // one beyond it.
+        var lines = gallery.Session.Items;
+        var page = new List<TimelineItem>(want);
+        var seen = 0;
+        var beyond = false;
+        for (var i = lines.Count - 1; i >= 0; i--) {
+            if (MediaKinds.Of(lines[i]) != kind)
+                continue;
+            if (seen >= offset + want) {
+                beyond = true;
+                break;
+            }
+
+            if (seen++ >= offset)
+                page.Add(lines[i]);
+        }
+
+        var more = beyond || !gallery.AtStart;
+        return new SharedMediaPage(page, more ? offset + want : null);
+    }
+
+    private async Task<Session> OpenGallery(string roomId)
+    {
+        try {
+            var client = auth.Client ?? throw new EngineException(
+                EngineErrorCode.Unauthorized,
+                "Not signed in."
+            );
+            var room = client.GetRoom(roomId) ?? throw new EngineException(
+                EngineErrorCode.NotFound,
+                "No such chat."
+            );
+            return await OpenSession(client, room);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    /// <summary>
+    /// Tells when a session has changed: <see cref="Next"/> is the task of the
+    /// next change, taken before the request that is to cause it, so that a
+    /// change that is quick is not missed.
+    /// </summary>
+    private sealed class Change : IDisposable {
+        private TaskCompletionSource next = New();
+        private IChatSession? watched;
+
+        public Task Next => Volatile.Read(ref next).Task;
+
+        private static TaskCompletionSource New() =>
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Watch(IChatSession session)
+        {
+            if (ReferenceEquals(watched, session))
+                return;
+            watched = session;
+            session.Changed += OnChanged;
+        }
+
+        private void OnChanged(IReadOnlyList<TimelineItem> _)
+        {
+            Interlocked.Exchange(ref next, New()).TrySetResult();
+        }
+
+        public void Dispose()
+        {
+            if (watched is not null)
+                watched.Changed -= OnChanged;
+        }
     }
 
     /// <summary>One open chat: the SDK's changes are applied to a list of its items, in order, and the lines are made from them.</summary>
@@ -105,6 +194,24 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         );
 
         private readonly List<Slot> items = [];
+
+        // How many lines of each kind of media the session has, kept as the
+        // slots come and go (under the lock of byId, which the diffs take).
+        private readonly int[] media = new int[4];
+
+        /// <summary>How many lines of a kind of media the session has now.</summary>
+        public int MediaCount(MediaKind kind)
+        {
+            lock (byId)
+                return media[(int)kind];
+        }
+
+        private void Count(TimelineItem? line, int by)
+        {
+            if (line is not null && MediaKinds.Of(line) is { } kind)
+                media[(int)kind] += by;
+        }
+
         private readonly CancellationTokenSource stop = new();
         private TaskHandle? handle;
         private TaskHandle? typingHandle;
@@ -322,12 +429,14 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             var slot = new Slot(item, item.UniqueId().Id, Convert(item, me));
             byId[slot.Id] = item;
+            Count(slot.Line, 1);
             return slot;
         }
 
         private void Forget(Slot slot)
         {
             byId.Remove(slot.Id);
+            Count(slot.Line, -1);
         }
 
         private void RemoveAt(int index)
@@ -383,6 +492,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             items.Clear();
             byId.Clear();
+            Array.Clear(media);
         }
 
         /// <summary>The line for an item of the SDK; null for what is not shown yet (read markers, kinds not ported).</summary>

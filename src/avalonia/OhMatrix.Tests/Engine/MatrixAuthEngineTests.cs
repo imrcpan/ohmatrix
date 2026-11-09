@@ -795,6 +795,53 @@ public class MatrixEngineWorkLiveTests {
         Assert.Equal(0, rooms.WatchedRooms);
         await auth.Logout();
     }
+
+    [Fact]
+    public async Task The_shared_files_of_a_room_come_in_pages()
+    {
+        var auth = await SignIn();
+        var rooms = new MatrixRoomsEngine(auth);
+        await rooms.StartSync();
+        var id = await NewRoom(auth,
+            "Files " + Guid.NewGuid().ToString("N")[..8]);
+        var chat = await new MatrixChatEngine(auth).Open(id);
+        var dir = Path.Combine(Path.GetTempPath(),
+            "ohm-files-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        foreach (var n in new[] {
+                     "a.txt", "b.txt", "c.txt"
+                 }) {
+            var path = Path.Combine(dir, n);
+            await File.WriteAllTextAsync(path, "file " + n);
+            await chat.SendAttachment(path, "text/plain", null, null);
+            // Waited for by name: the session that sends a file lists it
+            // twice for a while (the line it sent and the one that came
+            // back), so the number of lines says nothing.
+            await Until(() => chat.Items.Any(i =>
+                    i.File?.Name == n && !i.Sending),
+                "the file did not come back: " + n);
+        }
+
+        var engine = new MatrixChatEngine(auth);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var first = await engine.SharedMedia(id, MediaKind.File, 0, 2);
+        var firstTook = watch.Elapsed;
+        // The newest first, a next page because there is one more.
+        Assert.Equal(["c.txt", "b.txt"], first.Items.Select(i => i.File!.Name));
+        Assert.Equal(2, first.Next);
+        var second = await engine.SharedMedia(id, MediaKind.File, 2, 2);
+        Assert.Equal(["a.txt"], second.Items.Select(i => i.File!.Name));
+        // Whether there is a page after it depends on the SDK telling that
+        // the start of the room was reached, which it does not always do
+        // (the same with the polling this replaced), so it is not asserted.
+        Assert.Empty((await engine.SharedMedia(id, MediaKind.Image, 0, 2))
+            .Items);
+        Assert.True(firstTook < TimeSpan.FromSeconds(20), firstTook.ToString());
+        // The test account is the same for every run: the room is left.
+        await rooms.LeaveRoom(id);
+        await rooms.StopSync();
+        await auth.Logout();
+    }
 }
 
 #endif
