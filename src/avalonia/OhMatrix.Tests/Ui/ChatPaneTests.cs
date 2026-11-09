@@ -2893,6 +2893,52 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_rings_of_a_search_are_shared_and_follow_the_colours()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        pane.ToggleSearch();
+        // Two lines have "ing": the newest has the strong ring, the other
+        // the soft one.
+        pane.SearchInput.Text = "ing";
+        Assert.Equal(2, pane.Matches.Count);
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+
+        var light = Themes.Get("light")!.Colors;
+
+        List<SolidColorBrush> Rings(ColorTokens c) => pane.Messages
+            .GetVisualDescendants().OfType<Border>()
+            .Select(b => b.BorderBrush).OfType<SolidColorBrush>()
+            .Where(b => b.Color == c.Accent || b.Color == c.MentionHighlight)
+            .ToList();
+
+        var rings = Rings(light);
+        Assert.Contains(rings, r => r.Color == light.Accent);
+        Assert.Contains(rings, r => r.Color == light.MentionHighlight);
+
+        // Typing another key does not make the brushes again.
+        pane.SearchInput.Text = "in";
+        pane.SearchInput.Text = "ing";
+        Dispatcher.UIThread.RunJobs();
+        var again = Rings(light);
+        Assert.Equal(rings.Count, again.Count);
+        Assert.All(again, r => Assert.Contains(rings,
+            b => ReferenceEquals(b, r)));
+
+        // Another theme: the rings are of its colours.
+        var dark = Themes.Get("dark")!.Colors;
+        ThemeScope.SetColors(window, dark);
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Assert.Contains(Rings(dark), r => r.Color == dark.Accent);
+        Assert.Contains(Rings(dark), r => r.Color == dark.MentionHighlight);
+    }
+
+    [AvaloniaFact]
     public async Task The_pinned_bar_shows_the_newest_pin_and_goes_round()
     {
         var (window, controller, engine, screen) = await Open("light", 1000);

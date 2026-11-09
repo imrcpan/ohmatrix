@@ -241,6 +241,11 @@ public sealed partial class ChatPane : Grid {
     };
 
     private List<string> matches = [];
+
+    // Where each match is in the list: a line asks it for its ring, and a
+    // search of the list for each line made the paint of all the lines cost
+    // as many steps as there are lines times matches.
+    private Dictionary<string, int> matchAt = [];
     private int current;
     private bool searching;
     private readonly Dialog deleteDialog = new();
@@ -1452,19 +1457,7 @@ public sealed partial class ChatPane : Grid {
     public void Search()
     {
         var c = ThemeScope.GetColors(this);
-        searchBar.Background = new SolidColorBrush(c.Bg);
-        searchBar.BorderBrush = new SolidColorBrush(c.Separator);
-        searchInput.Foreground = new SolidColorBrush(c.Text);
-        searchInput.CaretBrush = new SolidColorBrush(c.Text);
-        searchInput.PlaceholderText = T("search.inChat");
-        searchInput.Resources["TextControlPlaceholderForeground"] =
-            new SolidColorBrush(c.TextSecondary);
-        searchInput.Resources["TextControlBackgroundFocused"] =
-            Brushes.Transparent;
-        searchInput.Resources["TextControlBorderBrushFocused"] =
-            Brushes.Transparent;
-        searchCount.Foreground = new SolidColorBrush(c.TextSecondary);
-        glass.Color = new SolidColorBrush(c.TextSecondary);
+        StyleSearch(c);
         var query = (searchInput.Text ?? "").Trim();
         var all = controller.Store.Value.Timeline;
         matches = !searching || query.Length < 2
@@ -1491,11 +1484,41 @@ public sealed partial class ChatPane : Grid {
             hitsHost.IsVisible = false;
         }
 
+        matchAt = [];
+        for (var i = 0; i < matches.Count; i++)
+            matchAt[matches[i]] = i;
         current = matches.Count - 1;
         searchCount.Text = query.Length < 2 ? "" :
             matches.Count == 0 ? T("search.empty") :
             $"{current + 1}/{matches.Count}";
         Mark();
+    }
+
+    // The look of the bar changes with the colours and the language, not
+    // with a key: it is set again only then.
+    private ColorTokens? searchStyle;
+    private string? searchLocale;
+
+    private void StyleSearch(ColorTokens c)
+    {
+        var locale = controller.Store.Value.Locale;
+        if (Equals(searchStyle, c) && searchLocale == locale)
+            return;
+        searchStyle = c;
+        searchLocale = locale;
+        searchBar.Background = new SolidColorBrush(c.Bg);
+        searchBar.BorderBrush = new SolidColorBrush(c.Separator);
+        searchInput.Foreground = new SolidColorBrush(c.Text);
+        searchInput.CaretBrush = new SolidColorBrush(c.Text);
+        searchInput.PlaceholderText = T("search.inChat");
+        searchInput.Resources["TextControlPlaceholderForeground"] =
+            new SolidColorBrush(c.TextSecondary);
+        searchInput.Resources["TextControlBackgroundFocused"] =
+            Brushes.Transparent;
+        searchInput.Resources["TextControlBorderBrushFocused"] =
+            Brushes.Transparent;
+        searchCount.Foreground = new SolidColorBrush(c.TextSecondary);
+        glass.Color = new SolidColorBrush(c.TextSecondary);
     }
 
     private void Step(int direction)

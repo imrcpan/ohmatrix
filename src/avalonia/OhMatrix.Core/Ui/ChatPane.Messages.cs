@@ -545,13 +545,25 @@ public sealed partial class ChatPane {
         }
     }
 
+    // The two rings are brushes of the colours, shared by every line that
+    // has one and made again only when the colours are other ones.
+    private ColorTokens? ringColors;
+    private IBrush? currentRing;
+    private IBrush? matchRing;
+
     private void PaintMessage(string id, Border frame, ColorTokens colors)
     {
-        var match = matches.IndexOf(id);
+        if (!Equals(ringColors, colors)) {
+            ringColors = colors;
+            currentRing = new SolidColorBrush(colors.Accent);
+            matchRing = new SolidColorBrush(colors.MentionHighlight);
+        }
+
+        var match = matchAt.GetValueOrDefault(id, -1);
         frame.BorderBrush = id == highlightId || match >= 0 && match == current
-            ? new SolidColorBrush(colors.Accent)
+            ? currentRing
             : match >= 0
-                ? new SolidColorBrush(colors.MentionHighlight)
+                ? matchRing
                 : Brushes.Transparent;
     }
 
