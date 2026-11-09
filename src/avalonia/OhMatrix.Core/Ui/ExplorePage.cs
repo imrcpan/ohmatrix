@@ -37,6 +37,10 @@ public sealed class ExplorePage : Grid {
             p.Apply());
     }
 
+    private readonly Avalonia.Threading.DispatcherTimer searchPause = new() {
+        Interval = TimeSpan.FromMilliseconds(350)
+    };
+
     public ExplorePage(AppController controller)
     {
         this.controller = controller;
@@ -55,7 +59,19 @@ public sealed class ExplorePage : Grid {
         Grid.SetRow(servers, 2);
         Children.Add(servers);
         Children.Add(scroller);
-        search.TextChanged += (_, _) => _ = Load();
+        // A request for each key typed would be a request to the server for
+        // each key: the directory is asked after a pause in the typing, as the
+        // search of messages is.
+        searchPause.Tick += (_, _) => {
+            searchPause.Stop();
+            _ = Load();
+        };
+        search.TextChanged += (_, _) => {
+            // What is coming back for the text before this one is of no use.
+            ticket++;
+            searchPause.Stop();
+            searchPause.Start();
+        };
         // A card is 320 wide, or the width of the page when that is narrower.
         SizeChanged += (_, e) => {
             var width = Math.Min(CardWidth,
@@ -139,6 +155,7 @@ public sealed class ExplorePage : Grid {
     /// <summary>Searches the directory for what the field holds.</summary>
     public async Task Load()
     {
+        searchPause.Stop();
         var mine = ++ticket;
         loading = true;
         Apply();

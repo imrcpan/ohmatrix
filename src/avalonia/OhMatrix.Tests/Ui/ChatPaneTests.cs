@@ -1275,11 +1275,13 @@ public partial class ChatPaneTests {
         Save(window, "explore-full");
         page.Full.Close();
         page.Field.Text = "rust";
-        await Task.Delay(100);
+        // The directory is asked after a pause in the typing.
+        await Task.Delay(600);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(["Rust Fans"], page.Names);
         page.Field.Text = "public";
-        await Task.Delay(100);
+        // The directory is asked after a pause in the typing.
+        await Task.Delay(600);
         Dispatcher.UIThread.RunJobs();
         page.AskJoin(new PublicRoom("!pub1:s", "Public Chat", "Talk", "#pub:s",
             null, 1200));
@@ -1289,6 +1291,34 @@ public partial class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
         Assert.Equal("!joined", controller.Store.Value.SelectedRoomId);
+    }
+
+    [AvaloniaFact]
+    public async Task The_directory_is_asked_after_a_pause_in_the_typing()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Explore);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var page = screen.ExploreScreen;
+        int Asked() => engine.Actions.Count(a => a.StartsWith("explore "));
+        var before = Asked();
+
+        foreach (var text in new[] {
+                     "r", "ru", "rus", "rust"
+                 }) {
+            page.Field.Text = text;
+            await Task.Delay(30);
+        }
+
+        Dispatcher.UIThread.RunJobs();
+        var early = Asked() - before;
+        await Task.Delay(700);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal((0, 1, "explore rust "),
+            (early, Asked() - before,
+                engine.Actions.Last(a => a.StartsWith("explore "))));
+        Assert.Equal(["Rust Fans"], page.Names);
     }
 
     [AvaloniaFact]
