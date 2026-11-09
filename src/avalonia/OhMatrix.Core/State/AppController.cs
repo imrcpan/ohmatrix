@@ -1476,9 +1476,28 @@ public sealed class AppController(
     public static IReadOnlyList<RoomSummary> Order(
         IEnumerable<RoomSummary> list)
     {
+        // A list that is in order already (the engine keeps its own so) is
+        // what a sort would give back, and is not sorted or copied again.
+        if (list is IReadOnlyList<RoomSummary> ready && InOrder(ready))
+            return ready;
         return list.OrderByDescending(r => r.Pinned)
             .ThenByDescending(r => r.LastActivityTs)
             .ToList();
+    }
+
+    private static bool InOrder(IReadOnlyList<RoomSummary> list)
+    {
+        for (var i = 1; i < list.Count; i++) {
+            var before = list[i - 1];
+            var room = list[i];
+            if (room.Pinned && !before.Pinned)
+                return false;
+            if (room.Pinned == before.Pinned &&
+                room.LastActivityTs > before.LastActivityTs)
+                return false;
+        }
+
+        return true;
     }
 
     private void SignedOut(string? error = null, EngineErrorCode? code = null)

@@ -303,6 +303,25 @@ public class EngineWorkTests {
         Assert.Equal(1, tries);
     }
 
+    [Fact]
+    public void A_list_in_order_is_not_sorted_or_copied_again()
+    {
+        IReadOnlyList<RoomSummary> ready = [
+            Row("p", 1, true), Row("a", 9), Row("b", 9), Row("c", 2),
+        ];
+        Assert.Same(ready, OhMatrix.Core.State.AppController.Order(ready));
+
+        // Not in order: sorted as before, and ties keep their places.
+        IReadOnlyList<RoomSummary> mixed = [
+            Row("c", 2), Row("a", 9), Row("p", 1, true), Row("b", 9),
+        ];
+        var sorted = OhMatrix.Core.State.AppController.Order(mixed);
+        Assert.NotSame(mixed, sorted);
+        Assert.Equal(["p", "a", "b", "c"], sorted.Select(r => r.Id));
+        Assert.Equal(["p", "a", "b", "c"], OhMatrix.Core.State.AppController
+            .Order(sorted).Select(r => r.Id));
+    }
+
     private static ListOp<string> Append(params string[] ids) =>
         new(ListOpKind.Append, Values: ids);
 
