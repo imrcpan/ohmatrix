@@ -73,14 +73,23 @@ public static class Format {
         Day,
     }
 
+    private static readonly string[][] RuUnits = [
+        ["минуту", "минуты", "минут"],
+        ["час", "часа", "часов"],
+        ["день", "дня", "дней"],
+    ];
+
+    // The word of the unit, with no array made to choose from.
+    private static string Pick(int unit, string minute, string hour,
+        string day) => unit switch {
+        0 => minute,
+        1 => hour,
+        _ => day,
+    };
+
     private static string Ago(string locale, int n, Unit unit)
     {
         var i = (int)unit;
-
-        string[] Two(string a, string b, string c)
-        {
-            return [a, b, c];
-        }
 
         string Plural(string one, string many)
         {
@@ -91,30 +100,26 @@ public static class Format {
             : (n % 10 is >= 2 and <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 1
             : 2;
         return locale switch {
-            "zh-CN" => $"{n}{Two("分钟", "小时", "天")[i]}前",
-            "zh-TW" => $"{n}{Two("分鐘", "小時", "天")[i]}前",
+            "zh-CN" => $"{n}{Pick(i, "分钟", "小时", "天")}前",
+            "zh-TW" => $"{n}{Pick(i, "分鐘", "小時", "天")}前",
             "es" =>
-                $"hace {n} {Two(Plural("minuto", "minutos"), Plural("hora", "horas"), Plural("día", "días"))[i]}",
+                $"hace {n} {Pick(i, Plural("minuto", "minutos"), Plural("hora", "horas"), Plural("día", "días"))}",
             "fr" =>
-                $"il y a {n} {Two(n > 1 ? "minutes" : "minute", n > 1 ? "heures" : "heure", n > 1 ? "jours" : "jour")[i]}",
+                $"il y a {n} {Pick(i, n > 1 ? "minutes" : "minute", n > 1 ? "heures" : "heure", n > 1 ? "jours" : "jour")}",
             "de" =>
-                $"vor {n} {Two(Plural("Minute", "Minuten"), Plural("Stunde", "Stunden"), Plural("Tag", "Tagen"))[i]}",
+                $"vor {n} {Pick(i, Plural("Minute", "Minuten"), Plural("Stunde", "Stunden"), Plural("Tag", "Tagen"))}",
             "pt" =>
-                $"há {n} {Two(Plural("minuto", "minutos"), Plural("hora", "horas"), Plural("dia", "dias"))[i]}",
+                $"há {n} {Pick(i, Plural("minuto", "minutos"), Plural("hora", "horas"), Plural("dia", "dias"))}",
             "it" =>
-                $"{n} {Two(Plural("minuto", "minuti"), Plural("ora", "ore"), Plural("giorno", "giorni"))[i]} fa",
-            "ru" => $"{n} {(i switch {
-                0 => new[] { "минуту", "минуты", "минут" },
-                1 => new[] { "час", "часа", "часов" },
-                _ => new[] { "день", "дня", "дней" },
-            })[ru]} назад",
-            "ja" => $"{n}{Two("分", "時間", "日")[i]}前",
-            "ko" => $"{n}{Two("분", "시간", "일")[i]} 전",
-            "hi" => $"{n} {Two("मिनट", "घंटे", "दिन")[i]} पहले",
-            "bn" => $"{n} {Two("মিনিট", "ঘণ্টা", "দিন")[i]} আগে",
-            "id" => $"{n} {Two("menit", "jam", "hari")[i]} yang lalu",
+                $"{n} {Pick(i, Plural("minuto", "minuti"), Plural("ora", "ore"), Plural("giorno", "giorni"))} fa",
+            "ru" => $"{n} {RuUnits[i][ru]} назад",
+            "ja" => $"{n}{Pick(i, "分", "時間", "日")}前",
+            "ko" => $"{n}{Pick(i, "분", "시간", "일")} 전",
+            "hi" => $"{n} {Pick(i, "मिनट", "घंटे", "दिन")} पहले",
+            "bn" => $"{n} {Pick(i, "মিনিট", "ঘণ্টা", "দিন")} আগে",
+            "id" => $"{n} {Pick(i, "menit", "jam", "hari")} yang lalu",
             _ =>
-                $"{n} {Two("minute", "hour", "day")[i]}{(n == 1 ? "" : "s")} ago",
+                $"{n} {Pick(i, "minute", "hour", "day")}{(n == 1 ? "" : "s")} ago",
         };
     }
 
@@ -167,11 +172,13 @@ public static class Format {
         return h > 0 ? $"{h}:{m:00}:{sec:00}" : $"{m}:{sec:00}";
     }
 
+    private static readonly string[] ByteUnits = ["B", "KB", "MB", "GB"];
+
     public static string Bytes(long n)
     {
         if (n <= 0)
             return "";
-        string[] units = ["B", "KB", "MB", "GB"];
+        var units = ByteUnits;
         var i = 0;
         double v = n;
         while (v >= 1024 && i < units.Length - 1) {

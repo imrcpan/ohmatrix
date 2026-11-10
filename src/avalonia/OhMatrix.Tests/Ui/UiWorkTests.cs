@@ -72,4 +72,57 @@ public class UiWorkTests {
         Assert.NotEqual(lightColors, ThemeScope.GetColors(root));
         await Task.CompletedTask;
     }
+
+    [Fact]
+    public void Relative_times_read_as_they_did_in_each_language()
+    {
+        var now = DateTimeOffset.FromUnixTimeMilliseconds(1_800_000_000_000);
+
+        string At(string locale, long ago) => Format.Relative(
+            now.ToUnixTimeMilliseconds() - ago - 5, now, locale);
+
+        const long Min = 60_000;
+        const long Hour = 3_600_000;
+        const long Day = 86_400_000;
+        Assert.Equal("1 minute ago", At("en", Min));
+        Assert.Equal("5 minutes ago", At("en", 5 * Min));
+        Assert.Equal("2 hours ago", At("en", 2 * Hour));
+        Assert.Equal("3 days ago", At("en", 3 * Day));
+        Assert.Equal("5分钟前", At("zh-CN", 5 * Min));
+        Assert.Equal("2小时前", At("zh-CN", 2 * Hour));
+        Assert.Equal("3天前", At("zh-CN", 3 * Day));
+        Assert.Equal("hace 1 minuto", At("es", Min));
+        Assert.Equal("hace 5 horas", At("es", 5 * Hour));
+        Assert.Equal("il y a 2 heures", At("fr", 2 * Hour));
+        Assert.Equal("il y a 2 jours", At("fr", 2 * Day));
+        Assert.Equal("vor 1 Minute", At("de", Min));
+        Assert.Equal("vor 5 Minuten", At("de", 5 * Min));
+        // Russian: the form follows the number.
+        Assert.Equal("1 минуту назад", At("ru", Min));
+        Assert.Equal("2 минуты назад", At("ru", 2 * Min));
+        Assert.Equal("5 минут назад", At("ru", 5 * Min));
+        Assert.Equal("11 минут назад", At("ru", 11 * Min));
+        Assert.Equal("21 минуту назад", At("ru", 21 * Min));
+        Assert.Equal("22 минуты назад", At("ru", 22 * Min));
+        Assert.Equal("1 час назад", At("ru", Hour));
+        Assert.Equal("4 часа назад", At("ru", 4 * Hour));
+        Assert.Equal("12 часов назад", At("ru", 12 * Hour));
+        Assert.Equal("3 дня назад", At("ru", 3 * Day));
+        Assert.Equal("5 дней назад", At("ru", 5 * Day));
+    }
+
+    [Fact]
+    public void Sizes_read_as_they_did()
+    {
+        Assert.Equal("", Format.Bytes(0));
+        Assert.Equal("", Format.Bytes(-1));
+        Assert.Equal("1 B", Format.Bytes(1));
+        Assert.Equal("1023 B", Format.Bytes(1023));
+        Assert.Equal("1.0 KB", Format.Bytes(1024));
+        Assert.Equal("1.5 KB", Format.Bytes(1536));
+        Assert.Equal("10 KB", Format.Bytes(10240));
+        Assert.Equal("3.4 MB", Format.Bytes(3_400_000 + 200_000));
+        Assert.Equal("1.0 GB", Format.Bytes(1L << 30));
+        Assert.Equal("1024 GB", Format.Bytes(1L << 40));
+    }
 }
