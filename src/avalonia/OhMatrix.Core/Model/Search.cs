@@ -41,7 +41,7 @@ public sealed record Snippet(string Before, string Match, string After) {
     // Every run of white space becomes one space and the ends are trimmed.
     // Made by hand and not by a regular expression: the program is compiled
     // ahead of time, and this is done for each hit of a search.
-    private static string Collapse(string s)
+    internal static string Collapse(string s)
     {
         var clean = true;
         for (var i = 0; i < s.Length && clean; i++) {

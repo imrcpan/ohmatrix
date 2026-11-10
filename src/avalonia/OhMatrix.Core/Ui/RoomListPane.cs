@@ -242,9 +242,9 @@ public sealed class RoomListPane : Grid {
             return t("invite.from", [("name", room.Inviter!)]);
         if (room.LastMessage is null)
             return t("noMessages", []);
-        var body = string.Join(" ",
-            room.LastMessage.Split((char[]?)null,
-                StringSplitOptions.RemoveEmptyEntries));
+        // Each run of white space is one space: no array, no pieces, and the
+        // text itself when it is clean already.
+        var body = Snippet.Collapse(room.LastMessage);
         if (room.LastIsLine)
             return body;
         if (room.LastSender is null)

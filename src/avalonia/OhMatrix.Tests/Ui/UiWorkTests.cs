@@ -125,4 +125,84 @@ public class UiWorkTests {
         Assert.Equal("1.0 GB", Format.Bytes(1L << 30));
         Assert.Equal("1024 GB", Format.Bytes(1L << 40));
     }
+
+    // What Initials did before: the elements of the text found for each name.
+    private static string OldInitials(string name)
+    {
+        string First(string s)
+        {
+            var e = System.Globalization.StringInfo
+                .GetTextElementEnumerator(s);
+            return e.MoveNext() ? (string)e.Current : "";
+        }
+
+        var clean = name.TrimStart('@', '#', '!').Trim();
+        var parts = clean.Split([' ', '.', '_', '-', '\t', '\n'],
+            StringSplitOptions.RemoveEmptyEntries);
+        string result;
+        if (parts.Length > 1) {
+            result = First(parts[0]) + First(parts[1]);
+        } else {
+            var e = System.Globalization.StringInfo
+                .GetTextElementEnumerator(clean);
+            result = "";
+            for (var i = 0; i < 2 && e.MoveNext(); i++)
+                result += (string)e.Current;
+        }
+
+        return result.Length == 0 ? "?" : result.ToUpperInvariant();
+    }
+
+    [Fact]
+    public void Initials_are_those_of_the_text_elements_as_before()
+    {
+        string[] names = [
+            "Alice", "alice bob", "ab cd", "@alice:server", "#room", "!x:y",
+            "a", "", "  ", "Ann-Lee", "john.smith", "x_y", "李雷", "李 雷",
+            "😀 smile", "😀😀😀", "éa", "aé", "ábc", "1234",
+            "12 34", "ab.cd", "ab-", "-ab", "A\tB", "Zoë", "ÉCOLE", "a b c",
+            "éé", "ab̀c", "ab́", "a1", "9z", "a\rb",
+            "Abc Def Ghi",
+        ];
+        foreach (var name in names)
+            Assert.Equal(OldInitials(name), Avatar.Initials(name));
+        Assert.Equal("AL", Avatar.Initials("alice"));
+        Assert.Equal("AC", Avatar.Initials("ab cd"));
+        Assert.Equal("?", Avatar.Initials(""));
+    }
+
+    // What the preview did before: split on white space and join with one space.
+    private static string OldBody(string text) => string.Join(" ",
+        text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    [Fact]
+    public void A_preview_collapses_white_space_as_before()
+    {
+        string[] texts = [
+            "hello", "  hello   world  ", "a\tb\nc", "a\r\nb", "x y",
+            "x y", "\n\n", "", " ", "a  b", "multi\n\nline  text",
+            "tail ", "a​b", "　x　", "one two  three",
+        ];
+        foreach (var text in texts) {
+            var room = new RoomSummary {
+                Id = "!a",
+                LastMessage = text,
+                LastIsLine = true
+            };
+            Assert.Equal(OldBody(text),
+                RoomListPane.PreviewOf(room, (k, _) => k));
+            var direct = room with {
+                LastIsLine = false,
+                LastSender = "Ann",
+                IsDirect = true
+            };
+            Assert.Equal(OldBody(text),
+                RoomListPane.PreviewOf(direct, (k, _) => k));
+            var group = direct with {
+                IsDirect = false
+            };
+            Assert.Equal("Ann: " + OldBody(text),
+                RoomListPane.PreviewOf(group, (k, _) => k));
+        }
+    }
 }

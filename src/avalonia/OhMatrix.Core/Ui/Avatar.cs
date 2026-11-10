@@ -58,10 +58,20 @@ public sealed class Avatar : Border {
         return PeerColors[h % PeerColors.Length];
     }
 
+    private static readonly char[] Separators =
+        [' ', '.', '_', '-', '\t', '\n'];
+
     public static string Initials(string name)
     {
         var clean = name.TrimStart('@', '#', '!').Trim();
-        var parts = clean.Split([' ', '.', '_', '-', '\t', '\n'],
+        // Two plain letters or digits are the answer, and no element of text
+        // needs to be found (the next char being no mark that joins to them).
+        if (clean.Length >= 2 && char.IsAsciiLetterOrDigit(clean[0]) &&
+            char.IsAsciiLetterOrDigit(clean[1]) &&
+            (clean.Length == 2 || clean[2] < '\u0300') &&
+            clean.AsSpan().IndexOfAny(Separators) < 0)
+            return clean[..2].ToUpperInvariant();
+        var parts = clean.Split(Separators,
             StringSplitOptions.RemoveEmptyEntries);
         string result;
         if (parts.Length > 1) {
@@ -79,6 +89,9 @@ public sealed class Avatar : Border {
 
     private static string FirstChar(string s)
     {
+        if (s.Length > 0 && char.IsAsciiLetterOrDigit(s[0]) &&
+            (s.Length == 1 || s[1] < '\u0300'))
+            return s[..1];
         var e = System.Globalization.StringInfo.GetTextElementEnumerator(s);
         return e.MoveNext() ? (string)e.Current : "";
     }
