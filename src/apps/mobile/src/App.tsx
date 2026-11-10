@@ -5,7 +5,7 @@ import * as Crypto from "expo-crypto";
 import { Directory, File, Paths } from "expo-file-system";
 import * as SecureStore from "expo-secure-store";
 import { installLog, type AppServices } from "@ohmatrix/core";
-import { setStreamRenderer } from "@ohmatrix/ui";
+import { setStreamRenderer, setVideoRenderer } from "@ohmatrix/ui";
 import { MockEngine } from "@ohmatrix/engine-mock";
 import { createAccountManager, type AccountManager } from "@ohmatrix/state";
 import { App as SharedApp, BootScreen } from "@ohmatrix/app";
@@ -17,6 +17,7 @@ import { requireOptionalNativeModule } from "expo";
 import { shellInsets } from "./shellInsets.js";
 import { webrtcCalls, type RtcLib } from "./webrtcCalls.js";
 import { streamRendererFrom } from "./StreamViewNative.js";
+import { videoRendererFrom } from "./videoRenderer.js";
 import { useKeyboardHeight } from "./useKeyboardHeight.js";
 
 // The accounts go in the Android Keystore (iOS Keychain), through expo-secure-store. The one session saved before there were
@@ -56,6 +57,11 @@ const callAudio = callAudioNative
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const loadRtc = (): RtcLib & { RTCView: unknown } => require("react-native-webrtc") as RtcLib & { RTCView: unknown };
 setStreamRenderer(streamRendererFrom(loadRtc));
+
+// A video is played by expo-video's view, read the first time a video is opened (the module is native, and an older build lacks it).
+// (A synchronous `require`, as above.)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+setVideoRenderer(videoRendererFrom(() => (require("./VideoPlayerNative.js") as typeof import("./VideoPlayerNative.js")).VideoPlayer));
 
 /** The databases of the accounts of earlier versions: the files of the first account (in the roots themselves) and the folders of the others. */
 function deleteOldStores(): void {

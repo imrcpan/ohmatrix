@@ -59,3 +59,6 @@ export function StreamView(props: { stream: unknown; muted?: boolean; mirror?: b
 
 /** The browser draws a stream itself (see StreamView above); only the phone registers a renderer. */
 export function setStreamRenderer(_r: unknown): void {}
+
+/** The browser plays a video itself (see VideoSurface above); only the phone registers a player. */
+export function setVideoRenderer(_r: unknown): void {}

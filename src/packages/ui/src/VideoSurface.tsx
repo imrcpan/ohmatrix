@@ -1,15 +1,26 @@
 import type React from "react";
 import { Text, View } from "react-native";
 
-/** Plays a video from `uri`. Native players are not wired up yet: this placeholder says so (the web build has the real one). */
-export function VideoSurface(props: {
+/** What a video's picture and controls are drawn with. */
+type VideoProps = {
   uri: string;
   width: number;
   height: number;
   poster?: string | undefined;
   autoPlay?: boolean;
   onEnded?: (() => void) | undefined;
-}) {
+};
+type VideoRenderer = (props: VideoProps) => React.ReactElement | null;
+let renderVideo: VideoRenderer | null = null;
+
+/** The app registers the player of a phone (the `ui` package does not know the native library); the web build has the browser's own. */
+export function setVideoRenderer(r: VideoRenderer | null): void {
+  renderVideo = r;
+}
+
+/** Plays a video from `uri` with what the app registered; until then, or where nothing is registered, a placeholder says it cannot. */
+export function VideoSurface(props: VideoProps) {
+  if (renderVideo) return renderVideo(props);
   return (
     <View style={{ width: props.width, height: props.height, alignItems: "center", justifyContent: "center", backgroundColor: "#000" }}>
       <Text style={{ color: "#FFF" }}>Video playback is not available on this platform yet.</Text>
