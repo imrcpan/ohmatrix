@@ -107,17 +107,53 @@ public sealed class MessageResultsView : StackPanel {
     /// <summary>Rewords retained results without starting another search.</summary>
     public void RefreshPresentation() => Render();
 
+    // What the children are made from: the hits are at the start of the
+    // children and what is after them (a spinner, a note, a button) is made
+    // again each time. The hits are kept while the term, the colours and the
+    // language and the font are the same and the results are the ones shown with more
+    // after them, so a next page adds its hits and nothing else is made.
+    private List<SearchResult> builtHits = [];
+    private string? builtTerm;
+    private ColorTokens? builtColors;
+    private string? builtLocale;
+    private FontFamily? builtFont;
+
     private void Render()
     {
         var c = ThemeScope.GetColors(this);
-        Children.Clear();
         if (!Active(term)) {
+            Children.Clear();
+            builtHits = [];
+            builtTerm = null;
             Children.Add(Note(c, T("search.hint"), 14, 24));
             return;
         }
 
-        foreach (var r in results ?? [])
-            Children.Add(Hit(c, r));
+        var shown = results ?? [];
+        var locale = controller.Store.Value.Locale;
+        var keep = builtTerm == term && Equals(builtColors, c) &&
+                   builtLocale == locale && Equals(builtFont, Fonts.System) &&
+                   shown.Count >= builtHits.Count;
+        for (var i = 0; keep && i < builtHits.Count; i++)
+            keep = ReferenceEquals(shown[i], builtHits[i]);
+        if (keep) {
+            // Off with what was after the hits.
+            while (Children.Count > builtHits.Count)
+                Children.RemoveAt(Children.Count - 1);
+        } else {
+            Children.Clear();
+            builtHits = [];
+        }
+
+        builtTerm = term;
+        builtColors = c;
+        builtLocale = locale;
+        builtFont = Fonts.System;
+        for (var i = builtHits.Count; i < shown.Count; i++) {
+            Children.Add(Hit(c, shown[i]));
+            builtHits.Add(shown[i]);
+        }
+
         if (busy)
             Children.Add(new Spinner {
                 Width = 24,

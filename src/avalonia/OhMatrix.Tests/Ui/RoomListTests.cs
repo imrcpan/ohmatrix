@@ -607,6 +607,71 @@ public class RoomListTests {
         }
     }
 
+    private sealed class PagedSearch : ISearchEngine {
+        public int Requests;
+
+        private static SearchResult Hit(int i) => new(
+            "$" + i, "!r", "Room", "@a", "Ann", Now, "the budget " + i);
+
+        public Task<SearchPage> Messages(string term, string? roomId,
+            string? from)
+        {
+            Requests++;
+            return Task.FromResult(from is null
+                ? new SearchPage([Hit(1), Hit(2)], "more")
+                : new SearchPage([Hit(3)], null));
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task A_next_page_of_hits_adds_hits_and_keeps_the_ones_shown()
+    {
+        var search = new PagedSearch();
+        var (window, controller, _) = OpenList(Rooms(), searchEngine: search);
+        try {
+            var view = new MessageResultsView(controller, null, false);
+            window.Content = view;
+            window.UpdateLayout();
+            view.SetTerm("budget");
+            await view.Load(null);
+            var shown = view.Children.Take(2).ToList();
+            Assert.Equal(2, view.Results.Count);
+            // The two hits and the button for more.
+            Assert.Equal(3, view.Children.Count);
+
+            await view.Load("more");
+            Assert.Equal(3, view.Results.Count);
+            Assert.Equal(3, view.Children.Count);
+            Assert.Same(shown[0], view.Children[0]);
+            Assert.Same(shown[1], view.Children[1]);
+            Assert.NotSame(shown[1], view.Children[2]);
+
+            // Drawn again with nothing new: the hits are the same controls.
+            view.RefreshPresentation();
+            Assert.Same(shown[0], view.Children[0]);
+
+            // Another language, another font or another term: other hits.
+            controller.SetPreferences(p => p with {
+                Locale = "de"
+            });
+            view.RefreshPresentation();
+            Assert.NotSame(shown[0], view.Children[0]);
+            var german = view.Children[0];
+            Fonts.Use("monospace");
+            view.RefreshPresentation();
+            Assert.NotSame(german, view.Children[0]);
+            Assert.Equal(Fonts.System, view.Children[0]
+                .GetVisualDescendants().OfType<TextBlock>().First().FontFamily);
+            var mono = view.Children[0];
+            view.SetTerm("budge");
+            Assert.True(view.Children.Count <= 1 ||
+                        !ReferenceEquals(mono, view.Children[0]));
+        } finally {
+            Fonts.Use(null);
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task Cached_search_results_refresh_language_and_font()
     {
