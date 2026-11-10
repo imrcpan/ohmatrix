@@ -1,0 +1,90 @@
+version: 2
+
+# One weekly run per ecosystem. Minor and patch updates come as a single
+# pull request per ecosystem; a major update is a pull request of its own,
+# because it is the one that can break the build.
+updates:
+  # The pnpm workspace (src/apps, src/packages, src/i18n, src/e2e, web).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    # The mobile app is held to one Expo SDK (57): React, React Native and the
+    # native modules are pinned to the versions it was released with (the
+    # exact versions, the ~ of expo-*, and pnpm.overrides in package.json).
+    # They move together, by an upgrade of the SDK (npx expo install --fix),
+    # not one by one, so Dependabot leaves them alone.
+    ignore:
+      - dependency-name: react
+      - dependency-name: react-dom
+      - dependency-name: react-native
+      - dependency-name: react-native-svg
+      - dependency-name: react-native-safe-area-context
+      - dependency-name: react-native-webrtc
+      - dependency-name: "@config-plugins/react-native-webrtc"
+      # Tied to the React Native version above (Windows is one release behind).
+      - dependency-name: react-native-windows
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/cli"
+      - dependency-name: "@types/react"
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      # The bindings generator and its runtime are one release, and the Rust
+      # side (BINDGEN_TAG in src/rust/build-native.sh) must match them.
+      - dependency-name: uniffi-bindgen-react-native
+      - dependency-name: "@ubjs/core"
+      # Patches of the modules of the SDK are fine; a minor is another SDK.
+      - dependency-name: "expo-*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
+      - dependency-name: expo
+        update-types:
+          - version-update:semver-major
+
+  # The Avalonia client: one entry for each project directory.
+  - package-ecosystem: nuget
+    directories:
+      - /src/avalonia/*
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Every Avalonia package is on the same version, so they move together.
+      avalonia:
+        patterns:
+          - "Avalonia*"
+      nuget-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # The Tauri shell. The crates here and @tauri-apps/* in the npm entry have to
+  # stay on the same minor: review the two pull requests together.
+  - package-ecosystem: cargo
+    directory: /src/apps/tauri/src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # The actions of .github/workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
