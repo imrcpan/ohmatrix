@@ -14,8 +14,9 @@ namespace OhMatrix.Engine;
 /// applied to a list of rooms, each room's summary is made and kept up to date, and the whole list is handed on.
 /// </summary>
 public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
-    private readonly Channel<RoomListEntriesUpdate[]> updates =
-        Channel.CreateUnbounded<RoomListEntriesUpdate[]>();
+    // One queue for each run of the sync: the changes of a run that is over
+    // are not read by the next, whose list they do not belong to.
+    private readonly RunChannel<RoomListEntriesUpdate[]> updates = new();
 
     // What the list knows (the rooms, their summaries in order, and the run of
     // the sync they belong to); the ids of the rooms are asked of the SDK once.
@@ -593,13 +594,17 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             sync ??= await client.SyncService().Finish();
             stateTask = sync.State(new StateObserver(this));
             var list = await sync.RoomListService().AllRooms();
+            // The run is started before the SDK can make a change: its queue,
+            // its generation and its reader belong together.
+            var queue = updates.Open();
+            var gen = book.Begin();
             entries = list.EntriesWithDynamicAdapters(200,
-                new EntriesListener(updates.Writer));
+                new EntriesListener(queue.Writer));
             entries.Controller()
                 .SetFilter(new RoomListEntriesDynamicFilterKind.NonLeft());
             entriesTask = entries.EntriesStream();
             loop = new CancellationTokenSource();
-            _ = Pump(loop.Token, book.Begin());
+            _ = Pump(queue.Reader, loop.Token, gen);
             await sync.Start();
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
@@ -610,6 +615,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     {
         // The run is over at once: a read that is on its way is not written.
         book.End();
+        updates.Close();
         loop?.Cancel();
         loop = null;
         try {
@@ -634,10 +640,11 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     }
 
     // One reader, so that the changes are applied in the order the SDK made them.
-    private async Task Pump(CancellationToken stop, int gen)
+    private async Task Pump(ChannelReader<RoomListEntriesUpdate[]> queue,
+        CancellationToken stop, int gen)
     {
         try {
-            await foreach (var batch in updates.Reader.ReadAllAsync(stop)) {
+            await foreach (var batch in queue.ReadAllAsync(stop)) {
                 var (added, left) = book.Apply(gen, batch.Select(ToOp));
                 // A room that left the list is not watched any more.
                 foreach (var id in left) {

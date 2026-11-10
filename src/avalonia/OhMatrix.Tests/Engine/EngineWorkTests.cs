@@ -337,6 +337,45 @@ public class EngineWorkTests {
             Pinned = pinned
         };
 
+    [Fact]
+    public async Task What_a_run_queued_is_not_read_by_the_next_run()
+    {
+        var runs = new RunChannel<int[]>();
+        var first = runs.Open();
+        // Changes the old run's reader did not get to.
+        first.Writer.TryWrite([1]);
+        first.Writer.TryWrite([2]);
+        runs.Close();
+        // Stopped: nothing more is queued for the run that ended.
+        Assert.False(first.Writer.TryWrite([3]));
+
+        var second = runs.Open();
+        second.Writer.TryWrite([10]);
+        // The new run's reader sees its own changes and none of the old.
+        second.Writer.Complete();
+        var seen = new List<int>();
+        await foreach (var batch in second.Reader.ReadAllAsync())
+            seen.AddRange(batch);
+        Assert.Equal([10], seen);
+
+        // Starting again without a stop closes the one before.
+        var third = runs.Open();
+        var fourth = runs.Open();
+        Assert.False(third.Writer.TryWrite([5]));
+        Assert.True(fourth.Writer.TryWrite([6]));
+
+        // The changes of the old run cannot be applied to the new list.
+        var book = new RoomBook<string>(id => id);
+        var gen1 = book.Begin();
+        book.Apply(gen1, [Append("A", "B")]);
+        book.End();
+        var gen2 = book.Begin();
+        book.Apply(gen2, [Append("C")]);
+        // An index of the old list, taken for the new one, would be wrong.
+        Assert.Empty(book.Apply(gen1, [Remove(1)]).Left);
+        Assert.True(book.Has("C"));
+    }
+
     private static async Task WaitFor(Func<bool> condition)
     {
         for (var i = 0; i < 200 && !condition(); i++)
