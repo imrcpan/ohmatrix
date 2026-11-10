@@ -33,7 +33,8 @@ internal static class Engines {
             new OhMatrix.Core.Engine.HttpSpacesEngine(() =>
                 auth.CurrentSession));
 #else
-        return (new UnavailableEngine(), null, null, null, null, null, null, null, null, null,
+        return (new UnavailableEngine(), null, null, null, null, null, null,
+            null, null, null,
             null, null, null);
 #endif
     }
