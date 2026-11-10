@@ -124,6 +124,27 @@ public class PicturesTests {
         Assert.Equal(2, media.Calls);
     }
 
+    [AvaloniaFact]
+    public async Task Asks_with_no_picture_leave_nothing_behind_and_try_again()
+    {
+        var empty = new Media(null);
+        var pictures = new Pictures(empty, 600);
+        for (var i = 0; i < 20; i++)
+            Assert.Null(await pictures.Get("mxc://s/none" + i, 44));
+        Assert.Equal(0, pictures.Count);
+
+        // The engine was not ready: the same address is asked again.
+        Assert.Null(await pictures.Get("mxc://s/none0", 44));
+        Assert.Equal(21, empty.Calls);
+
+        var zero = new Media([]);
+        var other = new Pictures(zero, 600);
+        await other.Get("mxc://s/a", 44);
+        await other.Get("mxc://s/a", 44);
+        Assert.Equal(2, zero.Calls);
+        Assert.Equal(0, other.Count);
+    }
+
     private sealed class Waiting(Task<byte[]?> bytes, Action called)
         : IMediaEngine {
         public Task<string?> Download(string source, string fileName,

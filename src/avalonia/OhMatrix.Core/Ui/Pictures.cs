@@ -83,15 +83,22 @@ public sealed class Pictures(
     {
         var picture = await Load(key.Item1, key.Item2, key.Item3);
         lock (gate) {
-            // Failed: Load took it out, and the next ask tries again.
             if (cache.TryGetValue(key, out var entry) &&
-                ReferenceEquals(entry.Task, done.Task) && picture is not null) {
-                entry.Bytes = picture is Bitmap bitmap
-                    ? (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4
-                    : (long)(picture.Size.Width * picture.Size.Height * 4);
-                entry.Node = recent.AddFirst(key);
-                kept += entry.Bytes;
-                Trim();
+                ReferenceEquals(entry.Task, done.Task)) {
+                if (picture is null) {
+                    // No picture (none there, failed, or the engine is not
+                    // ready yet): nothing is kept, so the entry does not
+                    // outlive the ask and the next ask tries again.
+                    cache.Remove(key);
+                } else {
+                    entry.Bytes = picture is Bitmap bitmap
+                        ? (long)bitmap.PixelSize.Width *
+                          bitmap.PixelSize.Height * 4
+                        : (long)(picture.Size.Width * picture.Size.Height * 4);
+                    entry.Node = recent.AddFirst(key);
+                    kept += entry.Bytes;
+                    Trim();
+                }
             }
         }
 
@@ -162,9 +169,8 @@ public sealed class Pictures(
             using var stream = new MemoryStream(bytes);
             return new Bitmap(stream);
         } catch (Exception) {
-            // A picture that cannot be had is the initials; the next run tries again.
-            lock (gate)
-                cache.Remove((mxc, width, height));
+            // A picture that cannot be had is the initials; Fetch lets go of
+            // the entry and the next ask tries again.
             return null;
         }
     }
