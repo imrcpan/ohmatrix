@@ -42,7 +42,7 @@ public sealed class EncryptionPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 

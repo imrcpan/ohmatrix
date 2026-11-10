@@ -185,4 +185,41 @@ public class AccountManagerTests {
         Assert.True(page.Reordering);
         Assert.Equal(2, page.Rows.Count);
     }
+
+    [AvaloniaFact]
+    public async Task
+        The_pages_of_an_account_left_let_go_of_its_store_and_their_timers()
+    {
+        var (manager, _, _) = Make("@a:s", "@b:s");
+        await manager.Start();
+        var first = manager.Current;
+        var before = first.Store.Watchers;
+        var window = new Avalonia.Controls.Window {
+            Content = new AppRoot(manager, "s", () => false),
+            Width = 1000,
+            Height = 700,
+        };
+        window.Show();
+        // The pages hook onto the store: many more than before.
+        Assert.True(first.Store.Watchers > before + 10);
+
+        var chooser = new AccountsPage(first);
+        chooser.Switch(manager.Accounts[1]);
+        // The page that asked is the test's own.
+        Lifetime.Release(chooser);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal("@b:s", manager.CurrentAccount!.UserId);
+        // Of the old account nothing of the old pages is left.
+        Assert.Equal(before, first.Store.Watchers);
+        var second = manager.Current;
+        Assert.True(second.Store.Watchers > before + 10);
+
+        // And back: the pages of the other account go in their turn.
+        chooser = new AccountsPage(second);
+        chooser.Switch(manager.Accounts[0]);
+        Lifetime.Release(chooser);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(before, second.Store.Watchers);
+        Assert.True(first.Store.Watchers > before + 10);
+    }
 }

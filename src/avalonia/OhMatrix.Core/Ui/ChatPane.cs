@@ -149,7 +149,7 @@ public sealed partial class ChatPane : Grid {
             _ = Quietly(controller.LoadStickers);
             emojiPicker.ShowStickers(emojiButton, window,
                 ThemeScope.GetColors(this),
-                stickerPane ??= new StickerPane(controller, emojiPicker.Close));
+                StickerPaneOnce());
             return;
         }
 
@@ -522,7 +522,7 @@ public sealed partial class ChatPane : Grid {
             }
         });
         scroller.ScrollChanged += (_, e) => OnScroll(e);
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         SizeChanged += (_, _) => ResizeMessages();
         Apply();
     }
@@ -1207,7 +1207,7 @@ public sealed partial class ChatPane : Grid {
     private void AskStickerGroup(TopLevel window, TimelineItem item)
     {
         var colors = ThemeScope.GetColors(this);
-        stickerPane ??= new StickerPane(controller, emojiPicker.Close);
+        StickerPaneOnce();
         _ = Quietly(controller.LoadStickers);
         var cancel = new TextButton {
             Title = T("cancel")
@@ -1470,7 +1470,9 @@ public sealed partial class ChatPane : Grid {
         if (searching && query.Length >= 2 && controller.CanSearchMessages
             && controller.Store.Value.SelectedRoomId is { } roomId) {
             if (hits is null || hitsRoom != roomId) {
+                Lifetime.Release(hits);
                 hits = new MessageResultsView(controller, roomId, false);
+                Lifetime.Own(this, hits);
                 hitsRoom = roomId;
                 hitsHost.Content = hits;
                 hits.Picked += () => ToggleSearch();
@@ -1604,8 +1606,27 @@ public sealed partial class ChatPane : Grid {
 
     private RecordingDialog? recordingDialog;
 
-    private RecordingDialog recording =>
-        recordingDialog ??= new RecordingDialog(controller);
+    private RecordingDialog recording {
+        get {
+            if (recordingDialog is null) {
+                recordingDialog = new RecordingDialog(controller);
+                Lifetime.Own(this, recordingDialog);
+            }
+
+            return recordingDialog;
+        }
+    }
+
+    // Made on first use; it goes when the pane does.
+    private StickerPane StickerPaneOnce()
+    {
+        if (stickerPane is null) {
+            stickerPane = new StickerPane(controller, emojiPicker.Close);
+            Lifetime.Own(this, stickerPane);
+        }
+
+        return stickerPane;
+    }
 
     public RecordingDialog Recorder => recording;
 

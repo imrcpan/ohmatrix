@@ -44,12 +44,12 @@ public sealed class RoomInfoPanel : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        controller.Store.Changed += state => {
+        Lifetime.Watch(this, controller, state => {
             if (Differs(state))
                 Apply();
             else if (!ReferenceEquals(seenTimeline, state.Timeline))
                 RefreshShared(state);
-        };
+        });
         Apply();
     }
 

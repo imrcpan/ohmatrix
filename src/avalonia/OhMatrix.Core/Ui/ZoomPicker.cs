@@ -43,7 +43,8 @@ public sealed class ZoomPicker {
         revert.Click += (_, _) => controller.RevertZoom();
         dialog.OnClose = controller.RevertZoom;
         countdown.Tick += (_, _) => Sync();
-        controller.Store.Changed += _ => Sync();
+        Lifetime.Stop(this, countdown);
+        Lifetime.Watch(this, controller, _ => Sync());
     }
 
     public Menu Menu { get; }

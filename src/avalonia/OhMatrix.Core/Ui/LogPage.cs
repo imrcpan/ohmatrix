@@ -74,7 +74,7 @@ public sealed class LogPage : Grid {
         };
         clear.Click += (_, _) => AppLog.Clear();
         // The page follows the log, but not line by line: a burst of lines is one refresh.
-        AppLog.Changed += () => {
+        Action follow = () => {
             if (refreshQueued)
                 return;
             refreshQueued = true;
@@ -83,7 +83,9 @@ public sealed class LogPage : Grid {
                 Apply();
             }, DispatcherPriority.Background);
         };
-        controller.Store.Changed += _ => Apply();
+        AppLog.Changed += follow;
+        Lifetime.OnRelease(this, () => AppLog.Changed -= follow);
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 

@@ -10,6 +10,9 @@ public sealed class Store<T>(T initial)
 
     public event Action<T>? Changed;
 
+    /// <summary>How many have asked to be told of changes. A screen that is thrown away must not be among them.</summary>
+    public int Watchers => Changed?.GetInvocationList().Length ?? 0;
+
     /// <summary>Replaces the value by what <paramref name="change"/> makes of it; nothing is told when it is the same object.</summary>
     public void Update(Func<T, T> change)
     {

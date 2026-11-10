@@ -38,11 +38,11 @@ public sealed class TopNotice : Border {
             Blur = 12,
             Color = Color.FromArgb(90, 0, 0, 0)
         });
-        controller.Store.Changed += state => {
+        Lifetime.Watch(this, controller, state => {
             if (!ReferenceEquals(state.Notice, shownNotice) ||
                 !Equals(shownFont, Fonts.System))
                 Apply();
-        };
+        });
         Apply();
     }
 

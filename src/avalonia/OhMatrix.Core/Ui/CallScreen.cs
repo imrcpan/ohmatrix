@@ -168,9 +168,11 @@ public sealed class CallScreen : Grid {
         Children.Add(full);
         BuildMini();
         Children.Add(mini);
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         clock.Tick += (_, _) => Apply();
         frames.Tick += (_, _) => TakeFrame();
+        Lifetime.Stop(this, clock);
+        Lifetime.Stop(this, frames);
         Apply();
     }
 

@@ -31,6 +31,7 @@ public sealed class RecordingDialog {
     public RecordingDialog(AppController controller)
     {
         this.controller = controller;
+        Lifetime.Stop(this, ticker);
         ticker.Tick += (_, _) => {
             if (recorder is not null)
                 clock.Text = Format.Duration(recorder.Elapsed);

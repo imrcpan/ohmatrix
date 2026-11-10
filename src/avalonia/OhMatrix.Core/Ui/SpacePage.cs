@@ -51,7 +51,7 @@ public sealed class SpacePage : Grid {
         };
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 

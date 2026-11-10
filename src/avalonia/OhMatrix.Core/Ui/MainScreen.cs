@@ -105,6 +105,16 @@ public sealed class MainScreen : Grid {
         spacePage = new SpacePage(controller);
         verifyDialog = new VerifyDialog(controller, this);
         callScreen = new CallScreen(controller);
+        // The pages are held in fields and shown one at a time, so not all
+        // are in the tree: they go with the screen all the same.
+        foreach (var owned in new object[] {
+                     list, narrowChat, wideChat, profilePage, themePage,
+                     infoDock, infoNarrow, languagePage, explorePage,
+                     settingsPage, sessionsPage, accountsPage, fontPage,
+                     advancedPage, logPage, encryptionPage, spacePage,
+                     verifyDialog, callScreen
+                 })
+            Lifetime.Own(this, owned);
         listHost.Child = list;
         ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
         infoDockHost.Child = infoDock;
@@ -146,10 +156,10 @@ public sealed class MainScreen : Grid {
         notice = new TopNotice(controller);
         Grid.SetColumnSpan(notice, 4);
         Children.Add(notice);
-        controller.Store.Changed += state => {
+        Lifetime.Watch(this, controller, state => {
             if (Differs(state))
                 Apply();
-        };
+        });
         SizeChanged += (_, _) => Apply();
         Apply();
     }
@@ -186,6 +196,16 @@ public sealed class MainScreen : Grid {
     private double? live;
     private readonly SidebarResizer resizer = new();
     private RoomListPane? rail;
+
+    private RoomListPane Rail()
+    {
+        if (rail is null) {
+            rail = new RoomListPane(controller, true);
+            Lifetime.Own(this, rail);
+        }
+
+        return rail;
+    }
 
     /// <summary>The width of the chat list now: the one dragged to, the one kept, or the automatic one.</summary>
     public double SidebarWidth()
@@ -264,7 +284,7 @@ public sealed class MainScreen : Grid {
             SidebarPage.Logs => logPage,
             SidebarPage.Accounts => accountsPage,
             SidebarPage.Font => fontPage,
-            _ => strip ? rail ??= new RoomListPane(controller, true) : list,
+            _ => strip ? Rail() : list,
         };
         detail.Child = split && open ? wideChat : chip;
         wideChat.Showing = split && open;

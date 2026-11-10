@@ -46,7 +46,7 @@ public sealed class FontPage : Grid {
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
         search.TextChanged += (_, _) => Apply();
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 

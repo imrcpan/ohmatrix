@@ -78,10 +78,10 @@ public sealed class StickerPane : Grid {
         Children.Add(scroller);
         Grid.SetRow(tabs, 2);
         Children.Add(tabs);
-        controller.Store.Changed += state => {
+        Lifetime.Watch(this, controller, state => {
             if (Differs(state))
                 Apply();
-        };
+        });
         Apply();
     }
 

@@ -45,6 +45,7 @@ public sealed class MessageResultsView : StackPanel {
         this.controller = controller;
         this.roomId = roomId;
         this.showRoom = showRoom;
+        Lifetime.Stop(this, debounce);
         debounce.Tick += (_, _) => {
             debounce.Stop();
             _ = Load(null);

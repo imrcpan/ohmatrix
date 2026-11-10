@@ -1,0 +1,84 @@
+using System.Runtime.CompilerServices;
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using OhMatrix.Core.State;
+
+namespace OhMatrix.Core.Ui;
+
+/// <summary>
+/// What a page hooks onto things that outlive it (the store of the account, the log, timers) and how it lets go when it is thrown away. An
+/// account's controller lives as long as the app, so a page that was replaced (the account was switched, the user signed out) and did not let
+/// go stayed alive with everything it held, and went on drawing for nobody.
+/// </summary>
+public static class Lifetime {
+    private static readonly ConditionalWeakTable<object, List<Action>>
+        Cleanups =
+            new();
+
+    private static readonly ConditionalWeakTable<object, List<object>> Owned =
+        new();
+
+    /// <summary>Calls <paramref name="handler"/> for each change of the store of <paramref name="controller"/> until <paramref name="owner"/> is released.</summary>
+    public static void Watch(object owner, AppController controller,
+        Action<AppState> handler)
+    {
+        var store = controller.Store;
+        store.Changed += handler;
+        OnRelease(owner, () => store.Changed -= handler);
+    }
+
+    /// <summary>Stops the timer when <paramref name="owner"/> is released.</summary>
+    public static void Stop(object owner,
+        Avalonia.Threading.DispatcherTimer timer)
+    {
+        OnRelease(owner, timer.Stop);
+    }
+
+    /// <summary>Runs <paramref name="cleanup"/> when <paramref name="owner"/> is released.</summary>
+    public static void OnRelease(object owner, Action cleanup)
+    {
+        lock (Cleanups)
+            Cleanups.GetOrCreateValue(owner).Add(cleanup);
+    }
+
+    /// <summary>Makes <paramref name="child"/> go with <paramref name="owner"/>: it is released when the owner is. For what the owner holds but may not show (a page in a field, made on first use).</summary>
+    public static void Own(object owner, object? child)
+    {
+        if (child is null)
+            return;
+        lock (Owned)
+            Owned.GetOrCreateValue(owner).Add(child);
+    }
+
+    /// <summary>Lets go of everything <paramref name="root"/>, what it owns and what is below it in the tree hooked onto outside. Calling it again does nothing.</summary>
+    public static void Release(object? root)
+    {
+        if (root is null)
+            return;
+        List<Action>? cleanups = null;
+        List<object>? owned = null;
+        lock (Cleanups) {
+            if (Cleanups.TryGetValue(root, out var found)) {
+                cleanups = [.. found];
+                found.Clear();
+            }
+        }
+
+        lock (Owned) {
+            if (Owned.TryGetValue(root, out var found)) {
+                owned = [.. found];
+                found.Clear();
+            }
+        }
+
+        if (cleanups is not null)
+            foreach (var cleanup in cleanups)
+                cleanup();
+        if (owned is not null)
+            foreach (var child in owned)
+                Release(child);
+        if (root is Control control)
+            foreach (var child in control.GetLogicalChildren().ToList())
+                Release(child);
+    }
+}

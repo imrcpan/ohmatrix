@@ -39,6 +39,7 @@ public sealed class SettingsPage : Grid {
     {
         this.controller = controller;
         zoom = new ZoomPicker(controller, this, false);
+        Lifetime.Own(this, zoom);
         RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(bar);
         var scroller = new ScrollViewer {
@@ -48,7 +49,7 @@ public sealed class SettingsPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 

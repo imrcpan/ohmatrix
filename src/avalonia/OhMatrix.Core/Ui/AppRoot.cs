@@ -47,6 +47,10 @@ public sealed class AppRoot : Border {
         if (accounts is null || ReferenceEquals(accounts.Current, controller))
             return;
         controller.Store.Changed -= OnStore;
+        // The pages of the account left are thrown away: they let go of its
+        // store, or it keeps them and feeds them for good.
+        Lifetime.Release(host.Child);
+        host.Child = null;
         controller = accounts.Current;
         controller.Store.Changed += OnStore;
         shown = null;
@@ -118,6 +122,11 @@ public sealed class AppRoot : Border {
                             accounts.CancelAdd)
                         : null),
         };
+        // What was shown and is not any more lets go.
+        var before = host.Child;
         host.Child = page is MainScreen ? WithShare(page) : page;
+        if (!ReferenceEquals(before, host.Child) && before is not null &&
+            !ReferenceEquals(before, page))
+            Lifetime.Release(before);
     }
 }

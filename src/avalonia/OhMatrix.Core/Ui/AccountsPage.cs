@@ -45,7 +45,7 @@ public sealed class AccountsPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 
@@ -74,8 +74,10 @@ public sealed class AccountsPage : Grid {
         var manager = controller.Accounts;
         if (manager is not null && !ReferenceEquals(manager, watched)) {
             watched = manager;
-            manager.Changed += () =>
+            Action changed = () =>
                 Avalonia.Threading.Dispatcher.UIThread.Post(Apply);
+            manager.Changed += changed;
+            Lifetime.OnRelease(this, () => manager.Changed -= changed);
         }
 
         var c = ThemeScope.GetColors(this);

@@ -157,9 +157,10 @@ public sealed class RoomListPane : Grid {
         AttachedToVisualTree += (_, _) =>
             ticker.IsEnabled = controller.Store.Value.Joining.Count > 0;
         DetachedFromVisualTree += (_, _) => ticker.Stop();
+        Lifetime.Stop(this, ticker);
         plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 
@@ -448,6 +449,7 @@ public sealed class RoomListPane : Grid {
     {
         if (active && hits is null) {
             hits = new MessageResultsView(controller, null, true);
+            Lifetime.Own(this, hits);
             messagesLabel = new TextBlock {
                 FontSize = 13,
                 FontWeight = FontWeight.SemiBold,

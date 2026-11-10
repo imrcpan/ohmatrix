@@ -62,6 +62,7 @@ public sealed class ExplorePage : Grid {
         // A request for each key typed would be a request to the server for
         // each key: the directory is asked after a pause in the typing, as the
         // search of messages is.
+        Lifetime.Stop(this, searchPause);
         searchPause.Tick += (_, _) => {
             searchPause.Stop();
             _ = Load();
@@ -81,7 +82,7 @@ public sealed class ExplorePage : Grid {
             cardWidth = width;
             Apply();
         };
-        controller.Store.Changed += _ => Apply();
+        Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 

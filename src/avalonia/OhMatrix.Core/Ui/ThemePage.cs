@@ -54,10 +54,10 @@ public sealed class ThemePage : Grid {
         };
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
-        controller.Store.Changed += state => {
+        Lifetime.Watch(this, controller, state => {
             if (Differs(state))
                 Apply();
-        };
+        });
         Apply();
     }
 
