@@ -1,0 +1,61 @@
+name: format
+
+# The same checks as the local pre-commit hook (see "simple-git-hooks" in package.json): Prettier, ESLint, and the format of the C# in src/avalonia.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+concurrency:
+  group: format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Prettier and ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4 # the version is packageManager in package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The scripts are not run: "prepare" would install the git hooks.
+      - name: Install
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Prettier
+        run: pnpm -s format:check
+
+      - name: ESLint
+        run: pnpm -s lint --quiet
+
+  avalonia-format:
+    name: Format of the C#
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Check the format
+        run: src/avalonia/format.sh --check
