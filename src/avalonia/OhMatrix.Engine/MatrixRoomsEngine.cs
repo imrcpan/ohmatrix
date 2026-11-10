@@ -655,19 +655,24 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                 }
 
                 // Only the rooms that are in the list when the batch is over.
-                foreach (var room in added) {
-                    var id = room.Id();
-                    if (watching.ContainsKey(id))
-                        continue;
-                    watching[id] = room.SubscribeToRoomInfoUpdates(
-                        new InfoListener(this, room, id, gen));
+                foreach (var entered in added) {
+                    // A room that was put in again has a new stay: it is
+                    // watched anew, for what the old watch reads is old.
+                    if (watching.Remove(entered.Id, out var old)) {
+                        old.Dispose();
+                        Interlocked.Decrement(ref watchedRooms);
+                    }
+
+                    watching[entered.Id] =
+                        entered.Item.SubscribeToRoomInfoUpdates(
+                            new InfoListener(this, entered, gen));
                     Interlocked.Increment(ref watchedRooms);
                 }
 
                 // Two calls to the SDK for each room, for rooms that do not
                 // wait for each other.
-                var changed = await Task.WhenAll(added.Select(room =>
-                    work.Limit(() => Refresh(room, gen))));
+                var changed = await Task.WhenAll(added.Select(entered =>
+                    work.Limit(() => Refresh(entered, gen))));
                 // The list is handed on when a row changed or a room left;
                 // a change of order alone is not a change of what is shown.
                 // The first batch is always handed on: it tells that the
@@ -714,12 +719,13 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
     // True when the row of the room is not what it was. What is read after the
     // run is over, or for a room that has left the list, is not written.
-    private async Task<bool> Refresh(Room room, int gen)
+    private async Task<bool> Refresh(RoomBook<Room>.Entered entered, int gen)
     {
         try {
-            var info = await room.RoomInfo();
-            var latest = await room.LatestEvent();
-            return book.Write(gen, info.Id, Summarize(info, latest));
+            var info = await entered.Item.RoomInfo();
+            var latest = await entered.Item.LatestEvent();
+            return book.Write(gen, entered.Id, entered.Entry,
+                Summarize(info, latest));
         } catch (Exception) {
             // The room is gone, or the SDK is not ready: the next change tries again.
             return false;
@@ -824,8 +830,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
 
     private sealed class InfoListener(
         MatrixRoomsEngine engine,
-        Room room,
-        string id,
+        RoomBook<Room>.Entered entered,
         int gen
     ) : RoomInfoListener {
         // The info carries no newest event, so the room is read again as a
@@ -833,8 +838,11 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         // when the row is another one.
         public void Call(RoomInfo roomInfo)
         {
-            engine.work.Request(id, async () => {
-                if (await engine.Refresh(room, gen))
+            // The key has the stay of the room in it: the reads of an old stay
+            // and of a new one never share a run, and the old one is dropped
+            // when it writes.
+            engine.work.Request($"{entered.Id}#{entered.Entry}", async () => {
+                if (await engine.Refresh(entered, gen))
                     engine.burst.Poke(() => engine.Emit(gen));
             });
         }

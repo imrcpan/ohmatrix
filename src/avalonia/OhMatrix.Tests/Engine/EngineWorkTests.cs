@@ -107,7 +107,7 @@ public class EngineWorkTests {
         Assert.Empty(added);
         Assert.Equal(["A"], left);
         Assert.False(book.Has("A"));
-        Assert.False(book.Write(gen, "A", Row("A")));
+        Assert.False(Write(book, gen, "A", Row("A")));
         Assert.Empty(book.Snapshot(gen)!);
 
         // The same after a reset, and with other rooms in the batch.
@@ -116,7 +116,7 @@ public class EngineWorkTests {
             Remove(1),
             new ListOp<string>(ListOpKind.PopBack),
         ]);
-        Assert.Equal(["B"], added);
+        Assert.Equal(["B"], added.Select(e => e.Item));
         Assert.Equal(["C", "D"], left.Order());
 
         // Put in, taken out and put in again: the last one is the room.
@@ -127,7 +127,7 @@ public class EngineWorkTests {
             Remove(0),
             Append("A2"),
         ]);
-        Assert.Equal(["A2"], added);
+        Assert.Equal(["A2"], added.Select(e => e.Item));
         Assert.Empty(left);
     }
 
@@ -138,26 +138,26 @@ public class EngineWorkTests {
         var book = new RoomBook<string>(id => id);
         var gen = book.Begin();
         book.Apply(gen, [Append("A", "B")]);
-        Assert.True(book.Write(gen, "A", Row("A", 5)));
-        Assert.True(book.Write(gen, "B", Row("B", 4)));
+        Assert.True(Write(book, gen, "A", Row("A", 5)));
+        Assert.True(Write(book, gen, "B", Row("B", 4)));
 
         // B leaves while a read of it is on its way.
         book.Apply(gen, [Remove(1)]);
-        Assert.False(book.Write(gen, "B", Row("B", 9)));
+        Assert.False(Write(book, gen, "B", Row("B", 9)));
         Assert.Equal(["A"], book.Snapshot(gen)!.Select(r => r.Id));
 
         // The run is over (a stop) while a read of A is on its way: nothing
         // is written, nothing is handed on, and the book is empty.
         book.End();
-        Assert.False(book.Write(gen, "A", Row("A", 7)));
+        Assert.False(Write(book, gen, "A", Row("A", 7)));
         Assert.Null(book.Snapshot(gen));
         Assert.Equal(0, book.Count);
 
         // A new run does not take what the old one reads late.
         var next = book.Begin();
         book.Apply(next, [Append("A")]);
-        Assert.False(book.Write(gen, "A", Row("A", 8)));
-        Assert.True(book.Write(next, "A", Row("A", 8)));
+        Assert.False(Write(book, gen, "A", Row("A", 8)));
+        Assert.True(Write(book, next, "A", Row("A", 8)));
         // Nor the batches the old run was still to apply.
         Assert.Empty(book.Apply(gen, [Append("Z")]).Added);
         Assert.False(book.Has("Z"));
@@ -183,16 +183,16 @@ public class EngineWorkTests {
         for (var i = 0; i < 300; i++) {
             var id = ids[random.Next(ids.Length)];
             var row = Row(id, random.Next(4), random.Next(4) == 0);
-            book.Write(gen, id, row);
+            Write(book, gen, id, row);
             rows[id] = row;
             Assert.Equal(Expected(), book.Snapshot(gen)!.Select(r => r.Id));
         }
 
         // The same row again changes nothing.
-        Assert.False(book.Write(gen, "a", rows["a"] with {
+        Assert.False(Write(book, gen, "a", rows["a"] with {
         }));
         // A room that is not listed any more is out of the order.
-        Assert.True(book.Write(gen, "a", null));
+        Assert.True(Write(book, gen, "a", null));
         rows.Remove("a");
         Assert.Equal(Expected(), book.Snapshot(gen)!.Select(r => r.Id));
     }
@@ -322,6 +322,9 @@ public class EngineWorkTests {
             .Order(sorted).Select(r => r.Id));
     }
 
+    private static bool Write(RoomBook<string> book, int gen, string id,
+        RoomSummary? summary) => book.Write(gen, id, book.Entry(id), summary);
+
     private static ListOp<string> Append(params string[] ids) =>
         new(ListOpKind.Append, Values: ids);
 
@@ -336,6 +339,42 @@ public class EngineWorkTests {
             LastActivityTs = ts,
             Pinned = pinned
         };
+
+    [Fact]
+    public void An_old_read_does_not_overwrite_a_room_that_came_in_again()
+    {
+        var book = new RoomBook<string>(id => id);
+        var gen = book.Begin();
+        var (first, _) = book.Apply(gen, [Append("A")]);
+        var old = first.Single();
+
+        // A is taken out and put in again, in the same run of the sync.
+        book.Apply(gen, [Remove(0)]);
+        var (second, _) = book.Apply(gen, [Append("A")]);
+        var now = second.Single();
+        Assert.NotEqual(old.Entry, now.Entry);
+
+        // The new read comes first, the old one after it.
+        Assert.True(book.Write(gen, "A", now.Entry, Row("A", 9)));
+        Assert.False(book.Write(gen, "A", old.Entry, Row("A", 1)));
+        Assert.Equal(9, book.Snapshot(gen)!.Single().LastActivityTs);
+
+        // An old read of a room that is out of the list is not written either.
+        book.Apply(gen, [Remove(0)]);
+        Assert.False(book.Write(gen, "A", now.Entry, Row("A", 10)));
+        Assert.Empty(book.Snapshot(gen)!);
+
+        // A room that moves inside the list stays in its entry.
+        var (third, _) = book.Apply(gen, [Append("A", "B")]);
+        var a = third.Single(e => e.Id == "A").Entry;
+        book.Apply(gen, [
+            new ListOp<string>(ListOpKind.Remove, Index: 0),
+            new ListOp<string>(ListOpKind.PushBack, Value: "A"),
+        ]);
+        Assert.False(book.Write(gen, "A", a, Row("A", 2)));
+        Assert.True(book.Write(gen, "B", third.Single(e => e.Id == "B").Entry,
+            Row("B", 2)));
+    }
 
     [Fact]
     public async Task What_a_run_queued_is_not_read_by_the_next_run()

@@ -30,17 +30,26 @@ public sealed record ListOp<T>(
 /// tested: the rooms in the order the SDK keeps them, how many places of the list
 /// each room has, the summary of each room and the summaries in the order of
 /// the chat list (pinned first, the newest activity first).
-/// A <em>generation</em> belongs to one run of the sync: a result that comes
-/// from an earlier one, or for a room that is not in the list any more, is not
+/// A <em>generation</em> belongs to one run of the sync, and an <em>entry</em>
+/// to one stay of a room in the list (a room that is taken out and put in again
+/// is another entry): a result that comes from an earlier run, or from an
+/// earlier stay of the room, or for a room that is not in the list, is not
 /// written.
 /// </summary>
 public sealed class RoomBook<T>(Func<T, string> idOf) {
+    /// <summary>A room that was put in the list, and the number of its stay there.</summary>
+    public readonly record struct Entered(T Item, string Id, long Entry);
+
     private readonly Lock gate = new();
     private readonly List<(T Item, string Id)> items = [];
 
     // How many places of the list have a room: a room is there once, but a
     // change may put it somewhere before it takes it from where it was.
     private readonly Dictionary<string, int> places = [];
+
+    // The entry of each room that is in the list now.
+    private readonly Dictionary<string, long> entryOf = [];
+    private long entries;
     private readonly Dictionary<string, RoomSummary> summaries = [];
 
     // Kept in order as the summaries change, by a search for the place, so
@@ -55,6 +64,13 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
             lock (gate)
                 return items.Count;
         }
+    }
+
+    /// <summary>The number of the stay a room has in the list now; 0 when it is not there.</summary>
+    public long Entry(string id)
+    {
+        lock (gate)
+            return entryOf.GetValueOrDefault(id);
     }
 
     public bool Has(string id)
@@ -76,6 +92,7 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
             generation++;
             items.Clear();
             places.Clear();
+            entryOf.Clear();
             summaries.Clear();
             ordered.Clear();
         }
@@ -87,7 +104,7 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
     /// in and taken out by the same batch is not one) and the ids of the rooms
     /// that are not in the list any more (their summaries are dropped).
     /// </summary>
-    public (List<T> Added, List<string> Left) Apply(int gen,
+    public (List<Entered> Added, List<string> Left) Apply(int gen,
         IEnumerable<ListOp<T>> batch)
     {
         var added = new List<(T Item, string Id)>();
@@ -99,7 +116,12 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
             (T Item, string Id) Take(T item)
             {
                 var entry = (item, idOf(item));
-                places[entry.Item2] = places.GetValueOrDefault(entry.Item2) + 1;
+                if (!places.TryGetValue(entry.Item2, out var n)) {
+                    // The room comes into the list: a new stay.
+                    entryOf[entry.Item2] = ++entries;
+                }
+
+                places[entry.Item2] = n + 1;
                 added.Add(entry);
                 return entry;
             }
@@ -107,9 +129,10 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
             void Drop((T Item, string Id) entry)
             {
                 removed.Add(entry.Id);
-                if (places[entry.Id] == 1)
+                if (places[entry.Id] == 1) {
                     places.Remove(entry.Id);
-                else
+                    entryOf.Remove(entry.Id);
+                } else
                     places[entry.Id]--;
             }
 
@@ -119,6 +142,7 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
                     removed.Add(entry.Id);
                 items.Clear();
                 places.Clear();
+                entryOf.Clear();
             }
 
             foreach (var op in batch) {
@@ -171,10 +195,10 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
                 RemoveSummary(id);
             // Only what the list holds now, and the last room that was put in
             // for an id.
-            var latest = new Dictionary<string, T>();
+            var latest = new Dictionary<string, Entered>();
             foreach (var (item, id) in added) {
-                if (places.ContainsKey(id))
-                    latest[id] = item;
+                if (entryOf.TryGetValue(id, out var entry))
+                    latest[id] = new Entered(item, id, entry);
             }
 
             return ([.. latest.Values], left);
@@ -186,10 +210,11 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
     /// listed). Not written when the read belongs to an earlier run or the
     /// room is not in the list. True when what the list shows changed.
     /// </summary>
-    public bool Write(int gen, string id, RoomSummary? summary)
+    public bool Write(int gen, string id, long entry, RoomSummary? summary)
     {
         lock (gate) {
-            if (gen != generation || !places.ContainsKey(id))
+            if (gen != generation ||
+                !entryOf.TryGetValue(id, out var now) || now != entry)
                 return false;
             if (summary is null)
                 return RemoveSummary(id);
