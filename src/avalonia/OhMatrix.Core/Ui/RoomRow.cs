@@ -129,8 +129,16 @@ public sealed class RoomRow : PressableButton {
     {
         var c = Colors;
         drawn = c;
-        Height = Invite is null || Compact ? RowHeight : double.NaN;
-        Avalonia.Automation.AutomationProperties.SetName(this, Title);
+        // Set only when they differ: the row is updated for every change of
+        // what it shows, and most of them leave these two as they were.
+        var height = Invite is null || Compact ? RowHeight : double.NaN;
+        if (!height.Equals(Height))
+            Height = height;
+        if (automationName != Title) {
+            automationName = Title;
+            Avalonia.Automation.AutomationProperties.SetName(this, Title);
+        }
+
         Text(title, Title);
         Text(preview, Preview);
         Text(time, Time);
@@ -164,6 +172,8 @@ public sealed class RoomRow : PressableButton {
 
         Refresh();
     }
+
+    private string? automationName;
 
     private void UpdateAvatar()
     {

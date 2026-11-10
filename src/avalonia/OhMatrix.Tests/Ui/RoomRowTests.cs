@@ -83,6 +83,42 @@ public class RoomRowTests {
     }
 
     [AvaloniaFact]
+    public void An_update_still_reaches_the_name_and_the_height_of_the_row()
+    {
+        var row = Row();
+        row.Update();
+        Assert.Equal("Team chat", AutomationProperties.GetName(row));
+        var height = row.Height;
+
+        // Updated again with nothing changed, then with another title.
+        row.Update();
+        Assert.Equal("Team chat", AutomationProperties.GetName(row));
+        row.Title = "Crew";
+        row.Update();
+        Assert.Equal("Crew", AutomationProperties.GetName(row));
+
+        // An invitation has the height of its content; without it the row
+        // has its own height again.
+        row.Invite = ("Accept", "Decline", () => {
+                }, () => {
+                }
+            );
+        row.Update();
+        Assert.True(double.IsNaN(row.Height));
+        row.Invite = null;
+        row.Update();
+        Assert.Equal(height, row.Height);
+        // The narrow strip is the height of a row even for an invitation.
+        row.Invite = ("Accept", "Decline", () => {
+                }, () => {
+                }
+            );
+        row.Compact = true;
+        row.Update();
+        Assert.Equal(height, row.Height);
+    }
+
+    [AvaloniaFact]
     public void Updates_keep_the_subtree_and_do_not_reattach_the_avatar()
     {
         var row = Row();
