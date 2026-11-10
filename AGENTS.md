@@ -45,6 +45,7 @@ what changed and why.
     Say only what is true: what was measured, run or read. Do not describe how
     the code works line by line; the diff does that.
 - A commit that only repeats its subject in the body may leave the body out.
+- DO NOT add Co-Authored-By to commits.
 - English only. No emoji, no issue numbers or tickets in the subject, no
   "WIP", "misc" or "fix review comments".
 
