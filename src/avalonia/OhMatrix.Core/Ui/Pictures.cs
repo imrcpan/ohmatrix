@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using OhMatrix.Core.State;
@@ -6,12 +5,45 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Ui;
 
 /// <summary>
-/// The pictures of rooms and people (<c>useMediaUrl</c> of the React Native app): fetched once for each address and size, kept while the app runs,
-/// and asked for only once when several rows want the same one at the same time.
+/// The pictures of rooms and people (<c>useMediaUrl</c> of the React Native app): fetched once for each address and size, kept, and asked for only
+/// once when several rows want the same one at the same time. What is kept is bounded: when the pictures that came add up (as pixels, four bytes
+/// each) to more than <c>budget</c>, the ones asked for least recently are let go. A picture that is let go is not disposed, for a control may
+/// still show it; it is fetched again if it is asked for again.
 /// </summary>
-public sealed class Pictures(IMediaEngine? media) {
-    private readonly ConcurrentDictionary<(string, int, int), Task<IImage?>>
-        cache = new();
+public sealed class Pictures(
+    IMediaEngine? media,
+    long budget = Pictures.DefaultBudget) {
+    /// <summary>64 MB of pixels: some thousands of avatars, or some dozens of big pictures.</summary>
+    public const long DefaultBudget = 64L * 1024 * 1024;
+
+    private readonly Lock gate = new();
+    private readonly Dictionary<(string, int, int), Entry> cache = [];
+
+    // The entries that came, the newest asked for first.
+    private readonly LinkedList<(string, int, int)> recent = [];
+    private long kept;
+
+    private sealed class Entry(Task<IImage?> task) {
+        public Task<IImage?> Task { get; } = task;
+        public LinkedListNode<(string, int, int)>? Node;
+        public long Bytes;
+    }
+
+    /// <summary>How many pictures are kept (those that came, and those on their way).</summary>
+    public int Count {
+        get {
+            lock (gate)
+                return cache.Count;
+        }
+    }
+
+    /// <summary>The pixels of the pictures that came and are kept, in bytes.</summary>
+    public long KeptBytes {
+        get {
+            lock (gate)
+                return kept;
+        }
+    }
 
     /// <summary>The picture, square at <paramref name="size"/> (logical pixels; fetched twice as big for sharp screens); null when there is none.</summary>
     public Task<IImage?> Get(string? mxc, int size)
@@ -24,8 +56,57 @@ public sealed class Pictures(IMediaEngine? media) {
     {
         if (media is null || string.IsNullOrEmpty(source))
             return Task.FromResult<IImage?>(null);
-        return cache.GetOrAdd((source, width, height),
-            key => Load(key.Item1, key.Item2, key.Item3));
+        var key = (source, width, height);
+        TaskCompletionSource<IImage?> start;
+        lock (gate) {
+            if (cache.TryGetValue(key, out var found)) {
+                if (found.Node is not null) {
+                    recent.Remove(found.Node);
+                    recent.AddFirst(found.Node);
+                }
+
+                return found.Task;
+            }
+
+            start = new TaskCompletionSource<IImage?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            cache[key] = new Entry(start.Task);
+        }
+
+        // Outside the lock: the engine may do work before its first wait.
+        _ = Fetch(key, start);
+        return start.Task;
+    }
+
+    private async Task Fetch((string, int, int) key,
+        TaskCompletionSource<IImage?> done)
+    {
+        var picture = await Load(key.Item1, key.Item2, key.Item3);
+        lock (gate) {
+            // Failed: Load took it out, and the next ask tries again.
+            if (cache.TryGetValue(key, out var entry) &&
+                ReferenceEquals(entry.Task, done.Task) && picture is not null) {
+                entry.Bytes = picture is Bitmap bitmap
+                    ? (long)bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4
+                    : (long)(picture.Size.Width * picture.Size.Height * 4);
+                entry.Node = recent.AddFirst(key);
+                kept += entry.Bytes;
+                Trim();
+            }
+        }
+
+        done.SetResult(picture);
+    }
+
+    // Lets go of the pictures asked for least recently, never the newest.
+    private void Trim()
+    {
+        while (kept > budget && recent.Count > 1) {
+            var oldest = recent.Last!;
+            recent.RemoveLast();
+            if (cache.Remove(oldest.Value, out var entry))
+                kept -= entry.Bytes;
+        }
     }
 
     /// <summary>Gives <paramref name="image"/> its picture when it has come.</summary>
@@ -82,7 +163,8 @@ public sealed class Pictures(IMediaEngine? media) {
             return new Bitmap(stream);
         } catch (Exception) {
             // A picture that cannot be had is the initials; the next run tries again.
-            cache.TryRemove((mxc, width, height), out _);
+            lock (gate)
+                cache.Remove((mxc, width, height));
             return null;
         }
     }
