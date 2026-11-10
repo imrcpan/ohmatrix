@@ -92,12 +92,11 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         change.Watch(gallery.Session);
 
         // Ask the room for more until it has what the page needs (and one
-        // more, to know whether there is a next page). The session counts its
-        // media as the changes come, so each round asks a number and does not
-        // read the history again.
+        // more, to know whether there is a next page). The count is the one
+        // of the snapshot, which is the list the page is then read from.
         for (var n = 0;
              n < 40 && !gallery.AtStart &&
-             gallery.Session.MediaCount(kind) <= offset + want;
+             gallery.Session.Snapshot.Count(kind) <= offset + want;
              n++) {
             var next = change.Next;
             gallery.AtStart = await gallery.Session.LoadOlder();
@@ -105,26 +104,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             await Task.WhenAny(next, Task.Delay(ArrivalWait));
         }
 
-        // The page is read from the newest end and the read stops after the
-        // one beyond it.
-        var lines = gallery.Session.Items;
-        var page = new List<TimelineItem>(want);
-        var seen = 0;
-        var beyond = false;
-        for (var i = lines.Count - 1; i >= 0; i--) {
-            if (MediaKinds.Of(lines[i]) != kind)
-                continue;
-            if (seen >= offset + want) {
-                beyond = true;
-                break;
-            }
-
-            if (seen++ >= offset)
-                page.Add(lines[i]);
-        }
-
-        var more = beyond || !gallery.AtStart;
-        return new SharedMediaPage(page, more ? offset + want : null);
+        return gallery.Session.Snapshot.Page(kind, offset, want,
+            gallery.AtStart);
     }
 
     private async Task<Session> OpenGallery(string roomId)
@@ -195,21 +176,22 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
 
         private readonly List<Slot> items = [];
 
-        // How many lines of each kind of media the session has, kept as the
-        // slots come and go (under the lock of byId, which the diffs take).
-        private readonly int[] media = new int[4];
+        // The lines and the count of each kind of media, published together:
+        // what a reader takes is a list and the count of that list.
+        private TimelineSnapshot snapshot = TimelineSnapshot.Empty;
 
-        /// <summary>How many lines of a kind of media the session has now.</summary>
-        public int MediaCount(MediaKind kind)
-        {
-            lock (byId)
-                return media[(int)kind];
-        }
+        /// <summary>The lines now with their media counts, as one.</summary>
+        public TimelineSnapshot Snapshot => Volatile.Read(ref snapshot);
 
-        private void Count(TimelineItem? line, int by)
+        private static int[] CountMedia(IEnumerable<TimelineItem> lines)
         {
-            if (line is not null && MediaKinds.Of(line) is { } kind)
-                media[(int)kind] += by;
+            var media = new int[4];
+            foreach (var line in lines) {
+                if (MediaKinds.Of(line) is { } kind)
+                    media[(int)kind]++;
+            }
+
+            return media;
         }
 
         private readonly CancellationTokenSource stop = new();
@@ -220,7 +202,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         public event Action<IReadOnlyList<TimelineItem>>? Changed;
         public event Action<IReadOnlyList<string>>? TypingChanged;
 
-        public IReadOnlyList<TimelineItem> Items { get; private set; } = [];
+        public IReadOnlyList<TimelineItem> Items => Snapshot.Items;
 
         public string Me => me;
 
@@ -416,9 +398,11 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                             Apply(d);
                     }
 
-                    Items = items.Select(i => i.Line).OfType<TimelineItem>()
+                    var lines = items.Select(i => i.Line).OfType<TimelineItem>()
                         .ToList();
-                    Changed?.Invoke(Items);
+                    Volatile.Write(ref snapshot,
+                        new TimelineSnapshot(lines, CountMedia(lines)));
+                    Changed?.Invoke(lines);
                 }
             } catch (OperationCanceledException) {
                 // Closed.
@@ -429,14 +413,12 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             var slot = new Slot(item, item.UniqueId().Id, Convert(item, me));
             byId[slot.Id] = item;
-            Count(slot.Line, 1);
             return slot;
         }
 
         private void Forget(Slot slot)
         {
             byId.Remove(slot.Id);
-            Count(slot.Line, -1);
         }
 
         private void RemoveAt(int index)
@@ -492,7 +474,6 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             items.Clear();
             byId.Clear();
-            Array.Clear(media);
         }
 
         /// <summary>The line for an item of the SDK; null for what is not shown yet (read markers, kinds not ported).</summary>

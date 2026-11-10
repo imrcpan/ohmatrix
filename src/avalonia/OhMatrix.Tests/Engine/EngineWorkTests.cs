@@ -415,6 +415,76 @@ public class EngineWorkTests {
         Assert.True(book.Has("C"));
     }
 
+    private static TimelineItem Media(string id, FileKind kind) => new() {
+        Id = id,
+        File = new FileAttachment(id, 1, "mxc://s/" + id, "x/y", kind, null),
+    };
+
+    [Fact]
+    public async Task A_page_is_read_from_the_list_its_count_belongs_to()
+    {
+        // Counts and list made together: a reader that holds a snapshot has
+        // a count of the very list it reads, whatever is published after.
+        TimelineItem[] three = [
+            Media("a", FileKind.File), Media("b", FileKind.File),
+            Media("c", FileKind.File),
+        ];
+        TimelineItem[] six = [
+            .. three, Media("d", FileKind.File), Media("e", FileKind.File),
+            Media("f", FileKind.File),
+        ];
+        var old = new TimelineSnapshot(three, Count(three));
+        var next = new TimelineSnapshot(six, Count(six));
+        Assert.Equal(3, old.Count(MediaKind.File));
+        Assert.Equal(6, next.Count(MediaKind.File));
+        Assert.Equal(0, old.Count(MediaKind.Image));
+
+        // The old snapshot gives what it has: three, and a next page only
+        // because the history is not all loaded. The count and the page of
+        // one snapshot agree; a count of 6 never reaches a list of 3.
+        var page = old.Page(MediaKind.File, 0, 5, atStart: false);
+        Assert.Equal(["c", "b", "a"], page.Items.Select(i => i.Id));
+        Assert.Equal(5, page.Next);
+        Assert.Null(old.Page(MediaKind.File, 0, 5, atStart: true).Next);
+        var newer = next.Page(MediaKind.File, 0, 5, atStart: true);
+        Assert.Equal(["f", "e", "d", "c", "b"], newer.Items.Select(i => i.Id));
+        Assert.Equal(5, newer.Next);
+        Assert.Equal(["a"], next.Page(MediaKind.File, 5, 5, true).Items
+            .Select(i => i.Id));
+        Assert.Null(next.Page(MediaKind.File, 5, 5, true).Next);
+
+        // Publishing the pair as one object, while a reader reads: a reader
+        // never sees a count of 6 with a list of 3, or the other way.
+        TimelineSnapshot shown = old;
+        var stop = false;
+        var torn = 0;
+        var reader = Task.Run(() => {
+            while (!Volatile.Read(ref stop)) {
+                var snap = Volatile.Read(ref shown);
+                var seen = snap.Items.Count(i =>
+                    MediaKinds.Of(i) == MediaKind.File);
+                if (seen != snap.Count(MediaKind.File))
+                    Interlocked.Increment(ref torn);
+            }
+        });
+        for (var i = 0; i < 20000; i++)
+            Volatile.Write(ref shown, i % 2 == 0 ? next : old);
+        Volatile.Write(ref stop, true);
+        await reader;
+        Assert.Equal(0, torn);
+    }
+
+    private static int[] Count(IEnumerable<TimelineItem> lines)
+    {
+        var media = new int[4];
+        foreach (var line in lines) {
+            if (MediaKinds.Of(line) is { } kind)
+                media[(int)kind]++;
+        }
+
+        return media;
+    }
+
     private static async Task WaitFor(Func<bool> condition)
     {
         for (var i = 0; i < 200 && !condition(); i++)
