@@ -485,6 +485,72 @@ public class EngineWorkTests {
         return media;
     }
 
+    [Fact]
+    public async Task
+        A_page_is_made_from_the_snapshot_that_decided_it_was_enough()
+    {
+        TimelineItem[] Files(int n) => [
+            .. Enumerable.Range(0, n)
+                .Select(i => Media("f" + i, FileKind.File))
+        ];
+
+        var six = new TimelineSnapshot(Files(6), Count(Files(6)));
+        var three = new TimelineSnapshot(Files(3), Count(Files(3)));
+
+        // The snapshot is replaced by a smaller one (a delete or a reset)
+        // right after the one that decided; the page is still of the first.
+        var takes = 0;
+        var (page, atStart) = await MediaPaging.Read(
+            () => takes++ == 0 ? six : three,
+            () => Task.FromResult(false), () => Task.CompletedTask,
+            false, MediaKind.File, 0, 5);
+        Assert.Equal(1, takes);
+        Assert.Equal(5, page.Items.Count);
+        Assert.Equal(5, page.Next);
+        Assert.False(atStart);
+
+        // With the pair of reads of before, this was 3 lines and a next page.
+        // When it takes the snapshot again it is for the next round, and a
+        // page is always of one snapshot: its lines and its Next agree.
+        takes = 0;
+        var asked = 0;
+        var result = await MediaPaging.Read(
+            () => takes++ switch { 0 => three, _ => six },
+            () => {
+                asked++;
+                return Task.FromResult(false);
+            }, () => Task.CompletedTask, false, MediaKind.File, 0, 5);
+        Assert.Equal(1, asked);
+        Assert.Equal(2, takes);
+        Assert.Equal(5, result.Page.Items.Count);
+        Assert.Equal(5, result.Page.Next);
+
+        // Short of lines and at the start of the room: all it has, no next.
+        var short3 = await MediaPaging.Read(() => three,
+            () => Task.FromResult(true), () => Task.CompletedTask, false,
+            MediaKind.File, 0, 5);
+        Assert.Equal(3, short3.Page.Items.Count);
+        Assert.Null(short3.Page.Next);
+        Assert.True(short3.AtStart);
+
+        // Out of rounds the page is of one snapshot too: its lines are the
+        // ones of the last, and Next says there is more to ask for.
+        var rounds = 0;
+        takes = 0;
+        var spent = await MediaPaging.Read(
+            () => {
+                takes++;
+                return three;
+            }, () => {
+                rounds++;
+                return Task.FromResult(false);
+            }, () => Task.CompletedTask, false, MediaKind.File, 0, 5, 4);
+        Assert.Equal(4, rounds);
+        Assert.Equal(5, takes);
+        Assert.Equal(3, spent.Page.Items.Count);
+        Assert.Equal(5, spent.Page.Next);
+    }
+
     private static async Task WaitFor(Func<bool> condition)
     {
         for (var i = 0; i < 200 && !condition(); i++)

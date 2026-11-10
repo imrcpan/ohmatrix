@@ -92,20 +92,22 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         change.Watch(gallery.Session);
 
         // Ask the room for more until it has what the page needs (and one
-        // more, to know whether there is a next page). The count is the one
-        // of the snapshot, which is the list the page is then read from.
-        for (var n = 0;
-             n < 40 && !gallery.AtStart &&
-             gallery.Session.Snapshot.Count(kind) <= offset + want;
-             n++) {
-            var next = change.Next;
-            gallery.AtStart = await gallery.Session.LoadOlder();
+        // more, to know whether there is a next page); the page is made from
+        // the snapshot that decided it was enough.
+        Task coming = Task.CompletedTask;
+        var read = await MediaPaging.Read(
+            () => gallery.Session.Snapshot,
+            async () => {
+                // Taken before the request, so that a quick change is not
+                // missed.
+                coming = change.Next;
+                return await gallery.Session.LoadOlder();
+            },
             // What it brought comes as a change of the session a moment later.
-            await Task.WhenAny(next, Task.Delay(ArrivalWait));
-        }
-
-        return gallery.Session.Snapshot.Page(kind, offset, want,
-            gallery.AtStart);
+            () => Task.WhenAny(coming, Task.Delay(ArrivalWait)),
+            gallery.AtStart, kind, offset, want);
+        gallery.AtStart = read.AtStart;
+        return read.Page;
     }
 
     private async Task<Session> OpenGallery(string roomId)
