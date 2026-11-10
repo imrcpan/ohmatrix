@@ -11,68 +11,6 @@ namespace OhMatrix.Tests.Ui;
 // Helpers on paths that run for every row, every message and every change of
 // the store: what they give has to stay what it was.
 public class UiWorkTests {
-    private sealed class Auth : IAuthEngine {
-        public Task<Session> LoginWithPassword(string homeserver,
-            string username, string password) => Task.FromResult(
-            new Session(homeserver, "@" + username, "D", "T"));
-
-        public Task<Session> Register(string homeserver, string username,
-            string password, string? token) =>
-            LoginWithPassword(homeserver, username, password);
-
-        public Task Restore(Session session) => Task.CompletedTask;
-        public Task Logout() => Task.CompletedTask;
-    }
-
-    [AvaloniaFact]
-    public async Task
-        The_root_makes_its_brush_and_zoom_again_only_when_they_change()
-    {
-        var dir = Path.Combine(Path.GetTempPath(),
-            "ohm-work-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var controller = new AppController(new Auth(),
-            new FileSessionStore(dir), new FilePreferencesStore(dir));
-        var dark = false;
-        var root = new AppRoot(controller, "matrix.org", () => dark);
-        await controller.Login("matrix.org", "alice", "pw");
-        var brush = root.Background;
-        var colors = ThemeScope.GetColors(root);
-
-        // Many changes of the store that are not a theme or a zoom.
-        for (var i = 0; i < 10; i++)
-            controller.Store.Update(s => s with {
-                Typing = [$"user {i}"]
-            });
-        Assert.Same(brush, root.Background);
-
-        // Another theme is another brush with its colours.
-        controller.SetPreferences(p => p with {
-            Theme = "dark"
-        });
-        Assert.NotSame(brush, root.Background);
-        Assert.NotEqual(colors, ThemeScope.GetColors(root));
-        var darkBrush = root.Background;
-        controller.Store.Update(s => s with {
-            Typing = []
-        });
-        Assert.Same(darkBrush, root.Background);
-
-        // The system's dark mode matters for the system theme.
-        controller.SetPreferences(p => p with {
-            Theme = Themes.System
-        });
-        var light = root.Background;
-        var lightColors = ThemeScope.GetColors(root);
-        dark = true;
-        controller.Store.Update(s => s with {
-            Typing = ["x"]
-        });
-        Assert.NotSame(light, root.Background);
-        Assert.NotEqual(lightColors, ThemeScope.GetColors(root));
-        await Task.CompletedTask;
-    }
-
     [Fact]
     public void Relative_times_read_as_they_did_in_each_language()
     {
@@ -204,5 +142,97 @@ public class UiWorkTests {
             Assert.Equal("Ann: " + OldBody(text),
                 RoomListPane.PreviewOf(group, (k, _) => k));
         }
+    }
+
+    private sealed class Auth : IAuthEngine {
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password) => Task.FromResult(
+            new Session(homeserver, "@" + username, "D", "T"));
+
+        public Task<Session> Register(string homeserver, string username,
+            string password, string? token) =>
+            LoginWithPassword(homeserver, username, password);
+
+        public Task Restore(Session session) => Task.CompletedTask;
+        public Task Logout() => Task.CompletedTask;
+    }
+
+    [AvaloniaFact]
+    public async Task
+        The_root_makes_its_brush_and_zoom_again_only_when_they_change()
+    {
+        var dir = Path.Combine(Path.GetTempPath(),
+            "ohm-work-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var controller = new AppController(new Auth(),
+            new FileSessionStore(dir), new FilePreferencesStore(dir));
+        var dark = false;
+        var root = new AppRoot(controller, "matrix.org", () => dark);
+        await controller.Login("matrix.org", "alice", "pw");
+        var brush = root.Background;
+        var colors = ThemeScope.GetColors(root);
+
+        // Many changes of the store that are not a theme or a zoom.
+        for (var i = 0; i < 10; i++)
+            controller.Store.Update(s => s with {
+                Typing = [$"user {i}"]
+            });
+        Assert.Same(brush, root.Background);
+
+        // Another theme is another brush with its colours.
+        controller.SetPreferences(p => p with {
+            Theme = "dark"
+        });
+        Assert.NotSame(brush, root.Background);
+        Assert.NotEqual(colors, ThemeScope.GetColors(root));
+        var darkBrush = root.Background;
+        controller.Store.Update(s => s with {
+            Typing = []
+        });
+        Assert.Same(darkBrush, root.Background);
+
+        // The system's dark mode matters for the system theme.
+        controller.SetPreferences(p => p with {
+            Theme = Themes.System
+        });
+        var light = root.Background;
+        var lightColors = ThemeScope.GetColors(root);
+        dark = true;
+        controller.Store.Update(s => s with {
+            Typing = ["x"]
+        });
+        Assert.NotSame(light, root.Background);
+        Assert.NotEqual(lightColors, ThemeScope.GetColors(root));
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task
+        Clearing_the_session_removes_the_file_after_a_save_in_progress()
+    {
+        var dir = Path.Combine(Path.GetTempPath(),
+            "ohm-store-" + Guid.NewGuid().ToString("N"));
+        var store = new FileSessionStore(dir);
+        // No file, no directory: there is nothing to remove.
+        await Assert.ThrowsAnyAsync<IOException>(() => store.Clear());
+
+        Directory.CreateDirectory(dir);
+        await store.Clear();
+        var session = new Session("matrix.org", "@a", "D", "T");
+        await store.Save(session);
+        var file = Path.Combine(dir, "session.json");
+        Assert.True(File.Exists(file));
+        Assert.NotNull(await store.Load());
+        await store.Clear();
+        Assert.False(File.Exists(file));
+        Assert.Null(await store.Load());
+
+        // A save and a clear asked for one after the other end in that order:
+        // the file is not back after the clear.
+        var save = store.Save(session);
+        var clear = store.Clear();
+        await Task.WhenAll(save, clear);
+        Assert.False(File.Exists(file));
+        Directory.Delete(dir, true);
     }
 }

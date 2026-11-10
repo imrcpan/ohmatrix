@@ -35,6 +35,17 @@ internal static class JsonFile {
         }
     }
 
+    // After the saves that were asked for before it, off the thread of the caller.
+    public static async Task Delete(string path)
+    {
+        await Gate.WaitAsync();
+        try {
+            await Task.Run(() => File.Delete(path));
+        } finally {
+            Gate.Release();
+        }
+    }
+
     public static async Task Write<T>(string path, T value,
         System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info)
     {
@@ -67,8 +78,7 @@ public sealed class FileSessionStore(string directory) : ISessionStore {
 
     public Task Clear()
     {
-        File.Delete(Path);
-        return Task.CompletedTask;
+        return JsonFile.Delete(Path);
     }
 }
 
