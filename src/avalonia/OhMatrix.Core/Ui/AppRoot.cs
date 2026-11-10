@@ -50,6 +50,9 @@ public sealed class AppRoot : Border {
         controller = accounts.Current;
         controller.Store.Changed += OnStore;
         shown = null;
+        appliedTheme = null;
+        appliedDark = null;
+        appliedScale = null;
         page = null;
         Apply();
     }
@@ -69,15 +72,32 @@ public sealed class AppRoot : Border {
     /// <summary>The page being shown (a sign-in page, a spinner...).</summary>
     public Control? Page => page;
 
+    // The theme and the zoom are set again only when they are other ones: the
+    // store changes for every message, and the brush and the transform were
+    // made each time.
+    private string? appliedTheme;
+    private bool? appliedDark;
+    private double? appliedScale;
+
     public void Apply()
     {
         var s = controller.Store.Value;
-        var colors = Themes.Resolve(s.Prefs.Theme, systemDark()).Colors;
-        ThemeScope.SetColors(this, colors);
-        Background = new SolidColorBrush(colors.Bg);
+        var dark = systemDark();
+        if (appliedTheme != s.Prefs.Theme || appliedDark != dark) {
+            appliedTheme = s.Prefs.Theme;
+            appliedDark = dark;
+            var colors = Themes.Resolve(s.Prefs.Theme, dark).Colors;
+            ThemeScope.SetColors(this, colors);
+            Background = new SolidColorBrush(colors.Bg);
+        }
+
         var scale = s.ZoomTrial?.To ?? s.Prefs.UiScale;
-        zoom.LayoutTransform =
-            scale == 1 ? null : new ScaleTransform(scale, scale);
+        if (appliedScale != scale) {
+            appliedScale = scale;
+            zoom.LayoutTransform =
+                scale == 1 ? null : new ScaleTransform(scale, scale);
+        }
+
         if (shown == s.Auth)
             return;
         shown = s.Auth;
