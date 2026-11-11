@@ -223,7 +223,7 @@ public sealed class ProfilePage : Grid {
         close.Click += (_, _) => controller.OpenSidebarPage(SidebarPage.Chats);
         var title = new TextBlock {
             Text = controller.T("profile"),
-            FontSize = 22,
+            FontSize = 18,
             FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),

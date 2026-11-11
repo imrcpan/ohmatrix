@@ -11,7 +11,7 @@ public static class PageBar {
     /// <summary>Fills <paramref name="bar"/> with the back button and the title and gives it its height.</summary>
     public static void Fill(Border bar, ColorTokens colors, string title,
         string backLabel,
-        Action onBack)
+        Action onBack, double titleSize = 22)
     {
         var back = new IconButton("back", backLabel, 26);
         back.Click += (_, _) => onBack();
@@ -24,7 +24,7 @@ public static class PageBar {
         row.Children.Add(back);
         row.Children.Add(new TextBlock {
             Text = title,
-            FontSize = 22,
+            FontSize = titleSize,
             FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(colors.Text),

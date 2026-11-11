@@ -79,7 +79,7 @@ public sealed class AccountsPage : Grid {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
         PageBar.Fill(bar, c, controller.T("accounts"), controller.T("profile"),
-            () => controller.OpenSidebarPage(SidebarPage.Profile));
+            () => controller.OpenSidebarPage(SidebarPage.Profile), 18);
         content.Children.Clear();
         rows.Clear();
         var list = manager?.Accounts ?? [];

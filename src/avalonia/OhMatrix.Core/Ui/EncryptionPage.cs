@@ -225,7 +225,7 @@ public sealed class EncryptionPage : Grid {
         bar.BorderBrush = new SolidColorBrush(c.Separator);
         PageBar.Fill(bar, c, controller.T("encryption"),
             controller.T("profile"),
-            () => controller.OpenSidebarPage(SidebarPage.Profile));
+            () => controller.OpenSidebarPage(SidebarPage.Profile), 18);
         content.Children.Clear();
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
