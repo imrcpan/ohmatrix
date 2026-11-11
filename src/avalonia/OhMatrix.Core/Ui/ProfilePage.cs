@@ -127,8 +127,7 @@ public sealed class ProfilePage : Grid {
     internal static Border NavRow(Theming.ColorTokens c, string glyph,
         string label, Action open,
         double top, string? value = null, bool chevron = true,
-        bool danger = false, bool flat = false, bool selectable = false,
-        bool accent = false)
+        bool danger = false, bool flat = false, bool selectable = false)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -136,18 +135,15 @@ public sealed class ProfilePage : Grid {
         grid.Children.Add(new Icon {
             Glyph = glyph,
             Size = 21,
-            Color = new SolidColorBrush(danger ? c.Danger
-                : accent ? c.Accent : c.TextSecondary),
+            Color = new SolidColorBrush(danger ? c.Danger : c.TextSecondary),
             Margin = new Thickness(0, 0, 14, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
         var text = new TextBlock {
             Text = label,
             FontSize = 16,
-            FontWeight = accent ? FontWeight.Medium : FontWeight.Normal,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(danger ? c.Danger
-                : accent ? c.Accent : c.Text),
+            Foreground = new SolidColorBrush(danger ? c.Danger : c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -336,7 +332,7 @@ public sealed class ProfilePage : Grid {
                 flat: true));
         content.Children.Add(NavRow(c, "gear", controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 0,
-            flat: true, accent: true));
+            flat: true));
         content.Children.Add(new Border {
             Height = 16
         });
