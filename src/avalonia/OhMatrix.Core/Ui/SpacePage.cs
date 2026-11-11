@@ -61,10 +61,29 @@ public sealed class SpacePage : Grid {
     /// <summary>The rooms shown, in the order the space lists them.</summary>
     public IReadOnlyList<SpaceChild> Children_ => children ?? [];
 
-    private string T(string key, params (string, object)[] values)
-    {
-        return Strings.T(controller.Store.Value.Locale, key, values);
-    }
+    internal string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
+
+    internal string T(string key, (string, string) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, long) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, string) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, string) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, params (string, object)[] values) =>
+        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Asks the engine for the rooms of the open space again.</summary>
     public async Task Reload()

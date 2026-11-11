@@ -149,10 +149,29 @@ public sealed class ExplorePage : Grid {
     /// <summary>The names of the rooms shown.</summary>
     public IReadOnlyList<string> Names => found.Select(r => r.Name).ToList();
 
-    private string T(string key, params (string, object)[] values)
-    {
-        return Strings.T(controller.Store.Value.Locale, key, values);
-    }
+    internal string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
+
+    internal string T(string key, (string, string) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, long) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, string) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, string) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, params (string, object)[] values) =>
+        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Searches the directory for what the field holds.</summary>
     public async Task Load()

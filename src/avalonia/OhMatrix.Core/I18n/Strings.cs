@@ -136,12 +136,30 @@ public static class Strings {
         var text = TextOf(locale, key);
         if (values.Length == 0)
             return text;
+        // Up to four values are made in a buffer on the stack.
+        if (values.Length <= 4) {
+            var few = new Args();
+            var held = (Span<Arg>)few;
+            for (var i = 0; i < values.Length; i++)
+                held[i] = Make(values[i]);
+            return Fill(text, held[..values.Length]);
+        }
+
         var args = new Arg[values.Length];
         for (var i = 0; i < values.Length; i++)
-            args[i] = new Arg(values[i].Name,
-                Convert.ToString(values[i].Value,
-                    CultureInfo.InvariantCulture) ?? "");
+            args[i] = Make(values[i]);
         return Fill(text, args);
+    }
+
+    private static Arg Make((string Name, object Value) pair)
+    {
+        return new Arg(pair.Name,
+            Convert.ToString(pair.Value, CultureInfo.InvariantCulture) ?? "");
+    }
+
+    [System.Runtime.CompilerServices.InlineArray(4)]
+    private struct Args {
+        private Arg first;
     }
 
     private static string TextOf(string locale, string key)
@@ -167,6 +185,22 @@ public static class Strings {
 
     [ThreadStatic] private static StringBuilder? builder;
 
+    // A {name} at <at>: its name and where the text goes on after it.
+    private static bool Placeholder(string text, int at,
+        out ReadOnlySpan<char> name, out int next)
+    {
+        name = default;
+        next = at;
+        if (text[at] != '{')
+            return false;
+        var close = text.IndexOf('}', at + 1);
+        if (close <= at + 1)
+            return false;
+        name = text.AsSpan(at + 1, close - at - 1);
+        next = close + 1;
+        return IsName(name);
+    }
+
     private static string Fill(string text, ReadOnlySpan<Arg> values)
     {
         // Most texts have nothing to put in.
@@ -176,24 +210,17 @@ public static class Strings {
         sb.Clear();
         var i = 0;
         while (i < text.Length) {
-            var open = text[i];
-            if (open == '{') {
-                var close = text.IndexOf('}', i + 1);
-                if (close > i + 1 &&
-                    IsName(text.AsSpan(i + 1, close - i - 1))) {
-                    var name = text.AsSpan(i + 1, close - i - 1);
-                    foreach (var v in values) {
-                        if (name.SequenceEqual(v.Name))
-                            sb.Append(v.Value);
-                    }
-
-                    i = close + 1;
-                    continue;
-                }
+            if (!Placeholder(text, i, out var name, out var next)) {
+                sb.Append(text[i++]);
+                continue;
             }
 
-            sb.Append(open);
-            i++;
+            foreach (var v in values) {
+                if (name.SequenceEqual(v.Name))
+                    sb.Append(v.Value);
+            }
+
+            i = next;
         }
 
         return sb.ToString();

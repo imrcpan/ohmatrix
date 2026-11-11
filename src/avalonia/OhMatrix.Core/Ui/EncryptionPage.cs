@@ -106,10 +106,29 @@ public sealed class EncryptionPage : Grid {
     /// <summary>The row that asks my other sessions to verify this one; null when the state has no such step.</summary>
     public Border? VerifyRow { get; private set; }
 
-    private string T(string key, params (string, object)[] values)
-    {
-        return Strings.T(controller.Store.Value.Locale, key, values);
-    }
+    internal string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
+
+    internal string T(string key, (string, string) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, long) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, string) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, string) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, params (string, object)[] values) =>
+        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The words for a state, as the profile and this page show it.</summary>
     public static string Words(SecurityState state, Func<string, string> t)

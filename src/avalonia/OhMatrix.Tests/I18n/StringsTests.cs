@@ -155,4 +155,27 @@ public class StringsTests {
         });
         Assert.Equal(0, wrong);
     }
+
+    [Fact]
+    public void The_general_form_makes_no_array_for_a_few_values()
+    {
+        object[] values = ["Bob", 7];
+        (string, object)[] args = [("a", values[0]), ("n", values[1])];
+        var locale = "en";
+        var text = Strings.T(locale, "typing.many", args);
+        Assert.Equal("Bob and 7 others are typing...", text);
+        string? sink = null;
+        for (var i = 0; i < 200; i++)
+            sink = Strings.T(locale, "typing.many", args);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 1000; i++)
+            sink = Strings.T(locale, "typing.many", args);
+        var each = (GC.GetAllocatedBytesForCurrentThread() - before) / 1000;
+        // The text that comes out and the text of the number, and nothing
+        // else: no list of values made on the way. (A string takes 22 bytes
+        // and two for each letter; the number "7" is 24.)
+        Assert.True(each <= 22 + 2L * text.Length + 8 + 24,
+            $"{each} bytes for a text of {text.Length} letters");
+        Assert.NotNull(sink);
+    }
 }

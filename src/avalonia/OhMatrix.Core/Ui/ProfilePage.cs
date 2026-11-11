@@ -53,10 +53,29 @@ public sealed class ProfilePage : Grid {
     /// <summary>The row that changes the name.</summary>
     public Border NameRow { get; private set; } = new();
 
-    private string T(string key, params (string, object)[] values)
-    {
-        return Strings.T(controller.Store.Value.Locale, key, values);
-    }
+    internal string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
+
+    internal string T(string key, (string, string) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, long) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, string) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, string) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, params (string, object)[] values) =>
+        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Asks for a picture file and makes it my picture; the path can be given to skip the dialog.</summary>
     public async Task ChangePhoto(string? path = null)

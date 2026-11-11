@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Calls;
+using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -3640,6 +3641,50 @@ public partial class ChatPaneTests {
             Avalonia.Input.KeyModifiers.None, Avalonia.Input.MouseButton.Left) {
             RoutedEvent = Avalonia.Input.InputElement.PointerReleasedEvent,
         };
+    }
+
+    // Bytes allocated by one call of work, over many calls.
+    private static long PerCall(Action work)
+    {
+        for (var i = 0; i < 200; i++)
+            work();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 1000; i++)
+            work();
+        return (GC.GetAllocatedBytesForCurrentThread() - before) / 1000;
+    }
+
+    [AvaloniaFact]
+    public async Task
+        The_text_of_the_interface_takes_a_number_or_a_name_without_boxing_or_an_array()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        var pane = FindPane(screen);
+        var locale = controller.Store.Value.Locale;
+        var n = 7;
+        var name = "Bob";
+        string? sink = null;
+
+        // What the text itself costs: the same call to the library with the
+        // typed form. The wrapper of the pane must add nothing to it.
+        var none = PerCall(() => sink = Strings.T(locale, "cancel"));
+        var one = PerCall(() => sink = Strings.T(locale, "members", ("n", 7L)));
+        var two = PerCall(() => sink = Strings.T(locale, "typing.many",
+            ("a", "Bob"), ("n", 7L)));
+        var other = PerCall(() => sink = Strings.T(locale, "typing.many",
+            ("n", 7L), ("a", "Bob")));
+
+        Assert.Equal(none, PerCall(() => sink = pane.T("cancel")));
+        Assert.Equal(one, PerCall(() => sink = pane.T("members", ("n", n))));
+        Assert.Equal(two, PerCall(() => sink = pane.T("typing.many",
+            ("a", name), ("n", n))));
+        Assert.Equal(other, PerCall(() => sink = pane.T("typing.many",
+            ("n", n), ("a", name))));
+        Assert.Equal("7 members", pane.T("members", ("n", n)));
+        Assert.NotNull(sink);
+
+        // Another type still works, by the general form.
+        Assert.Equal("2.5 members", pane.T("members", ("n", 2.5)));
     }
 
     private static ChatPane FindPane(MainScreen screen)

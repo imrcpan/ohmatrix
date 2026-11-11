@@ -46,10 +46,29 @@ public sealed class ForwardDialog : IOverlay {
     /// <summary>The rows of chats as drawn now (their ids are in their names).</summary>
     public IReadOnlyList<Control> Rows => list.Children;
 
-    private string T(string key, params (string, object)[] values)
-    {
-        return Strings.T(controller.Store.Value.Locale, key, values);
-    }
+    internal string T(string key) =>
+        Strings.T(controller.Store.Value.Locale, key);
+
+    internal string T(string key, (string, string) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, long) a) =>
+        Strings.T(controller.Store.Value.Locale, key, a);
+
+    internal string T(string key, (string, string) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, string) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, string) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, (string, long) a, (string, long) b) =>
+        Strings.T(controller.Store.Value.Locale, key, a, b);
+
+    internal string T(string key, params (string, object)[] values) =>
+        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Opens for <paramref name="messages"/> of the open chat; <paramref name="onSent"/> runs when all went through.</summary>
     public void Show(TopLevel top, IReadOnlyList<TimelineItem> messages,
