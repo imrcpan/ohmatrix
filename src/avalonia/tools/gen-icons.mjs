@@ -29,7 +29,9 @@ out.push("namespace OhMatrix.Core.Ui;", "");
 out.push("/// <summary>The icons of the app: the paths (on a 24 by 24 grid) and how each is drawn.</summary>");
 out.push("public static class IconData {");
 out.push("    public static readonly IReadOnlyDictionary<string, string> Paths = new Dictionary<string, string> {");
-for (const [n, d] of paths) out.push(`        ["${n}"] = "${d}",`);
+// Avalonia takes the first control point of an `s` that follows a line as the reflection of the last curve's, which the spec only says for a curve before it; after a line that point is the current one, written out here (the bell's dome).
+const plain = (d) => d.replace(/([hvl][-\d.\s,]*)s/g, "$1c0 0 ");
+for (const [n, d] of paths) out.push(`        ["${n}"] = "${plain(d)}",`);
 out.push("    };", "");
 out.push("    /// <summary>Line weight of the icons that are not drawn with 2.</summary>");
 out.push("    public static readonly IReadOnlyDictionary<string, double> Weight = new Dictionary<string, double> {");
