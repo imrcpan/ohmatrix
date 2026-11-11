@@ -276,6 +276,7 @@ public sealed class MainScreen : Grid {
 
     private Avalonia.Controls.Window? settingsWindow;
     private bool settingsShown;
+    private bool profileBeneath;
 
     private Control? SettingsContent(SidebarPage page)
     {
@@ -310,7 +311,9 @@ public sealed class MainScreen : Grid {
                 window.Content = null;
                 settingsWindow = null;
                 if (SettingsContent(controller.Store.Value.SidebarPage) != null)
-                    controller.OpenSidebarPage(SidebarPage.Chats);
+                    controller.OpenSidebarPage(profileBeneath
+                        ? SidebarPage.Profile
+                        : SidebarPage.Chats);
             };
             settingsWindow = window;
             Lifetime.OnRelease(this, window.Close);
@@ -355,13 +358,19 @@ public sealed class MainScreen : Grid {
         // What opens from the profile is a page of the left pane, whatever its width.
         // The pages that open from it (the encryption, the accounts) are
         // pages of the dialog, not of the sidebar.
-        var profileOpen = s.SidebarPage is SidebarPage.Profile
+        var inProfile = s.SidebarPage is SidebarPage.Profile
             or SidebarPage.Encryption or SidebarPage.Accounts;
-        profileCard.Child = s.SidebarPage switch {
-            SidebarPage.Encryption => encryptionPage,
-            SidebarPage.Accounts => accountsPage,
-            _ => profilePage,
-        };
+        var inSettings = SettingsContent(s.SidebarPage);
+        // Settings open in their own window and leave the dialog as it is.
+        if (inSettings == null)
+            profileBeneath = inProfile;
+        var profileOpen = inProfile || (inSettings != null && profileBeneath);
+        if (inProfile)
+            profileCard.Child = s.SidebarPage switch {
+                SidebarPage.Encryption => encryptionPage,
+                SidebarPage.Accounts => accountsPage,
+                _ => profilePage,
+            };
         if (profileOpen && !profileHost.IsVisible)
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 profileHost.Focus());
@@ -370,7 +379,6 @@ public sealed class MainScreen : Grid {
         profileCard.Background = new SolidColorBrush(c.Bg);
         profileCard.Width = Math.Max(280, Math.Min(440, Bounds.Width - 32));
         profileCard.Height = Math.Max(320, Math.Min(640, Bounds.Height - 48));
-        var inSettings = SettingsContent(s.SidebarPage);
         // Other pages (the profile, say) open over the chats and leave the
         // settings window as it is; it closes on its own close button.
         if (inSettings != null) {
