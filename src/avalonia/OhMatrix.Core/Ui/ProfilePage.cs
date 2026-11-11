@@ -240,6 +240,43 @@ public sealed class ProfilePage : Grid {
         bar.Child = row;
     }
 
+    // The pill under the name (the React Native page's): a thin outline
+    // that fills on hover and while pressed.
+    private Control SwitchAccount(Theming.ColorTokens c)
+    {
+        var label = controller.T("switchAccount");
+        var hover = new SolidColorBrush(c.Hover);
+        var press = new SolidColorBrush(c.Separator);
+        var pill = new Border {
+            Padding = new Thickness(14, 4),
+            CornerRadius = new CornerRadius(100),
+            BorderThickness = new Thickness(1),
+            BorderBrush = new SolidColorBrush(c.Separator),
+            Background = Brushes.Transparent,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = new TextBlock {
+                Text = label,
+                FontSize = 13,
+                FontWeight = FontWeight.Medium,
+                FontFamily = Fonts.System,
+                Foreground = new SolidColorBrush(c.Text),
+            },
+        };
+        pill.PointerEntered += (_, _) => pill.Background = hover;
+        pill.PointerExited += (_, _) => pill.Background = Brushes.Transparent;
+        pill.PointerPressed += (_, e) => {
+            e.Handled = true;
+            pill.Background = press;
+            controller.OpenSidebarPage(SidebarPage.Accounts);
+        };
+        Avalonia.Automation.AutomationProperties.SetName(pill, label);
+        // The Account group brings its own space above it, of which the pill
+        // takes some back.
+        pill.Margin = new Thickness(0, 14, 0, -6);
+        return pill;
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
@@ -290,6 +327,8 @@ public sealed class ProfilePage : Grid {
             HorizontalAlignment = HorizontalAlignment.Center,
         });
         content.Children.Add(head);
+        if (controller.Accounts != null)
+            content.Children.Add(SwitchAccount(c));
 
         content.Children.Add(new TextBlock {
             Text = controller.T("account"),
@@ -325,11 +364,6 @@ public sealed class ProfilePage : Grid {
             () => controller.OpenSidebarPage(SidebarPage.Encryption), 0,
             EncryptionPage.Words(s.Security, k => controller.T(k)),
             flat: true));
-        if (controller.Accounts != null)
-            content.Children.Add(NavRow(c, "user",
-                controller.T("switchAccount"),
-                () => controller.OpenSidebarPage(SidebarPage.Accounts), 0,
-                flat: true));
         content.Children.Add(NavRow(c, "gear", controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 0,
             flat: true));
