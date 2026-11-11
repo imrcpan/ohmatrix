@@ -14,7 +14,7 @@ public sealed class LanguagePage : Grid {
     private readonly Border bar = new();
 
     private readonly StackPanel rows = new() {
-        Margin = new Thickness(12, 12, 12, 24),
+        Margin = new Thickness(0, 0, 0, 24),
         Spacing = 2
     };
 
@@ -69,7 +69,7 @@ public sealed class LanguagePage : Grid {
             if (active) {
                 var check = new Icon {
                     Glyph = "check",
-                    Size = 20,
+                    Size = 21,
                     Color = new SolidColorBrush(c.Accent),
                     VerticalAlignment = VerticalAlignment.Center,
                 };
@@ -78,15 +78,13 @@ public sealed class LanguagePage : Grid {
             }
 
             var row = new Border {
-                Height = 44,
-                Padding = new Thickness(14, 0),
-                CornerRadius = new CornerRadius(Radius.Control),
-                Background = active
-                    ? new SolidColorBrush(c.BgSecondary)
-                    : Brushes.Transparent,
+                Height = 48,
+                Padding = new Thickness(26, 0),
+                Background = Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = line,
             };
+            ProfilePage.Hover(row, c);
             var id = language.Id;
             row.PointerPressed += (_, e) => {
                 e.Handled = true;
