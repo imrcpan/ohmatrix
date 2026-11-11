@@ -229,17 +229,17 @@ public sealed class EncryptionPage : Grid {
         content.Children.Clear();
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(26, 18, 12, 0),
+            Foreground = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(26, 14, 12, 4),
         });
         content.Children.Add(ProfilePage.NavRow(c, "lock",
             controller.T("encryption"),
             () => {
-            }, 6,
-            Words(s.Security, k => controller.T(k)), false));
+            }, 0,
+            Words(s.Security, k => controller.T(k)), false, flat: true));
         RecoveryRow = null;
         VerifyRow = null;
         SetupRow = null;
@@ -247,29 +247,30 @@ public sealed class EncryptionPage : Grid {
         if (s.Security == SecurityState.NeedsSetup) {
             SetupRow = ProfilePage.NavRow(c, "key",
                 controller.T("sec.setup.title"),
-                AskSetup, 12);
+                AskSetup, 0, flat: true);
             content.Children.Add(SetupRow);
         }
 
         if (s.Security == SecurityState.Ready) {
             ResetRow = ProfilePage.NavRow(c, "refresh",
                 controller.T("keys.reset"),
-                AskReset, 12, null, false,
-                true);
+                AskReset, 0, null, false,
+                true, true);
             content.Children.Add(ResetRow);
         }
 
         if (s.Security == SecurityState.NeedsRecovery) {
             RecoveryRow = ProfilePage.NavRow(c, "key",
                 controller.T("sec.recovery.title"),
-                AskRecoveryKey, 12);
+                AskRecoveryKey, 0, flat: true);
             content.Children.Add(RecoveryRow);
             VerifyRow = ProfilePage.NavRow(
                 c,
                 "device",
                 controller.T("verify.session"),
                 () => _ = controller.RequestVerification(),
-                12
+                0,
+                flat: true
             );
             content.Children.Add(VerifyRow);
             content.Children.Add(new TextBlock {
