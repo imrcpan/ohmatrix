@@ -76,6 +76,10 @@ public class App : Application {
                 Height = 700,
                 MinWidth = 360,
                 MinHeight = 480,
+                // Until the theme is known the window is dark, not white and
+                // not black; the dark theme's own background.
+                Background = new Avalonia.Media.SolidColorBrush(
+                    Avalonia.Media.Color.Parse("#141414")),
             };
             _ = Start();
 
