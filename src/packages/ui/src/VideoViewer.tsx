@@ -1,14 +1,14 @@
 import { useEffect } from "react";
-import { ActivityIndicator, Modal, Pressable, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
-import { useViewport } from "./viewport.js";
+import { useInsets, useViewport } from "./viewport.js";
 import { Icon } from "./Icon.js";
 import { VideoSurface } from "./VideoSurface.js";
 
 /**
  * Video player overlay: the same translucent mask as the photo viewer over the whole window, the video at a
- * comfortable size (never enlarged past its own, at most 80% of the window) with the browser's controls.
+ * comfortable size (never enlarged past its own, at most 80% of the window) with the browser's controls; on a phone, the whole window.
  * Click outside, Esc or the cross to leave.
  */
 export function VideoViewer(props: {
@@ -24,7 +24,10 @@ export function VideoViewer(props: {
   const scale = useScale();
   const natural = { width: props.width ?? 640, height: props.height ?? 360 };
   const k = Math.min(1, (win.width * 0.8) / natural.width, (win.height * 0.8) / natural.height);
-  const size = { width: Math.round(natural.width * k), height: Math.round(natural.height * k) };
+  // On a phone the video has no small mode: it takes the whole window (the player fits the picture into it), turning with the phone.
+  const phone = Platform.OS === "android" || Platform.OS === "ios";
+  const insets = useInsets();
+  const size = phone ? { width: win.width, height: win.height } : { width: Math.round(natural.width * k), height: Math.round(natural.height * k) };
 
   useEffect(() => {
     const doc = (
@@ -58,7 +61,16 @@ export function VideoViewer(props: {
               <ActivityIndicator color="#FFFFFF" />
             )}
           </Pressable>
-          <View style={{ position: "absolute", top: 16, right: 16, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.45)", padding: 3 }}>
+          <View
+            style={{
+              position: "absolute",
+              top: 16 + (phone ? insets.top : 0),
+              right: 16 + (phone ? insets.right : 0),
+              borderRadius: 22,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              padding: 3,
+            }}
+          >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={props.closeLabel ?? "Close"}
