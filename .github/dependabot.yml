@@ -40,6 +40,11 @@ updates:
       # side (BINDGEN_TAG in src/rust/build-native.sh) must match them.
       - dependency-name: uniffi-bindgen-react-native
       - dependency-name: "@ubjs/core"
+      # The Tauri packages of npm have to stay on the same major and minor as
+      # the crates of the same name (tauri build refuses them otherwise), and
+      # Dependabot opens the two sides as separate pull requests. They are
+      # moved by hand, in pairs: the npm package and the crate together.
+      - dependency-name: "@tauri-apps/*"
       # Patches of the modules of the SDK are fine; a minor is another SDK.
       - dependency-name: "expo-*"
         update-types:
@@ -66,13 +71,16 @@ updates:
           - minor
           - patch
 
-  # The Tauri shell. The crates here and @tauri-apps/* in the npm entry have to
-  # stay on the same minor: review the two pull requests together.
+  # The Tauri shell. The crates of Tauri are moved by hand, together with the
+  # @tauri-apps/* packages of npm (see the ignore list of that entry).
   - package-ecosystem: cargo
     directory: /src/apps/tauri/src-tauri
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: tauri
+      - dependency-name: "tauri-*"
     groups:
       cargo-minor-patch:
         update-types:
