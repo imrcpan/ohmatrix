@@ -144,6 +144,9 @@ public sealed class RoomListPane : Grid {
             Content = list,
             HorizontalScrollBarVisibility =
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            // Hidden at rest, and over the content when it shows: the
+            // left pane keeps its width.
+            AllowAutoHide = true,
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);

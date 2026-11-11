@@ -52,6 +52,9 @@ public sealed class ExplorePage : Grid {
             Content = rows,
             HorizontalScrollBarVisibility =
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            // Hidden at rest, and over the content when it shows: the
+            // left pane keeps its width.
+            AllowAutoHide = true,
         };
         Grid.SetRow(scroller, 3);
         servers.Margin = new Thickness(12, 0, 12, 6);
