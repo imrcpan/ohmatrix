@@ -300,7 +300,7 @@ public sealed class MainScreen : Grid {
                 MinWidth = 360,
                 MinHeight = 320,
                 WindowStartupLocation = Avalonia.Controls.WindowStartupLocation
-                    .CenterOwner,
+                    .CenterScreen,
                 Content = content,
             };
             ThemeScope.SetColors(window, ThemeScope.GetColors(this));
@@ -312,10 +312,9 @@ public sealed class MainScreen : Grid {
             };
             settingsWindow = window;
             Lifetime.OnRelease(this, window.Close);
-            if (TopLevel.GetTopLevel(this) is Avalonia.Controls.Window owner)
-                window.Show(owner);
-            else
-                window.Show();
+            // An ordinary window: not owned, so it does not stay above the
+            // main one.
+            window.Show();
         }
 
         if (!ReferenceEquals(settingsWindow.Content, content))
