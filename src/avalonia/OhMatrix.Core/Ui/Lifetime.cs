@@ -50,6 +50,19 @@ public static class Lifetime {
             Owned.GetOrCreateValue(owner).Add(child);
     }
 
+    /// <summary>Replaces a child the owner held: it is let go of and no longer held, so it can be collected while the owner lives on.</summary>
+    public static void Drop(object owner, object? child)
+    {
+        if (child is null)
+            return;
+        lock (Owned) {
+            if (Owned.TryGetValue(owner, out var list))
+                list.Remove(child);
+        }
+
+        Release(child);
+    }
+
     /// <summary>Lets go of everything <paramref name="root"/>, what it owns and what is below it in the tree hooked onto outside. Calling it again does nothing.</summary>
     public static void Release(object? root)
     {

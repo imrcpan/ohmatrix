@@ -1590,6 +1590,34 @@ public partial class ChatPaneTests {
         Assert.NotNull(screen.Narrow.Messages.ContainerFromIndex(0));
     }
 
+    [AvaloniaFact]
+    public async Task A_pane_thrown_away_ends_its_search_and_writes_nothing()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var chat = engine.Opened.Last();
+        chat.OlderGate = new TaskCompletionSource<bool>();
+        var search = screen.Wide.Reveal("$old");
+        Assert.Equal(NoticeKind.Progress, controller.Store.Value.Notice?.Kind);
+
+        // The account is switched: the screen goes while the search waits.
+        Lifetime.Release(screen);
+        Assert.Null(controller.Store.Value.Notice);
+
+        chat.OlderGate.SetResult(false);
+        await search;
+        Dispatcher.UIThread.RunJobs();
+        // No "not found" for an account that is not shown, no mark, and
+        // the pane does not start another search.
+        Assert.Null(controller.Store.Value.Notice);
+        Assert.Null(screen.Wide.Highlighted);
+        Assert.Null(controller.Store.Value.JumpToEventId);
+        await screen.Wide.Reveal("$again");
+        Assert.Null(controller.Store.Value.Notice);
+    }
+
     private static TimelineItem OldMessage() => new() {
         Id = "old",
         EventId = "$old",
@@ -1961,6 +1989,24 @@ public partial class ChatPaneTests {
         dialog.Discard();
         dialog.Dialog.Close();
         Assert.False(dialog.Recording);
+    }
+
+    [AvaloniaFact]
+    public async Task A_recording_dialog_goes_with_the_page_that_opened_it()
+    {
+        var (window, controller, _, _) = await Open("light", 1000);
+        var dialog = new RecordingDialog(controller);
+        var closed = 0;
+        dialog.Open(window, false);
+        dialog.Dialog.OnClose = () => closed++;
+        Assert.True(dialog.Dialog.IsOpen);
+
+        // It hangs on the window, so the page going does not remove it
+        // unless it is told.
+        Lifetime.Release(dialog);
+        Assert.False(dialog.Dialog.IsOpen);
+        Assert.False(dialog.Recording);
+        Assert.Equal(0, closed);
     }
 
     [AvaloniaFact]

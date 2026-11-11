@@ -31,4 +31,29 @@ public class LifetimeTests {
         Lifetime.Release(null);
         Assert.Equal(3, calls.Count);
     }
+
+    [AvaloniaFact]
+    public void A_child_that_was_replaced_is_not_held_by_the_owner()
+    {
+        var owner = new Border();
+        var weak = Make(owner);
+        for (var i = 0; i < 3; i++) {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        Assert.False(weak.TryGetTarget(out _));
+        GC.KeepAlive(owner);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(
+        System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference<Border> Make(Border owner)
+    {
+        var old = new Border();
+        Lifetime.Own(owner, old);
+        Lifetime.Drop(owner, old);
+        Lifetime.Own(owner, new Border());
+        return new WeakReference<Border>(old);
+    }
 }

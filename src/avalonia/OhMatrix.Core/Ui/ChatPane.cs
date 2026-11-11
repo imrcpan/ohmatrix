@@ -523,6 +523,7 @@ public sealed partial class ChatPane : Grid {
         });
         scroller.ScrollChanged += (_, e) => OnScroll(e);
         Lifetime.Watch(this, controller, _ => Apply());
+        Lifetime.OnRelease(this, Retire);
         SizeChanged += (_, _) => ResizeMessages();
         Apply();
     }
@@ -673,6 +674,30 @@ public sealed partial class ChatPane : Grid {
     private string? revealHighlight;
     private bool revealPending;
 
+    private bool retired;
+    private readonly CancellationTokenSource retiredWaits = new();
+
+    // The pane is thrown away for good (the account was switched): what is
+    // waiting for history, for the end of a mark or for a timer is over,
+    // and writes nothing more to the account it was shown for. Unlike
+    // StopRevealing it hands nothing on, for there is no other pane.
+    private void Retire()
+    {
+        retired = true;
+        roomVersion++;
+        revealSerial++;
+        revealing = false;
+        revealPending = false;
+        revealTarget = null;
+        revealHighlight = null;
+        highlightId = null;
+        loadingOlder = false;
+        retiredWaits.Cancel();
+        ClearRevealNotice();
+        overlayTimer?.Dispose();
+        olderTimer?.Dispose();
+    }
+
     private void StopRevealing()
     {
         if (!revealing)
@@ -708,6 +733,8 @@ public sealed partial class ChatPane : Grid {
     /// </summary>
     public async Task Reveal(string eventId)
     {
+        if (retired)
+            return;
         var generation = roomVersion;
         if (revealing && revealRoomVersion == generation)
             return;
@@ -717,7 +744,10 @@ public sealed partial class ChatPane : Grid {
         revealRoom = controller.Store.Value.SelectedRoomId;
         revealPending = true;
         var mine = ++revealSerial;
-        bool Superseded() => generation != roomVersion || mine != revealSerial;
+
+        bool Superseded() =>
+            retired || generation != roomVersion || mine != revealSerial;
+
         try {
             TimelineItem? Find() => controller.Store.Value.Timeline
                 .FirstOrDefault(i => i.EventId == eventId);
@@ -738,7 +768,11 @@ public sealed partial class ChatPane : Grid {
                          w < 20 && Find() is null &&
                          controller.Store.Value.Timeline.Count == before;
                          w++) {
-                        await Task.Delay(50);
+                        await Task.Delay(50, retiredWaits.Token)
+                            .ConfigureAwait(
+                                ConfigureAwaitOptions.SuppressThrowing |
+                                ConfigureAwaitOptions
+                                    .ContinueOnCapturedContext);
                         if (Superseded())
                             return;
                     }
@@ -765,7 +799,10 @@ public sealed partial class ChatPane : Grid {
             highlightId = hit.Id;
             revealHighlight = hit.Id;
             Mark(false);
-            await Task.Delay(3000);
+            await Task.Delay(3000, retiredWaits.Token)
+                .ConfigureAwait(
+                    ConfigureAwaitOptions.SuppressThrowing |
+                    ConfigureAwaitOptions.ContinueOnCapturedContext);
             if (Superseded())
                 return;
             if (highlightId == hit.Id)
@@ -773,7 +810,7 @@ public sealed partial class ChatPane : Grid {
             revealHighlight = null;
             Mark(false);
         } finally {
-            if (mine == revealSerial) {
+            if (!retired && mine == revealSerial) {
                 if (revealNotice?.Kind == NoticeKind.Progress)
                     ClearRevealNotice();
                 revealing = false;
@@ -1470,7 +1507,7 @@ public sealed partial class ChatPane : Grid {
         if (searching && query.Length >= 2 && controller.CanSearchMessages
             && controller.Store.Value.SelectedRoomId is { } roomId) {
             if (hits is null || hitsRoom != roomId) {
-                Lifetime.Release(hits);
+                Lifetime.Drop(this, hits);
                 hits = new MessageResultsView(controller, roomId, false);
                 Lifetime.Own(this, hits);
                 hitsRoom = roomId;

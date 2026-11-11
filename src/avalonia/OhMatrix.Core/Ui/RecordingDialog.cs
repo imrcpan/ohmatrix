@@ -31,7 +31,7 @@ public sealed class RecordingDialog {
     public RecordingDialog(AppController controller)
     {
         this.controller = controller;
-        Lifetime.Stop(this, ticker);
+        Lifetime.OnRelease(this, Dispose);
         ticker.Tick += (_, _) => {
             if (recorder is not null)
                 clock.Text = Format.Duration(recorder.Elapsed);
@@ -119,6 +119,16 @@ public sealed class RecordingDialog {
                 // A file in the temporary folder that stays is only a little disk.
             }
         }
+    }
+
+    // The page that opened the dialog is thrown away: the recording stops
+    // and the dialog, which hangs on the window and not on the page, goes.
+    // Closing it by code does not call OnClose, so nothing else discards.
+    private void Dispose()
+    {
+        dialog.OnClose = null;
+        Discard();
+        dialog.Close();
     }
 
     /// <summary>Throws a recording in progress away.</summary>
