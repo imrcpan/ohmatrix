@@ -202,9 +202,7 @@ public sealed class AccountsPage : Grid {
             Height = RowHeight,
             Margin = new Thickness(18, 0),
             Background = Brushes.Transparent,
-            Cursor = new Cursor(grip
-                ? StandardCursorType.SizeAll
-                : StandardCursorType.Hand),
+            Cursor = new Cursor(StandardCursorType.Hand),
         };
         var avatar = new Avatar(account.UserId, name, 44) {
             Margin = new Thickness(0, 0, 14, 0)
@@ -336,7 +334,21 @@ public sealed class AccountsPage : Grid {
 
     private void BuildReorder(ColorTokens c, IReadOnlyList<AccountEntry> list)
     {
-        var host = new StackPanel();
+        var stack = new StackPanel();
+        // Where the dragged row would land: a line of the accent colour at
+        // that edge of the list.
+        var drop = new Border {
+            Height = 2,
+            Margin = new Thickness(18, 0),
+            Background = new SolidColorBrush(c.Accent),
+            VerticalAlignment = VerticalAlignment.Top,
+            IsHitTestVisible = false,
+            IsVisible = false,
+            ZIndex = 3,
+        };
+        var host = new Grid();
+        host.Children.Add(stack);
+        host.Children.Add(drop);
         for (var i = 0; i < list.Count; i++) {
             var from = i;
             var row = AccountRow(c, list[i], true);
@@ -350,14 +362,20 @@ public sealed class AccountsPage : Grid {
                 row.Opacity = 0.9;
             };
             row.PointerMoved += (_, e) => {
-                if (dragging)
-                    row.RenderTransform =
-                        new TranslateTransform(0, e.GetPosition(host).Y - y0);
+                if (!dragging)
+                    return;
+                var dy = e.GetPosition(host).Y - y0;
+                row.RenderTransform = new TranslateTransform(0, dy);
+                var at = DropIndex(from, dy, list.Count);
+                drop.Margin = new Thickness(18,
+                    (at > from ? at + 1 : at) * RowHeight - 1, 18, 0);
+                drop.IsVisible = true;
             };
             row.PointerReleased += (_, e) => {
                 if (!dragging)
                     return;
                 dragging = false;
+                drop.IsVisible = false;
                 var dy = e.GetPosition(host).Y - y0;
                 row.RenderTransform = null;
                 row.Opacity = 1;
@@ -367,7 +385,7 @@ public sealed class AccountsPage : Grid {
                     _ = controller.Accounts?.Move(list[from].UserId, to - from);
             };
             rows.Add(row);
-            host.Children.Add(row);
+            stack.Children.Add(row);
         }
 
         content.Children.Add(host);
