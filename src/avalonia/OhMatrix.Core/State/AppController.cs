@@ -27,6 +27,8 @@ public sealed class AppController(
     ISearchEngine? searchEngine = null,
     ISpacesEngine? spacesEngine = null
 ) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     /// <summary>How long a zoom is tried before it goes back by itself.</summary>
     public static readonly TimeSpan ZoomTrialTime = TimeSpan.FromSeconds(15);
 
@@ -466,7 +468,7 @@ public sealed class AppController(
         try {
             await Signalling().Receive(e);
         } catch (Exception ex) {
-            Logger.GetDefault().Error("call event: " + ex.Message);
+            logger.Error("call event: " + ex.Message);
         }
     }
 
@@ -1503,6 +1505,8 @@ public sealed class AppController(
 
     private void SignedOut(string? error = null, EngineErrorCode? code = null)
     {
+        if (error is not null)
+            logger.Error($"Signed out with an error ({code}): {error}");
         Unsettle();
         Store.Update(s => s with {
             Rooms = [],
@@ -1541,7 +1545,7 @@ public sealed class AppController(
         try {
             return await run();
         } catch (Exception e) {
-            Logger.GetDefault().Error(e.Message);
+            logger.Error(e.Message);
             return default;
         }
     }
@@ -1552,7 +1556,7 @@ public sealed class AppController(
             await run();
             return true;
         } catch (Exception e) {
-            Logger.GetDefault().Error(e.Message);
+            logger.Error(e.Message);
             return false;
         }
     }

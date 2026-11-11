@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Infra.Logging;
 using uniffi.matrix_sdk_ffi;
 using JsonValue = System.Text.Json.Nodes.JsonValue;
 using Session = OhMatrix.Core.Model.Session;
@@ -15,6 +16,8 @@ namespace OhMatrix.Engine;
 public sealed class MatrixAuthEngine(
     string dataDirectory,
     HttpClient? http = null) : IAuthEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private const string DeviceName = "OhMatrix Desktop";
 
     private readonly HttpClient web = http ?? new HttpClient();
@@ -31,12 +34,14 @@ public sealed class MatrixAuthEngine(
         string password)
     {
         try {
-            var client =
-                await MakeClient(
-                    await HomeserverAddress.Resolve(homeserver, web));
-            await client.Login(username, password, DeviceName, null);
-            Client = client;
-            return ToSession(client.Session());
+            var url = await HomeserverAddress.Resolve(homeserver, web);
+            DropStore();
+            return await WithFreshStoreOnMismatch(async () => {
+                var client = await MakeClient(url);
+                await client.Login(username, password, DeviceName, null);
+                Client = client;
+                return ToSession(client.Session());
+            });
         } catch (Exception e) when (e is not EngineException) {
             throw Translate(e);
         }
@@ -69,6 +74,7 @@ public sealed class MatrixAuthEngine(
             }
 
             var session = new Session(url, userId, deviceId, accessToken);
+            DropStore();
             await Restore(session);
             return session;
         } catch (Exception e) when (e is not EngineException) {
@@ -79,22 +85,52 @@ public sealed class MatrixAuthEngine(
     public async Task Restore(Session session)
     {
         try {
-            var client = await MakeClient(session.Homeserver);
-            await client.RestoreSession(
-                new SdkSession(
-                    session.AccessToken,
-                    session.Native,
-                    session.UserId,
-                    session.DeviceId,
-                    session.Homeserver,
-                    null,
-                    SlidingSyncVersion.Native
-                )
-            );
-            Client = client;
+            await WithFreshStoreOnMismatch(async () => {
+                var client = await MakeClient(session.Homeserver);
+                await client.RestoreSession(
+                    new SdkSession(
+                        session.AccessToken,
+                        session.Native,
+                        session.UserId,
+                        session.DeviceId,
+                        session.Homeserver,
+                        null,
+                        SlidingSyncVersion.Native
+                    )
+                );
+                Client = client;
+                return true;
+            });
         } catch (Exception e) when (e is not EngineException) {
             throw Translate(e);
         }
+    }
+
+    // The store of the SDK can hold the keys of another device than the one
+    // that is being signed in or restored ("the account in the store doesn't
+    // match the account in the constructor"). The person cannot do anything
+    // about that, so it is not shown: it is logged, the store is cleared and
+    // the work is done again on a new one.
+    private async Task<T> WithFreshStoreOnMismatch<T>(Func<Task<T>> work)
+    {
+        try {
+            return await work();
+        } catch (Exception e) when (IsStoreMismatch(e)) {
+            logger.Warn(
+                $"The crypto store belongs to another device, it is cleared: {e.Message}");
+            DropStore();
+            return await work();
+        }
+    }
+
+    internal static bool IsStoreMismatch(Exception e)
+    {
+        var text = e.ToString();
+        return text.Contains("MismatchedAccount",
+                   StringComparison.Ordinal) ||
+               text.Contains(
+                   "doesn't match the account in the constructor",
+                   StringComparison.Ordinal);
     }
 
     public async Task Logout()
@@ -112,6 +148,21 @@ public sealed class MatrixAuthEngine(
         } finally {
             client.Dispose();
         }
+    }
+
+    // A new sign-in is a new device, and the store of the SDK keeps the
+    // keys of the device it was made for: of one that was signed out, or
+    // whose sign-in did not end, it refuses the new one ("the account in
+    // the store doesn't match the account in the constructor"). What is
+    // there belongs to no session that is kept, so it goes. A restore needs
+    // the store and does not come here.
+    private void DropStore()
+    {
+        Client?.Dispose();
+        Client = null;
+        var folder = Path.Combine(dataDirectory, "sdk");
+        if (Directory.Exists(folder))
+            Directory.Delete(folder, true);
     }
 
     private async Task<Client> MakeClient(string homeserverUrl)
@@ -143,6 +194,7 @@ public sealed class MatrixAuthEngine(
     /// <summary>What the SDK threw, as the one error type of an engine.</summary>
     public static EngineException Translate(Exception e)
     {
+        logger.Error($"Engine error: {e}");
         switch (e) {
             case ClientException.MatrixApi api: {
                 var kind = api.kind switch {

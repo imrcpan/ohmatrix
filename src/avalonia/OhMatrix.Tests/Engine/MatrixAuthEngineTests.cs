@@ -3,6 +3,7 @@ using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Engine;
+using OhMatrix.Infra.Logging;
 using Xunit;
 
 namespace OhMatrix.Tests.Engine;
@@ -50,6 +51,50 @@ public class MatrixAuthEngineTests {
             engine.LoginWithPassword(Server(), "test", "wrong")
         );
         Assert.Equal(EngineErrorCode.Forbidden, e.Code);
+    }
+
+    [Fact]
+    public async Task Signing_in_again_in_a_folder_that_was_used_still_works()
+    {
+        var server = Server();
+        var dir = Data();
+        // The first run: signs in, and the device it made is kept in the
+        // folder (the crypto store knows its user and its device).
+        var first = new MatrixAuthEngine(dir);
+        var one = await first.LoginWithPassword(server, "test", "123456");
+        // The app went away without signing out, as when it is killed; the
+        // folder stays, and the next sign-in is a new device.
+        first.Client!.Dispose();
+
+        var second = new MatrixAuthEngine(dir);
+        var two = await second.LoginWithPassword(server, "test", "123456");
+        Assert.Equal(one.UserId, two.UserId);
+        Assert.NotEqual(one.DeviceId, two.DeviceId);
+        await second.Logout();
+    }
+
+    [Fact]
+    public async Task A_store_of_another_device_is_cleared_and_never_shown()
+    {
+        var server = Server();
+        var dir = Data();
+        var first = new MatrixAuthEngine(dir);
+        var old = await first.LoginWithPassword(server, "test", "123456");
+        first.Client!.Dispose();
+        // A later sign-in in the same folder leaves the keys of its device.
+        var second = new MatrixAuthEngine(dir);
+        var now = await second.LoginWithPassword(server, "test", "123456");
+        second.Client!.Dispose();
+        Assert.NotEqual(old.DeviceId, now.DeviceId);
+
+        // The first session is restored on a store of the second device: the
+        // SDK refuses, the engine clears the store and restores all the same.
+        var third = new MatrixAuthEngine(dir);
+        await third.Restore(old);
+        Assert.Equal(old.UserId, third.Client!.UserId());
+        Assert.Contains("crypto store belongs to another device",
+            Logger.GetDefault().ReadLog());
+        await third.Logout();
     }
 
     [Fact]
