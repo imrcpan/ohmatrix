@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Animation;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -20,10 +21,9 @@ public static class AppStyles {
         ThinScrollBars(app);
     }
 
-    // The scrollbar of the web and React Native apps (index.html): 8 wide, in
-    // the layout and not over the content, no track and no arrows, a thumb
-    // of a grey that shows on both themes and darkens on hover and drag.
-    // Nothing scrolls sideways unless a control says so.
+    // The thumb of the web and React Native apps (index.html): 8 wide, no
+    // track and no arrows, a grey that shows on both themes and darkens on
+    // hover and drag. Nothing scrolls sideways unless a control says so.
     private static void ThinScrollBars(Application app)
     {
         app.Resources["ScrollBarSize"] = 8.0;
@@ -41,15 +41,30 @@ public static class AppStyles {
         app.Resources["ScrollBarTrackFillPointerOver"] = Brushes.Transparent;
         app.Resources["ScrollBarTrackStroke"] = Brushes.Transparent;
         app.Resources["ScrollBarTrackStrokePointerOver"] = Brushes.Transparent;
-        var bar = new Style(x => x.OfType<ScrollBar>());
-        bar.Setters.Add(new Setter(ScrollBar.AllowAutoHideProperty, false));
-        app.Styles.Add(bar);
+        // Hidden at rest and over the content when it shows (it takes no
+        // width of its own): it appears while the pointer is over what it
+        // scrolls.
         var viewer = new Style(x => x.OfType<ScrollViewer>());
         viewer.Setters.Add(new Setter(ScrollViewer.AllowAutoHideProperty,
-            false));
+            true));
         viewer.Setters.Add(new Setter(
             ScrollViewer.HorizontalScrollBarVisibilityProperty,
             ScrollBarVisibility.Disabled));
         app.Styles.Add(viewer);
+        var hidden = new Style(x => x.OfType<ScrollViewer>().Template()
+            .OfType<ScrollBar>());
+        hidden.Setters.Add(new Setter(Visual.OpacityProperty, 0.0));
+        hidden.Setters.Add(new Setter(Animatable.TransitionsProperty,
+            new Transitions {
+                new DoubleTransition {
+                    Property = Visual.OpacityProperty,
+                    Duration = TimeSpan.FromMilliseconds(150),
+                }
+            }));
+        app.Styles.Add(hidden);
+        var shown = new Style(x => x.OfType<ScrollViewer>()
+            .Class(":pointerover").Template().OfType<ScrollBar>());
+        shown.Setters.Add(new Setter(Visual.OpacityProperty, 1.0));
+        app.Styles.Add(shown);
     }
 }
