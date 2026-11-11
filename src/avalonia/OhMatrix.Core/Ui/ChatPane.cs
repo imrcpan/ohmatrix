@@ -64,8 +64,16 @@ public sealed partial class ChatPane : Grid {
     /// <summary>The ids of the messages chosen.</summary>
     public IReadOnlyCollection<string> Chosen => chosen;
 
-    public ForwardDialog Forwarding =>
-        forwardDialog ??= new ForwardDialog(controller);
+    public ForwardDialog Forwarding {
+        get {
+            if (forwardDialog is null) {
+                forwardDialog = new ForwardDialog(controller);
+                Lifetime.Own(this, forwardDialog);
+            }
+
+            return forwardDialog;
+        }
+    }
 
     /// <summary>Starts choosing messages, with <paramref name="first"/> chosen.</summary>
     public void StartSelect(TimelineItem first)
@@ -522,6 +530,8 @@ public sealed partial class ChatPane : Grid {
             }
         });
         scroller.ScrollChanged += (_, e) => OnScroll(e);
+        Lifetime.OwnAll(this, actions, groupDialog, emojiPicker, attachMenu,
+            deleteDialog, viewer, video, mentionMenu, pinnedDialog, CallPrompt);
         Lifetime.Watch(this, controller, _ => Apply());
         Lifetime.OnRelease(this, Retire);
         SizeChanged += (_, _) => ResizeMessages();
@@ -1618,8 +1628,16 @@ public sealed partial class ChatPane : Grid {
 
     private SendFilesDialog? sendFiles;
 
-    public SendFilesDialog SendFiles =>
-        sendFiles ??= new SendFilesDialog(controller);
+    public SendFilesDialog SendFiles {
+        get {
+            if (sendFiles is null) {
+                sendFiles = new SendFilesDialog(controller);
+                Lifetime.Own(this, sendFiles);
+            }
+
+            return sendFiles;
+        }
+    }
 
     /// <summary>Asks before files dropped on the chat are sent, then sends each.</summary>
     public void OfferFiles(IReadOnlyList<string> paths)

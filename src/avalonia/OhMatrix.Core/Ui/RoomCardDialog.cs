@@ -13,7 +13,7 @@ namespace OhMatrix.Core.Ui;
 /// A room that is not joined, as the large card of the explore page shows it (<c>RoomCardDialog</c>): its picture, name, number of people and what it
 /// is about, with buttons to copy its address and to join it.
 /// </summary>
-public sealed class RoomCardDialog {
+public sealed class RoomCardDialog : IOverlay {
     private readonly AppController controller;
     private readonly Dialog dialog = new();
 
@@ -105,5 +105,10 @@ public sealed class RoomCardDialog {
             ThemeScope.SetColors(b, c);
         content.AddRange([copy, joinButton, cancel]);
         dialog.Show(window, c, "", null, [.. content]);
+    }
+
+    public void Close()
+    {
+        dialog.Close();
     }
 }

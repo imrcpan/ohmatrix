@@ -49,6 +49,7 @@ public sealed class SettingsPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
+        Lifetime.OwnAll(this, confirm, DownloadMenu);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }

@@ -45,6 +45,7 @@ public sealed class AccountsPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
+        Lifetime.OwnAll(this, menu, confirm);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }

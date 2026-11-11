@@ -13,7 +13,7 @@ namespace OhMatrix.Core.Ui;
 /// A centred card over a dimmed backdrop (<c>Dialog</c> of the React Native app): 400 wide at most, 16 corners, 20 padding, a 19/700 title, an optional
 /// 15/20 message and the content under them, 14 apart. Esc and a press on the dim area close it, unless it is <see cref="Modal"/>: then it needs an answer.
 /// </summary>
-public sealed class Dialog {
+public sealed class Dialog : IOverlay {
     private const double MaxWidth = 400;
     private const double Pad = 24;
 

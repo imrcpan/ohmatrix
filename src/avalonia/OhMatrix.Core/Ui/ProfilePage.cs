@@ -43,6 +43,7 @@ public sealed class ProfilePage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
+        Lifetime.OwnAll(this, NamePrompt, StatusPrompt, Viewer);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }

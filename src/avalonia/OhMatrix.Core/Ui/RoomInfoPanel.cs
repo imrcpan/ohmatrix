@@ -44,6 +44,8 @@ public sealed class RoomInfoPanel : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
+        Lifetime.OwnAll(this, EditPrompt, LeaveDialog, Invite, MemberMenu,
+            MemberPrompt, Viewer, MemberDialog, BannedMenu);
         Lifetime.Watch(this, controller, state => {
             if (Differs(state))
                 Apply();

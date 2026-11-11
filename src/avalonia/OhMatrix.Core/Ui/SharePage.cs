@@ -55,6 +55,7 @@ public sealed class SharePage : Grid {
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
         filter.TextChanged += (_, _) => Apply();
+        Lifetime.OwnAll(this, confirmDialog);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }

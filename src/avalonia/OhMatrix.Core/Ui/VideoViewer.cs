@@ -17,7 +17,7 @@ namespace OhMatrix.Core.Ui;
 /// The video of a message in the app: over a near-black backdrop, the picture fitted to the window with a play or pause button, a bar to see
 /// and change where it is, and the time. A press on the picture plays or pauses; Esc, the cross or a press outside closes it.
 /// </summary>
-public sealed class VideoViewer {
+public sealed class VideoViewer : IOverlay {
     private OverlayLayer? layer;
     private MediaPlayer? player;
     private WriteableBitmap? bitmap;

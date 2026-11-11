@@ -23,7 +23,7 @@ public sealed record MenuItem(
 /// the other side when its own has not room, is clamped inside the window and scrolls when neither side has room for all of it. Rows are 36 high
 /// (more when a long name goes on a second line), the checked one has a check mark, and the one under the pointer is tinted.
 /// </summary>
-public sealed class Menu {
+public sealed class Menu : IOverlay {
     private const double Row = 36;
     private const double DefaultWidth = 220;
     private const double Margin = 8;

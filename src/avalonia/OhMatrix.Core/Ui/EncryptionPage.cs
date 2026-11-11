@@ -42,6 +42,8 @@ public sealed class EncryptionPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
+        Lifetime.OwnAll(this, RecoveryPrompt, SetupPrompt, KeyDialog,
+            ResetDialog);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }

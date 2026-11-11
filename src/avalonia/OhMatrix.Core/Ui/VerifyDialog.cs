@@ -13,7 +13,7 @@ namespace OhMatrix.Core.Ui;
 /// The verification with another session, as a dialog over whatever page is open (<c>VerifyDialog</c> of the React Native app): a request that came in
 /// to accept or decline, the wait for the other side, the seven pictures to compare, and the end.
 /// </summary>
-public sealed class VerifyDialog {
+public sealed class VerifyDialog : IOverlay {
     private readonly AppController controller;
     private readonly Control owner;
     private VerifyFlow? shown;
@@ -161,5 +161,10 @@ public sealed class VerifyDialog {
         }
 
         return panel;
+    }
+
+    public void Close()
+    {
+        Dialog.Close();
     }
 }

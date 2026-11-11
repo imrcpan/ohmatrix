@@ -222,4 +222,64 @@ public class AccountManagerTests {
         Assert.Equal(before, second.Store.Watchers);
         Assert.True(first.Store.Watchers > before + 10);
     }
+
+    [AvaloniaFact]
+    public async Task
+        Dialogs_left_open_close_and_the_old_page_can_be_collected()
+    {
+        var (manager, _, _) = Make("@a:s", "@b:s");
+        await manager.Start();
+        var root = new AppRoot(manager, "s", () => false);
+        var window = new Avalonia.Controls.Window {
+            Content = root,
+            Width = 1000,
+            Height = 700,
+        };
+        window.Show();
+        var old = OpenDialogsAndSwitch(manager, root, window);
+        for (var i = 0; i < 4; i++) {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        Assert.False(old.TryGetTarget(out _));
+        GC.KeepAlive(root);
+        GC.KeepAlive(window);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(
+        System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference<MainScreen> OpenDialogsAndSwitch(
+        AccountManager manager, AppRoot root, Avalonia.Controls.Window window)
+    {
+        var colors = OhMatrix.Core.Theming.Themes.Get("light")!.Colors;
+        var screen = Assert.IsType<MainScreen>(root.Page);
+        var layer = Avalonia.Controls.Primitives.OverlayLayer
+            .GetOverlayLayer(window)!;
+        var baseline = layer.Children.Count;
+
+        // A dialog of a chat, a prompt of the explore page and a menu of the
+        // settings are open when the account is switched.
+        screen.Wide.GroupDialog.Show(window, colors, "t");
+        screen.ExploreScreen.AddPrompt.Show(window, colors, "en", "t", "m", [],
+            "ok", _ => Task.CompletedTask);
+        screen.SettingsScreen.DownloadMenu.Show(screen.SettingsScreen, window,
+        [
+            new MenuItem("a", () => {
+            })
+        ]);
+        Assert.True(layer.Children.Count >= baseline + 3);
+
+        var chooser = new AccountsPage(manager.Current);
+        chooser.Switch(manager.Accounts[1]);
+        Lifetime.Release(chooser);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.False(screen.Wide.GroupDialog.IsOpen);
+        Assert.False(screen.ExploreScreen.AddPrompt.Dialog.IsOpen);
+        Assert.False(screen.SettingsScreen.DownloadMenu.IsOpen);
+        Assert.Equal(baseline, layer.Children.Count);
+        return new WeakReference<MainScreen>(screen);
+    }
 }

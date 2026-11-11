@@ -15,7 +15,7 @@ namespace OhMatrix.Core.Ui;
 /// then asks once more, listing only the ones ticked, all still ticked, so a wrong one can be taken off; Forward there sends. If some chats could not
 /// be sent to, the dialog stays with them and says how many.
 /// </summary>
-public sealed class ForwardDialog {
+public sealed class ForwardDialog : IOverlay {
     private readonly AppController controller;
     private readonly Dialog dialog = new();
     private readonly SearchField filter = new();

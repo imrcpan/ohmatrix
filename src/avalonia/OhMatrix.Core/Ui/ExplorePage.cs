@@ -82,6 +82,7 @@ public sealed class ExplorePage : Grid {
             cardWidth = width;
             Apply();
         };
+        Lifetime.OwnAll(this, confirm, AddPrompt, Full);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
@@ -187,7 +188,17 @@ public sealed class ExplorePage : Grid {
     }
 
     private RoomCardDialog? card;
-    public RoomCardDialog JoinCard => card ??= new RoomCardDialog(controller);
+
+    public RoomCardDialog JoinCard {
+        get {
+            if (card is null) {
+                card = new RoomCardDialog(controller);
+                Lifetime.Own(this, card);
+            }
+
+            return card;
+        }
+    }
 
     private void Apply()
     {

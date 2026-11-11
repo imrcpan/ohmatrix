@@ -17,7 +17,7 @@ public sealed record PromptField(
 /// A small form in a <see cref="Dialog"/> (<c>PromptDialog</c>): text fields, a confirm button that is ready when every field that is not optional is
 /// filled and that may fail (the reason is shown under the fields), and Cancel. The button works while the confirmation runs.
 /// </summary>
-public sealed class PromptDialog {
+public sealed class PromptDialog : IOverlay {
     private readonly Dialog dialog = new();
     private readonly List<TextField> fields = [];
     private readonly PrimaryButton confirm = new();

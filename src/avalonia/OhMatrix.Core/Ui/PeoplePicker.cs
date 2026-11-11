@@ -14,7 +14,7 @@ namespace OhMatrix.Core.Ui;
 /// A dialog to find people in the user directory and pick one or several (the picker of the invite and new chat dialogs): a search field, the
 /// people found with a mark on the chosen ones, and a button that takes them. A user id typed in full is offered as it is.
 /// </summary>
-public sealed class PeoplePicker {
+public sealed class PeoplePicker : IOverlay {
     private readonly AppController controller;
     private readonly Dialog dialog = new();
     private readonly SearchField search = new();
@@ -289,5 +289,10 @@ public sealed class PeoplePicker {
             busy = false;
             Render();
         }
+    }
+
+    public void Close()
+    {
+        dialog.Close();
     }
 }

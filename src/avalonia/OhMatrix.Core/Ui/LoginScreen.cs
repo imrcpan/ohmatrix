@@ -116,6 +116,7 @@ public sealed class LoginScreen : Grid {
         zoom = new ZoomPicker(controller, this, true, time);
         Lifetime.Own(this, zoom);
         zoomButton.Click += (_, _) => zoom.Open(zoomButton);
+        Lifetime.OwnAll(this, languageMenu);
         Lifetime.Watch(this, controller, OnStateChanged);
         Apply();
     }

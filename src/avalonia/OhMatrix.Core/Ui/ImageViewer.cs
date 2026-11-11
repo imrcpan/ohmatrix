@@ -12,7 +12,7 @@ namespace OhMatrix.Core.Ui;
 /// The full-size picture (<c>ImageViewer</c>): over a near-black backdrop, fitted to the window, zoomed with the wheel (about the pointer) or a
 /// double press, moved by dragging when zoomed, and closed with Esc, a press outside the picture or the cross.
 /// </summary>
-public sealed class ImageViewer {
+public sealed class ImageViewer : IOverlay {
     public const double MaxZoom = 8;
 
     private OverlayLayer? layer;

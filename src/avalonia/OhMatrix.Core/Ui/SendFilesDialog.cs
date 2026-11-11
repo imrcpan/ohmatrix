@@ -8,7 +8,7 @@ using OhMatrix.Core.State;
 namespace OhMatrix.Core.Ui;
 
 /// <summary>Asks before anything dropped on a chat is uploaded, listing what would be sent (<c>SendFilesDialog</c>): up to five files with their kind and size, and how many more.</summary>
-public sealed class SendFilesDialog {
+public sealed class SendFilesDialog : IOverlay {
     public const int MaxRows = 5;
 
     private readonly AppController controller;
@@ -122,5 +122,10 @@ public sealed class SendFilesDialog {
                 ? T("send.files.total", ("size", Format.Bytes(sizes.Sum())))
                 : null,
             list, yes, no);
+    }
+
+    public void Close()
+    {
+        dialog.Close();
     }
 }

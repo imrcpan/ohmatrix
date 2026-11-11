@@ -11,6 +11,13 @@ namespace OhMatrix.Core.Ui;
 /// go stayed alive with everything it held, and went on drawing for nobody.
 /// </summary>
 public static class Lifetime {
+    /// <summary>Owns each of <paramref name="children"/>: see <see cref="Own(object, object?)"/>.</summary>
+    public static void OwnAll(object owner, params object?[] children)
+    {
+        foreach (var child in children)
+            Own(owner, child);
+    }
+
     private static readonly ConditionalWeakTable<object, List<Action>>
         Cleanups =
             new();
@@ -84,6 +91,10 @@ public static class Lifetime {
             }
         }
 
+        // A dialog or a menu hangs on the overlay of the window and not on
+        // the page, so the tree does not reach it: it is closed here.
+        if (root is IOverlay overlay)
+            overlay.Close();
         if (cleanups is not null)
             foreach (var cleanup in cleanups)
                 cleanup();

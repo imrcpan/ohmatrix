@@ -14,7 +14,7 @@ namespace OhMatrix.Core.Ui;
 /// the other person's bubble, without borders. A transparent layer only catches the click-away. It opens right and down, left and up when it would
 /// not fit; the corner at the pointer stays tight, like a bubble's tail.
 /// </summary>
-public sealed class MessageMenu {
+public sealed class MessageMenu : IOverlay {
     private const double MenuWidth = 240;
     private const double EmojiSize = 36;
     private const double Row = 36;

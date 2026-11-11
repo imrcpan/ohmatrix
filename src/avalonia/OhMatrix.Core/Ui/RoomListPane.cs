@@ -160,6 +160,7 @@ public sealed class RoomListPane : Grid {
         Lifetime.Stop(this, ticker);
         plus.Click += (_, _) => OpenAddMenu();
         search.TextChanged += (_, _) => Apply();
+        Lifetime.OwnAll(this, addMenu, prompt, People, RowMenu);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }

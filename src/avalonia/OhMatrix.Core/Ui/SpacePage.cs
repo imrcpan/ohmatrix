@@ -51,6 +51,7 @@ public sealed class SpacePage : Grid {
         };
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
+        Lifetime.OwnAll(this, confirm, SpaceMenu, RoomMenu, SpaceDialog);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
@@ -98,7 +99,17 @@ public sealed class SpacePage : Grid {
     }
 
     private RoomCardDialog? card;
-    public RoomCardDialog Card => card ??= new RoomCardDialog(controller);
+
+    public RoomCardDialog Card {
+        get {
+            if (card is null) {
+                card = new RoomCardDialog(controller);
+                Lifetime.Own(this, card);
+            }
+
+            return card;
+        }
+    }
 
     private async Task JoinChild(SpaceChild room)
     {

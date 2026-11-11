@@ -10,7 +10,7 @@ namespace OhMatrix.Core.Ui;
 /// keep it with a countdown, which goes back by itself when the time is up. It is made for one place (the sign-in page, the settings) and watches
 /// the state, so the dialog is there whichever page started the trial.
 /// </summary>
-public sealed class ZoomPicker {
+public sealed class ZoomPicker : IOverlay {
     public static readonly double[] Scales = [
         0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3
     ];
@@ -107,5 +107,13 @@ public sealed class ZoomPicker {
             message, keep,
             revert);
         countdown.Start();
+    }
+
+    // The page is thrown away: what hangs on the window goes. The trial is
+    // the state of the account and stays as it is.
+    public void Close()
+    {
+        Menu.Close();
+        dialog.Close();
     }
 }

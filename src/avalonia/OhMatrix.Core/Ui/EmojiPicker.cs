@@ -13,7 +13,7 @@ namespace OhMatrix.Core.Ui;
 /// The emoji grid (<c>EmojiPicker</c>): a search field, the emoji of a group in rows of 36 px tiles, and a bar of group tabs below with the recent
 /// ones first. A press on an emoji hands it over and shuts the picker. It floats above the anchor, at its left edge.
 /// </summary>
-public sealed class EmojiPicker {
+public sealed class EmojiPicker : IOverlay {
     private const double PickerWidth = 320;
     private const double PickerHeight = 340;
     private const double Margin = 8;
