@@ -16,6 +16,9 @@ public class App : Application {
     public override void Initialize()
     {
         AppStyles.Apply(this);
+#if DEBUG
+        this.AttachDeveloperTools();
+#endif
     }
 
     public override void OnFrameworkInitializationCompleted()

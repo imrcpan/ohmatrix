@@ -25,6 +25,11 @@
         <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
     </ItemGroup>
 
+    <!-- F12 in Debug (the JIT build) opens the Avalonia developer tools (the global tool avdt); Release is AOT and does not take the package. -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="../OhMatrix.Core/OhMatrix.Core.csproj" />
         <ProjectReference Include="../OhMatrix.Engine/OhMatrix.Engine.csproj" />

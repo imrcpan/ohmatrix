@@ -17,8 +17,7 @@ public sealed class ProfilePage : Grid {
     private readonly StackPanel content = new();
 
     private readonly Border bar = new() {
-        Height = 56,
-        BorderThickness = new Thickness(0, 0, 0, 1)
+        Height = 44
     };
 
     // Registered once for the type: a handler made in the constructor
@@ -128,7 +127,7 @@ public sealed class ProfilePage : Grid {
     internal static Border NavRow(Theming.ColorTokens c, string glyph,
         string label, Action open,
         double top, string? value = null, bool chevron = true,
-        bool danger = false)
+        bool danger = false, bool flat = false)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -179,12 +178,18 @@ public sealed class ProfilePage : Grid {
             grid.Children.Add(arrow);
         }
 
+        // Flat: the rows follow each other with no gap, and have no
+        // background of their own (the page behind them shows).
         var row = new Border {
-            Margin = new Thickness(12, top, 12, 0),
-            Padding = new Thickness(14, 0),
+            Margin = flat ? new Thickness(0) : new Thickness(12, top, 12, 0),
+            Padding = new Thickness(flat ? 26 : 14, 0),
             Height = 48,
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = new SolidColorBrush(c.BgSecondary),
+            CornerRadius = flat
+                ? new CornerRadius(0)
+                : new CornerRadius(Radius.Control),
+            Background = flat
+                ? Brushes.Transparent
+                : new SolidColorBrush(c.BgSecondary),
             Cursor = chevron ? new Cursor(StandardCursorType.Hand) : null,
             Child = grid,
         };
@@ -192,8 +197,46 @@ public sealed class ProfilePage : Grid {
             e.Handled = true;
             open();
         };
+        if (flat)
+            Hover(row, c);
         Avalonia.Automation.AutomationProperties.SetName(row, label);
         return row;
+    }
+
+    /// <summary>The row takes the colour of a hovered row while the pointer is over it.</summary>
+    internal static void Hover(Border row, Theming.ColorTokens c)
+    {
+        var over = new SolidColorBrush(c.Hover);
+        row.PointerEntered += (_, _) => row.Background = over;
+        row.PointerExited += (_, _) => row.Background = Brushes.Transparent;
+    }
+
+    // The title, and the cross at the top right of the card that closes it:
+    // no back arrow and no line under the bar.
+    private void FillBar(Theming.ColorTokens c)
+    {
+        var close = new IconButton("close", controller.T("cancel"), 22, 36) {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0),
+        };
+        close.Click += (_, _) => controller.OpenSidebarPage(SidebarPage.Chats);
+        var title = new TextBlock {
+            Text = controller.T("profile"),
+            FontSize = 17,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.Text),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(26, 0, 0, 0),
+        };
+        var row = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto")
+        };
+        row.Children.Add(title);
+        Grid.SetColumn(close, 1);
+        row.Children.Add(close);
+        bar.BorderThickness = new Thickness(0);
+        bar.Child = row;
     }
 
     private void Apply()
@@ -201,9 +244,7 @@ public sealed class ProfilePage : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
-        bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, controller.T("profile"), controller.T("chats"),
-            () => controller.OpenSidebarPage(SidebarPage.Chats));
+        FillBar(c);
 
         var id = s.UserId ?? "";
         var shown = s.Profile?.DisplayName is { Length: > 0 } dn
@@ -213,7 +254,7 @@ public sealed class ProfilePage : Grid {
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
             Spacing = 2,
-            Margin = new Thickness(0, 12, 0, 4),
+            Margin = new Thickness(0, 0, 0, 4),
         };
         var mine = new Avatar(id, shown.Length == 0 ? "?" : shown, 72) {
             HorizontalAlignment = HorizontalAlignment.Center
@@ -255,38 +296,44 @@ public sealed class ProfilePage : Grid {
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(26, 18, 12, 0),
+            Margin = new Thickness(26, 14, 12, 4),
         });
         content.Children.Add(NavRow(c, "camera", controller.T("changePhoto"),
-            ChangePhoto,
-            6));
-        NameRow = NavRow(c, "user", controller.T("name"), AskName, 12, shown);
+            ChangePhoto, 0, flat: true));
+        NameRow = NavRow(c, "user", controller.T("name"), AskName, 0, shown,
+            flat: true);
         content.Children.Add(NameRow);
-        StatusRow = NavRow(c, "smile", controller.T("status"), AskStatus, 12,
-            s.Profile?.Status ?? controller.T("status.empty"));
+        StatusRow = NavRow(c, "smile", controller.T("status"), AskStatus, 0,
+            s.Profile?.Status ?? controller.T("status.empty"), flat: true);
         content.Children.Add(StatusRow);
         content.Children.Add(NavRow(c, "hash", controller.T("userId"), () => {
-        }, 12, id, false));
+        }, 0, id, false, flat: true));
         content.Children.Add(NavRow(c, "info", controller.T("homeserver"),
             () => {
-            }, 12,
-            s.Homeserver ?? "", false));
+            }, 0,
+            s.Homeserver ?? "", false, flat: true));
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
             FontSize = 13,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(26, 18, 12, 0),
+            Margin = new Thickness(26, 14, 12, 4),
         });
         content.Children.Add(NavRow(c, "lock", controller.T("encryption"),
-            () => controller.OpenSidebarPage(SidebarPage.Encryption), 6,
-            EncryptionPage.Words(s.Security, k => controller.T(k))));
+            () => controller.OpenSidebarPage(SidebarPage.Encryption), 0,
+            EncryptionPage.Words(s.Security, k => controller.T(k)),
+            flat: true));
         if (controller.Accounts != null)
             content.Children.Add(NavRow(c, "user",
                 controller.T("switchAccount"),
-                () => controller.OpenSidebarPage(SidebarPage.Accounts), 6));
+                () => controller.OpenSidebarPage(SidebarPage.Accounts), 0,
+                flat: true));
         content.Children.Add(NavRow(c, "gear", controller.T("settings"),
-            () => controller.OpenSidebarPage(SidebarPage.Settings), 20));
+            () => controller.OpenSidebarPage(SidebarPage.Settings), 0,
+            flat: true));
+        content.Children.Add(new Border {
+            Height = 16
+        });
     }
 }

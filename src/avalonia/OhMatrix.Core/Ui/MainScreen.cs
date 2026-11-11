@@ -71,7 +71,14 @@ public sealed class MainScreen : Grid {
 
     private readonly VerifyDialog verifyDialog;
     private readonly CallScreen callScreen;
+
     private readonly TopNotice notice;
+
+    // The profile is a dialog: a dim backdrop (a press on it closes) and a
+    // card in the middle.
+    private readonly Grid profileHost = new();
+    private readonly Border profileBackdrop = new();
+    private readonly Border profileCard = new();
 
     // Registered once for the type: a handler made in the constructor
     // stays in the property's observers for good and runs once for each
@@ -151,6 +158,29 @@ public sealed class MainScreen : Grid {
         Children.Add(narrowChat);
         Grid.SetColumnSpan(infoNarrow, 4);
         Children.Add(infoNarrow);
+        // The profile is a dialog over the window, not a page of the
+        // left pane: the pane keeps the list under it.
+        Grid.SetColumnSpan(profileHost, 4);
+        profileBackdrop.PointerPressed += (_, e) => {
+            e.Handled = true;
+            controller.OpenSidebarPage(SidebarPage.Chats);
+        };
+        profileCard.Child = profilePage;
+        profileCard.CornerRadius = new CornerRadius(16);
+        profileCard.ClipToBounds = true;
+        profileCard.HorizontalAlignment = HorizontalAlignment.Center;
+        profileCard.VerticalAlignment = VerticalAlignment.Center;
+        profileHost.Children.Add(profileBackdrop);
+        profileHost.Children.Add(profileCard);
+        profileHost.IsVisible = false;
+        profileHost.Focusable = true;
+        profileHost.KeyDown += (_, e) => {
+            if (e.Key != Avalonia.Input.Key.Escape)
+                return;
+            e.Handled = true;
+            controller.OpenSidebarPage(SidebarPage.Chats);
+        };
+        Children.Add(profileHost);
         Grid.SetColumnSpan(callScreen, 4);
         Children.Add(callScreen);
         notice = new TopNotice(controller);
@@ -242,6 +272,48 @@ public sealed class MainScreen : Grid {
                !Equals(seenFont, Fonts.System);
     }
 
+    private Avalonia.Controls.Window? settingsWindow;
+
+    private Control? SettingsContent(SidebarPage page)
+    {
+        return page switch {
+            SidebarPage.Settings => settingsPage,
+            _ => null,
+        };
+    }
+
+    // Settings and everything reached from it live in a window of their own.
+    private void ShowSettings(Control content)
+    {
+        if (settingsWindow == null) {
+            var window = new Avalonia.Controls.Window {
+                Title = controller.T("settings"),
+                Width = 480,
+                Height = 640,
+                MinWidth = 360,
+                MinHeight = 320,
+                WindowStartupLocation = Avalonia.Controls.WindowStartupLocation
+                    .CenterOwner,
+            };
+            ThemeScope.SetColors(window, ThemeScope.GetColors(this));
+            window.Closed += (_, _) => {
+                window.Content = null;
+                settingsWindow = null;
+                if (SettingsContent(controller.Store.Value.SidebarPage) != null)
+                    controller.OpenSidebarPage(SidebarPage.Chats);
+            };
+            settingsWindow = window;
+            Lifetime.OnRelease(this, window.Close);
+            if (TopLevel.GetTopLevel(this) is Avalonia.Controls.Window owner)
+                window.Show(owner);
+            else
+                window.Show();
+        }
+
+        if (!ReferenceEquals(settingsWindow.Content, content))
+            settingsWindow.Content = content;
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
@@ -271,13 +343,27 @@ public sealed class MainScreen : Grid {
         // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
         infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
         infoNarrow.Showing = infoNarrow.IsVisible;
-        // The profile takes the place of the list (what opens from it is the left pane's, whatever its width).
+        // What opens from the profile is a page of the left pane, whatever its width.
+        var profileOpen = s.SidebarPage == SidebarPage.Profile;
+        if (profileOpen && !profileHost.IsVisible)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                profileHost.Focus());
+        profileHost.IsVisible = profileOpen;
+        profileBackdrop.Background = new SolidColorBrush(c.Overlay);
+        profileCard.Background = new SolidColorBrush(c.Bg);
+        profileCard.Width = Math.Max(280, Math.Min(440, Bounds.Width - 32));
+        profileCard.Height = Math.Max(320, Math.Min(640, Bounds.Height - 48));
+        var inSettings = SettingsContent(s.SidebarPage);
+        if (inSettings != null)
+            ShowSettings(inSettings);
+        else
+            settingsWindow?.Close();
+        if (settingsWindow != null)
+            ThemeScope.SetColors(settingsWindow, c);
         listHost.Child = s.SidebarPage switch {
-            SidebarPage.Profile => profilePage,
             SidebarPage.Theme => themePage,
             SidebarPage.Language => languagePage,
             SidebarPage.Explore => explorePage,
-            SidebarPage.Settings => settingsPage,
             SidebarPage.Sessions => sessionsPage,
             SidebarPage.Encryption => encryptionPage,
             SidebarPage.Space => spacePage,

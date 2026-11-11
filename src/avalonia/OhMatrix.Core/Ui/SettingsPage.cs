@@ -21,11 +21,6 @@ public sealed class SettingsPage : Grid {
     private Control zoomAnchor = new Border();
     private readonly StackPanel content = new();
 
-    private readonly Border bar = new() {
-        Height = 56,
-        BorderThickness = new Thickness(0, 0, 0, 1)
-    };
-
     // Registered once for the type: a handler made in the constructor
     // stays in the property's observers for good and runs once for each
     // control that was ever made.
@@ -40,14 +35,11 @@ public sealed class SettingsPage : Grid {
         this.controller = controller;
         zoom = new ZoomPicker(controller, this, false);
         Lifetime.Own(this, zoom);
-        RowDefinitions = new RowDefinitions("Auto,*");
-        Children.Add(bar);
         var scroller = new ScrollViewer {
             Content = content,
             HorizontalScrollBarVisibility =
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
-        Grid.SetRow(scroller, 1);
         Children.Add(scroller);
         Lifetime.OwnAll(this, confirm, DownloadMenu);
         Lifetime.Watch(this, controller, _ => Apply());
@@ -139,7 +131,7 @@ public sealed class SettingsPage : Grid {
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(26, 6, 20, 0),
+            Margin = new Thickness(26, 2, 20, 4),
         });
     }
 
@@ -151,7 +143,7 @@ public sealed class SettingsPage : Grid {
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(26, 18, 12, 0),
+            Margin = new Thickness(26, 14, 12, 4),
         });
     }
 
@@ -167,9 +159,6 @@ public sealed class SettingsPage : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
-        bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, controller.T("settings"), controller.T("profile"),
-            () => controller.OpenSidebarPage(SidebarPage.Profile));
         content.Children.Clear();
 
         Group(c, controller.T("notifications"));
@@ -177,14 +166,14 @@ public sealed class SettingsPage : Grid {
             NotificationsToggle,
             s.Prefs.Notifications, on => controller.SetPreferences(p => p with {
                 Notifications = on
-            }), 6));
+            }), 0));
         if (s.Prefs.Notifications) {
             content.Children.Add(ToggleRow(c, controller.T("notif.preview"),
                 PreviewToggle,
                 s.Prefs.NotificationPreview, on =>
                     controller.SetPreferences(p => p with {
                         NotificationPreview = on
-                    }), 12));
+                    }), 0));
         }
 
         content.Children.Add(new TextBlock {
@@ -193,7 +182,7 @@ public sealed class SettingsPage : Grid {
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(26, 6, 20, 0),
+            Margin = new Thickness(26, 2, 20, 4),
         });
 
         Group(c, controller.T("appearance"));
@@ -201,54 +190,54 @@ public sealed class SettingsPage : Grid {
                        ?? Strings.Languages[0];
         content.Children.Add(ProfilePage.NavRow(c, "globe",
             controller.T("language"),
-            () => controller.OpenSidebarPage(SidebarPage.Language), 6,
-            language.Label));
+            () => controller.OpenSidebarPage(SidebarPage.Language), 0,
+            language.Label, flat: true));
         var zoomRow = ProfilePage.NavRow(c, "zoomIn", controller.T("zoom"),
-            () => zoom.Open(zoomAnchor), 12,
-            ZoomPicker.Percent(s.Prefs.UiScale));
+            () => zoom.Open(zoomAnchor), 0,
+            ZoomPicker.Percent(s.Prefs.UiScale), flat: true);
         zoomAnchor = zoomRow;
         content.Children.Add(zoomRow);
         Footer(c, controller.T("zoom.footer"));
         content.Children.Add(ProfilePage.NavRow(c, "font", controller.T("font"),
-            () => controller.OpenSidebarPage(SidebarPage.Font), 12,
-            s.Prefs.Font ?? controller.T("font.system")));
+            () => controller.OpenSidebarPage(SidebarPage.Font), 0,
+            s.Prefs.Font ?? controller.T("font.system"), flat: true));
         DownloadRow = ProfilePage.NavRow(c, "download",
             controller.T("downloadFolder"),
-            OpenDownloadMenu, 12,
+            OpenDownloadMenu, 0,
             s.Prefs.DownloadFolder is { Length: > 0 } dl
                 ? Path.GetFileName(dl.TrimEnd('/', '\\'))
-                : controller.T("downloadFolder.default"));
+                : controller.T("downloadFolder.default"), flat: true);
         content.Children.Add(DownloadRow);
         var themeName = s.Prefs.Theme == Themes.System
             ? controller.T("theme.system")
             : Themes.Get(s.Prefs.Theme)?.LabelFor(s.Locale) ?? s.Prefs.Theme;
         content.Children.Add(ProfilePage.NavRow(c, "palette",
             controller.T("theme"),
-            () => controller.OpenSidebarPage(SidebarPage.Theme), 12,
-            themeName));
+            () => controller.OpenSidebarPage(SidebarPage.Theme), 0,
+            themeName, flat: true));
         content.Children.Add(ToggleRow(c, controller.T("ownAccent"),
             AccentToggle,
             s.Prefs.OwnBubbleAccent,
             on => controller.SetPreferences(p => p with {
                 OwnBubbleAccent = on
-            }), 12));
+            }), 0));
         Footer(c, controller.T("ownAccent.footer"));
 
         Group(c, controller.T("advanced"));
         content.Children.Add(ProfilePage.NavRow(c, "gear",
             controller.T("advanced.options"),
-            () => controller.OpenSidebarPage(SidebarPage.Advanced), 6));
+            () => controller.OpenSidebarPage(SidebarPage.Advanced), 0,
+            flat: true));
 
         Group(c, controller.T("account"));
         content.Children.Add(ProfilePage.NavRow(c, "device",
             controller.T("sessions"),
-            () => controller.OpenSidebarPage(SidebarPage.Sessions), 6));
+            () => controller.OpenSidebarPage(SidebarPage.Sessions), 0,
+            flat: true));
         var row = new Border {
-            Margin = new Thickness(12, 12, 12, 0),
-            Padding = new Thickness(14, 0),
+            Padding = new Thickness(26, 0),
             Height = 48,
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = new SolidColorBrush(c.BgSecondary),
+            Background = Brushes.Transparent,
             Cursor =
                 new Avalonia.Input.Cursor(
                     Avalonia.Input.StandardCursorType.Hand),
@@ -260,6 +249,7 @@ public sealed class SettingsPage : Grid {
                 VerticalAlignment = VerticalAlignment.Center,
             },
         };
+        ProfilePage.Hover(row, c);
         row.PointerPressed += (_, e) => {
             e.Handled = true;
             AskSignOut();
@@ -272,11 +262,11 @@ public sealed class SettingsPage : Grid {
         Group(c, controller.T("about"));
         Footer(c, controller.T("about.feedback"));
         content.Children.Add(ProfilePage.NavRow(c, "external", "GitHub",
-            OpenRepository, 6,
-            Repository.Replace("https://github.com/", "")));
+            OpenRepository, 0,
+            Repository.Replace("https://github.com/", ""), flat: true));
         content.Children.Add(ProfilePage.NavRow(c, "about", "OhMatrix", () => {
-            }, 12,
-            $"{controller.T("version")} {Version}", false));
+            }, 0,
+            $"{controller.T("version")} {Version}", false, flat: true));
         content.Children.Add(new Border {
             Height = 24
         });
@@ -312,13 +302,13 @@ public sealed class SettingsPage : Grid {
         if (toggle.Parent is Panel old)
             old.Children.Remove(toggle);
         grid.Children.Add(toggle);
-        return new Border {
-            Margin = new Thickness(12, top, 12, 0),
-            Padding = new Thickness(14, 0),
+        var row = new Border {
+            Padding = new Thickness(26, 0),
             Height = 48,
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = new SolidColorBrush(c.BgSecondary),
+            Background = Brushes.Transparent,
             Child = grid,
         };
+        ProfilePage.Hover(row, c);
+        return row;
     }
 }
