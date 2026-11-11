@@ -139,10 +139,10 @@ public sealed class SettingsPage : Grid {
     {
         content.Children.Add(new TextBlock {
             Text = title,
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
+            Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });
     }
@@ -162,18 +162,20 @@ public sealed class SettingsPage : Grid {
         content.Children.Clear();
 
         Group(c, controller.T("notifications"));
-        content.Children.Add(ToggleRow(c, controller.T("notif.messages"),
+        content.Children.Add(ToggleRow(c, "bell",
+            controller.T("notif.messages"),
             NotificationsToggle,
             s.Prefs.Notifications, on => controller.SetPreferences(p => p with {
                 Notifications = on
-            }), 0));
+            })));
         if (s.Prefs.Notifications) {
-            content.Children.Add(ToggleRow(c, controller.T("notif.preview"),
+            content.Children.Add(ToggleRow(c, "mailUnread",
+                controller.T("notif.preview"),
                 PreviewToggle,
                 s.Prefs.NotificationPreview, on =>
                     controller.SetPreferences(p => p with {
                         NotificationPreview = on
-                    }), 0));
+                    })));
         }
 
         content.Children.Add(new TextBlock {
@@ -215,12 +217,12 @@ public sealed class SettingsPage : Grid {
             controller.T("theme"),
             () => controller.OpenSidebarPage(SidebarPage.Theme), 0,
             themeName, flat: true));
-        content.Children.Add(ToggleRow(c, controller.T("ownAccent"),
+        content.Children.Add(ToggleRow(c, "palette", controller.T("ownAccent"),
             AccentToggle,
             s.Prefs.OwnBubbleAccent,
             on => controller.SetPreferences(p => p with {
                 OwnBubbleAccent = on
-            }), 0));
+            })));
         Footer(c, controller.T("ownAccent.footer"));
 
         Group(c, controller.T("advanced"));
@@ -234,41 +236,26 @@ public sealed class SettingsPage : Grid {
             controller.T("sessions"),
             () => controller.OpenSidebarPage(SidebarPage.Sessions), 0,
             flat: true));
-        var row = new Border {
-            Padding = new Thickness(26, 0),
-            Height = 48,
-            Background = Brushes.Transparent,
-            Cursor =
-                new Avalonia.Input.Cursor(
-                    Avalonia.Input.StandardCursorType.Hand),
-            Child = new TextBlock {
-                Text = controller.T("signOut"),
-                FontSize = 16,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.Danger),
-                VerticalAlignment = VerticalAlignment.Center,
-            },
-        };
-        ProfilePage.Hover(row, c);
-        row.PointerPressed += (_, e) => {
-            e.Handled = true;
-            AskSignOut();
-        };
-        Avalonia.Automation.AutomationProperties.SetName(row,
-            controller.T("signOut"));
+        var row = ProfilePage.NavRow(c, "signOut", controller.T("signOut"),
+            AskSignOut, 0, chevron: false, danger: true, flat: true);
         SignOutRow = row;
         content.Children.Add(row);
 
         Group(c, controller.T("about"));
-        Footer(c, controller.T("about.feedback"));
         content.Children.Add(ProfilePage.NavRow(c, "external", "GitHub",
             OpenRepository, 0,
             Repository.Replace("https://github.com/", ""), flat: true));
+        Footer(c, controller.T("about.feedback"));
         content.Children.Add(ProfilePage.NavRow(c, "about", "OhMatrix", () => {
             }, 0,
             $"{controller.T("version")} {Version}", false, flat: true));
-        content.Children.Add(new Border {
-            Height = 24
+        content.Children.Add(new TextBlock {
+            Text = "OhMatrix · GPL-3.0",
+            FontSize = 12,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 24, 0, 32),
         });
     }
 
@@ -278,9 +265,8 @@ public sealed class SettingsPage : Grid {
 
     private readonly Dictionary<Toggle, Action<bool>> toggled = [];
 
-    private Control ToggleRow(ColorTokens c, string label, Toggle toggle,
-        bool on,
-        Action<bool> change, double top)
+    private Control ToggleRow(ColorTokens c, string glyph, string label,
+        Toggle toggle, bool on, Action<bool> change)
     {
         toggle.IsOn = on;
         toggle.VerticalAlignment = VerticalAlignment.Center;
@@ -289,16 +275,25 @@ public sealed class SettingsPage : Grid {
             toggle.Changed += v => toggled[toggle](v);
         toggled[toggle] = change;
         var grid = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto")
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
-        grid.Children.Add(new TextBlock {
+        grid.Children.Add(new Icon {
+            Glyph = glyph,
+            Size = 21,
+            Color = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(0, 0, 14, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var text = new TextBlock {
             Text = label,
             FontSize = 16,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
-        });
-        Grid.SetColumn(toggle, 1);
+        };
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        Grid.SetColumn(toggle, 2);
         if (toggle.Parent is Panel old)
             old.Children.Remove(toggle);
         grid.Children.Add(toggle);
