@@ -14,7 +14,7 @@ public sealed class FontPage : Grid {
     private readonly SearchField search = new();
 
     private readonly StackPanel rows = new() {
-        Margin = new Thickness(12, 4, 12, 24),
+        Margin = new Thickness(0, 4, 0, 24),
         Spacing = 2
     };
 
@@ -86,7 +86,7 @@ public sealed class FontPage : Grid {
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(8, 12),
+                Margin = new Thickness(26, 12),
             });
     }
 
@@ -105,7 +105,7 @@ public sealed class FontPage : Grid {
         if (active) {
             var check = new Icon {
                 Glyph = "check",
-                Size = 20,
+                Size = 21,
                 Color = new SolidColorBrush(c.Accent),
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
             };
@@ -114,15 +114,13 @@ public sealed class FontPage : Grid {
         }
 
         var row = new Border {
-            Height = 40,
-            Padding = new Thickness(14, 0),
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = active
-                ? new SolidColorBrush(c.BgSecondary)
-                : Brushes.Transparent,
+            Height = 48,
+            Padding = new Thickness(26, 0),
+            Background = Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.Hand),
             Child = line,
         };
+        ProfilePage.Hover(row, c);
         row.PointerPressed += (_, e) => {
             e.Handled = true;
             controller.SetPreferences(p => p with {
