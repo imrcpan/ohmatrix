@@ -1,7 +1,17 @@
 import { createHmac } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 const HS = "http://localhost:8008";
+
+/**
+ * Where the dev server of the web app serves a source file of the repository, so that a test can import it in the page: /@fs/ and the
+ * path of the file, found from this file (`rel` is from the folder of the tests), so it holds in any checkout and on any system.
+ */
+function served(rel: string): string {
+  const file = fileURLToPath(new URL(rel, import.meta.url)).replace(/\\/g, "/");
+  return `/@fs${file.startsWith("/") ? "" : "/"}${file}`;
+}
 
 async function register(name: string) {
   const { nonce } = (await (await fetch(`${HS}/_synapse/admin/v1/register`)).json()) as { nonce: string };
@@ -219,7 +229,7 @@ test("the answer's video codec is one this browser can send: the offer's order s
       phone.close();
       return out;
     },
-    ["/@fs/home/prc/Desktop/oh-matrix/repo/src/packages/engine-js/src/calls.ts", "/@fs/home/prc/Desktop/oh-matrix/repo/src/packages/core/src/videoCodecs.ts"],
+    [served("../../packages/engine-js/src/calls.ts"), served("../../packages/core/src/videoCodecs.ts")],
   );
   if (r.skipped) test.skip(true, "this browser has no H264 to put first");
   else {
@@ -252,7 +262,7 @@ test("the codecs this browser encodes are found by trying: one that is listed an
     // Where nothing can be tried, nothing is taken away.
     const none = await m.probeEncodableVideoCodecs(["ZZZ"], 500);
     return { plain, lying, none };
-  }, "/@fs/home/prc/Desktop/oh-matrix/repo/src/packages/engine-js/src/videoProbe.ts");
+  }, served("../../packages/engine-js/src/videoProbe.ts"));
   expect(r.plain).toEqual(["VP8"]);
   expect(r.lying).toEqual(["VP8"]);
   expect(r.none).toEqual(["ZZZ"]);
