@@ -129,7 +129,7 @@ public sealed class PromptDialog : IOverlay {
 
     private async Task ConfirmAsync()
     {
-        if (busy || !Ready() || onConfirm is null)
+        if (busy || !Ready() || onConfirm == null)
             return;
         busy = true;
         error.IsVisible = false;

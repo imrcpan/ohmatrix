@@ -41,9 +41,9 @@ public static partial class ErrorMapping {
     public static EngineErrorCode Map(string? kind, string? code,
         bool fromServer, string text)
     {
-        if (kind is not null && ByKind.TryGetValue(kind, out var byKind))
+        if (kind != null && ByKind.TryGetValue(kind, out var byKind))
             return byKind;
-        if (code is not null && ByCode.TryGetValue(code, out var byCode))
+        if (code != null && ByCode.TryGetValue(code, out var byCode))
             return byCode;
         if (!fromServer && Network().IsMatch(text))
             return EngineErrorCode.Network;

@@ -73,7 +73,8 @@ public sealed class SessionsPage : Grid {
     /// <summary>Asks for the password to sign these sessions out.</summary>
     public void AskSignOut(IReadOnlyList<string> ids, bool all)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         confirm.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -96,12 +97,13 @@ public sealed class SessionsPage : Grid {
 
     private string LastActive(DeviceInfo d)
     {
-        if (d.LastSeenTs is not { } ts)
+        var ts = d.LastSeenTs;
+        if (ts == null)
             return controller.T("sessions.neverSeen");
-        var when = Format.Relative(ts, time.GetUtcNow(),
+        var when = Format.Relative(ts.Value, time.GetUtcNow(),
             controller.Store.Value.Locale);
         var text = controller.T("sessions.lastActive", ("when", when));
-        return d.LastSeenIp is { } ip ? text + " · " + ip : text;
+        return d.LastSeenIp != null ? text + " · " + d.LastSeenIp : text;
     }
 
     private void Apply()
@@ -121,7 +123,7 @@ public sealed class SessionsPage : Grid {
         PageBar.Fill(bar, c, controller.T("sessions"), controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));
         content.Children.Clear();
-        if (devices is null) {
+        if (devices == null) {
             content.Children.Add(new Spinner {
                 Size = 28,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -132,7 +134,7 @@ public sealed class SessionsPage : Grid {
 
         var current = devices.FirstOrDefault(d => d.Current);
         var others = devices.Where(d => !d.Current).ToList();
-        if (current is not null) {
+        if (current != null) {
             Caption(c, controller.T("sessions.thisDevice"));
             content.Children.Add(Card(c, current, null));
             // Whether this session is verified by the keys of the account;
@@ -237,7 +239,7 @@ public sealed class SessionsPage : Grid {
             Background = new SolidColorBrush(c.BgSecondary),
             Child = grid,
         };
-        if (press is not null) {
+        if (press != null) {
             card.Cursor = new Cursor(StandardCursorType.Hand);
             card.PointerPressed += (_, e) => {
                 e.Handled = true;

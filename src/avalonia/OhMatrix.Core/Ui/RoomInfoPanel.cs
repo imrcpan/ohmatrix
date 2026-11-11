@@ -91,7 +91,8 @@ public sealed class RoomInfoPanel : Grid {
         avatar.Cursor = new Cursor(StandardCursorType.Hand);
         avatar.PointerPressed += (_, e) => {
             e.Handled = true;
-            if (TopLevel.GetTopLevel(this) is { } window)
+            var window = TopLevel.GetTopLevel(this);
+            if (window != null)
                 Viewer.Show(window, controller.Pictures, source, name, null,
                     () => controller.SavePicture(window, source, name));
         };
@@ -134,7 +135,8 @@ public sealed class RoomInfoPanel : Grid {
     private async Task CopyAsync(string text)
     {
         try {
-            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard == null)
                 throw new InvalidOperationException();
             await clipboard.SetTextAsync(text);
             controller.ShowNotice(controller.T("copied"));
@@ -202,7 +204,8 @@ public sealed class RoomInfoPanel : Grid {
 
     private void AskMessage(RoomMemberInfo m)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var start = new PrimaryButton {
@@ -238,7 +241,8 @@ public sealed class RoomInfoPanel : Grid {
 
     private void AskBlock(RoomMemberInfo m)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var block = new PrimaryButton {
@@ -273,13 +277,14 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks for a picture file and makes it the picture of the room; the path can be given to skip the dialog.</summary>
     public async Task ChangePhoto(RoomSummary room, string? path = null)
     {
-        if (path is null) {
-            if (TopLevel.GetTopLevel(this) is not { } window)
+        if (path == null) {
+            var window = TopLevel.GetTopLevel(this);
+            if (window == null)
                 return;
             path = await FilePicker.PickImage(window);
         }
 
-        if (path is null)
+        if (path == null)
             return;
         try {
             await controller.SetRoomAvatar(room.Id, path);
@@ -295,7 +300,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks for a new group name.</summary>
     public void AskName(RoomSummary room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         EditPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -309,7 +315,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks for a new description.</summary>
     public void AskTopic(RoomSummary room, string? topic)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         EditPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -323,7 +330,8 @@ public sealed class RoomInfoPanel : Grid {
     public void OpenMemberMenu(Control anchor, RoomSummary room,
         RoomMemberInfo m)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var items = new List<MenuItem> {
             new(controller.T("member.view"), () => ViewMember(m), Icon: "user"),
@@ -361,7 +369,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks for the power level of a person, from 0 to the highest I hold.</summary>
     public void AskLevel(RoomSummary room, RoomMemberInfo m)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var details = controller.Store.Value.Details;
         var mine = details?.Members.FirstOrDefault(x =>
@@ -418,7 +427,8 @@ public sealed class RoomInfoPanel : Grid {
             if (details.Can.Ban)
                 line.PointerPressed += (_, e) => {
                     e.Handled = true;
-                    if (TopLevel.GetTopLevel(this) is { } window)
+                    var window = TopLevel.GetTopLevel(this);
+                    if (window != null)
                         BannedMenu.Show(line, window, [
                             new MenuItem(controller.T("unban"),
                                 () => _ =
@@ -434,7 +444,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks before a person is made an admin or moderator; a member is made at once.</summary>
     public void AskRole(RoomSummary room, RoomMemberInfo m, MemberRole role)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         if (role == MemberRole.Member) {
             _ = controller.SetMemberRole(room.Id, m.UserId, role);
@@ -459,7 +470,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks before a person is removed.</summary>
     public void AskRemove(RoomSummary room, RoomMemberInfo m)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -473,7 +485,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks before a person is banned, with the reason that may be given.</summary>
     public void AskBan(RoomSummary room, RoomMemberInfo m)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -487,7 +500,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Opens the search for people to invite to the room.</summary>
     public void AskInvite(RoomSummary room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         Invite.Show(window, ThemeScope.GetColors(this),
             controller.T("room.invite"),
@@ -502,7 +516,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks whether to leave the chat.</summary>
     public void AskLeave(RoomSummary room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
@@ -566,9 +581,9 @@ public sealed class RoomInfoPanel : Grid {
         IReadOnlyList<TimelineItem> timeline)
     {
         return [
-            .. timeline.Where(i => i.Image is not null).Reverse()
+            .. timeline.Where(i => i.Image != null).Reverse()
                 .Take(MediaShown).Select(i => (object)i.Image!),
-            .. timeline.Where(i => i.File is not null).Reverse()
+            .. timeline.Where(i => i.File != null).Reverse()
                 .Take(FilesShown).Select(i => (object)i.File!),
         ];
     }
@@ -586,7 +601,7 @@ public sealed class RoomInfoPanel : Grid {
         if (!sharedBuilt)
             return;
         var key = SharedKeyOf(state.Timeline);
-        if (sharedKey is not null && sharedKey.SequenceEqual(key))
+        if (sharedKey != null && sharedKey.SequenceEqual(key))
             return;
         sharedKey = key;
         AddShared(ThemeScope.GetColors(this), state.Timeline);
@@ -678,12 +693,13 @@ public sealed class RoomInfoPanel : Grid {
         content.Children.Clear();
         sharedBuilt = false;
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
-        if (room is null)
+        if (room == null)
             return;
         // Another chat has its own info.
         if (viewingRoom != room.Id)
             viewing = null;
-        if (viewing is { } person) {
+        var person = viewing;
+        if (person != null) {
             BuildMember(c, person);
             return;
         }
@@ -732,7 +748,7 @@ public sealed class RoomInfoPanel : Grid {
         content.Children.Add(head);
 
         var details = s.Details;
-        if (details is null) {
+        if (details == null) {
             content.Children.Add(new Spinner {
                 Size = 28,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -764,7 +780,7 @@ public sealed class RoomInfoPanel : Grid {
             content.Children.Add(EditNameButton);
         }
 
-        if (details.Topic is not null || !room.IsDirect) {
+        if (details.Topic != null || !room.IsDirect) {
             content.Children.Add(Section(c, controller.T("topic")));
             content.Children.Add(new TextBlock {
                 Text = details.Topic ?? controller.T("room.noTopic"),
@@ -854,7 +870,8 @@ public sealed class RoomInfoPanel : Grid {
         joinRow = SettingRow(c, controller.T("join.title"),
             controller.T(joinLabel), "lock", can
                 ? () => {
-                    if (TopLevel.GetTopLevel(this) is not { } window)
+                    var window = TopLevel.GetTopLevel(this);
+                    if (window == null)
                         return;
                     MemberMenu.Show(joinRow!, window, [
                         .. new[] {
@@ -874,7 +891,8 @@ public sealed class RoomInfoPanel : Grid {
             controller.T(HistoryKey(details.HistoryVisibility)),
             "clock", can
                 ? () => {
-                    if (TopLevel.GetTopLevel(this) is not { } window)
+                    var window = TopLevel.GetTopLevel(this);
+                    if (window == null)
                         return;
                     MemberMenu.Show(historyRow!, window, [
                         .. Enum.GetValues<HistoryVisibility>().Select(v =>
@@ -901,7 +919,8 @@ public sealed class RoomInfoPanel : Grid {
                     i == 0 ? controller.T("address.main") : "",
                     "hash", can
                         ? () => {
-                            if (TopLevel.GetTopLevel(this) is not { } window)
+                            var window = TopLevel.GetTopLevel(this);
+                            if (window == null)
                                 return;
                             var items = new List<MenuItem>();
                             if (i0(details, alias) != 0)
@@ -969,7 +988,8 @@ public sealed class RoomInfoPanel : Grid {
             row = SettingRow(c, controller.T(key), LevelLabel(current), "info",
                 editable
                     ? () => {
-                        if (TopLevel.GetTopLevel(this) is not { } window)
+                        var window = TopLevel.GetTopLevel(this);
+                        if (window == null)
                             return;
                         var presets = new[] {
                             0, 50, 100
@@ -1061,7 +1081,8 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Asks for the name of a new address, and checks that it is free before it is added.</summary>
     public void AskAddAlias(RoomSummary room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var server = ServerOf(controller.Store.Value.UserId ?? "");
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
@@ -1101,7 +1122,8 @@ public sealed class RoomInfoPanel : Grid {
 
     private void AskMainAlias(RoomSummary room, RoomDetails d, string alias)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var body = controller.T("address.main.body");
         if (d.Aliases.Count > 0 && d.Aliases[0] != alias)
@@ -1118,7 +1140,8 @@ public sealed class RoomInfoPanel : Grid {
     public void AskRemoveAlias(RoomSummary room, RoomDetails d, string alias,
         bool sure)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var foreign = Foreign(alias, d);
         var server = ServerOf(alias);
@@ -1176,7 +1199,8 @@ public sealed class RoomInfoPanel : Grid {
     private void AskLevel(RoomSummary room, int current, int max,
         Func<int, PowerThresholds> make)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -1273,9 +1297,9 @@ public sealed class RoomInfoPanel : Grid {
     {
         sharedHost.Children.Clear();
         mediaThumbs.Clear();
-        var pictures = timeline.Where(i => i.Image is not null).Reverse()
+        var pictures = timeline.Where(i => i.Image != null).Reverse()
             .Take(MediaShown).ToList();
-        var files = timeline.Where(i => i.File is not null).Reverse()
+        var files = timeline.Where(i => i.File != null).Reverse()
             .Take(FilesShown).ToList();
         sharedHost.Children.Add(Section(c, controller.T("sharedMedia")));
         sharedHost.Children.Add(ProfilePage.NavRow(c, "image",
@@ -1319,7 +1343,8 @@ public sealed class RoomInfoPanel : Grid {
                 var shown = item.Image!;
                 cell.PointerPressed += (_, e) => {
                     e.Handled = true;
-                    if (TopLevel.GetTopLevel(this) is { } window)
+                    var window = TopLevel.GetTopLevel(this);
+                    if (window != null)
                         Viewer.Show(window, controller.Pictures, shown.Source,
                             shown.FileName,
                             image.Source,

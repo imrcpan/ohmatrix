@@ -67,7 +67,8 @@ public sealed class LogPage : Grid {
         Grid.SetRow(scroller, 2);
         Children.Add(scroller);
         copy.Click += async (_, _) => {
-            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard == null)
                 return;
             await clipboard.SetTextAsync(logger.ReadLog());
             copied = true;

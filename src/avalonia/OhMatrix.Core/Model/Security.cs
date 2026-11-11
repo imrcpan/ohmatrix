@@ -27,7 +27,7 @@ public sealed record RawSecurity(
     /// <summary>The state the app acts on (<c>securityStateOf</c>).</summary>
     public SecurityState State()
     {
-        if (Recovery == "Unknown" && Verified is null)
+        if (Recovery == "Unknown" && Verified == null)
             return SecurityState.Unavailable;
         if (Verified == true && Recovery == "Enabled")
             return SecurityState.Ready;

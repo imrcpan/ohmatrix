@@ -41,13 +41,13 @@ public static class Strings {
     /// <summary>Whether <paramref name="id"/> is one of the languages (a saved preference may name one this version lacks).</summary>
     public static bool IsLocale(string? id)
     {
-        return id is not null && Languages.Any(l => l.Id == id);
+        return id != null && Languages.Any(l => l.Id == id);
     }
 
     /// <summary>Whether the language has texts of its own.</summary>
     public static bool HasCatalog(string locale)
     {
-        return Catalog(locale) is not null;
+        return Catalog(locale) != null;
     }
 
     /// <summary>
@@ -158,8 +158,9 @@ public static class Strings {
     private static FrozenDictionary<string, string>? Catalog(string locale)
     {
         // The same language is asked for again and again.
-        if (last is { } kept && (ReferenceEquals(kept.Locale, locale) ||
-                                 kept.Locale == locale))
+        var kept = last;
+        if (kept != null && (ReferenceEquals(kept.Locale, locale) ||
+                             kept.Locale == locale))
             return kept.Catalog;
         FrozenDictionary<string, string>? loaded;
         if (!Catalogs.TryGetValue(locale, out loaded)) {

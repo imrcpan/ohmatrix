@@ -37,7 +37,7 @@ public readonly struct Arg {
 
     internal void AppendTo(StringBuilder sb)
     {
-        if (text is not null) {
+        if (text != null) {
             sb.Append(text);
             return;
         }

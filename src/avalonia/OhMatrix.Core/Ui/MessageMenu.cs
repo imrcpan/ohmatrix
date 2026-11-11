@@ -58,7 +58,7 @@ public sealed class MessageMenu : IOverlay {
         };
     }
 
-    public bool IsOpen => shade.Parent is not null;
+    public bool IsOpen => shade.Parent != null;
 
     /// <summary>The action rows as laid out now.</summary>
     public IReadOnlyList<Control> Rows => rows;
@@ -74,7 +74,7 @@ public sealed class MessageMenu : IOverlay {
     {
         Close();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
+        if (layer == null)
             return;
         var dark = colors.Bg.R < 128;
         var hover = dark
@@ -191,7 +191,7 @@ public sealed class MessageMenu : IOverlay {
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(14, 0),
                 };
-                if (item.Icon is not null)
+                if (item.Icon != null)
                     line.Children.Add(new Icon {
                         Glyph = item.Icon,
                         Size = 18,

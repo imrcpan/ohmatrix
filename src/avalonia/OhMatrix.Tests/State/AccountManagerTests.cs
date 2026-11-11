@@ -84,7 +84,7 @@ public class AccountManagerTests {
                 ? dir[9..]
                 : null;
             return new AppController(engine,
-                new Sessions(user is null
+                new Sessions(user == null
                     ? null
                     : new Session("s", user, "D", "T")), null);
         }

@@ -161,7 +161,7 @@ public sealed class VideoViewer : IOverlay {
         timer.Tick += (_, _) => Tick();
     }
 
-    public bool IsOpen => shade.Parent is not null;
+    public bool IsOpen => shade.Parent != null;
 
     /// <summary>What the play button shows now: "play" or "pause".</summary>
     public string Glyph => toggle.Glyph;
@@ -176,7 +176,7 @@ public sealed class VideoViewer : IOverlay {
     {
         Close();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
+        if (layer == null)
             return;
         var mine = ++session;
         title.Text = file.Name;
@@ -197,8 +197,8 @@ public sealed class VideoViewer : IOverlay {
         // Closed, or another video opened, while it was being fetched.
         if (mine != session || !IsOpen)
             return;
-        var next = path is null ? null : new MediaPlayer(path, true);
-        if (next is null || !next.Play()) {
+        var next = path == null ? null : new MediaPlayer(path, true);
+        if (next == null || !next.Play()) {
             next?.Dispose();
             Close();
             return;
@@ -211,7 +211,7 @@ public sealed class VideoViewer : IOverlay {
 
     private void Toggle()
     {
-        if (player is null)
+        if (player == null)
             return;
         if (player.State == PlayState.Playing)
             player.Pause();
@@ -223,10 +223,11 @@ public sealed class VideoViewer : IOverlay {
     /// <summary>Takes the newest frame, if there is one, and shows where the video is.</summary>
     public void Tick()
     {
-        if (player is not { } p)
+        var p = player;
+        if (p == null)
             return;
         p.Video?.TryTakeFrame((data, width, height) => {
-            if (bitmap is null || bitmap.PixelSize.Width != width ||
+            if (bitmap == null || bitmap.PixelSize.Width != width ||
                 bitmap.PixelSize.Height != height) {
                 bitmap = new WriteableBitmap(new PixelSize(width, height),
                     new Vector(96, 96),

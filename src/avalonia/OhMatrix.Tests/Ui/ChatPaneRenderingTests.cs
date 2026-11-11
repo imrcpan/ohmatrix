@@ -180,7 +180,7 @@ public partial class ChatPaneTests {
             var run = BodyRuns(body.Inlines!).First();
             var image = Assert.Single(bubble.GetVisualDescendants()
                 .OfType<Image>());
-            for (var i = 0; i < 20 && image.Source is null; i++) {
+            for (var i = 0; i < 20 && image.Source == null; i++) {
                 await Task.Delay(10);
                 LayoutTimeline(window);
             }
@@ -246,7 +246,7 @@ public partial class ChatPaneTests {
                 .Select(t => t.Text).ToArray();
             Assert.Contains("thumbs-up", labels);
             Assert.Contains("3", labels);
-            Assert.Contains(labels, text => text is not null &&
+            Assert.Contains(labels, text => text != null &&
                                             text.Contains(
                                                 OhMatrix.Core.I18n.Strings.T(
                                                     "en", "edited")));

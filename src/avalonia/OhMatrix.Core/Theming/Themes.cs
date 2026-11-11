@@ -84,7 +84,7 @@ public static class Themes {
             MentionHighlight = ThemeColor.Rgba(mention.R, mention.G, mention.B,
                 dark ? 0.16 : 0.1),
         };
-        if (seed.Overrides is not null)
+        if (seed.Overrides != null)
             colors = seed.Overrides(colors);
         return new ThemeDefinition(seed.Id, seed.Label, dark, colors);
     }

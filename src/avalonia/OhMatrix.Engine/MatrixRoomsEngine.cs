@@ -127,7 +127,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             var canonical = room.CanonicalAlias();
             var alt = room.AlternativeAliases();
             var aliases = new List<string>();
-            if (canonical is not null)
+            if (canonical != null)
                 aliases.Add(canonical);
             aliases.AddRange(alt.Where(a => a != canonical));
 
@@ -476,7 +476,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             // It is listed with the room: as the main address when there is none, otherwise as another one.
             var canonical = room.CanonicalAlias();
             var alt = room.AlternativeAliases().Where(a => a != alias).ToList();
-            if (canonical is null)
+            if (canonical == null)
                 await room.UpdateCanonicalAlias(alias, [.. alt]);
             else if (canonical != alias) {
                 alt.Add(alias);
@@ -619,7 +619,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         loop?.Cancel();
         loop = null;
         try {
-            if (sync is not null)
+            if (sync != null)
                 await sync.Stop();
         } finally {
             foreach (var handle in watching.Values)
@@ -735,7 +735,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     private void Emit(int gen)
     {
         lock (emitGate) {
-            if (book.Snapshot(gen) is { } all)
+            var all = book.Snapshot(gen);
+            if (all != null)
                 RoomsChanged?.Invoke(all);
         }
     }

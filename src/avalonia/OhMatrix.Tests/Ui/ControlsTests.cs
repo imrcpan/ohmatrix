@@ -115,7 +115,7 @@ public class ControlsTests {
         var box = field.GetVisualDescendants().OfType<TextBox>().Single();
         Assert.Equal('●', box.PasswordChar);
         var eye = field.GetVisualDescendants().OfType<Border>()
-            .Single(b => b.Cursor is not null && b.Width == 32);
+            .Single(b => b.Cursor != null && b.Width == 32);
         var p = eye.TranslatePoint(new Point(16, 22), window)!.Value;
         window.MouseDown(p, Avalonia.Input.MouseButton.Left);
         window.MouseUp(p, Avalonia.Input.MouseButton.Left);

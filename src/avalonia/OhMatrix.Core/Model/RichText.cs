@@ -102,7 +102,7 @@ public static partial class RichText {
 
         void Flush()
         {
-            if (open is null)
+            if (open == null)
                 return;
             runs[^1] = runs[^1] with {
                 Text = open.ToString()

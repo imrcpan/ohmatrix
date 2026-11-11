@@ -216,7 +216,7 @@ public sealed class RoomBook<T>(Func<T, string> idOf) {
             if (gen != generation ||
                 !entryOf.TryGetValue(id, out var now) || now != entry)
                 return false;
-            if (summary is null)
+            if (summary == null)
                 return RemoveSummary(id);
             if (summaries.TryGetValue(id, out var was)) {
                 if (was.SameAs(summary))

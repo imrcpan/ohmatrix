@@ -56,9 +56,9 @@ public sealed class AppController(
     public async Task Bootstrap()
     {
         try {
-            if (preferences is not null) {
+            if (preferences != null) {
                 var saved = await Quietly(preferences.Load);
-                if (saved is not null) {
+                if (saved != null) {
                     Ui.Fonts.Use(saved.Font);
                     Store.Update(s => s with {
                         Prefs = saved
@@ -67,7 +67,7 @@ public sealed class AppController(
             }
 
             var session = await sessions.Load();
-            if (session is null) {
+            if (session == null) {
                 SignedOut();
                 return;
             }
@@ -111,7 +111,7 @@ public sealed class AppController(
     {
         try {
             CloseChat();
-            if (rooms is not null)
+            if (rooms != null)
                 await Quietly(rooms.StopSync);
             await engine.Logout();
         } finally {
@@ -135,9 +135,9 @@ public sealed class AppController(
             // A jump to a message is for the room it was asked in.
             JumpToEventId = null,
         });
-        if (roomId is not null && Store.Value.RoomInfoOpen)
+        if (roomId != null && Store.Value.RoomInfoOpen)
             _ = LoadDetails(roomId);
-        if (roomId is not null && chats is not null)
+        if (roomId != null && chats != null)
             _ = OpenChat(roomId);
     }
 
@@ -255,7 +255,7 @@ public sealed class AppController(
 
     public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
     {
-        return rooms is null
+        return rooms == null
             ? Task.FromResult<IReadOnlyList<PersonInfo>>([])
             : rooms.SearchPeople(term);
     }
@@ -354,7 +354,7 @@ public sealed class AppController(
     /// <summary>The preview of a link, asked once and kept; null when there is none.</summary>
     public Task<LinkPreview?> LinkPreview(string url)
     {
-        if (links is null)
+        if (links == null)
             return Task.FromResult<LinkPreview?>(null);
         if (!previews.TryGetValue(url, out var task)) {
             task = Quietly(() => links.Preview(url));
@@ -367,10 +367,11 @@ public sealed class AppController(
     /// <summary>Asks the engine where the account stands with its keys; it comes a little after sign-in, so it is asked again on request.</summary>
     public async Task RefreshSecurity()
     {
-        if (security is null)
+        if (security == null)
             return;
         var state = await Quietly(security.State);
-        if (state is { } now)
+        var now = state;
+        if (now != null)
             Post(() => Store.Update(s => s with {
                 Security = now
             }));
@@ -392,7 +393,7 @@ public sealed class AppController(
     }
 
     /// <summary>This machine and this build can make calls.</summary>
-    public bool CallsSupported => callsEngine is not null &&
+    public bool CallsSupported => callsEngine != null &&
                                   callPlatform is { Available: true };
 
     /// <summary>How long a call that has ended stays on screen, saying how it ended.</summary>
@@ -428,7 +429,7 @@ public sealed class AppController(
                          before.CallId == now?.CallId;
         if (ringing && !wasRinging) {
             callSounds?.Ring(now!.Incoming);
-            if (now!.Incoming && notifier is not null &&
+            if (now!.Incoming && notifier != null &&
                 Store.Value.Prefs.Notifications) {
                 var room =
                     Store.Value.Rooms.FirstOrDefault(r => r.Id == now.RoomId);
@@ -450,7 +451,7 @@ public sealed class AppController(
 
     private async Task ListenForCalls()
     {
-        if (callsEngine is null || callPlatform is null)
+        if (callsEngine == null || callPlatform == null)
             return;
         if (!callsHooked) {
             callsHooked = true;
@@ -481,11 +482,11 @@ public sealed class AppController(
         if (!CallsSupported)
             throw new InvalidOperationException("unsupported");
         var room = Store.Value.Rooms.FirstOrDefault(r => r.Id == roomId);
-        var details = rooms is null ? null : await rooms.Details(roomId);
+        var details = rooms == null ? null : await rooms.Details(roomId);
         var other =
             details?.Members.FirstOrDefault(m =>
                 m.UserId != Store.Value.UserId);
-        if (room is not { IsDirect: true } || other is null)
+        if (room is not { IsDirect: true } || other == null)
             throw new InvalidOperationException("direct");
         await Signalling().Place(roomId, other.UserId, video);
     }
@@ -537,7 +538,7 @@ public sealed class AppController(
     /// <summary>Asks my other sessions to verify this one; the progress is in <see cref="AppState.Verification"/>.</summary>
     public async Task RequestVerification()
     {
-        if (verification is null)
+        if (verification == null)
             return;
         Store.Update(s => s with {
             Verification = new VerifyFlow(VerifyPhase.Requested, false)
@@ -552,15 +553,15 @@ public sealed class AppController(
     }
 
     /// <summary>Whether sessions can be verified.</summary>
-    public bool CanVerify => verification is not null;
+    public bool CanVerify => verification != null;
 
     /// <summary>Whether a person can be asked to verify.</summary>
-    public bool CanVerifyUser => verification is not null;
+    public bool CanVerifyUser => verification != null;
 
     /// <summary>Asks another person to verify with me; the progress is in <see cref="AppState.Verification"/>.</summary>
     public async Task VerifyUser(string userId)
     {
-        if (verification is null)
+        if (verification == null)
             return;
         Store.Update(s => s with {
             Verification = new VerifyFlow(VerifyPhase.Requested, false)
@@ -579,7 +580,7 @@ public sealed class AppController(
     /// <summary>Tells the open chat that I am typing (when the draft has text) or not; only a change is sent.</summary>
     public void SetTyping(bool typing)
     {
-        if (typing == typingSent || chat is null)
+        if (typing == typingSent || chat == null)
             return;
         typingSent = typing;
         _ = Quietly(() => chat.SetTyping(typing));
@@ -600,12 +601,12 @@ public sealed class AppController(
     public async Task DismissVerification()
     {
         var flow = Store.Value.Verification;
-        if (flow is null)
+        if (flow == null)
             return;
         Store.Update(s => s with {
             Verification = null
         });
-        if (verification is not null && !flow.Ended)
+        if (verification != null && !flow.Ended)
             await Quietly(() => verification.Cancel());
         if (flow.Phase == VerifyPhase.Done)
             await RefreshSecurity();
@@ -614,7 +615,7 @@ public sealed class AppController(
     /// <summary>My sessions, this one first. Failures are <see cref="EngineException"/>.</summary>
     public Task<IReadOnlyList<DeviceInfo>> ListDevices()
     {
-        return devices is null
+        return devices == null
             ? Task.FromResult<IReadOnlyList<DeviceInfo>>([])
             : devices.ListDevices();
     }
@@ -629,7 +630,7 @@ public sealed class AppController(
     public Task<IReadOnlyList<PublicRoom>> SearchPublicRooms(string filter,
         string? server = null)
     {
-        return rooms is null
+        return rooms == null
             ? Task.FromResult<IReadOnlyList<PublicRoom>>([])
             : rooms.SearchPublicRooms(filter, server);
     }
@@ -660,7 +661,7 @@ public sealed class AppController(
     /// <summary>The rooms and spaces a space lists. Failures are <see cref="EngineException"/>.</summary>
     public Task<IReadOnlyList<SpaceChild>> SpaceChildren(string spaceId)
     {
-        return rooms is null
+        return rooms == null
             ? Task.FromResult<IReadOnlyList<SpaceChild>>([])
             : rooms.SpaceChildren(spaceId);
     }
@@ -677,15 +678,16 @@ public sealed class AppController(
     public Task Send(string text, IReadOnlyList<string>? mentions = null)
     {
         var trimmed = text.Trim();
-        if (trimmed.Length == 0 || chat is null)
+        if (trimmed.Length == 0 || chat == null)
             return Task.CompletedTask;
-        if (Store.Value.Editing is { } editing) {
+        var editing = Store.Value.Editing;
+        if (editing != null) {
             StartEdit(null);
             return chat.Edit(editing.Id, trimmed);
         }
 
         var reply = Store.Value.ReplyTo?.EventId;
-        if (reply is not null)
+        if (reply != null)
             SetReplyTo(null);
         return chat.Send(trimmed, reply, mentions);
     }
@@ -695,7 +697,7 @@ public sealed class AppController(
     {
         Store.Update(s => s with {
             ReplyTo = item,
-            Editing = item is null ? Store.Value.Editing : null,
+            Editing = item == null ? Store.Value.Editing : null,
         });
     }
 
@@ -705,7 +707,8 @@ public sealed class AppController(
         Store.Update(s => s with {
             RoomInfoOpen = open
         });
-        if (open && Store.Value.SelectedRoomId is { } id)
+        var id = Store.Value.SelectedRoomId;
+        if (open && id != null)
             _ = LoadDetails(id);
     }
 
@@ -717,8 +720,8 @@ public sealed class AppController(
     private async Task Changed(string roomId,
         Func<RoomDetails, RoomDetails>? shown = null)
     {
-        if (shown is not null)
-            Store.Update(s => s.Details is null || s.SelectedRoomId != roomId
+        if (shown != null)
+            Store.Update(s => s.Details == null || s.SelectedRoomId != roomId
                 ? s
                 : s with {
                     Details = shown(s.Details)
@@ -729,7 +732,7 @@ public sealed class AppController(
 
     public async Task LoadDetails(string roomId)
     {
-        if (rooms is null)
+        if (rooms == null)
             return;
         try {
             var details = await rooms.Details(roomId);
@@ -747,7 +750,7 @@ public sealed class AppController(
     /// <summary>Sends a file from disk to the open chat (a picture as a picture). Failures are <see cref="EngineException"/>.</summary>
     public async Task SendAttachment(string path)
     {
-        if (chat is null)
+        if (chat == null)
             return;
         var mime = MimeTypes.For(path);
         int? width = null;
@@ -784,13 +787,13 @@ public sealed class AppController(
             NoticeKind.Error => TimeSpan.FromSeconds(4),
             _ => TimeSpan.FromSeconds(2.5),
         };
-        if (wait is { } w)
+        if (wait != null)
             noticeTimer = time.CreateTimer(_ => Post(() => {
                 if (Store.Value.Notice?.Serial == serial)
                     Store.Update(s => s with {
                         Notice = null
                     });
-            }), null, w, Timeout.InfiniteTimeSpan);
+            }), null, wait.Value, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>Sends a message of the open chat on to another chat.</summary>
@@ -798,7 +801,7 @@ public sealed class AppController(
     {
         var content = Forward.Content(item) ?? throw new EngineException(
             EngineErrorCode.Unsupported, "This cannot be forwarded.");
-        return chats is null
+        return chats == null
             ? Task.CompletedTask
             : chats.SendMessageContent(roomId, content);
     }
@@ -807,11 +810,11 @@ public sealed class AppController(
     public async Task SavePicture(Avalonia.Controls.TopLevel window,
         string source, string name)
     {
-        if (media is null)
+        if (media == null)
             return;
         try {
             var path = await media.Download(source, name, "");
-            if (path is null)
+            if (path == null)
                 throw new IOException();
             if (Store.Value.Prefs.DownloadFolder is { Length: > 0 } folder &&
                 Directory.Exists(folder)) {
@@ -825,7 +828,7 @@ public sealed class AppController(
                 new Avalonia.Platform.Storage.FilePickerSaveOptions {
                     SuggestedFileName = name
                 });
-            if (target is null)
+            if (target == null)
                 return;
             await using (var from = File.OpenRead(path))
             await using (var to = await target.OpenWriteAsync())
@@ -848,7 +851,7 @@ public sealed class AppController(
     /// <summary>Sends shared text and files to a chat, as messages of that chat; the chat need not be the open one.</summary>
     public async Task SendShared(string roomId, SharedContent content)
     {
-        if (chats is null)
+        if (chats == null)
             throw new EngineException(EngineErrorCode.Unsupported,
                 "Not available.");
         using var session = await chats.Open(roomId);
@@ -875,7 +878,7 @@ public sealed class AppController(
     }
 
     /// <summary>Whether spaces can be made and arranged.</summary>
-    public bool CanManageSpaces => spacesEngine is not null;
+    public bool CanManageSpaces => spacesEngine != null;
 
     /// <summary>Creates a space and opens it.</summary>
     public async Task CreateSpace(string name)
@@ -901,13 +904,13 @@ public sealed class AppController(
     }
 
     /// <summary>Whether messages can be searched through the server.</summary>
-    public bool CanSearchMessages => searchEngine is not null;
+    public bool CanSearchMessages => searchEngine != null;
 
     /// <summary>A page of the messages with a term, in one room or all of them.</summary>
     public async Task<SearchPage> SearchMessages(string term, string? roomId,
         string? from)
     {
-        if (searchEngine is null)
+        if (searchEngine == null)
             return new SearchPage([], null);
         var page = await searchEngine.Messages(term, roomId, from);
         var names = Store.Value.Rooms.ToDictionary(r => r.Id, r => r.Name);
@@ -937,18 +940,18 @@ public sealed class AppController(
     public Task<SharedMediaPage> SharedMedia(string roomId, MediaKind kind,
         int offset, int want)
     {
-        return chats is null
+        return chats == null
             ? Task.FromResult(new SharedMediaPage([], null))
             : chats.SharedMedia(roomId, kind, offset, want);
     }
 
     /// <summary>Whether this account can keep a sticker pack (the picker has a stickers tab).</summary>
-    public bool CanStickers => stickersEngine is not null;
+    public bool CanStickers => stickersEngine != null;
 
     /// <summary>Reads my stickers and their groups from the account into the state.</summary>
     public async Task LoadStickers()
     {
-        if (stickersEngine is null)
+        if (stickersEngine == null)
             return;
         var (stickers, groups) = await stickersEngine.Load();
         Store.Update(s => s with {
@@ -1028,8 +1031,8 @@ public sealed class AppController(
     /// <summary>Sends one of my stickers to the open chat.</summary>
     public Task SendSticker(string shortcode)
     {
-        return Store.Value.SelectedRoomId is { } room &&
-               stickersEngine is not null
+        var room = Store.Value.SelectedRoomId;
+        return room != null && stickersEngine != null
             ? stickersEngine.Send(room, shortcode)
             : Task.CompletedTask;
     }
@@ -1046,7 +1049,7 @@ public sealed class AppController(
     /// <summary>Pins a message of the open chat, or takes the pin away.</summary>
     public Task SetMessagePinned(string itemId, bool pinned)
     {
-        return chat is null
+        return chat == null
             ? Task.CompletedTask
             : chat.SetPinned(itemId, pinned);
     }
@@ -1054,25 +1057,25 @@ public sealed class AppController(
     /// <summary>Removes one of my messages for everyone.</summary>
     public Task DeleteMessage(string itemId)
     {
-        return chat is null ? Task.CompletedTask : chat.Delete(itemId);
+        return chat == null ? Task.CompletedTask : chat.Delete(itemId);
     }
 
     /// <summary>Tries again to send a message that could not be sent.</summary>
     public Task ResendMessage(string itemId)
     {
-        return chat is null ? Task.CompletedTask : chat.Resend(itemId);
+        return chat == null ? Task.CompletedTask : chat.Resend(itemId);
     }
 
     /// <summary>Drops a message that could not be sent.</summary>
     public Task DiscardMessage(string itemId)
     {
-        return chat is null ? Task.CompletedTask : chat.Discard(itemId);
+        return chat == null ? Task.CompletedTask : chat.Discard(itemId);
     }
 
     /// <summary>Adds my reaction to a message, or takes it away.</summary>
     public Task ToggleReaction(string itemId, string key)
     {
-        return chat is null
+        return chat == null
             ? Task.CompletedTask
             : chat.ToggleReaction(itemId, key);
     }
@@ -1080,7 +1083,7 @@ public sealed class AppController(
     /// <summary>Loads older messages of the open chat.</summary>
     public async Task<bool> LoadOlder()
     {
-        return chat is not null && await chat.LoadOlder();
+        return chat != null && await chat.LoadOlder();
     }
 
     private async Task OpenChat(string roomId)
@@ -1144,10 +1147,10 @@ public sealed class AppController(
                 index = i;
         }
 
-        if (last is null || index < 0 || rooms[index].LastActivityTs != 0)
+        if (last == null || index < 0 || rooms[index].LastActivityTs != 0)
             return rooms;
         var text = last.Body.Length > 0 ? last.Body
-            : last.Image is not null ? last.Image.FileName
+            : last.Image != null ? last.Image.FileName
             : last.File?.Name;
         var copy = rooms.ToList();
         copy[index] = copy[index] with {
@@ -1214,7 +1217,7 @@ public sealed class AppController(
     public void KeepZoom()
     {
         var trial = Store.Value.ZoomTrial;
-        if (trial is null)
+        if (trial == null)
             return;
         StopZoomTimer();
         Store.Update(s => s with {
@@ -1275,7 +1278,7 @@ public sealed class AppController(
     /// <summary>Fetches the file of a message to disk and gives its path; null when it cannot be fetched.</summary>
     public async Task<string?> DownloadFile(FileAttachment file)
     {
-        if (media is null || file.Source.Length == 0)
+        if (media == null || file.Source.Length == 0)
             return null;
         return await media.Download(file.Source, file.Name, file.Mime);
     }
@@ -1301,7 +1304,7 @@ public sealed class AppController(
         var trimmed = status.Trim();
         await profiles!.SetStatus(trimmed);
         Store.Update(s => s with {
-            Profile = s.Profile is null
+            Profile = s.Profile == null
                 ? null
                 : s.Profile with {
                     Status = trimmed.Length == 0 ? null : trimmed
@@ -1315,7 +1318,7 @@ public sealed class AppController(
         var trimmed = name.Trim();
         await profiles!.SetDisplayName(trimmed);
         Store.Update(s => s with {
-            Profile = s.Profile is null
+            Profile = s.Profile == null
                 ? null
                 : s.Profile with {
                     DisplayName = trimmed
@@ -1325,7 +1328,7 @@ public sealed class AppController(
 
     private async Task LoadProfile()
     {
-        if (profiles is null)
+        if (profiles == null)
             return;
         try {
             var profile = await profiles.Load();
@@ -1351,7 +1354,7 @@ public sealed class AppController(
 
     private async Task ListenForVerification()
     {
-        if (verification is null)
+        if (verification == null)
             return;
         if (!verifyHooked) {
             verifyHooked = true;
@@ -1370,7 +1373,7 @@ public sealed class AppController(
         _ = WatchSecurity();
         _ = ListenForVerification();
         _ = ListenForCalls();
-        if (rooms is null)
+        if (rooms == null)
             return;
         if (!roomsHooked) {
             roomsHooked = true;
@@ -1405,7 +1408,7 @@ public sealed class AppController(
         settleQuiet?.Cancel();
         settleQuiet = new CancellationTokenSource();
         _ = SettleAfter(TimeSpan.FromMilliseconds(700), settleQuiet.Token);
-        if (start && settleCap is null) {
+        if (start && settleCap == null) {
             settleCap = new CancellationTokenSource();
             _ = SettleAfter(TimeSpan.FromSeconds(6), settleCap.Token);
         }
@@ -1443,7 +1446,7 @@ public sealed class AppController(
         IReadOnlyList<RoomSummary> now)
     {
         var prefs = Store.Value.Prefs;
-        if (notifier is null || !prefs.Notifications || before.Count == 0)
+        if (notifier == null || !prefs.Notifications || before.Count == 0)
             return;
         var known = before.ToDictionary(r => r.Id);
         var locale = Store.Value.Locale;
@@ -1452,7 +1455,7 @@ public sealed class AppController(
                 || !known.TryGetValue(room.Id, out var was) ||
                 room.UnreadCount <= was.UnreadCount)
                 continue;
-            var text = room.LastMessage is null
+            var text = room.LastMessage == null
                 ? ""
                 : string.Join(" ",
                     room.LastMessage.Split((char[]?)null,
@@ -1469,7 +1472,7 @@ public sealed class AppController(
 
     private void Post(Action change)
     {
-        if (context is null)
+        if (context == null)
             change();
         else
             context.Post(_ => change(), null);
@@ -1505,7 +1508,7 @@ public sealed class AppController(
 
     private void SignedOut(string? error = null, EngineErrorCode? code = null)
     {
-        if (error is not null)
+        if (error != null)
             logger.Error($"Signed out with an error ({code}): {error}");
         Unsettle();
         Store.Update(s => s with {
@@ -1534,7 +1537,7 @@ public sealed class AppController(
     // A preference that cannot be saved is not worth stopping for: it is what the person has set until the app is closed.
     private void SavePreferences()
     {
-        if (preferences is null)
+        if (preferences == null)
             return;
         var now = Store.Value.Prefs;
         _ = Quietly(() => preferences.Save(now));

@@ -22,7 +22,7 @@ public class AppControllerTests {
             string password,
             string? token)
         {
-            return OnRegister is null
+            return OnRegister == null
                 ? Task.FromResult(Make(homeserver, username))
                 : OnRegister(homeserver, username);
         }

@@ -41,13 +41,14 @@ public sealed class VerifyDialog : IOverlay {
     {
         if (ReferenceEquals(flow, shown))
             return;
-        if (flow is null) {
+        if (flow == null) {
             shown = null;
             Dialog.Close();
             return;
         }
 
-        if (TopLevel.GetTopLevel(owner) is not { } window)
+        var window = TopLevel.GetTopLevel(owner);
+        if (window == null)
             return;
         shown = flow;
         var c = ThemeScope.GetColors(owner);
@@ -106,7 +107,7 @@ public sealed class VerifyDialog : IOverlay {
                 break;
             case VerifyPhase.Done:
                 title = controller.T("verify.done.title");
-                body = flow.Who is null
+                body = flow.Who == null
                     ? controller.T("verify.done.own")
                     : controller.T("verify.done.user", ("who", flow.Who));
                 content.Add(Button("verify.close", true, close));

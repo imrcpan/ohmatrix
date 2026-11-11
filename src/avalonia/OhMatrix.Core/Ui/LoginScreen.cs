@@ -277,7 +277,8 @@ public sealed class LoginScreen : Grid {
 
     private void OpenLanguages()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var locale = controller.Store.Value.Locale;
         var items = Strings.Languages
@@ -338,7 +339,7 @@ public sealed class LoginScreen : Grid {
             creating
                 ? controller.T("register.back")
                 : controller.T("register.toggle");
-        backButton.IsVisible = back is not null && !Busy;
+        backButton.IsVisible = back != null && !Busy;
         backButton.Title = back?.Label ?? "";
 
         var language = Strings.Languages.FirstOrDefault(l => l.Id == s.Locale)

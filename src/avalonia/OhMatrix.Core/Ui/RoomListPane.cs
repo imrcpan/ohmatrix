@@ -178,7 +178,8 @@ public sealed class RoomListPane : Grid {
     /// <summary>The plus menu: a new chat, a new group, or joining a room.</summary>
     public void OpenAddMenu()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         addMenu.AlignRight = !Rail;
         addMenu.Show(
@@ -246,14 +247,14 @@ public sealed class RoomListPane : Grid {
     {
         if (room.Invite)
             return t("invite.from", ("name", room.Inviter!));
-        if (room.LastMessage is null)
+        if (room.LastMessage == null)
             return t("noMessages");
         // Each run of white space is one space: no array, no pieces, and the
         // text itself when it is clean already.
         var body = Snippet.Collapse(room.LastMessage);
         if (room.LastIsLine)
             return body;
-        if (room.LastSender is null)
+        if (room.LastSender == null)
             return $"{t("you")}: {body}";
         return room.IsDirect ? body : $"{room.LastSender}: {body}";
     }
@@ -279,7 +280,7 @@ public sealed class RoomListPane : Grid {
         filter = query;
         day = now.LocalDateTime.Date;
 
-        if (before is null || theme || language || font ||
+        if (before == null || theme || language || font ||
             before.Profile != s.Profile || before.UserId != s.UserId ||
             before.SyncState != s.SyncState)
             ApplyHeader(s, before, c, font);
@@ -325,7 +326,7 @@ public sealed class RoomListPane : Grid {
             }
 
             ticker.IsEnabled = s.Joining.Count > 0 &&
-                               TopLevel.GetTopLevel(this) is not null;
+                               TopLevel.GetTopLevel(this) != null;
         }
 
         if (joiningChanged || language || font)
@@ -333,7 +334,8 @@ public sealed class RoomListPane : Grid {
 
         if (layout) {
             var wanted = new List<Control>();
-            if (s.JoinError is { } failed && !Rail)
+            var failed = s.JoinError;
+            if (failed != null && !Rail)
                 wanted.Add(JoinFailure(c, failed));
             foreach (var joining in s.Joining)
                 wanted.Add(joiningRows[joining.Id]);
@@ -353,7 +355,7 @@ public sealed class RoomListPane : Grid {
         }
 
         var searchMessages = query.Length >= 2 && controller.CanSearchMessages;
-        if (layout || theme || language || font || before is null ||
+        if (layout || theme || language || font || before == null ||
             before.SyncState != s.SyncState) {
             ApplySearch(query, searchMessages, c, language || font);
             var loading = !s.RoomsSettled && s.Rooms.Count == 0 &&
@@ -366,7 +368,7 @@ public sealed class RoomListPane : Grid {
                 controller.T(query.Length > 0 ? "noResults" : "noChats");
             empty.Foreground = new SolidColorBrush(c.TextSecondary);
             empty.FontFamily = Fonts.System;
-            if (joinFailure is not null) {
+            if (joinFailure != null) {
                 joinFailure.Foreground = new SolidColorBrush(c.Danger);
                 joinFailure.FontFamily = Fonts.System;
             }
@@ -388,11 +390,11 @@ public sealed class RoomListPane : Grid {
             ? dn
             : me.TrimStart('@').Split(':')[0];
         var size = Rail ? 44 : 34;
-        if (before is null || font || before.UserId != s.UserId ||
-            (before.Profile is null) != (s.Profile is null) ||
+        if (before == null || font || before.UserId != s.UserId ||
+            (before.Profile == null) != (s.Profile == null) ||
             before.Profile?.DisplayName != s.Profile?.DisplayName ||
             before.Profile?.AvatarUrl != s.Profile?.AvatarUrl) {
-            if (s.Profile is null) {
+            if (s.Profile == null) {
                 avatarHolder.Child = new Pulse {
                     Children = {
                         new SkeletonBlock(size, size, true)
@@ -406,7 +408,7 @@ public sealed class RoomListPane : Grid {
             }
         }
 
-        var waiting = s.SyncState == SyncState.Syncing && s.Profile is null;
+        var waiting = s.SyncState == SyncState.Syncing && s.Profile == null;
         name.Text = s.SyncState == SyncState.Syncing || !connectedOnce
             ? shown
             : controller.T("connecting");
@@ -423,7 +425,7 @@ public sealed class RoomListPane : Grid {
 
     private void Select(string? id, bool selected)
     {
-        if (id is null || !roomRows.TryGetValue(id, out var entry) ||
+        if (id == null || !roomRows.TryGetValue(id, out var entry) ||
             entry.Row.Selected == selected)
             return;
         entry.Row.Selected = selected;
@@ -454,7 +456,7 @@ public sealed class RoomListPane : Grid {
     private void ApplySearch(string query, bool active, ColorTokens c,
         bool presentation)
     {
-        if (active && hits is null) {
+        if (active && hits == null) {
             hits = new MessageResultsView(controller, null, true);
             Lifetime.Own(this, hits);
             messagesLabel = new TextBlock {
@@ -470,7 +472,7 @@ public sealed class RoomListPane : Grid {
         hits?.SetTerm(active ? query : "");
         if (active && presentation)
             hits?.RefreshPresentation();
-        if (messagesLabel is not null) {
+        if (messagesLabel != null) {
             messagesLabel.Text = controller.T("search.messages");
             messagesLabel.Foreground = new SolidColorBrush(c.TextSecondary);
             messagesLabel.FontFamily = Fonts.System;
@@ -503,7 +505,7 @@ public sealed class RoomListPane : Grid {
     /// <summary>Why a join failed; a press dismisses it.</summary>
     private Control JoinFailure(ColorTokens c, string message)
     {
-        if (joinFailure is null) {
+        if (joinFailure == null) {
             joinFailure = new TextBlock {
                 FontSize = 14,
                 FontFamily = Fonts.System,
@@ -524,7 +526,8 @@ public sealed class RoomListPane : Grid {
     /// <summary>The menu of a chat: pin, mute, and the unread mark.</summary>
     public void OpenRowMenu(Control anchor, RoomSummary room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var unread = room.MarkedUnread || room.UnreadCount > 0;
         RowMenu.Show(

@@ -14,7 +14,7 @@ public class SpacesTests {
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            var body = request.Content is null
+            var body = request.Content == null
                 ? ""
                 : await request.Content.ReadAsStringAsync(cancellationToken);
             var path = Uri.UnescapeDataString(request.RequestUri!.PathAndQuery);

@@ -10,7 +10,7 @@ public sealed class MatrixMediaEngine(MatrixAuthEngine auth) : IMediaEngine {
     public async Task<byte[]?> Thumbnail(string mxc, int width, int height)
     {
         var client = auth.Client;
-        if (client is null)
+        if (client == null)
             return null;
         try {
             using var source =
@@ -28,7 +28,7 @@ public sealed class MatrixMediaEngine(MatrixAuthEngine auth) : IMediaEngine {
         string mimeType)
     {
         var client = auth.Client;
-        if (client is null)
+        if (client == null)
             return null;
         try {
             using var media = source.StartsWith('{')

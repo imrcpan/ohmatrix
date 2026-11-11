@@ -13,7 +13,8 @@ public sealed class HttpTurnServers(
 
     public async Task<IReadOnlyList<IceServer>> Get()
     {
-        if (session() is not { } account)
+        var account = session();
+        if (account == null)
             return [];
         try {
             var request = new HttpRequestMessage(

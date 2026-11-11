@@ -32,7 +32,7 @@ public static class Registration {
         var pick =
             (hasToken ? doable.FirstOrDefault(f => f.Contains(Token)) : null)
             ?? doable.FirstOrDefault();
-        if (pick is not null)
+        if (pick != null)
             return new RegistrationPlan(pick, null);
         if (!hasToken && flows.Any(f => f.All(s => s is Dummy or Token)))
             return new RegistrationPlan(null, EngineErrorCode.TokenRequired);
@@ -58,9 +58,10 @@ public static class Registration {
         }
 
         var plan = Plan(ReadFlows(flows), hasToken);
-        if (plan.Problem is { } problem) {
+        var problem = plan.Problem;
+        if (problem != null) {
             throw new EngineException(
-                problem,
+                problem.Value,
                 problem == EngineErrorCode.TokenRequired
                     ? "This server needs a registration token to create an account."
                     : "This server needs more than a username and password to register."
@@ -80,7 +81,7 @@ public static class Registration {
             };
             if (stage == Token)
                 auth["token"] = token!.Trim();
-            if (session is not null)
+            if (session != null)
                 auth["session"] = session;
             var body = Copy(baseBody);
             body["auth"] = auth;

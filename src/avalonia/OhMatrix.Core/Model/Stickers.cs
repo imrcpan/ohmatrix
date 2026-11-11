@@ -27,7 +27,7 @@ public sealed record StickerIcon(
         return new StickerIcon(null, url, mimeType);
     }
 
-    public bool IsEmoji => Emoji is not null;
+    public bool IsEmoji => Emoji != null;
 }
 
 /// <summary>
@@ -98,11 +98,11 @@ public static class StickerPack {
     {
         var images = Read(content)?["images"] as JsonObject;
         var list = new List<Sticker>();
-        if (images is null)
+        if (images == null)
             return list;
         foreach (var (shortcode, image) in images) {
             var url = Text(image?["url"]);
-            if (url is null ||
+            if (url == null ||
                 !url.StartsWith("mxc://", StringComparison.Ordinal))
                 continue;
             HasUsage(image, out var sticker);
@@ -133,11 +133,14 @@ public static class StickerPack {
         var info = new JsonObject {
             ["mimetype"] = s.MimeType
         };
-        if (s.Width is { } w)
+        var w = s.Width;
+        if (w != null)
             info["w"] = w;
-        if (s.Height is { } h)
+        var h = s.Height;
+        if (h != null)
             info["h"] = h;
-        if (s.Size is { } size)
+        var size = s.Size;
+        if (size != null)
             info["size"] = size;
         return info;
     }
@@ -240,12 +243,14 @@ public static class StickerPack {
         var kind = Text(node?["kind"]);
         if (kind == "emoji" && Text(node?["emoji"]) is { Length: > 0 } emoji)
             return StickerIcon.OfEmoji(emoji);
-        if (kind == "image" && Text(node?["url"]) is { } url
-                            && url.StartsWith("mxc://",
-                                StringComparison.Ordinal)
-                            && Text(node?["mimeType"]) is { } mime)
-            return StickerIcon.OfImage(url, mime);
-        return null;
+        if (kind != "image")
+            return null;
+        var url = Text(node?["url"]);
+        var mime = Text(node?["mimeType"]);
+        if (url == null || !url.StartsWith("mxc://", StringComparison.Ordinal)
+                        || mime == null)
+            return null;
+        return StickerIcon.OfImage(url, mime);
     }
 
     /// <summary>
@@ -258,7 +263,7 @@ public static class StickerPack {
         var ids = new HashSet<string>();
         var used = new HashSet<string>();
         var result = new List<StickerGroup>();
-        if (list is null)
+        if (list == null)
             return result;
         foreach (var g in list) {
             var id = Text(g?["id"]);
@@ -286,7 +291,7 @@ public static class StickerPack {
         if (groups.Count(g => g.Id != DefaultGroup) > GroupsMax)
             throw new EngineException(EngineErrorCode.Unsupported,
                 $"At most {GroupsMax} groups");
-        if (groups.Any(g => g.Id == DefaultGroup && g.Icon is not null))
+        if (groups.Any(g => g.Id == DefaultGroup && g.Icon != null))
             throw new EngineException(EngineErrorCode.Unsupported,
                 "The default group's cover cannot be changed");
         var array = new JsonArray();
@@ -298,7 +303,8 @@ public static class StickerPack {
                     .Select(s => (JsonNode?)JsonValue.Create(s))
                     .ToArray()),
             };
-            if (g.Icon is { } icon)
+            var icon = g.Icon;
+            if (icon != null)
                 item["icon"] = icon.IsEmoji
                     ? new JsonObject {
                         ["kind"] = "emoji",
@@ -356,12 +362,13 @@ public static class StickerPack {
     public static StickerIcon CoverOf(StickerGroup group,
         IReadOnlyList<Sticker> pack)
     {
-        if (group.Icon is { } icon)
+        var icon = group.Icon;
+        if (icon != null)
             return icon;
         var first = group.Stickers
             .Select(c => pack.FirstOrDefault(s => s.Shortcode == c))
-            .FirstOrDefault(s => s is not null);
-        return first is null
+            .FirstOrDefault(s => s != null);
+        return first == null
             ? StickerIcon.OfEmoji(FallbackEmoji)
             : StickerIcon.OfImage(first.Url, first.MimeType);
     }

@@ -77,8 +77,8 @@ public sealed class TopNotice : Border {
         var notice = controller.Store.Value.Notice;
         shownNotice = notice;
         shownFont = Fonts.System;
-        IsVisible = notice is not null;
-        if (notice is null)
+        IsVisible = notice != null;
+        if (notice == null)
             return;
         var c = ThemeScope.GetColors(this);
         text = notice.Message;
@@ -138,7 +138,7 @@ public sealed class TopNotice : Border {
     {
         if (row.Children.Count == 0)
             row.Children.Add(next);
-        else if (mark is not null)
+        else if (mark != null)
             row.Children[0] = next;
         else
             row.Children.Insert(0, next);

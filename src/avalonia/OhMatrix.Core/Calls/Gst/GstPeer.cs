@@ -59,7 +59,7 @@ public sealed class GstPeer : IPeer, IDisposable {
     {
         if (closed)
             return;
-        if (context is not null)
+        if (context != null)
             context.Post(_ => {
                 if (!closed)
                     action();
@@ -76,11 +76,11 @@ public sealed class GstPeer : IPeer, IDisposable {
             return;
         var description =
             "webrtcbin name=wb bundle-policy=max-bundle "
-            + (microphone is null ? $"{sources.AudioSource} name=asrc ! " : "")
+            + (microphone == null ? $"{sources.AudioSource} name=asrc ! " : "")
             + "queue name=aq ! audioconvert ! audioresample ! volume name=mic ! opusenc ! "
             + "rtpopuspay pt=111 ! application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! wb. "
             + (video
-                ? (cameraName is null
+                ? (cameraName == null
                       ? $"{sources.VideoSource} name=vsrc ! "
                       : "")
                   + "queue name=vq ! videoconvert ! videoscale ! "
@@ -134,9 +134,9 @@ public sealed class GstPeer : IPeer, IDisposable {
             data);
         AddServers();
         // A device chosen by the person is put in front of the queue that the launch text left open for it.
-        if (microphone is not null)
+        if (microphone != null)
             UseMicrophone(microphone);
-        if (video && cameraName is not null)
+        if (video && cameraName != null)
             UseCamera(cameraName);
         LibGst.gst_element_set_state(pipeline, LibGst.StatePlaying);
     }
@@ -156,7 +156,7 @@ public sealed class GstPeer : IPeer, IDisposable {
                             ? "turns"
                             : "turn";
                     var rest = url[(scheme.Length + 1)..];
-                    var credentials = server.Username is null
+                    var credentials = server.Username == null
                         ? ""
                         : Uri.EscapeDataString(server.Username) + ":"
                         + Uri.EscapeDataString(
@@ -264,7 +264,7 @@ public sealed class GstPeer : IPeer, IDisposable {
                         LibGst.Text(
                             LibGst.gst_sdp_message_as_text(
                                 *(IntPtr*)((byte*)description + 8)));
-                    if (text is not null)
+                    if (text != null)
                         result =
                             new SessionDescription(
                                 type == Offer ? "offer" : "answer", text);
@@ -272,7 +272,7 @@ public sealed class GstPeer : IPeer, IDisposable {
             }
 
             LibGst.gst_mini_object_unref(promise);
-            if (state.Key.Length == 0 || result is not null)
+            if (state.Key.Length == 0 || result != null)
                 state.Done.TrySetResult(result);
             else
                 state.Done.TrySetException(
@@ -357,7 +357,7 @@ public sealed class GstPeer : IPeer, IDisposable {
     {
         var peer = (GstPeer)GCHandle.FromIntPtr(data).Target!;
         var text = LibGst.Text(candidate);
-        if (text is not null)
+        if (text != null)
             peer.Raise(() =>
                 peer.Candidate?.Invoke(new IceCandidate(text, mline.ToString(),
                     (int)mline)));
@@ -384,8 +384,9 @@ public sealed class GstPeer : IPeer, IDisposable {
             4 => PeerState.Failed,
             _ => null,
         };
-        if (state is { } s)
-            peer.Raise(() => peer.Connection?.Invoke(s));
+        var s = state;
+        if (s != null)
+            peer.Raise(() => peer.Connection?.Invoke(s.Value));
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

@@ -63,7 +63,8 @@ public sealed class MediaPlayer : IDisposable {
     {
         if (!Available)
             return false;
-        if (active is { } other && !ReferenceEquals(other, this))
+        var other = active;
+        if (other != null && !ReferenceEquals(other, this))
             other.Pause();
         active = this;
         if (player != IntPtr.Zero && State == PlayState.Ended) {
@@ -72,7 +73,7 @@ public sealed class MediaPlayer : IDisposable {
         }
 
         if (player == IntPtr.Zero) {
-            var instance = Video is null
+            var instance = Video == null
                 ? LibVlc.Instance()
                 : LibVlc.VideoInstance();
             if (instance == IntPtr.Zero)

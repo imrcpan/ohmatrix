@@ -25,7 +25,7 @@ public sealed class HttpSpacesEngine(
             new HttpRequestMessage(method, a.Homeserver.TrimEnd('/') + path);
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", a.AccessToken);
-        if (body is not null)
+        if (body != null)
             request.Content = new StringContent(body.ToJsonString(),
                 Encoding.UTF8, "application/json");
         try {
@@ -81,8 +81,8 @@ public sealed class HttpSpacesEngine(
         var kids = new List<(string, string?, JsonNode?)>();
         foreach (var c in space?["children_state"]?.AsArray() ?? []) {
             var via = c?["content"]?["via"];
-            if (via is JsonArray { Count: > 0 } &&
-                (string?)c?["state_key"] is { } id)
+            var id = (string?)c?["state_key"];
+            if (via is JsonArray { Count: > 0 } && id != null)
                 kids.Add((id, (string?)c?["content"]?["order"], via));
         }
 
@@ -124,8 +124,8 @@ public sealed class HttpSpacesEngine(
                     ["invite"] = 50
                 },
             });
-        if (status != HttpStatusCode.OK ||
-            (string?)body?["room_id"] is not { } id)
+        var id = (string?)body?["room_id"];
+        if (status != HttpStatusCode.OK || id == null)
             throw new EngineException(EngineErrorCode.Unknown,
                 "Could not create the space.");
         return id;
@@ -168,7 +168,7 @@ public sealed class HttpSpacesEngine(
         var a = Account();
         var kids = await Children(a, spaceId);
         var current = kids.FirstOrDefault(k => k.RoomId == roomId);
-        if (current.RoomId is null)
+        if (current.RoomId == null)
             throw new EngineException(EngineErrorCode.NotFound,
                 "The room is not in the space.");
         await Put(a, spaceId, "m.space.child", roomId, new JsonObject {

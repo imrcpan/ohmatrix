@@ -44,10 +44,10 @@ public class Logger : ILogger {
     private void Write(string line, ConsoleColor? color)
     {
         LogWriter.FileWriteLine(pathLog, line);
-        if (color is { } c)
-            LogWriter.ConsoleColorfulWriteLine(line, c);
-        else
+        if (color == null)
             LogWriter.ConsoleWriteLine(line);
+        else
+            LogWriter.ConsoleColorfulWriteLine(line, color.Value);
         Written?.Invoke();
     }
 

@@ -98,7 +98,7 @@ public sealed class FontPage : Grid {
         line.Children.Add(new TextBlock {
             Text = name ?? controller.T("font.system"),
             FontSize = 16,
-            FontFamily = name is null ? Fonts.System : new FontFamily(name),
+            FontFamily = name == null ? Fonts.System : new FontFamily(name),
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
         });

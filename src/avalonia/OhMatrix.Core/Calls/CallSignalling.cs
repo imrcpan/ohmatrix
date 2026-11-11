@@ -87,7 +87,7 @@ public sealed partial class CallSignalling {
     {
         c.Peer = peer;
         peer.Candidate += cand => {
-            if (cand is null) {
+            if (cand == null) {
                 FlushCandidates(c);
                 return;
             }
@@ -134,7 +134,7 @@ public sealed partial class CallSignalling {
         c.StopBatch = null;
         // Sent once the other side's session is known (an answer for a call I placed): until then they wait, so none is lost.
         if (c.Outgoing.Count == 0 ||
-            (!c.Info.Incoming && c.RemoteParty is null))
+            (!c.Info.Incoming && c.RemoteParty == null))
             return;
         var list = new JsonArray();
         foreach (var x in c.Outgoing) {
@@ -170,7 +170,8 @@ public sealed partial class CallSignalling {
     private JsonObject StreamMetadata(Live c)
     {
         // What the other client needs to tell my streams apart (MSC3077); without it matrix-js-sdk shows neither picture nor sound.
-        if (transport.Media.StreamId is not { } id)
+        var id = transport.Media.StreamId;
+        if (id == null)
             return [];
         return new JsonObject {
             ["org.matrix.msc3077.sdp_stream_metadata"] = new JsonObject {
@@ -186,7 +187,7 @@ public sealed partial class CallSignalling {
     /// <summary>Calls the other person of a one-to-one room. Throws "busy" when a call is on and "no_media" when the devices are refused.</summary>
     public async Task Place(string roomId, string peerUser, bool video)
     {
-        if (call is not null)
+        if (call != null)
             throw new InvalidOperationException("busy");
         var c = Make(roomId, peerUser, video, false);
         call = c;
@@ -229,8 +230,8 @@ public sealed partial class CallSignalling {
     public async Task Answer(bool video)
     {
         var c = call;
-        if (c is null || !c.Info.Incoming ||
-            c.Info.Phase != CallPhase.Ringing || c.Offer is null)
+        if (c == null || !c.Info.Incoming ||
+            c.Info.Phase != CallPhase.Ringing || c.Offer == null)
             return;
         c.StopTimer?.Invoke();
         c.StopTimer = null;
@@ -281,7 +282,7 @@ public sealed partial class CallSignalling {
     public async Task Hangup()
     {
         var c = call;
-        if (c is null || c.Info.Phase == CallPhase.Ended)
+        if (c == null || c.Info.Phase == CallPhase.Ended)
             return;
         var ringingIn = c.Info.Incoming && c.Info.Phase == CallPhase.Ringing;
         await Send(c, ringingIn ? "m.call.reject" : "m.call.hangup",
@@ -295,7 +296,8 @@ public sealed partial class CallSignalling {
 
     public void SetMuted(bool muted)
     {
-        if (call is not { } c)
+        var c = call;
+        if (c == null)
             return;
         c.Info = c.Info with {
             Muted = muted
@@ -306,7 +308,8 @@ public sealed partial class CallSignalling {
 
     public void SetCameraOff(bool off)
     {
-        if (call is not { } c || !c.Info.Video)
+        var c = call;
+        if (c == null || !c.Info.Video)
             return;
         c.Info = c.Info with {
             CameraOff = off
@@ -356,10 +359,13 @@ public sealed partial class CallSignalling {
 
     private static SessionDescription? ReadDescription(JsonNode? node)
     {
-        if (node is JsonObject o && (string?)o["sdp"] is { } sdp &&
-            (string?)o["type"] is { } type)
-            return new SessionDescription(type, sdp);
-        return null;
+        if (node is not JsonObject o)
+            return null;
+        var sdp = (string?)o["sdp"];
+        var type = (string?)o["type"];
+        if (sdp == null || type == null)
+            return null;
+        return new SessionDescription(type, sdp);
     }
 
     [GeneratedRegex("m=video")]
@@ -377,7 +383,8 @@ public sealed partial class CallSignalling {
             // An invitation of my own other session (or my echo) is not for me.
             if (mine)
                 return;
-            if ((string?)e.Content["invitee"] is { } invitee && invitee != me())
+            var invitee = (string?)e.Content["invitee"];
+            if (invitee != null && invitee != me())
                 return;
             var lifetime = e.Content["lifetime"] is JsonValue lv &&
                            lv.TryGetValue<long>(out var ms) && ms > 0
@@ -389,7 +396,7 @@ public sealed partial class CallSignalling {
                 return;
             if (c is { Info.Phase: CallPhase.Ended })
                 call = null;
-            if (call is not null && call.Info.CallId != callId) {
+            if (call != null && call.Info.CallId != callId) {
                 try {
                     await transport.Send(e.RoomId, "m.call.reject",
                         new JsonObject {
@@ -406,9 +413,10 @@ public sealed partial class CallSignalling {
             }
 
             // The same invitation again.
-            if (call is not null)
+            if (call != null)
                 return;
-            if (ReadDescription(e.Content["offer"]) is not { } offer)
+            var offer = ReadDescription(e.Content["offer"]);
+            if (offer == null)
                 return;
             var next = Make(e.RoomId, e.Sender, VideoLine().IsMatch(offer.Sdp),
                 true, callId);
@@ -424,7 +432,7 @@ public sealed partial class CallSignalling {
             return;
         }
 
-        if (c is null || c.Info.CallId != callId)
+        if (c == null || c.Info.CallId != callId)
             return;
 
         switch (e.Type) {
@@ -448,7 +456,7 @@ public sealed partial class CallSignalling {
                             ? index
                             : null
                     );
-                    if (c.RemoteSet && c.Peer is not null) {
+                    if (c.RemoteSet && c.Peer != null) {
                         try {
                             await c.Peer.AddIceCandidate(cand);
                         } catch (Exception) {
@@ -491,7 +499,7 @@ public sealed partial class CallSignalling {
         }
 
         // An answer to a call I did not place, or a second answer: the first one stands.
-        if (c.Info.Incoming || c.RemoteParty is not null)
+        if (c.Info.Incoming || c.RemoteParty != null)
             return;
         c.RemoteParty = (string?)e.Content["party_id"] ?? "unknown";
         c.StopTimer?.Invoke();
@@ -499,8 +507,8 @@ public sealed partial class CallSignalling {
         c.Info = c.Info with {
             Phase = CallPhase.Connecting
         };
-        if (ReadDescription(e.Content["answer"]) is not { } answer ||
-            c.Peer is null) {
+        var answer = ReadDescription(e.Content["answer"]);
+        if (answer == null || c.Peer == null) {
             End(c, EndReason.Failed, true);
             return;
         }

@@ -78,7 +78,7 @@ public class RichTextTests {
             bullets.Where(r => r.Prefix == "• ").Select(r => r.Text));
         var ordered = RichText.ParseFormatted("<ol><li>a</li><li>b</li></ol>");
         Assert.Equal(["1. ", "2. "],
-            ordered.Where(r => r.Prefix is not null).Select(r => r.Prefix));
+            ordered.Where(r => r.Prefix != null).Select(r => r.Prefix));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class RichTextTests {
         var runs =
             RichText.PlainRuns("see https://example.com/a. and http://b.c/d");
         Assert.Equal(["https://example.com/a", "http://b.c/d"],
-            runs.Where(r => r.Href is not null).Select(r => r.Href));
+            runs.Where(r => r.Href != null).Select(r => r.Href));
         Assert.Equal("see https://example.com/a. and http://b.c/d", Text(runs));
     }
 

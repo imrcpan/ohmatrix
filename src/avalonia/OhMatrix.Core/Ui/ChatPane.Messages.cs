@@ -85,7 +85,7 @@ public sealed partial class ChatPane {
                 CacheLength = 0.5
             });
         list.ItemTemplate = new FuncDataTemplate<MessageEntry>((entry, _) =>
-                entry is null ? null : RealizeMessage(entry),
+                entry == null ? null : RealizeMessage(entry),
             supportsRecycling: false);
         list.ItemsSource = messageEntries;
         list.ContainerPrepared += (_, e) => {
@@ -99,7 +99,8 @@ public sealed partial class ChatPane {
             if (!containers.Remove(e.Container, out var entry) ||
                 !ReferenceEquals(entry.Container, e.Container))
                 return;
-            if (entry.View?.Frame is { } frame &&
+            var frame = entry.View?.Frame;
+            if (frame != null &&
                 rowsById.TryGetValue(entry.Item.Id, out var current) &&
                 ReferenceEquals(frame, current))
                 rowsById.Remove(entry.Item.Id);
@@ -125,7 +126,7 @@ public sealed partial class ChatPane {
         var room = state.Rooms.FirstOrDefault(r =>
             r.Id == state.SelectedRoomId);
         cachedIsGroup = room is { IsDirect: false };
-        if (room is null) {
+        if (room == null) {
             groupRooms = null;
             groupRoomId = null;
         } else {
@@ -198,7 +199,7 @@ public sealed partial class ChatPane {
                 !ReferenceEquals(indexedMembers, state.Details?.Members)) {
                 indexedMembers = state.Details?.Members;
                 memberNames.Clear();
-                if (indexedMembers is not null) {
+                if (indexedMembers != null) {
                     foreach (var member in indexedMembers)
                         memberNames.TryAdd(member.UserId, member.Name);
                 }
@@ -223,14 +224,15 @@ public sealed partial class ChatPane {
             BuildHeader(colors, state);
             if (changed || roomChanged) {
                 var last = state.Timeline.LastOrDefault();
-                if (lastSeenId is not null && last is not null &&
+                if (lastSeenId != null && last != null &&
                     last.Id != lastSeenId && !last.IsOwn && !stickToBottom)
                     newWhileAway++;
                 lastSeenId = last?.Id;
             }
 
             ShowLatest();
-            if (state.JumpToEventId is { } target && state.TimelineReady) {
+            var target = state.JumpToEventId;
+            if (target != null && state.TimelineReady) {
                 controller.Store.Update(s => s with {
                     JumpToEventId = null
                 });
@@ -240,7 +242,7 @@ public sealed partial class ChatPane {
                 Search();
             } else if (stickToBottom) {
                 ScrollToEnd();
-            } else if (anchor is not null) {
+            } else if (anchor != null) {
                 RestoreAnchor(anchor);
             }
         } finally {
@@ -302,7 +304,7 @@ public sealed partial class ChatPane {
 
     private Control RealizeMessage(MessageEntry entry)
     {
-        if (entry.View is null) {
+        if (entry.View == null) {
             entry.View = new MessageView();
             realizedMessages.Add(entry);
             entry.View.Root.PointerPressed += (_, e) => {
@@ -324,7 +326,7 @@ public sealed partial class ChatPane {
         var old = view.Shown;
         var colors = messageColors;
         var presentation = view.Presentation != presentationVersion;
-        if (old is null || old.Kind != item.Kind) {
+        if (old == null || old.Kind != item.Kind) {
             rowsById.Remove(item.Id);
             view.Root.Child = null;
             view.Bubble = null;
@@ -354,7 +356,7 @@ public sealed partial class ChatPane {
         }
 
         if (item.Kind != TimelineKind.Message) {
-            if (old is null || old.Kind != item.Kind || old.Body != item.Body ||
+            if (old == null || old.Kind != item.Kind || old.Body != item.Body ||
                 old.Ts != item.Ts || presentation) {
                 var text = (TextBlock)view.Frame!.Child!;
                 text.Text = item.Kind == TimelineKind.Date
@@ -375,12 +377,12 @@ public sealed partial class ChatPane {
             return;
         }
 
-        var contentChanged = old is null || !SameContent(old, item);
-        var appearance = contentChanged || presentation || old is null ||
+        var contentChanged = old == null || !SameContent(old, item);
+        var appearance = contentChanged || presentation || old == null ||
                          !SameMetadata(old, item) ||
                          view.Above != entry.Above ||
                          view.Below != entry.Below;
-        var reactionsChanged = old is null || old.Kind != item.Kind ||
+        var reactionsChanged = old == null || old.Kind != item.Kind ||
                                presentation || old.IsOwn != item.IsOwn ||
                                !old.Reactions.SequenceEqual(item.Reactions);
         if (!appearance && !reactionsChanged && view.Selecting == Selecting &&
@@ -389,9 +391,9 @@ public sealed partial class ChatPane {
             return;
         }
 
-        if (view.Bubble is null || contentChanged) {
+        if (view.Bubble == null || contentChanged) {
             var bubble = MakeBubble(entry, colors);
-            if (view.Bubble is null)
+            if (view.Bubble == null)
                 view.Column!.Children.Insert(0, bubble);
             else
                 view.Column!.Children[0] = bubble;
@@ -413,12 +415,12 @@ public sealed partial class ChatPane {
         column.Margin = new Thickness(0, entry.Above ? 2 : 6, 0, 0);
         view.Frame!.HorizontalAlignment = column.HorizontalAlignment;
         if (reactionsChanged) {
-            if (view.Reactions is not null)
+            if (view.Reactions != null)
                 column.Children.Remove(view.Reactions);
             view.Reactions = item.Reactions.Count > 0
                 ? Chips(colors, item, messageAccent)
                 : null;
-            if (view.Reactions is not null)
+            if (view.Reactions != null)
                 column.Children.Add(view.Reactions);
         }
 
@@ -459,11 +461,13 @@ public sealed partial class ChatPane {
             Preview = controller.LinkPreview,
             Fetch = controller.DownloadFile
         });
-        if (bubble.Quote is { } quote) {
+        var quote = bubble.Quote;
+        if (quote != null) {
             quote.Cursor = new Cursor(StandardCursorType.Hand);
             quote.PointerPressed += (_, e) => {
+                var quoted = entry.Item.Reply?.EventId;
                 if (!e.GetCurrentPoint(quote).Properties.IsLeftButtonPressed ||
-                    entry.Item.Reply?.EventId is not { } quoted)
+                    quoted == null)
                     return;
                 e.Handled = true;
                 _ = Reveal(quoted);
@@ -505,7 +509,7 @@ public sealed partial class ChatPane {
     {
         var colors = ThemeScope.GetColors(this);
         foreach (var entry in realizedMessages) {
-            if (entry.View?.Column is not null)
+            if (entry.View?.Column != null)
                 UpdateSelection(entry, colors);
         }
     }
@@ -532,7 +536,7 @@ public sealed partial class ChatPane {
         mark.Background = selected
             ? new SolidColorBrush(colors.Accent)
             : Brushes.Transparent;
-        if (selected && mark.Child is null)
+        if (selected && mark.Child == null)
             mark.Child = new Icon {
                 Glyph = "check",
                 Size = 14,
@@ -581,7 +585,8 @@ public sealed partial class ChatPane {
         var anchor = stickToBottom ? null : CaptureAnchor();
         bubbleWidth = width;
         foreach (var entry in realizedMessages) {
-            if (entry.View?.Column is { } column)
+            var column = entry.View?.Column;
+            if (column != null)
                 column.MaxWidth = width;
         }
 
@@ -589,7 +594,7 @@ public sealed partial class ChatPane {
             return;
         if (stickToBottom)
             ScrollToEnd();
-        else if (anchor is not null)
+        else if (anchor != null)
             RestoreAnchor(anchor);
     }
 
@@ -608,13 +613,17 @@ public sealed partial class ChatPane {
     {
         ScrollAnchor? anchor = null;
         foreach (var (container, entry) in containers) {
-            if (!container.IsVisible || container.Bounds.Height <= 0 ||
-                container.TranslatePoint(default, scroller) is not { } point ||
-                point.Y + container.Bounds.Height <= 0 ||
-                point.Y >= scroller.Viewport.Height)
+            if (!container.IsVisible || container.Bounds.Height <= 0)
                 continue;
-            if (anchor is null || point.Y < anchor.Y)
-                anchor = new ScrollAnchor(entry.Item.Id, point.Y);
+            var at = container.TranslatePoint(default, scroller);
+            if (at == null)
+                continue;
+            var top = at.Value.Y;
+            if (top + container.Bounds.Height <= 0 ||
+                top >= scroller.Viewport.Height)
+                continue;
+            if (anchor == null || top < anchor.Y)
+                anchor = new ScrollAnchor(entry.Item.Id, top);
         }
 
         return anchor;
@@ -634,9 +643,11 @@ public sealed partial class ChatPane {
                 list.ScrollIntoView(entry.Index);
                 list.UpdateLayout();
                 var container = list.ContainerFromIndex(entry.Index);
-                if (container?.TranslatePoint(default, scroller) is { } point)
+                var point = container?.TranslatePoint(default, scroller);
+                if (point != null)
                     scroller.Offset = new Vector(scroller.Offset.X,
-                        Math.Max(0, scroller.Offset.Y + point.Y - anchor.Y));
+                        Math.Max(0,
+                            scroller.Offset.Y + point.Value.Y - anchor.Y));
                 list.UpdateLayout();
             } finally {
                 adjustingScroll = false;

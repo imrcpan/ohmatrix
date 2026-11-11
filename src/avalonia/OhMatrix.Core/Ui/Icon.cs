@@ -71,7 +71,7 @@ public sealed class Icon : Control {
 
     public override void Render(DrawingContext context)
     {
-        if (Color is null || !IconData.Paths.TryGetValue(Glyph, out var data))
+        if (Color == null || !IconData.Paths.TryGetValue(Glyph, out var data))
             return;
         var fluent = IconData.Fluent.Contains(Glyph);
         var solid = IconData.Solid.Contains(Glyph);
@@ -80,7 +80,7 @@ public sealed class Icon : Control {
             : StrokeWidth ?? IconData.Weight.GetValueOrDefault(Glyph, 2);
         if (width <= 0)
             pen = null;
-        else if (pen is null || !ReferenceEquals(penBrush, Color) ||
+        else if (pen == null || !ReferenceEquals(penBrush, Color) ||
                  penWidth != width) {
             pen = new Pen(Color, width, lineCap: PenLineCap.Round,
                 lineJoin: PenLineJoin.Round);

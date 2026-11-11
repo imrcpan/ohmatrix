@@ -81,7 +81,7 @@ public sealed class Dialog : IOverlay {
     /// <summary>Called when it is closed by Esc or by a press outside; not when <see cref="Close"/> is called by the code.</summary>
     public Action? OnClose { get; set; }
 
-    public bool IsOpen => shade.Parent is not null;
+    public bool IsOpen => shade.Parent != null;
 
     public Control Card => card;
 
@@ -96,7 +96,7 @@ public sealed class Dialog : IOverlay {
     {
         Close();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
+        if (layer == null)
             return;
         shade.Background = new SolidColorBrush(colors.Overlay);
         shade.Margin = new Thickness(0);

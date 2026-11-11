@@ -65,7 +65,7 @@ public sealed class SpacePage : Grid {
     public async Task Reload()
     {
         var id = controller.Store.Value.OpenSpaceId;
-        if (id is null)
+        if (id == null)
             return;
         var mine = ++ticket;
         loadedFor = id;
@@ -85,7 +85,8 @@ public sealed class SpacePage : Grid {
     /// <summary>Asks whether to join a room of the space, and joins it.</summary>
     public void AskJoin(SpaceChild room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var public_ = new PublicRoom(room.RoomId, room.Name, room.Topic, null,
             room.AvatarUrl,
@@ -97,7 +98,7 @@ public sealed class SpacePage : Grid {
 
     public RoomCardDialog Card {
         get {
-            if (card is null) {
+            if (card == null) {
                 card = new RoomCardDialog(controller);
                 Lifetime.Own(this, card);
             }
@@ -126,7 +127,7 @@ public sealed class SpacePage : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         var open = s.SidebarPage == SidebarPage.Space &&
-                   s.OpenSpaceId is not null;
+                   s.OpenSpaceId != null;
         if (open && loadedFor != s.OpenSpaceId) {
             children = null;
             _ = Reload();
@@ -162,7 +163,7 @@ public sealed class SpacePage : Grid {
         bar.Child = barRow;
         search.Placeholder = controller.T("search");
         rows.Children.Clear();
-        if (children is null) {
+        if (children == null) {
             rows.Children.Add(new Spinner {
                 Size = 28,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -216,8 +217,9 @@ public sealed class SpacePage : Grid {
     /// <summary>The menu of the space: make or add a room, manage the rooms, members, invite, share, settings and leave.</summary>
     public void OpenMenu()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window || more is null ||
-            OpenId is not { } id)
+        var window = TopLevel.GetTopLevel(this);
+        var id = OpenId;
+        if (window == null || more == null || id == null)
             return;
         var space =
             controller.Store.Value.Rooms.FirstOrDefault(r => r.Id == id);
@@ -255,7 +257,8 @@ public sealed class SpacePage : Grid {
 
     private void AskCreateRoom(string id)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         confirm.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -270,7 +273,8 @@ public sealed class SpacePage : Grid {
     /// <summary>Rooms I am in that are not in the space yet, to pick one and list it.</summary>
     public async Task AskAddRoom(string id)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var listed = (await controller.SpaceChildren(id))
             .Select(ch => ch.RoomId).ToHashSet();
@@ -317,7 +321,8 @@ public sealed class SpacePage : Grid {
     /// <summary>Tick rooms and take them out of the space.</summary>
     public async Task AskManage(string id)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var listed = await controller.SpaceChildren(id);
         var c = ThemeScope.GetColors(this);
@@ -420,7 +425,8 @@ public sealed class SpacePage : Grid {
 
     private void AskInvite(string id)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         Invite ??= new PeoplePicker(controller);
         Invite.Show(window, ThemeScope.GetColors(this),
@@ -436,7 +442,8 @@ public sealed class SpacePage : Grid {
     /// <summary>The link to the space, to copy; an address reads better than the room id, so it is used when there is one.</summary>
     public void AskShare(string id, string name)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var alias = controller.Store.Value.Details?.Aliases.FirstOrDefault();
@@ -479,7 +486,8 @@ public sealed class SpacePage : Grid {
 
     private void AskLeave(string id)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
@@ -504,8 +512,9 @@ public sealed class SpacePage : Grid {
     /// <summary>The menu of a room of the space: move it to the top or the bottom, or take it out.</summary>
     public void OpenRoomMenu(Control anchor, SpaceChild child)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window || OpenId is not { } id
-            || !controller.CanManageSpaces)
+        var window = TopLevel.GetTopLevel(this);
+        var id = OpenId;
+        if (window == null || id == null || !controller.CanManageSpaces)
             return;
         RoomMenu.Show(anchor, window, [
             new MenuItem(controller.T("space.moveFirst"),
@@ -568,7 +577,8 @@ public sealed class SpacePage : Grid {
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
         });
-        if (child.Topic is { } topic) {
+        var topic = child.Topic;
+        if (topic != null) {
             words.Children.Add(new TextBlock {
                 Text = topic,
                 FontSize = 14,

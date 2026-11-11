@@ -118,10 +118,10 @@ public sealed class TextField : Border {
     /// <summary>Makes it a password box with a button that shows the text; the two labels are for a screen reader (show, hide).</summary>
     public (string Show, string Hide)? Reveal {
         set {
-            revealLabels = value is null
+            revealLabels = value == null
                 ? null
                 : [value.Value.Show, value.Value.Hide];
-            reveal.IsVisible = value is not null;
+            reveal.IsVisible = value != null;
             shown = false;
             Apply();
         }
@@ -169,8 +169,8 @@ public sealed class TextField : Border {
         icon.Color = new SolidColorBrush(c.TextSecondary);
         eye.Color = new SolidColorBrush(c.TextSecondary);
         eye.Glyph = shown ? "eye" : "eyeOff";
-        box.PasswordChar = revealLabels is not null && !shown ? '●' : '\0';
-        if (revealLabels is not null)
+        box.PasswordChar = revealLabels != null && !shown ? '●' : '\0';
+        if (revealLabels != null)
             Avalonia.Automation.AutomationProperties.SetName(reveal,
                 shown ? revealLabels[1] : revealLabels[0]);
     }

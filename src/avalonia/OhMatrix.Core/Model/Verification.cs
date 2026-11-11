@@ -34,7 +34,7 @@ public sealed record VerifyFlow(
     {
         if (next.Phase == VerifyPhase.Requested)
             return next;
-        if (flow is null || flow.Phase == VerifyPhase.Done)
+        if (flow == null || flow.Phase == VerifyPhase.Done)
             return flow;
         if (flow.Ended && next.Phase != VerifyPhase.Done)
             return flow;

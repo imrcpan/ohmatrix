@@ -22,13 +22,16 @@ public static class Forward {
                 content["url"] = source;
         }
 
-        if (item.Image is { } picture) {
+        var picture = item.Image;
+        if (picture != null) {
             var info = new JsonObject {
                 ["mimetype"] = Ui.MimeTypes.For(picture.FileName)
             };
-            if (picture.Width is { } w)
+            var w = picture.Width;
+            if (w != null)
                 info["w"] = w;
-            if (picture.Height is { } h)
+            var h = picture.Height;
+            if (h != null)
                 info["h"] = h;
             var content = new JsonObject {
                 ["msgtype"] = "m.image",
@@ -39,7 +42,8 @@ public static class Forward {
             return content;
         }
 
-        if (item.File is { } file) {
+        var file = item.File;
+        if (file != null) {
             var type = file.Kind switch {
                 FileKind.Audio => "m.audio",
                 FileKind.Video => "m.video",
@@ -50,8 +54,9 @@ public static class Forward {
                 info["mimetype"] = file.Mime;
             if (file.Size > 0)
                 info["size"] = file.Size;
-            if (file.Duration is { } d)
-                info["duration"] = (long)d.TotalMilliseconds;
+            var d = file.Duration;
+            if (d != null)
+                info["duration"] = (long)d.Value.TotalMilliseconds;
             var content = new JsonObject {
                 ["msgtype"] = type,
                 ["body"] = file.Name

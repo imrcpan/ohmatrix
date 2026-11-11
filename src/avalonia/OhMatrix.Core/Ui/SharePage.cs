@@ -99,7 +99,10 @@ public sealed class SharePage : Grid {
     /// <summary>The second step: the chosen chats listed once more, all ticked, so a wrong one can be taken off.</summary>
     public void Confirm()
     {
-        if (picked.Count == 0 || TopLevel.GetTopLevel(this) is not { } window)
+        if (picked.Count == 0)
+            return;
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         keep = [.. picked];
         failed = 0;
@@ -154,11 +157,13 @@ public sealed class SharePage : Grid {
     /// <summary>Sends to each kept chat in turn; the ones that failed stay chosen.</summary>
     public async Task Send()
     {
-        if (controller.Store.Value.Share is not { } share || sending ||
+        var share = controller.Store.Value.Share;
+        if (share == null || sending ||
             keep.Count == 0)
             return;
         sending = true;
-        if (TopLevel.GetTopLevel(this) is { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window != null)
             ShowConfirm(window);
         var left = new HashSet<string>();
         foreach (var id in Postable.Select(r => r.Id).Where(keep.Contains)
@@ -181,7 +186,8 @@ public sealed class SharePage : Grid {
             picked.Add(id);
         keep = [.. left];
         failed = left.Count;
-        if (TopLevel.GetTopLevel(this) is { } w)
+        var w = TopLevel.GetTopLevel(this);
+        if (w != null)
             ShowConfirm(w);
         Apply();
     }
@@ -239,8 +245,8 @@ public sealed class SharePage : Grid {
     private void Apply()
     {
         var s = controller.Store.Value;
-        IsVisible = s.Share is not null;
-        if (s.Share is null)
+        IsVisible = s.Share != null;
+        if (s.Share == null)
             return;
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);

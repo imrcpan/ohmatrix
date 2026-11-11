@@ -47,7 +47,7 @@ public sealed class AppRoot : Border {
 
     private void Rebind()
     {
-        if (accounts is null || ReferenceEquals(accounts.Current, controller))
+        if (accounts == null || ReferenceEquals(accounts.Current, controller))
             return;
         controller.Store.Changed -= OnStore;
         // The pages of the account left are thrown away: they let go of its
@@ -149,7 +149,7 @@ public sealed class AppRoot : Border {
         // What was shown and is not any more lets go.
         var before = host.Child;
         host.Child = page is MainScreen ? WithShare(page) : page;
-        if (!ReferenceEquals(before, host.Child) && before is not null &&
+        if (!ReferenceEquals(before, host.Child) && before != null &&
             !ReferenceEquals(before, page))
             Lifetime.Release(before);
     }

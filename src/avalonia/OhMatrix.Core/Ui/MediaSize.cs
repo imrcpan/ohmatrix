@@ -8,7 +8,7 @@ public static class MediaSize {
     /// <summary>Scales to fit <see cref="MaxImage"/> on the long edge, keeping the shape; an unknown size is a square; never smaller than 130 by 90.</summary>
     public static (int Width, int Height) Fit(int? w, int? h)
     {
-        if (w is null or 0 || h is null or 0)
+        if (w == null || w == 0 || h == null || h == 0)
             return (MaxImage, MaxImage);
         var k = Math.Min(1.0, (double)MaxImage / Math.Max(w.Value, h.Value));
         return (

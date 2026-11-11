@@ -77,7 +77,8 @@ public sealed class SettingsPage : Grid {
     /// <summary>The menu of the download location: the Downloads folder of the system, or a folder chosen.</summary>
     public void OpenDownloadMenu()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window || DownloadRow is null)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null || DownloadRow == null)
             return;
         var folder = controller.Store.Value.Prefs.DownloadFolder;
         DownloadMenu.Show(DownloadRow, window, [
@@ -95,9 +96,11 @@ public sealed class SettingsPage : Grid {
     {
         var picked = await window.StorageProvider.OpenFolderPickerAsync(
             new Avalonia.Platform.Storage.FolderPickerOpenOptions());
-        if (picked.Count > 0
-            && Avalonia.Platform.Storage.StorageProviderExtensions
-                .TryGetLocalPath(picked[0]) is { } path)
+        if (picked.Count == 0)
+            return;
+        var path = Avalonia.Platform.Storage.StorageProviderExtensions
+            .TryGetLocalPath(picked[0]);
+        if (path != null)
             controller.SetPreferences(p => p with {
                 DownloadFolder = path
             });
@@ -106,7 +109,8 @@ public sealed class SettingsPage : Grid {
     /// <summary>Asks whether to sign out; the answer is in the buttons of the dialog.</summary>
     public void AskSignOut()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
@@ -153,7 +157,8 @@ public sealed class SettingsPage : Grid {
 
     private void OpenRepository()
     {
-        if (TopLevel.GetTopLevel(this)?.Launcher is { } launcher)
+        var launcher = TopLevel.GetTopLevel(this)?.Launcher;
+        if (launcher != null)
             _ = launcher.LaunchUriAsync(new Uri(Repository));
     }
 

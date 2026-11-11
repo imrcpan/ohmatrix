@@ -54,13 +54,13 @@ public sealed class Pictures(
     /// <summary>The picture at <paramref name="width"/> by <paramref name="height"/> logical pixels.</summary>
     public Task<IImage?> Get(string? source, int width, int height)
     {
-        if (media is null || string.IsNullOrEmpty(source))
+        if (media == null || string.IsNullOrEmpty(source))
             return Task.FromResult<IImage?>(null);
         var key = (source, width, height);
         TaskCompletionSource<IImage?> start;
         lock (gate) {
             if (cache.TryGetValue(key, out var found)) {
-                if (found.Node is not null) {
+                if (found.Node != null) {
                     recent.Remove(found.Node);
                     recent.AddFirst(found.Node);
                 }
@@ -85,7 +85,7 @@ public sealed class Pictures(
         lock (gate) {
             if (cache.TryGetValue(key, out var entry) &&
                 ReferenceEquals(entry.Task, done.Task)) {
-                if (picture is null) {
+                if (picture == null) {
                     // No picture (none there, failed, or the engine is not
                     // ready yet): nothing is kept, so the entry does not
                     // outlive the ask and the next ask tries again.
@@ -133,7 +133,7 @@ public sealed class Pictures(
         Task<IImage?> task)
     {
         var picture = await task;
-        if (picture is not null)
+        if (picture != null)
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 image.Source = picture);
     }
@@ -153,7 +153,7 @@ public sealed class Pictures(
     private static async Task Show(Avatar avatar, Task<IImage?> task)
     {
         var picture = await task;
-        if (picture is null)
+        if (picture == null)
             return;
         // Back on the thread of the interface.
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -164,7 +164,7 @@ public sealed class Pictures(
     {
         try {
             var bytes = await media!.Thumbnail(mxc, width * 2, height * 2);
-            if (bytes is null || bytes.Length == 0)
+            if (bytes == null || bytes.Length == 0)
                 return null;
             using var stream = new MemoryStream(bytes);
             return new Bitmap(stream);

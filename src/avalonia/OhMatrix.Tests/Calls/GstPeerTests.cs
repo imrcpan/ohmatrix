@@ -19,7 +19,8 @@ public class GstPeerTests {
         where T : class
     {
         for (var waited = 0; waited < ms; waited += 50) {
-            if (read() is { } found)
+            var found = read();
+            if (found != null)
                 return found;
             await Task.Delay(50);
         }
@@ -44,7 +45,7 @@ public class GstPeerTests {
         var aReady = false;
         var bReady = false;
         a.Candidate += c => {
-            if (c is null)
+            if (c == null)
                 return;
             lock (toB) {
                 if (bReady)
@@ -54,7 +55,7 @@ public class GstPeerTests {
             }
         };
         b.Candidate += c => {
-            if (c is null)
+            if (c == null)
                 return;
             lock (toA) {
                 if (aReady)
@@ -101,9 +102,9 @@ public class GstPeerTests {
         var seen = await Within(() => {
                 (int, int)? size = null;
                 b.TryTakeFrame((data, w, h) => size = (w, h));
-                return size is { } s
+                return size != null
                     ? new[] {
-                        s.Item1, s.Item2
+                        size.Value.Item1, size.Value.Item2
                     }
                     : null;
             },
@@ -117,9 +118,9 @@ public class GstPeerTests {
         var back = await Within(() => {
             (int, int)? size = null;
             a.TryTakeFrame((data, w, h) => size = (w, h));
-            return size is { } s
+            return size != null
                 ? new[] {
-                    s.Item1, s.Item2
+                    size.Value.Item1, size.Value.Item2
                 }
                 : null;
         }, "picture at a");
@@ -128,9 +129,9 @@ public class GstPeerTests {
         var own = await Within(() => {
             (int, int)? size = null;
             a.TryTakeLocalFrame((data, w, h) => size = (w, h));
-            return size is { } s
+            return size != null
                 ? new[] {
-                    s.Item1, s.Item2
+                    size.Value.Item1, size.Value.Item2
                 }
                 : null;
         }, "my own picture");

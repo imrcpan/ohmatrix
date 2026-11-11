@@ -45,10 +45,11 @@ public sealed class Mentions {
     public (string Text, int Caret) Apply(RoomMemberInfo who, string text,
         int caret)
     {
-        if (TokenAt(text, caret) is not { } token)
+        var token = TokenAt(text, caret);
+        if (token == null)
             return (text, caret);
         picked.Add(who.UserId);
-        var head = $"{text[..token.Start]}@{who.Name} ";
+        var head = $"{text[..token.Value.Start]}@{who.Name} ";
         return (head + text[caret..], head.Length);
     }
 

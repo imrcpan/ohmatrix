@@ -617,7 +617,7 @@ public class RoomListTests {
             string? from)
         {
             Requests++;
-            return Task.FromResult(from is null
+            return Task.FromResult(from == null
                 ? new SearchPage([Hit(1), Hit(2)], "more")
                 : new SearchPage([Hit(3)], null));
         }

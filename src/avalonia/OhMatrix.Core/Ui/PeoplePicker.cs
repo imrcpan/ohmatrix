@@ -274,7 +274,7 @@ public sealed class PeoplePicker : IOverlay {
 
     private async Task Confirm()
     {
-        if (busy || chosen.Count == 0 || onConfirm is null)
+        if (busy || chosen.Count == 0 || onConfirm == null)
             return;
         busy = true;
         error.IsVisible = false;

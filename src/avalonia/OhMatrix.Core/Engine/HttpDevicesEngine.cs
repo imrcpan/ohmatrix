@@ -37,7 +37,7 @@ public sealed class HttpDevicesEngine(
         var request = new HttpRequestMessage(method, url);
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", a.AccessToken);
-        if (body is not null)
+        if (body != null)
             request.Content =
                 new StringContent(body.ToJsonString(), Encoding.UTF8,
                     "application/json");
@@ -78,8 +78,10 @@ public sealed class HttpDevicesEngine(
         var list = new List<DeviceInfo>();
         if (body["devices"] is JsonArray devices) {
             foreach (var node in devices) {
-                if (node is not JsonObject d ||
-                    Text(d, "device_id") is not { } id)
+                if (node is not JsonObject d)
+                    continue;
+                var id = Text(d, "device_id");
+                if (id == null)
                     continue;
                 var name = Text(d, "display_name");
                 var ip = Text(d, "last_seen_ip")?.Replace("::ffff:", "");
@@ -123,7 +125,7 @@ public sealed class HttpDevicesEngine(
         if (status == HttpStatusCode.OK)
             return;
         var flow = Text(body, "session");
-        if (status != HttpStatusCode.Unauthorized || flow is null)
+        if (status != HttpStatusCode.Unauthorized || flow == null)
             throw new EngineException(
                 EngineErrorCode.Unknown,
                 Text(body, "error") ?? "Could not sign the sessions out."

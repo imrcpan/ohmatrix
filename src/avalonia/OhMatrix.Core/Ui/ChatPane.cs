@@ -65,7 +65,7 @@ public sealed partial class ChatPane : Grid {
 
     public ForwardDialog Forwarding {
         get {
-            if (forwardDialog is null) {
+            if (forwardDialog == null) {
                 forwardDialog = new ForwardDialog(controller);
                 Lifetime.Own(this, forwardDialog);
             }
@@ -110,10 +110,11 @@ public sealed partial class ChatPane : Grid {
 
     private async Task CopyChosen()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var text = string.Join("\n",
-            ChosenItems().Where(i => i.Image is null && i.File is null)
+            ChosenItems().Where(i => i.Image == null && i.File == null)
                 .Select(i => i.Body));
         await Copy(window, text);
         controller.ShowNotice(controller.T("copied"));
@@ -122,9 +123,10 @@ public sealed partial class ChatPane : Grid {
 
     private void ForwardChosen()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
-        var items = ChosenItems().Where(i => Forward.Content(i) is not null)
+        var items = ChosenItems().Where(i => Forward.Content(i) != null)
             .ToList();
         Forwarding.Show(window, items, CancelSelect);
     }
@@ -143,7 +145,8 @@ public sealed partial class ChatPane : Grid {
 
     private void OpenEmoji()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         if (emojiPicker.IsOpen) {
             emojiPicker.Close();
@@ -363,7 +366,7 @@ public sealed partial class ChatPane : Grid {
         var s = controller.Store.Value;
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         olderHost.Child =
-            on ? new ChatSkeleton(4, room is not null && !room.IsDirect) : null;
+            on ? new ChatSkeleton(4, room != null && !room.IsDirect) : null;
     }
 
     /// <summary>Grey bubbles over the list while a chat is being opened.</summary>
@@ -382,12 +385,13 @@ public sealed partial class ChatPane : Grid {
 
         // A chat that is not in the list once it is loaded: it was deleted,
         // or I am not in it any more.
-        var missing = s.SelectedRoomId is { } wanted && s.RoomsSettled &&
+        var wanted = s.SelectedRoomId;
+        var missing = wanted != null && s.RoomsSettled &&
                       s.Rooms.All(r => r.Id != wanted);
         notFound.IsVisible = missing;
         if (missing)
             BuildNotFound(c0);
-        if (s.SelectedRoomId is null || s.TimelineReady) {
+        if (s.SelectedRoomId == null || s.TimelineReady) {
             overlayTimer?.Dispose();
             overlay.IsVisible = false;
             overlayRoom = null;
@@ -401,7 +405,7 @@ public sealed partial class ChatPane : Grid {
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         overlaySkeleton.Children.Clear();
         overlaySkeleton.Children.Add(new ChatSkeleton(12,
-            room is not null && !room.IsDirect));
+            room != null && !room.IsDirect));
         overlayTimer?.Dispose();
         overlayTimer = After(TimeSpan.FromMilliseconds(150),
             () => overlay.IsVisible = !controller.Store.Value.TimelineReady);
@@ -559,8 +563,9 @@ public sealed partial class ChatPane : Grid {
     public void SuggestMentions()
     {
         var s = controller.Store.Value;
-        if (TopLevel.GetTopLevel(this) is not { } window ||
-            s.SelectedRoomId is not { } roomId)
+        var window = TopLevel.GetTopLevel(this);
+        var roomId = s.SelectedRoomId;
+        if (window == null || roomId == null)
             return;
         if (mentionRoom != roomId) {
             mentionRoom = roomId;
@@ -570,13 +575,13 @@ public sealed partial class ChatPane : Grid {
         }
 
         var text = input.Text ?? "";
-        if (Mentions.TokenAt(text, input.CaretIndex) is not { } token ||
-            s.Details is null) {
+        var token = Mentions.TokenAt(text, input.CaretIndex);
+        if (token == null || s.Details == null) {
             mentionMenu.Close();
             return;
         }
 
-        var found = Mentions.Suggest(s.Details.Members, token.Query);
+        var found = Mentions.Suggest(s.Details.Members, token.Value.Query);
         if (found.Count == 0) {
             mentionMenu.Close();
             return;
@@ -709,7 +714,7 @@ public sealed partial class ChatPane : Grid {
             return;
         // The mark the search put on the message goes with it: its wait
         // for the end of the mark is over now.
-        if (revealHighlight is not null && highlightId == revealHighlight) {
+        if (revealHighlight != null && highlightId == revealHighlight) {
             highlightId = null;
             Mark(false);
         }
@@ -725,7 +730,7 @@ public sealed partial class ChatPane : Grid {
         // is on the screen now, which asks for it as for any jump. That is
         // for a change between wide and narrow; when the chat was closed or
         // another one chosen the search is just over.
-        if (target is not null && sameRoom)
+        if (target != null && sameRoom)
             controller.Store.Update(s => s with {
                 JumpToEventId = target
             });
@@ -757,21 +762,21 @@ public sealed partial class ChatPane : Grid {
             TimelineItem? Find() => controller.Store.Value.Timeline
                 .FirstOrDefault(i => i.EventId == eventId);
 
-            if (Find() is null) {
+            if (Find() == null) {
                 controller.ShowNotice(controller.T("jump.looking"),
                     NoticeKind.Progress);
                 revealNotice = controller.Store.Value.Notice;
-                for (var n = 0; n < 40 && Find() is null; n++) {
+                for (var n = 0; n < 40 && Find() == null; n++) {
                     if (Superseded())
                         return;
                     var before = controller.Store.Value.Timeline.Count;
                     var atStart = await controller.LoadOlder();
                     if (Superseded())
                         return;
-                    if (atStart && Find() is null)
+                    if (atStart && Find() == null)
                         break;
                     for (var w = 0;
-                         w < 20 && Find() is null &&
+                         w < 20 && Find() == null &&
                          controller.Store.Value.Timeline.Count == before;
                          w++) {
                         await Task.Delay(50, retiredWaits.Token)
@@ -794,7 +799,8 @@ public sealed partial class ChatPane : Grid {
             Dispatcher.UIThread.RunJobs();
             if (Superseded())
                 return;
-            if (Find() is not { } hit || !ScrollToMessage(hit.Id)) {
+            var hit = Find();
+            if (hit == null || !ScrollToMessage(hit.Id)) {
                 controller.ShowNotice(controller.T("jump.notFound"),
                     NoticeKind.Error);
                 revealNotice = controller.Store.Value.Notice;
@@ -830,7 +836,7 @@ public sealed partial class ChatPane : Grid {
     {
         var owned = revealNotice;
         revealNotice = null;
-        if (owned is not null &&
+        if (owned != null &&
             ReferenceEquals(controller.Store.Value.Notice, owned))
             controller.Store.Update(s => ReferenceEquals(s.Notice, owned)
                 ? s with {
@@ -1000,7 +1006,8 @@ public sealed partial class ChatPane : Grid {
         // Starting to edit puts the text of the message in the field, once.
         if (s.Editing?.Id != editingId) {
             editingId = s.Editing?.Id;
-            if (s.Editing is { } e)
+            var e = s.Editing;
+            if (e != null)
                 input.Text = e.Body;
         }
 
@@ -1091,16 +1098,16 @@ public sealed partial class ChatPane : Grid {
         var row = new StackPanel {
             Orientation = Orientation.Horizontal,
             Spacing = 10,
-            Margin = new Thickness(onBack is null ? 20 : 8, 0, 12, 0),
+            Margin = new Thickness(onBack == null ? 20 : 8, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        if (onBack is not null) {
+        if (onBack != null) {
             var back = new IconButton("back", controller.T("back"), 26);
             back.Click += (_, _) => onBack();
             row.Children.Add(back);
         }
 
-        if (room is not null) {
+        if (room != null) {
             var avatar = new Avatar(room.Id, room.Name, 38, room.IsSpace);
             controller.Pictures.Attach(avatar, room.AvatarUrl, 38);
             row.Children.Add(avatar);
@@ -1181,7 +1188,8 @@ public sealed partial class ChatPane : Grid {
     /// <summary>The menu of a message: a pill of quick reactions and the actions (<c>MessageMenu</c>); it opens at <paramref name="at"/> or under <paramref name="anchor"/>.</summary>
     public void OpenActions(Control anchor, TimelineItem item, Point? at = null)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         // A message that could not be sent has only the two things that can be done with it, and no reactions.
         if (item.Failed) {
@@ -1202,39 +1210,41 @@ public sealed partial class ChatPane : Grid {
         }
 
         var items = new List<MenuItem>();
-        if (item.Body.Length > 0 && item.Image is null && item.File is null)
+        if (item.Body.Length > 0 && item.Image == null && item.File == null)
             items.Add(new MenuItem(controller.T("copy"),
                 () => _ = Copy(window, item.Body),
                 Icon: "copy"));
         items.Add(new MenuItem(controller.T("reply"),
             () => controller.SetReplyTo(item),
             Icon: "reply"));
-        var isText = item.Image is null && item.File is null;
-        if (item.IsOwn && item.EventId is not null && !item.Failed && isText)
+        var isText = item.Image == null && item.File == null;
+        if (item.IsOwn && item.EventId != null && !item.Failed && isText)
             items.Add(new MenuItem(controller.T("edit"),
                 () => controller.StartEdit(item),
                 Icon: "edit"));
-        if (item.EventId is { } eventId) {
+        var eventId = item.EventId;
+        if (eventId != null) {
             var pinned = PinnedIds().Contains(eventId);
             items.Add(new MenuItem(controller.T(pinned ? "unpin" : "pin"),
                 () => _ = controller.SetMessagePinned(item.Id, !pinned),
                 Icon: "pin"));
         }
 
-        if (Forward.Content(item) is not null)
+        if (Forward.Content(item) != null)
             items.Add(new MenuItem(controller.T("forward"), () => {
                 Forwarding.Show(window, [item]);
             }, Icon: "forward"));
-        if (item.Image is { } picture && controller.CanStickers
-                                      && picture.Source.StartsWith("mxc://",
-                                          StringComparison.Ordinal))
+        var picture = item.Image;
+        if (picture != null && controller.CanStickers
+                            && picture.Source.StartsWith("mxc://",
+                                StringComparison.Ordinal))
             items.Add(new MenuItem(controller.T("sticker.add"),
                 () => AskStickerGroup(window, item),
                 Icon: "sticker"));
         items.Add(new MenuItem(controller.T("select.multi"),
             () => StartSelect(item),
             Icon: "multiSelect"));
-        if (item.IsOwn && item.EventId is not null && !item.Failed)
+        if (item.IsOwn && item.EventId != null && !item.Failed)
             items.Add(new MenuItem(controller.T("delete"),
                 () => AskDelete(window, item),
                 Icon: "trash",
@@ -1250,7 +1260,8 @@ public sealed partial class ChatPane : Grid {
 
     private static async Task Copy(TopLevel window, string text)
     {
-        if (window.Clipboard is { } clipboard)
+        var clipboard = window.Clipboard;
+        if (clipboard != null)
             await clipboard.SetTextAsync(text);
     }
 
@@ -1340,7 +1351,7 @@ public sealed partial class ChatPane : Grid {
             Foreground = new SolidColorBrush(c.Accent),
         });
         words.Children.Add(new TextBlock {
-            Text = item is null ? "…" :
+            Text = item == null ? "…" :
                 item.Body.Length > 0 ? item.Body :
                 item.File?.Name ?? item.Image?.FileName ?? "",
             FontSize = 14,
@@ -1366,7 +1377,8 @@ public sealed partial class ChatPane : Grid {
     /// <summary>All the pinned messages of the chat, newest first, in a dialog; pressing one goes to it (<c>PinnedPage</c>).</summary>
     public void OpenPinnedList()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var ids = PinnedIds().Reverse().ToList();
@@ -1375,7 +1387,7 @@ public sealed partial class ChatPane : Grid {
             var item =
                 controller.Store.Value.Timeline.FirstOrDefault(i =>
                     i.EventId == id);
-            var text = item is null ? "…"
+            var text = item == null ? "…"
                 : item.Body.Length > 0 ? item.Body
                 : item.File?.Name ?? item.Image?.FileName ?? "";
             var line = new StackPanel {
@@ -1383,7 +1395,7 @@ public sealed partial class ChatPane : Grid {
                 Background = Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
-            if (item is not null)
+            if (item != null)
                 line.Children.Add(new TextBlock {
                     Text = item.SenderName,
                     FontSize = 13,
@@ -1404,7 +1416,7 @@ public sealed partial class ChatPane : Grid {
             line.PointerPressed += (_, e) => {
                 e.Handled = true;
                 pinnedDialog.Close();
-                if (target is not null)
+                if (target != null)
                     ScrollToMessage(target.Id);
             };
             rowsList.Children.Add(line);
@@ -1433,7 +1445,7 @@ public sealed partial class ChatPane : Grid {
         var item =
             controller.Store.Value.Timeline.FirstOrDefault(i =>
                 i.EventId == id);
-        if (item is not null)
+        if (item != null)
             ScrollToMessage(item.Id);
         pinnedAt = (pinnedAt + 1) % ids.Count;
         BuildPinnedBar(ThemeScope.GetColors(this), controller.Store.Value);
@@ -1521,9 +1533,11 @@ public sealed partial class ChatPane : Grid {
                                  StringComparison.CurrentCultureIgnoreCase))
                 .Select(i => i.Id)
                 .ToList();
+        var searchRoom = controller.Store.Value.SelectedRoomId;
         if (searching && query.Length >= 2 && controller.CanSearchMessages
-            && controller.Store.Value.SelectedRoomId is { } roomId) {
-            if (hits is null || hitsRoom != roomId) {
+            && searchRoom != null) {
+            var roomId = searchRoom;
+            if (hits == null || hitsRoom != roomId) {
                 Lifetime.Drop(this, hits);
                 hits = new MessageResultsView(controller, roomId, false);
                 Lifetime.Own(this, hits);
@@ -1602,7 +1616,8 @@ public sealed partial class ChatPane : Grid {
     /// <summary>Fetches the file of a message and opens it with the program of the system for it.</summary>
     private async void OpenFile(FileAttachment file)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         // A video plays in the app where the system has a player library; otherwise (and for any other file) the system's program opens it.
         if (file.Kind == FileKind.Video && Audio.MediaPlayer.Available) {
@@ -1612,11 +1627,11 @@ public sealed partial class ChatPane : Grid {
 
         try {
             var path = await controller.DownloadFile(file);
-            if (path is null)
+            if (path == null)
                 return;
             var stored =
                 await window.StorageProvider.TryGetFileFromPathAsync(path);
-            if (stored is not null)
+            if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
         } catch (Exception) {
             // The file stays unopened; pressing it again tries again.
@@ -1625,7 +1640,8 @@ public sealed partial class ChatPane : Grid {
 
     private void OpenViewer(TimelineItem item, Image shown)
     {
-        if (item.Image is not { } image || TopLevel.GetTopLevel(this) is not
+        var image = item.Image;
+        if (image == null || TopLevel.GetTopLevel(this) is not
                 { } window)
             return;
         viewer.Show(window, controller.Pictures, image.Source, image.FileName,
@@ -1637,7 +1653,7 @@ public sealed partial class ChatPane : Grid {
 
     public SendFilesDialog SendFiles {
         get {
-            if (sendFiles is null) {
+            if (sendFiles == null) {
                 sendFiles = new SendFilesDialog(controller);
                 Lifetime.Own(this, sendFiles);
             }
@@ -1649,8 +1665,10 @@ public sealed partial class ChatPane : Grid {
     /// <summary>Asks before files dropped on the chat are sent, then sends each.</summary>
     public void OfferFiles(IReadOnlyList<string> paths)
     {
-        if (controller.Store.Value.SelectedRoomId is null ||
-            TopLevel.GetTopLevel(this) is not { } window)
+        if (controller.Store.Value.SelectedRoomId == null)
+            return;
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         SendFiles.Show(window, paths, () => _ = SendPaths(paths));
     }
@@ -1670,7 +1688,7 @@ public sealed partial class ChatPane : Grid {
 
     private RecordingDialog recording {
         get {
-            if (recordingDialog is null) {
+            if (recordingDialog == null) {
                 recordingDialog = new RecordingDialog(controller);
                 Lifetime.Own(this, recordingDialog);
             }
@@ -1682,7 +1700,7 @@ public sealed partial class ChatPane : Grid {
     // Made on first use; it goes when the pane does.
     private StickerPane StickerPaneOnce()
     {
-        if (stickerPane is null) {
+        if (stickerPane == null) {
             stickerPane = new StickerPane(controller, emojiPicker.Close);
             Lifetime.Own(this, stickerPane);
         }
@@ -1697,7 +1715,8 @@ public sealed partial class ChatPane : Grid {
     /// <summary>The menu of the paperclip: a photo or a file, picked from disk and sent to the chat.</summary>
     public void OpenAttach()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var items = new List<MenuItem> {
             new(controller.T("attach.image"),
@@ -1736,7 +1755,8 @@ public sealed partial class ChatPane : Grid {
     /// <summary>Asks whether to start the call, then places it; why it could not be placed is shown in the prompt.</summary>
     public void AskCall(TopLevel window, bool video)
     {
-        if (controller.Store.Value.SelectedRoomId is not { } roomId)
+        var roomId = controller.Store.Value.SelectedRoomId;
+        if (roomId == null)
             return;
         CallPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -1778,7 +1798,8 @@ public sealed partial class ChatPane : Grid {
                         : null,
             });
         foreach (var file in files) {
-            if (file.TryGetLocalPath() is { } path) {
+            var path = file.TryGetLocalPath();
+            if (path != null) {
                 try {
                     await controller.SendAttachment(path);
                 } catch (Exception) {
@@ -1874,15 +1895,15 @@ public sealed partial class ChatPane : Grid {
     private Control? ReplyBanner(ColorTokens c, AppState s)
     {
         var editing = s.Editing;
-        if (s.ReplyTo is not { } to && editing is null)
+        var to = editing ?? s.ReplyTo;
+        if (to == null)
             return null;
-        to = editing ?? s.ReplyTo!;
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
             Margin = new Thickness(12, 8, 12, 0),
         };
         var icon = new Icon {
-            Glyph = editing is null ? "reply" : "edit",
+            Glyph = editing == null ? "reply" : "edit",
             Size = 20,
             Color = new SolidColorBrush(c.Accent),
             Margin = new Thickness(0, 0, 10, 0),
@@ -1897,7 +1918,7 @@ public sealed partial class ChatPane : Grid {
         Grid.SetColumn(bar, 1);
         var words = new StackPanel();
         words.Children.Add(new TextBlock {
-            Text = editing is not null ? controller.T("edit.title") :
+            Text = editing != null ? controller.T("edit.title") :
                 to.IsOwn ? controller.T("you") : to.SenderName,
             FontSize = 14,
             FontWeight = FontWeight.SemiBold,
@@ -1917,7 +1938,7 @@ public sealed partial class ChatPane : Grid {
             Tint = c.TextSecondary
         };
         cancel.Click += (_, _) => {
-            if (editing is not null) {
+            if (editing != null) {
                 controller.StartEdit(null);
                 input.Text = "";
             } else

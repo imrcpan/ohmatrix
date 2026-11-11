@@ -30,7 +30,7 @@ public class VideoViewerTests {
         Assert.True(viewer.IsOpen);
         // The first frame can come before the player says it is playing.
         for (var i = 0;
-             i < 100 && (viewer.Picture.Source is null ||
+             i < 100 && (viewer.Picture.Source == null ||
                          viewer.Glyph != "pause");
              i++) {
             await Task.Delay(50, TestContext.Current.CancellationToken);

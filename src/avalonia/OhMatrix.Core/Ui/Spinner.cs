@@ -101,12 +101,12 @@ public sealed class Spinner : Control {
         var brush = Color ?? AccentBrush();
         var thickness = Math.Max(2, Size / 12);
         var centre = new Point(Size / 2, Size / 2);
-        if (ring is null || ringSize != Size) {
+        if (ring == null || ringSize != Size) {
             ring = Ring(Size, thickness);
             ringSize = Size;
         }
 
-        if (pen is null || !ReferenceEquals(penBrush, brush) ||
+        if (pen == null || !ReferenceEquals(penBrush, brush) ||
             penThickness != thickness) {
             pen = new Pen(brush, thickness, lineCap: PenLineCap.Round);
             penBrush = brush;
@@ -124,7 +124,7 @@ public sealed class Spinner : Control {
     private IBrush AccentBrush()
     {
         var colour = ThemeScope.GetColors(this).Accent;
-        if (accent is null || accent.Color != colour)
+        if (accent == null || accent.Color != colour)
             accent = new SolidColorBrush(colour);
         return accent;
     }

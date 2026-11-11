@@ -179,7 +179,7 @@ public sealed class AudioCard : Grid {
         loading = true;
         try {
             var path = await fetch(file);
-            if (path is null)
+            if (path == null)
                 return;
             var player = new MediaPlayer(path);
             // Few clips are kept: the oldest one that is not playing goes.

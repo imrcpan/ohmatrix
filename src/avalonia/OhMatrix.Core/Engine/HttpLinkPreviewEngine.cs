@@ -16,7 +16,8 @@ public sealed class HttpLinkPreviewEngine(
 
     public async Task<LinkPreview?> Preview(string url)
     {
-        if (session() is not { } a)
+        var a = session();
+        if (a == null)
             return null;
         var root = a.Homeserver.TrimEnd('/');
         var query = "?url=" + Uri.EscapeDataString(url);
@@ -54,7 +55,7 @@ public sealed class HttpLinkPreviewEngine(
             return null;
         }
 
-        if (o is null)
+        if (o == null)
             return null;
 
         string? Str(string key)
@@ -76,7 +77,7 @@ public sealed class HttpLinkPreviewEngine(
         var title = Str("og:title");
         var description = Str("og:description");
         var image = Str("og:image");
-        if (title is null && description is null && image is null)
+        if (title == null && description == null && image == null)
             return null;
         return new LinkPreview(
             url,

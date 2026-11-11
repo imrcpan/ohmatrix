@@ -131,7 +131,7 @@ public sealed class RoomRow : PressableButton {
         drawn = c;
         // Set only when they differ: the row is updated for every change of
         // what it shows, and most of them leave these two as they were.
-        var height = Invite is null || Compact ? RowHeight : double.NaN;
+        var height = Invite == null || Compact ? RowHeight : double.NaN;
         if (!height.Equals(Height))
             Height = height;
         if (automationName != Title) {
@@ -152,9 +152,9 @@ public sealed class RoomRow : PressableButton {
         var secondary = Selected ? c.OnSelectedSecondary : c.TextSecondary;
         preview.Foreground = Brush(preview.Foreground, secondary);
         time.Foreground = Brush(time.Foreground, secondary);
-        if (mute is not null)
+        if (mute != null)
             mute.Color = Brush(mute.Color, secondary);
-        if (pin is not null)
+        if (pin != null)
             pin.Color = Brush(pin.Color, secondary);
         badge.Background = Brush(badge.Background,
             !Compact && Selected ? c.OnSelected
@@ -164,7 +164,7 @@ public sealed class RoomRow : PressableButton {
         badge.BorderBrush = Compact
             ? Brush(badge.BorderBrush, Selected ? c.Selected : c.Bg)
             : null;
-        if (accept is not null && decline is not null) {
+        if (accept != null && decline != null) {
             PaintPill(accept, Selected ? c.OnSelected : c.Accent,
                 Selected ? c.Selected : c.OnAccent);
             PaintPill(decline, c.BgSecondary, c.Text);
@@ -177,11 +177,11 @@ public sealed class RoomRow : PressableButton {
 
     private void UpdateAvatar()
     {
-        if (avatar is not null && avatarTitle == Title &&
+        if (avatar != null && avatarTitle == Title &&
             avatarUrl == AvatarUrl && avatarPictures == Pictures &&
             avatarSpace == IsSpace && Equals(avatarFont, Fonts.System))
             return;
-        if (avatar is not null)
+        if (avatar != null)
             avatarHolder.Children.Remove(avatar);
         avatar = new Avatar(RoomId, Title, 44, IsSpace) {
             Margin = Compact ? default : new Thickness(0, 0, 11, 0),
@@ -254,13 +254,13 @@ public sealed class RoomRow : PressableButton {
 
     private void UpdateIcons()
     {
-        if (Muted && mute is null)
+        if (Muted && mute == null)
             mute = SmallIcon("bellOff", 1);
-        if (Pinned && pin is null)
+        if (Pinned && pin == null)
             pin = SmallIcon("pin", Muted ? 2 : 1);
-        if (mute is not null)
+        if (mute != null)
             mute.IsVisible = Muted;
-        if (pin is not null) {
+        if (pin != null) {
             pin.IsVisible = Pinned;
             Grid.SetColumn(pin, Muted ? 2 : 1);
         }
@@ -281,13 +281,14 @@ public sealed class RoomRow : PressableButton {
 
     private void UpdateInvite()
     {
-        if (Invite is not { } invite || Compact) {
-            if (buttons is not null)
+        var invite = Invite;
+        if (invite == null || Compact) {
+            if (buttons != null)
                 buttons.IsVisible = false;
             return;
         }
 
-        if (buttons is null) {
+        if (buttons == null) {
             // Resolve the actions when pressed: the invitation can change
             // while its controls are kept.
             accept = Pill(FontWeight.SemiBold, () => Invite?.OnAccept());
@@ -303,8 +304,8 @@ public sealed class RoomRow : PressableButton {
         }
 
         buttons.IsVisible = true;
-        Text((TextBlock)accept!.Child!, invite.Accept);
-        Text((TextBlock)decline!.Child!, invite.Decline);
+        Text((TextBlock)accept!.Child!, invite.Value.Accept);
+        Text((TextBlock)decline!.Child!, invite.Value.Decline);
     }
 
     private static TextBlock Ellipsis(double size, FontWeight weight)
@@ -362,7 +363,7 @@ public sealed class RoomRow : PressableButton {
         var c = Colors;
         // A row is drawn before it is in the tree, with the default colours;
         // update its brushes when it inherits the colours of its place.
-        if (drawn is not null && drawn != c)
+        if (drawn != null && drawn != c)
             Update();
         Background = Selected ? Brush(Background, c.Selected)
             : Pressed ? Brush(Background, c.Separator)

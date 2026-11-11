@@ -74,7 +74,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         lock (galleries)
             galleries.TryGetValue(roomId, out gallery);
         using var change = new Change();
-        if (gallery is null) {
+        if (gallery == null) {
             gallery = new Gallery(await OpenGallery(roomId));
             lock (galleries)
                 galleries[roomId] = gallery;
@@ -156,7 +156,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
 
         public void Dispose()
         {
-            if (watched is not null)
+            if (watched != null)
                 watched.Changed -= OnChanged;
         }
     }
@@ -189,7 +189,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             var media = new int[4];
             foreach (var line in lines) {
-                if (MediaKinds.Of(line) is { } kind)
+                var kind = MediaKinds.Of(line);
+                if (kind != null)
                     media[(int)kind]++;
             }
 
@@ -238,7 +239,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     content = content.WithMentions(
                         new uniffi.matrix_sdk_ffi.Mentions([.. mentions],
                             false));
-                if (replyToEventId is null)
+                if (replyToEventId == null)
                     await timeline.Send(content);
                 else
                     await timeline.SendReply(content, replyToEventId);
@@ -294,7 +295,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         public async Task Edit(string itemId, string text)
         {
             var e = Event(itemId);
-            if (e is null)
+            if (e == null)
                 return;
             try {
                 var content =
@@ -309,7 +310,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         public async Task Delete(string itemId)
         {
             var e = Event(itemId);
-            if (e is null)
+            if (e == null)
                 return;
             try {
                 await timeline.RedactEvent(e.EventOrTransactionId, null);
@@ -350,7 +351,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 byId.TryGetValue(itemId, out item);
             }
 
-            if (item?.AsEvent() is not { } e)
+            var e = item?.AsEvent();
+            if (e == null)
                 return;
             try {
                 await timeline.ToggleReaction(e.EventOrTransactionId, key);
@@ -490,7 +492,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 };
             }
 
-            if (item.AsEvent() is not { } e)
+            var e = item.AsEvent();
+            if (e == null)
                 return null;
             var name = e.SenderProfile is ProfileDetails.Ready {
                 DisplayName: { } n
@@ -580,7 +583,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
 
             // Someone joining, leaving or being invited, and the room being made or renamed, are lines of their own.
-            if (ServiceLines.For(e.Content, name) is { } line) {
+            var line = ServiceLines.For(e.Content, name);
+            if (line != null) {
                 return new TimelineItem {
                     Id = id,
                     Kind = TimelineKind.Service,
@@ -612,7 +616,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         /// <summary>The quote of a reply, when the message it answers is known.</summary>
         private static ReplyQuote? Quote(InReplyToDetails? reply)
         {
-            if (reply is null)
+            if (reply == null)
                 return null;
             if (reply.Event() is not EmbeddedEventDetails.Ready ready)
                 return new ReplyQuote("", "…", reply.EventId());

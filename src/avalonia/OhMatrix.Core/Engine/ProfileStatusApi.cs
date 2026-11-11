@@ -31,7 +31,7 @@ public sealed class ProfileStatusApi(
         var request = new HttpRequestMessage(method, url);
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", a.AccessToken);
-        if (body is not null)
+        if (body != null)
             request.Content =
                 new StringContent(body.ToJsonString(), Encoding.UTF8,
                     "application/json");
@@ -54,7 +54,8 @@ public sealed class ProfileStatusApi(
     /// <summary>My status, or null when there is none or the server keeps none.</summary>
     public async Task<string?> Read()
     {
-        if (session() is not { } a)
+        var a = session();
+        if (a == null)
             return null;
         try {
             var (status, body) = await Send(HttpMethod.Get, Url(a), a);

@@ -46,7 +46,7 @@ public sealed class Avatar : Border {
     public Avalonia.Media.IImage? Source {
         set {
             picture.Source = value;
-            Child = value is null ? initials : picture;
+            Child = value == null ? initials : picture;
         }
     }
 

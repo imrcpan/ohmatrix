@@ -192,7 +192,8 @@ public sealed class CallScreen : Grid {
     /// <summary>Lists the microphones (and, in a video call, the cameras) with the ones in use checked; choosing one switches to it.</summary>
     public void OpenDevices(Control? anchor = null)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var devices = controller.CallDevices();
         var items = new List<MenuItem>();
@@ -264,7 +265,7 @@ public sealed class CallScreen : Grid {
     private static WriteableBitmap Fill(WriteableBitmap? bitmap, IntPtr data,
         int width, int height)
     {
-        if (bitmap is null || bitmap.PixelSize.Width != width ||
+        if (bitmap == null || bitmap.PixelSize.Width != width ||
             bitmap.PixelSize.Height != height)
             bitmap = new WriteableBitmap(new PixelSize(width, height),
                 new Vector(96, 96),
@@ -289,11 +290,11 @@ public sealed class CallScreen : Grid {
                 local.Source = localPicture;
             }))
             local.InvalidateVisual();
-        localFrame.IsVisible = localPicture is not null &&
+        localFrame.IsVisible = localPicture != null &&
                                controller.Store.Value.Call is
                                    { CameraOff: false };
         if (!controller.TakeCallFrame((data, width, height) => {
-                if (picture is null || picture.PixelSize.Width != width
+                if (picture == null || picture.PixelSize.Width != width
                                     || picture.PixelSize.Height != height) {
                     picture = new WriteableBitmap(new PixelSize(width, height),
                         new Vector(96, 96),
@@ -360,12 +361,12 @@ public sealed class CallScreen : Grid {
         Color? tone = null,
         bool off = false, double turn = 0)
     {
-        var background = tone is { } t
-            ? t
+        var background = tone != null
+            ? tone.Value
             : off
                 ? Colors.White
                 : Color.FromArgb(46, 255, 255, 255);
-        var ink = tone is not null ? Colors.White :
+        var ink = tone != null ? Colors.White :
             off ? Color.Parse("#1C1C1E") : Colors.White;
         var disc = new Border {
             Width = 64,
@@ -410,8 +411,8 @@ public sealed class CallScreen : Grid {
     {
         var s = controller.Store.Value;
         var call = s.Call;
-        IsVisible = call is not null;
-        if (call is null) {
+        IsVisible = call != null;
+        if (call == null) {
             clock.Stop();
             frames.Stop();
             remote.IsVisible = false;

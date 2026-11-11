@@ -93,7 +93,7 @@ public sealed class Menu : IOverlay {
 
     public double Width { get; set; } = DefaultWidth;
 
-    public bool IsOpen => shade.Parent is not null;
+    public bool IsOpen => shade.Parent != null;
 
     /// <summary>The menu itself.</summary>
     public Control Surface => surface;
@@ -140,7 +140,7 @@ public sealed class Menu : IOverlay {
 
         Close();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
+        if (layer == null)
             return;
         Canvas.SetLeft(surface, left);
         Canvas.SetTop(surface, place.Top);
@@ -175,7 +175,7 @@ public sealed class Menu : IOverlay {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
         var ink = item.Danger ? colors.Danger : colors.Text;
-        if (item.Icon is not null) {
+        if (item.Icon != null) {
             var icon = new Icon {
                 Glyph = item.Icon,
                 Size = 18,

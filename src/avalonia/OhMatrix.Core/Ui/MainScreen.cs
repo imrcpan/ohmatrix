@@ -199,7 +199,7 @@ public sealed class MainScreen : Grid {
 
     private RoomListPane Rail()
     {
-        if (rail is null) {
+        if (rail == null) {
             rail = new RoomListPane(controller, true);
             Lifetime.Own(this, rail);
         }
@@ -211,8 +211,9 @@ public sealed class MainScreen : Grid {
     public double SidebarWidth()
     {
         var width = Bounds.Width;
-        return live ?? (controller.Store.Value.Prefs.SidebarWidth is { } kept
-            ? Layout.ClampSidebar(kept, width)
+        var kept = controller.Store.Value.Prefs.SidebarWidth;
+        return live ?? (kept != null
+            ? Layout.ClampSidebar(kept.Value, width)
             : Layout.AutoSidebar(width));
     }
 
@@ -261,7 +262,7 @@ public sealed class MainScreen : Grid {
         listHost.Width = sidebar;
         resizer.IsVisible = split;
         var strip = split && Layout.IsRail(sidebar);
-        var open = s.SelectedRoomId is not null;
+        var open = s.SelectedRoomId != null;
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
         narrowChat.Showing = narrowChat.IsVisible;

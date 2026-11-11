@@ -62,7 +62,7 @@ public class RichBubbleTests {
         Assert.NotNull(runs.First(r => r.Text == "c").FontFamily);
         Assert.NotNull(runs.First(r => r.Text == "link").TextDecorations);
         var shot = Environment.GetEnvironmentVariable("OHMATRIX_CHAT_SHEET");
-        if (shot is not null)
+        if (shot != null)
             window.CaptureRenderedFrame()
                 ?.Save(shot.Replace(".png", "-rich.png"));
     }
@@ -121,7 +121,7 @@ public class RichBubbleTests {
         Assert.Contains("Example title", texts);
         Assert.Contains("A page about examples", texts);
         var shot = Environment.GetEnvironmentVariable("OHMATRIX_CHAT_SHEET");
-        if (shot is not null)
+        if (shot != null)
             window.CaptureRenderedFrame()
                 ?.Save(shot.Replace(".png", "-preview.png"));
         var card = bubble.GetVisualDescendants().OfType<Border>()
@@ -148,6 +148,6 @@ public class RichBubbleTests {
         await Task.Delay(50);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         Assert.DoesNotContain(bubble.GetVisualDescendants().OfType<Border>(),
-            b => b.Cursor is not null && b.Child is StackPanel);
+            b => b.Cursor != null && b.Child is StackPanel);
     }
 }

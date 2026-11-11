@@ -55,7 +55,7 @@ public static class Lifetime {
     /// <summary>Makes <paramref name="child"/> go with <paramref name="owner"/>: it is released when the owner is. For what the owner holds but may not show (a page in a field, made on first use).</summary>
     public static void Own(object owner, object? child)
     {
-        if (child is null)
+        if (child == null)
             return;
         if (Gone.TryGetValue(owner, out _)) {
             Release(child);
@@ -69,7 +69,7 @@ public static class Lifetime {
     /// <summary>Replaces a child the owner held: it is let go of and no longer held, so it can be collected while the owner lives on.</summary>
     public static void Drop(object owner, object? child)
     {
-        if (child is null)
+        if (child == null)
             return;
         lock (Owned) {
             if (Owned.TryGetValue(owner, out var list))
@@ -82,7 +82,7 @@ public static class Lifetime {
     /// <summary>Lets go of everything <paramref name="root"/>, what it owns and what is below it in the tree hooked onto outside. Calling it again does nothing.</summary>
     public static void Release(object? root)
     {
-        if (root is null)
+        if (root == null)
             return;
         Gone.AddOrUpdate(root, root);
         List<Action>? cleanups = null;
@@ -105,10 +105,10 @@ public static class Lifetime {
         // the page, so the tree does not reach it: it is closed here.
         if (root is IOverlay overlay)
             overlay.Retire();
-        if (cleanups is not null)
+        if (cleanups != null)
             foreach (var cleanup in cleanups)
                 cleanup();
-        if (owned is not null)
+        if (owned != null)
             foreach (var child in owned)
                 Release(child);
         if (root is Control control)

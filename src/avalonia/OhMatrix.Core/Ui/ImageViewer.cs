@@ -81,7 +81,7 @@ public sealed class ImageViewer : IOverlay {
             IsVisible = false,
         };
         saveButton.Click += (_, _) => {
-            if (onSave is not null)
+            if (onSave != null)
                 _ = onSave();
         };
         ThemeScope.SetColors(saveButton, Themes.Resolve("dark", null).Colors);
@@ -132,11 +132,12 @@ public sealed class ImageViewer : IOverlay {
                 Close();
         };
         shade.PointerMoved += (_, e) => {
-            if (dragFrom is not { } from)
+            var from = dragFrom;
+            if (from == null)
                 return;
             var now = e.GetPosition(shade);
-            move.X = dragStartOffset.X + now.X - from.X;
-            move.Y = dragStartOffset.Y + now.Y - from.Y;
+            move.X = dragStartOffset.X + now.X - from.Value.X;
+            move.Y = dragStartOffset.Y + now.Y - from.Value.Y;
         };
         shade.PointerReleased += (_, e) => {
             dragFrom = null;
@@ -152,7 +153,7 @@ public sealed class ImageViewer : IOverlay {
         };
     }
 
-    public bool IsOpen => shade.Parent is not null;
+    public bool IsOpen => shade.Parent != null;
 
     /// <summary>The zoom now: 1 is the picture fitted to the window.</summary>
     public double Zoom => zoom;
@@ -169,9 +170,9 @@ public sealed class ImageViewer : IOverlay {
     {
         Close();
         onSave = save;
-        saveButton.IsVisible = save is not null;
+        saveButton.IsVisible = save != null;
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
+        if (layer == null)
             return;
         title.Text = name;
         picture.Source = preview;

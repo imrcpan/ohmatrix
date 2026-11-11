@@ -17,7 +17,7 @@ public class HttpDevicesEngineTests {
             CancellationToken cancellationToken
         )
         {
-            var body = request.Content is null
+            var body = request.Content == null
                 ? ""
                 : await request.Content.ReadAsStringAsync(cancellationToken);
             Seen.Add(

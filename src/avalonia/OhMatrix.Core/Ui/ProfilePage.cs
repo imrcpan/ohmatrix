@@ -56,13 +56,14 @@ public sealed class ProfilePage : Grid {
     /// <summary>Asks for a picture file and makes it my picture; the path can be given to skip the dialog.</summary>
     public async Task ChangePhoto(string? path = null)
     {
-        if (path is null) {
-            if (TopLevel.GetTopLevel(this) is not { } window)
+        if (path == null) {
+            var window = TopLevel.GetTopLevel(this);
+            if (window == null)
                 return;
             path = await FilePicker.PickImage(window);
         }
 
-        if (path is null)
+        if (path == null)
             return;
         try {
             await controller.SetAvatar(path);
@@ -84,7 +85,8 @@ public sealed class ProfilePage : Grid {
     /// <summary>Asks for a new status line (up to 100 characters); a server without statuses says so.</summary>
     public void AskStatus()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var s = controller.Store.Value;
         StatusPrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
@@ -110,7 +112,8 @@ public sealed class ProfilePage : Grid {
     /// <summary>Asks for a new name.</summary>
     public void AskName()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var s = controller.Store.Value;
         NamePrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
@@ -147,7 +150,7 @@ public sealed class ProfilePage : Grid {
         };
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
-        if (value is not null) {
+        if (value != null) {
             var shown = new TextBlock {
                 Text = value,
                 FontSize = 15,
@@ -172,7 +175,7 @@ public sealed class ProfilePage : Grid {
                 Color = new SolidColorBrush(c.TextTertiary),
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            Grid.SetColumn(arrow, value is null ? 2 : 3);
+            Grid.SetColumn(arrow, value == null ? 2 : 3);
             grid.Children.Add(arrow);
         }
 
@@ -220,7 +223,8 @@ public sealed class ProfilePage : Grid {
             mine.Cursor = new Cursor(StandardCursorType.Hand);
             mine.PointerPressed += (_, e) => {
                 e.Handled = true;
-                if (TopLevel.GetTopLevel(this) is { } window)
+                var window = TopLevel.GetTopLevel(this);
+                if (window != null)
                     Viewer.Show(window, controller.Pictures, own, shown, null,
                         () => controller.SavePicture(window, own, shown));
             };
@@ -278,7 +282,7 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "lock", controller.T("encryption"),
             () => controller.OpenSidebarPage(SidebarPage.Encryption), 6,
             EncryptionPage.Words(s.Security, k => controller.T(k))));
-        if (controller.Accounts is not null)
+        if (controller.Accounts != null)
             content.Children.Add(NavRow(c, "user",
                 controller.T("switchAccount"),
                 () => controller.OpenSidebarPage(SidebarPage.Accounts), 6));

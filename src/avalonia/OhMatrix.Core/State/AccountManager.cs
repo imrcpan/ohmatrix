@@ -49,7 +49,7 @@ public sealed class AccountManager(
 
     /// <summary>The sign-in of a new account is showing.</summary>
     public bool Adding =>
-        signingIn is not null && ReferenceEquals(current, signingIn);
+        signingIn != null && ReferenceEquals(current, signingIn);
 
     /// <summary>The account in use, null while a new one is being signed in.</summary>
     public AccountEntry? CurrentAccount =>
@@ -88,7 +88,7 @@ public sealed class AccountManager(
     /// <summary>Shows the sign-in of one more account.</summary>
     public void BeginAdd()
     {
-        if (signingIn is null) {
+        if (signingIn == null) {
             signingInDir = Path.Combine(dataDirectory, "accounts",
                 Guid.NewGuid().ToString("N"));
             signingIn = Make(signingInDir);
@@ -110,7 +110,8 @@ public sealed class AccountManager(
     /// <summary>Makes an account the one in use.</summary>
     public void SwitchTo(string userId)
     {
-        if (accounts.FirstOrDefault(a => a.UserId == userId) is not { } account)
+        var account = accounts.FirstOrDefault(a => a.UserId == userId);
+        if (account == null)
             return;
         Show(account.Controller);
     }
@@ -118,7 +119,8 @@ public sealed class AccountManager(
     /// <summary>Signs an account out (on the server too) and forgets it; the next one, or the sign-in, takes over.</summary>
     public async Task Remove(string userId)
     {
-        if (accounts.FirstOrDefault(a => a.UserId == userId) is not { } account)
+        var account = accounts.FirstOrDefault(a => a.UserId == userId);
+        if (account == null)
             return;
         try {
             await account.Controller.Logout();
@@ -167,7 +169,7 @@ public sealed class AccountManager(
         if (ReferenceEquals(current, next))
             return;
         // The preferences (theme, language, zoom) belong to the person, not to the account.
-        if (current is not null)
+        if (current != null)
             next.SetPreferences(_ => current.Store.Value.Prefs);
         current = next;
         Changed?.Invoke();
@@ -192,7 +194,7 @@ public sealed class AccountManager(
     {
         void OnChanged(AppState s)
         {
-            if (s.Auth != AuthStatus.SignedIn || s.UserId is null ||
+            if (s.Auth != AuthStatus.SignedIn || s.UserId == null ||
                 signingIn != controller)
                 return;
             controller.Store.Changed -= OnChanged;

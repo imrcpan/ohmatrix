@@ -18,7 +18,8 @@ public sealed record LogLine(LogLevel Level, string Stamp, string Text) {
             var line = raw.TrimEnd('\r');
             if (line.Length == 0)
                 continue;
-            if (Head(line) is { } head) {
+            var head = Head(line);
+            if (head != null) {
                 lines.Add(head);
                 continue;
             }
@@ -49,7 +50,7 @@ public sealed record LogLine(LogLevel Level, string Stamp, string Text) {
             "FTL" => LogLevel.Fatal,
             _ => (LogLevel?)null,
         };
-        if (level is null)
+        if (level == null)
             return null;
         return new LogLine(level.Value, line.Substring(4, 10),
             line[HeadLength..]);

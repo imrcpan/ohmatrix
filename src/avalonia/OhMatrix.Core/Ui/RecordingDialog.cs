@@ -32,7 +32,7 @@ public sealed class RecordingDialog {
         this.controller = controller;
         Lifetime.OnRelease(this, Dispose);
         ticker.Tick += (_, _) => {
-            if (recorder is not null)
+            if (recorder != null)
                 clock.Text = Format.Duration(recorder.Elapsed);
         };
         dialog.OnClose = Discard;
@@ -105,7 +105,7 @@ public sealed class RecordingDialog {
         dialog.OnClose = null;
         dialog.Close();
         dialog.OnClose = Discard;
-        if (done is null)
+        if (done == null)
             return;
         try {
             if (done.Duration >= TimeSpan.FromMilliseconds(500))

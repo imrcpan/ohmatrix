@@ -68,7 +68,7 @@ public sealed class AccountsPage : Grid {
     private void Apply()
     {
         var manager = controller.Accounts;
-        if (manager is not null && !ReferenceEquals(manager, watched)) {
+        if (manager != null && !ReferenceEquals(manager, watched)) {
             watched = manager;
             Action changed = () =>
                 Avalonia.Threading.Dispatcher.UIThread.Post(Apply);
@@ -162,7 +162,8 @@ public sealed class AccountsPage : Grid {
     /// <summary>Makes an account the one in use; both it and this one go back to the chat list, so the switch ends on the main page.</summary>
     public void Switch(AccountEntry account)
     {
-        if (controller.Accounts is not { } manager)
+        var manager = controller.Accounts;
+        if (manager == null)
             return;
         if (account.Controller != controller) {
             controller.OpenSidebarPage(SidebarPage.Chats);
@@ -247,7 +248,7 @@ public sealed class AccountsPage : Grid {
                     VerticalAlignment = VerticalAlignment.Center,
                 },
             };
-        if (trailing is not null) {
+        if (trailing != null) {
             trailing.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(trailing, 2);
             grid.Children.Add(trailing);
@@ -269,7 +270,8 @@ public sealed class AccountsPage : Grid {
     /// <summary>The menu of an account: sign out of it.</summary>
     public void OpenMenu(Control anchor, AccountEntry account)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         menu.Show(anchor, window, [
             new MenuItem(controller.T("account.signOut"),
@@ -282,7 +284,8 @@ public sealed class AccountsPage : Grid {
     /// <summary>Asks whether to sign out of an account; the answer is in the buttons of the dialog.</summary>
     public void AskSignOut(AccountEntry account)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var name = account.Controller.Store.Value.Profile?.DisplayName is

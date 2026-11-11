@@ -11,7 +11,7 @@ public sealed record RoomSummary {
     /// <summary>The display name of who invited me, when this is a pending invitation.</summary>
     public string? Inviter { get; init; }
 
-    public bool Invite => Inviter is not null;
+    public bool Invite => Inviter != null;
     public bool Muted { get; init; }
 
     /// <summary>Pinned chats float to the top of the list.</summary>

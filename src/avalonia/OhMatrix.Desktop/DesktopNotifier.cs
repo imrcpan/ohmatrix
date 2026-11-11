@@ -18,10 +18,10 @@ internal sealed class DesktopNotifier(
             return;
         try {
             var start = Make(notification.Title, notification.Body);
-            if (start is null)
+            if (start == null)
                 return;
             // On Linux the program waits for the notification to be closed and says which action was pressed: a press on it opens the chat.
-            if (open is not null && OperatingSystem.IsLinux())
+            if (open != null && OperatingSystem.IsLinux())
                 _ = Await(start, notification.RoomId);
             else
                 Process.Start(start)?.Dispose();
@@ -35,7 +35,7 @@ internal sealed class DesktopNotifier(
         try {
             start.RedirectStandardOutput = true;
             using var process = Process.Start(start);
-            if (process is null)
+            if (process == null)
                 return;
             var answer = await process.StandardOutput.ReadLineAsync();
             if (answer?.Trim() == "default")

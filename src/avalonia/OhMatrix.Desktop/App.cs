@@ -92,7 +92,8 @@ public class App : Application {
                 desktop.MainWindow.Content = root;
                 // The system can change its theme while the app runs, and can
                 // answer late: both are told, and the root draws again.
-                if (PlatformSettings is { } settings)
+                var settings = PlatformSettings;
+                if (settings != null)
                     settings.ColorValuesChanged += (_, e) => {
                         logger.Info(
                             $"System theme changed: {e.ThemeVariant}");

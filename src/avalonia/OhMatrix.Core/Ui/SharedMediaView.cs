@@ -171,7 +171,7 @@ public sealed class SharedMediaView : StackPanel {
 
         if (tab.Loading)
             Children.Add(Note(c, t("media.requesting")));
-        if (tab.Next is not null && !tab.Loading && !tab.Failed) {
+        if (tab.Next != null && !tab.Loading && !tab.Failed) {
             var more = new TextButton {
                 Title = t("media.more"),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -206,7 +206,8 @@ public sealed class SharedMediaView : StackPanel {
                 new Avalonia.Input.Cursor(
                     Avalonia.Input.StandardCursorType.Hand),
         };
-        if (item.Image is { } picture) {
+        var picture = item.Image;
+        if (picture != null) {
             var image = new Image {
                 Stretch = Stretch.UniformToFill
             };
@@ -214,7 +215,8 @@ public sealed class SharedMediaView : StackPanel {
             cell.Child = image;
             cell.PointerPressed += (_, e) => {
                 e.Handled = true;
-                if (TopLevel.GetTopLevel(this) is { } window)
+                var window = TopLevel.GetTopLevel(this);
+                if (window != null)
                     viewer.Show(window, controller.Pictures, picture.Source,
                         picture.FileName,
                         image.Source,
@@ -294,7 +296,8 @@ public sealed class SharedMediaView : StackPanel {
     /// <summary>Opens a video in the app's player where there is one, any other file with the system's program for it.</summary>
     public async Task Open(TimelineItem item)
     {
-        if (item.File is not { } file || TopLevel.GetTopLevel(this) is not
+        var file = item.File;
+        if (file == null || TopLevel.GetTopLevel(this) is not
                 { } window)
             return;
         try {
@@ -304,11 +307,11 @@ public sealed class SharedMediaView : StackPanel {
             }
 
             var path = await controller.DownloadFile(file);
-            if (path is null)
+            if (path == null)
                 return;
             var stored =
                 await window.StorageProvider.TryGetFileFromPathAsync(path);
-            if (stored is not null)
+            if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
         } catch (Exception) {
             // The file stays unopened; pressing it again tries again.

@@ -249,7 +249,8 @@ public sealed class StickerPane : Grid {
 
     private async Task Pick()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var provider = window.StorageProvider;
         if (!provider.CanOpen)
@@ -332,7 +333,8 @@ public sealed class StickerPane : Grid {
 
     private void AskName()
     {
-        if (Window is not { } window)
+        var window = Window;
+        if (window == null)
             return;
         var (_, group, _) = Current();
         prompt.Show(window, ThemeScope.GetColors(this),
@@ -349,7 +351,8 @@ public sealed class StickerPane : Grid {
 
     private void AskNewGroup()
     {
-        if (Window is not { } window)
+        var window = Window;
+        if (window == null)
             return;
         var (groups, _, _) = Current();
         prompt.Show(window, ThemeScope.GetColors(this),
@@ -412,7 +415,8 @@ public sealed class StickerPane : Grid {
     /// <summary>Asks to delete the group, twice.</summary>
     public void AskDeleteGroup()
     {
-        if (Window is not { } window)
+        var window = Window;
+        if (window == null)
             return;
         var colors = ThemeScope.GetColors(this);
         var (_, group, index) = Current();
@@ -446,7 +450,8 @@ public sealed class StickerPane : Grid {
 
     private void AskRemove()
     {
-        if (Window is not { } window)
+        var window = Window;
+        if (window == null)
             return;
         dialog.Show(window, ThemeScope.GetColors(this),
             controller.T("sticker.remove.title"),
@@ -460,7 +465,8 @@ public sealed class StickerPane : Grid {
     /// <summary>The cover of the group on show: one of my stickers, a picture from the device, or an emoji.</summary>
     public void AskCover(string step = "menu")
     {
-        if (Window is not { } window)
+        var window = Window;
+        if (window == null)
             return;
         var colors = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
@@ -538,7 +544,7 @@ public sealed class StickerPane : Grid {
         async Task FromDevice()
         {
             var path = await FilePicker.PickImage(window);
-            if (path is null)
+            if (path == null)
                 return;
             try {
                 var icon = await controller.UploadGroupIcon(path);
@@ -579,7 +585,8 @@ public sealed class StickerPane : Grid {
 
     private void OpenSettings()
     {
-        if (Window is not { } window || gear is null)
+        var window = Window;
+        if (window == null || gear == null)
             return;
         settings.AlignRight = true;
         settings.Width = 220;

@@ -59,7 +59,8 @@ public sealed class ZoomPicker : IOverlay {
     /// <summary>Opens the menu of sizes on <paramref name="anchor"/>.</summary>
     public void Open(Control anchor)
     {
-        if (TopLevel.GetTopLevel(host) is not { } window)
+        var window = TopLevel.GetTopLevel(host);
+        if (window == null)
             return;
         var scale = controller.Store.Value.Prefs.UiScale;
         Menu.Show(
@@ -79,7 +80,7 @@ public sealed class ZoomPicker : IOverlay {
     private void Sync()
     {
         var trial = controller.Store.Value.ZoomTrial;
-        if (trial is null) {
+        if (trial == null) {
             countdown.Stop();
             dialog.Close();
             return;
@@ -94,7 +95,8 @@ public sealed class ZoomPicker : IOverlay {
             return;
         }
 
-        if (TopLevel.GetTopLevel(host) is not { } window)
+        var window = TopLevel.GetTopLevel(host);
+        if (window == null)
             return;
         keep.Title = controller.T("zoom.confirm.keep");
         revert.Title = controller.T("zoom.confirm.revert");

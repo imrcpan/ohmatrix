@@ -45,7 +45,7 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth)
                 file.Data.Length));
             await client.SetAccountData(StickerPack.PackEvent,
                 StickerPack.Write(previous, stickers));
-            if (groupId is not null) {
+            if (groupId != null) {
                 var stored =
                     StickerPack.ParseGroups(
                         await client.AccountData(StickerPack.GroupsEvent));
@@ -77,7 +77,7 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth)
             });
             await client.SetAccountData(StickerPack.PackEvent,
                 StickerPack.Write(previous, stickers));
-            if (groupId is not null) {
+            if (groupId != null) {
                 var stored =
                     StickerPack.ParseGroups(
                         await client.AccountData(StickerPack.GroupsEvent));

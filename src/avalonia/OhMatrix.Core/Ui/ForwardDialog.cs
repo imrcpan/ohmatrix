@@ -203,7 +203,7 @@ public sealed class ForwardDialog : IOverlay {
     // Typing in the filter changes only the rows, so the field keeps the focus.
     private void RefreshList()
     {
-        if (window is null || confirming || !dialog.IsOpen)
+        if (window == null || confirming || !dialog.IsOpen)
             return;
         var c = ThemeScope.GetColors(window);
         FillPicks(c, Postable());
@@ -233,7 +233,7 @@ public sealed class ForwardDialog : IOverlay {
 
     private void Build()
     {
-        if (window is null)
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(window);
         var postable = Postable();

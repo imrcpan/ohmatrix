@@ -112,7 +112,7 @@ public sealed class ExplorePage : Grid {
 
     /// <summary>The server whose directory is shown (null: the homeserver's own).</summary>
     public string? Server =>
-        chosen is null ? Servers()[0].Server :
+        chosen == null ? Servers()[0].Server :
         chosen.Length == 0 ? null : chosen;
 
     /// <summary>Shows the directory of another server.</summary>
@@ -125,7 +125,8 @@ public sealed class ExplorePage : Grid {
     /// <summary>Asks for the name of a server to add to the list.</summary>
     public void AskAddServer()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         AddPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -133,7 +134,7 @@ public sealed class ExplorePage : Grid {
             [new PromptField(controller.T("explore.add.server"), "globe")],
             controller.T("explore.add"), v => {
                 var name = ServerName.Parse(v[0]);
-                if (name is null)
+                if (name == null)
                     throw new InvalidOperationException(
                         controller.T("explore.add.invalid"));
                 if (Servers().All(x => x.Name != name))
@@ -174,7 +175,8 @@ public sealed class ExplorePage : Grid {
     /// <summary>Asks whether to join a room, and joins it.</summary>
     public void AskJoin(PublicRoom room)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         JoinCard.Show(window, room, () => {
             _ = controller.JoinPublicRoom(room);
@@ -186,7 +188,7 @@ public sealed class ExplorePage : Grid {
 
     public RoomCardDialog JoinCard {
         get {
-            if (card is null) {
+            if (card == null) {
                 card = new RoomCardDialog(controller);
                 Lifetime.Own(this, card);
             }
@@ -314,7 +316,8 @@ public sealed class ExplorePage : Grid {
     /// <summary>Opens the card larger over the page.</summary>
     public void OpenFull(PublicRoom room, bool joined)
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         Full.Show(window, c, "", null, Face(c, room, joined, true));
@@ -394,7 +397,8 @@ public sealed class ExplorePage : Grid {
         var copy = Pill(c, controller.T("explore.copy"), c.Hover, c.Text);
         copy.PointerPressed += async (_, e) => {
             e.Handled = true;
-            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null) {
                 await clipboard.SetTextAsync(room.Alias ?? room.RoomId);
                 ((TextBlock)copy.Child!).Text = controller.T("copied");
             }

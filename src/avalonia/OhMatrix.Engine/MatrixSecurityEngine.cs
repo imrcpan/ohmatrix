@@ -42,7 +42,7 @@ public sealed class MatrixSecurityEngine(MatrixAuthEngine auth)
             var encryption = client.Encryption();
             // The keys of the account first (a new identity: the server wants the password for it), then the recovery that keeps them.
             using var handle = await encryption.ResetIdentity();
-            if (handle is not null)
+            if (handle != null)
                 await handle.Reset(new AuthData.Password(
                     new AuthDataPasswordDetails(client.UserId(), password)));
             return await encryption.EnableRecovery(false, null, new Progress());

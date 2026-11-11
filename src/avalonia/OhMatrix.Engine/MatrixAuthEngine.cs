@@ -27,7 +27,7 @@ public sealed class MatrixAuthEngine(
 
     /// <summary>The session of the client now (its token may have been renewed), or null when signed out.</summary>
     public Session? CurrentSession =>
-        Client is { } c ? ToSession(c.Session()) : null;
+        Client != null ? ToSession(Client.Session()) : null;
 
     public async Task<Session> LoginWithPassword(string homeserver,
         string username,
@@ -66,7 +66,7 @@ public sealed class MatrixAuthEngine(
             var userId = Text(res.Body, "user_id");
             var deviceId = Text(res.Body, "device_id");
             var accessToken = Text(res.Body, "access_token");
-            if (userId is null || deviceId is null || accessToken is null) {
+            if (userId == null || deviceId == null || accessToken == null) {
                 throw new EngineException(
                     EngineErrorCode.Unknown,
                     "The server did not sign the new account in."
@@ -137,7 +137,7 @@ public sealed class MatrixAuthEngine(
     {
         var client = Client;
         Client = null;
-        if (client is null)
+        if (client == null)
             return;
         try {
             await client.Logout();

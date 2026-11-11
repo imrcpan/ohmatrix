@@ -137,7 +137,7 @@ public class CallSignallingTests {
         {
             Sent.Add((type,
                 JsonNode.Parse(content.ToJsonString())!.AsObject()));
-            if (Other is not null)
+            if (Other != null)
                 await Other.Signalling.Receive(new CallEvent(roomId, type, User,
                     "$" + Sent.Count,
                     0,

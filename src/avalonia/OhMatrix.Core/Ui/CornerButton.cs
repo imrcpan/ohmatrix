@@ -47,10 +47,10 @@ public sealed class CornerButton : PressableButton {
     public string? Glyph {
         get => lead.IsVisible ? lead.Glyph : null;
         set {
-            lead.IsVisible = value is not null;
-            if (value is not null)
+            lead.IsVisible = value != null;
+            if (value != null)
                 lead.Glyph = value;
-            ((StackPanel)Child!).Spacing = value is null ? 4 : 6;
+            ((StackPanel)Child!).Spacing = value == null ? 4 : 6;
         }
     }
 

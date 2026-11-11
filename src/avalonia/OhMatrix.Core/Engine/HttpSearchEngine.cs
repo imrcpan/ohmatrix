@@ -23,7 +23,7 @@ public sealed class HttpSearchEngine(
         var filter = new JsonObject {
             ["limit"] = 20
         };
-        if (roomId is not null)
+        if (roomId != null)
             filter["rooms"] = new JsonArray(roomId);
         var body = new JsonObject {
             ["search_categories"] = new JsonObject {
@@ -40,7 +40,7 @@ public sealed class HttpSearchEngine(
             }
         };
         var url = a.Homeserver.TrimEnd('/') + "/_matrix/client/v3/search"
-                                            + (from is null
+                                            + (from == null
                                                 ? ""
                                                 : "?next_batch=" +
                                                   Uri.EscapeDataString(from));
@@ -67,7 +67,7 @@ public sealed class HttpSearchEngine(
                 var rid = (string?)e?["room_id"];
                 var id = (string?)e?["event_id"];
                 var msg = (string?)e?["content"]?["body"];
-                if (rid is null || id is null || msg is null)
+                if (rid == null || id == null || msg == null)
                     continue;
                 var sender = (string?)e?["sender"] ?? "";
                 var profile =

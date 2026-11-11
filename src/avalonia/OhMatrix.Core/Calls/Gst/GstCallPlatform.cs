@@ -58,7 +58,7 @@ internal sealed class GstCallMedia : ICallMedia {
         {
             // Until one is chosen the system's own choice is in use, which is the first the monitor lists.
             return names.Select((n, i) =>
-                    new CallDevice(n, n, chosen is null ? i == 0 : n == chosen))
+                    new CallDevice(n, n, chosen == null ? i == 0 : n == chosen))
                 .ToList();
         }
 

@@ -117,7 +117,7 @@ public sealed class EmojiPicker : IOverlay {
         };
     }
 
-    public bool IsOpen => shade.Parent is not null;
+    public bool IsOpen => shade.Parent != null;
 
     /// <summary>The field that filters the emoji.</summary>
     public TextBox Search => search;
@@ -203,7 +203,7 @@ public sealed class EmojiPicker : IOverlay {
     {
         Close();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer is null)
+        if (layer == null)
             return;
         var origin = anchor.TranslatePoint(new Point(0, 0), window) ??
                      new Point();

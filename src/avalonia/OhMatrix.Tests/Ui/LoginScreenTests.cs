@@ -21,9 +21,9 @@ public class LoginScreenTests {
             string username, string password)
         {
             Calls.Add($"login {homeserver} {username} {password}");
-            return Fail is { } code
+            return Fail != null
                 ? Task.FromException<Session>(
-                    new EngineException(code, "raw " + code))
+                    new EngineException(Fail.Value, "raw " + Fail.Value))
                 : Task.FromResult(new Session(homeserver, "@" + username, "D",
                     "T"));
         }
@@ -33,9 +33,9 @@ public class LoginScreenTests {
             string? token)
         {
             Calls.Add($"register {homeserver} {username} {password} {token}");
-            return Fail is { } code
+            return Fail != null
                 ? Task.FromException<Session>(
-                    new EngineException(code, "raw " + code))
+                    new EngineException(Fail.Value, "raw " + Fail.Value))
                 : Task.FromResult(new Session(homeserver, "@" + username, "D",
                     "T"));
         }

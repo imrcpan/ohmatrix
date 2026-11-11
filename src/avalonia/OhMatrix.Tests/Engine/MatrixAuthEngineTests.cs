@@ -149,8 +149,9 @@ public class MatrixRoomsEngineTests {
         var name = "Room " + Guid.NewGuid().ToString("N")[..8];
         var found = new TaskCompletionSource<RoomSummary>();
         rooms.RoomsChanged += list => {
-            if (list.FirstOrDefault(r => r.Name == name && r.LastActivityTs > 0)
-                is { } room)
+            var room = list.FirstOrDefault(r =>
+                r.Name == name && r.LastActivityTs > 0);
+            if (room != null)
                 found.TrySetResult(room);
         };
         await rooms.StartSync();
@@ -362,7 +363,8 @@ public class MatrixVerificationTests {
         )
         {
             for (var i = 0; i < 120; i++) {
-                if (flows.FirstOrDefault(f => f.Phase == phase) is { } found)
+                var found = flows.FirstOrDefault(f => f.Phase == phase);
+                if (found != null)
                     return found;
                 await Task.Delay(500);
             }
@@ -453,7 +455,8 @@ public class MatrixCallTests {
         where T : class
     {
         for (var waited = 0; waited < 40_000; waited += 100) {
-            if (read() is { } found)
+            var found = read();
+            if (found != null)
                 return found;
             await Task.Delay(100);
         }
@@ -547,9 +550,9 @@ public class MatrixCallTests {
         var seenAtA = await Within(() => {
             (int, int)? size = null;
             platformA.TakeRemoteFrame((d, w, h) => size = (w, h));
-            return size is { } s
+            return size != null
                 ? new[] {
-                    s.Item1, s.Item2
+                    size.Value.Item1, size.Value.Item2
                 }
                 : null;
         }, "the picture of the callee at the caller");
@@ -557,9 +560,9 @@ public class MatrixCallTests {
         var seenAtB = await Within(() => {
             (int, int)? size = null;
             platformB.TakeRemoteFrame((d, w, h) => size = (w, h));
-            return size is { } s
+            return size != null
                 ? new[] {
-                    s.Item1, s.Item2
+                    size.Value.Item1, size.Value.Item2
                 }
                 : null;
         }, "the picture of the caller at the callee");
@@ -718,8 +721,9 @@ public class MatrixChatEngineTests {
         await File.WriteAllTextAsync(note, "hello file");
         var fileSeen = new TaskCompletionSource<TimelineItem>();
         chat.Changed += items => {
-            if (items.FirstOrDefault(i =>
-                    i.File?.Name == "note.txt" && !i.Sending) is { } f)
+            var f = items.FirstOrDefault(i =>
+                i.File?.Name == "note.txt" && !i.Sending);
+            if (f != null)
                 fileSeen.TrySetResult(f);
         };
         await chat.SendAttachment(note, "text/plain", null, null);
@@ -802,7 +806,7 @@ public class MatrixEngineWorkLiveTests {
     {
         for (var i = 0; i < 300 && !condition(); i++)
             await Task.Delay(100);
-        Assert.True(condition(), what + (state is null ? "" : ": " + state()));
+        Assert.True(condition(), what + (state == null ? "" : ": " + state()));
     }
 
     [Fact]

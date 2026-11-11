@@ -85,7 +85,7 @@ public sealed class Bubble : Border {
         var fg = foreground;
         var meta = metadata.Color;
 
-        var hasText = text.Length > 0 || (image is null && file is null);
+        var hasText = text.Length > 0 || (image == null && file == null);
         body = new SelectableTextBlock {
             FontSize = 16,
             FontFamily = Fonts.System,
@@ -93,7 +93,7 @@ public sealed class Bubble : Border {
             Background = Brushes.Transparent,
             TextWrapping = TextWrapping.Wrap,
         };
-        cachedRuns = formatted is null
+        cachedRuns = formatted == null
             ? RichText.PlainRuns(text)
             : RichText.ParseFormatted(formatted);
         var linkColor = linkForeground;
@@ -121,8 +121,8 @@ public sealed class Bubble : Border {
                 if (shown.Length == 0)
                     continue;
                 var piece = new Run(shown);
-                if (run.Bold || run.UserId is not null)
-                    piece.FontWeight = run.UserId is not null && !run.Bold
+                if (run.Bold || run.UserId != null)
+                    piece.FontWeight = run.UserId != null && !run.Bold
                         ? FontWeight.SemiBold
                         : FontWeight.Bold;
                 if (run.Italic)
@@ -133,7 +133,7 @@ public sealed class Bubble : Border {
                             "Cascadia Mono, DejaVu Sans Mono, monospace");
                 var lines = new TextDecorationCollection();
                 if (run.Underline ||
-                    (run.Href is not null && run.UserId is null))
+                    (run.Href != null && run.UserId == null))
                     lines.Add(new TextDecoration {
                         Location = TextDecorationLocation.Underline
                     });
@@ -143,10 +143,10 @@ public sealed class Bubble : Border {
                     });
                 if (lines.Count > 0)
                     piece.TextDecorations = lines;
-                if (run.UserId is not null) {
+                if (run.UserId != null) {
                     piece.Foreground = linkColor;
                     piece.Background = mentionBack;
-                } else if (run.Href is not null)
+                } else if (run.Href != null)
                     piece.Foreground = linkColor;
 
                 body.Inlines.Add(piece);
@@ -174,8 +174,8 @@ public sealed class Bubble : Border {
                     if (run.Spoiler && !revealed) {
                         revealed = true;
                         Fill();
-                    } else if (run.Href is { } href)
-                        (openLink ?? (h => OpenInBrowser(body, h)))(href);
+                    } else if (run.Href != null)
+                        (openLink ?? (h => OpenInBrowser(body, h)))(run.Href);
 
                     break;
                 }
@@ -187,7 +187,7 @@ public sealed class Bubble : Border {
 
         stack = new StackPanel();
 
-        if (reply is not null) {
+        if (reply != null) {
             // The message this one answers: an accent bar, the name of its writer and the start of what was written.
             var quote = new Grid {
                 ColumnDefinitions = new ColumnDefinitions("Auto,*"),
@@ -227,7 +227,7 @@ public sealed class Bubble : Border {
             stack.Children.Add(quote);
         }
 
-        if (image is not null) {
+        if (image != null) {
             var (w, h) = MediaSize.Fit(image.Width, image.Height);
             var picture = new Image {
                 Width = w,
@@ -235,7 +235,7 @@ public sealed class Bubble : Border {
                 Stretch = Stretch.UniformToFill,
             };
             pictures?.Attach(picture, image.Source, w, h);
-            if (openImage is not null) {
+            if (openImage != null) {
                 picture.Cursor =
                     new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType
                         .Hand);
@@ -261,15 +261,15 @@ public sealed class Bubble : Border {
                 image.FileName);
         }
 
-        if (file is { Kind: Model.FileKind.Audio } clip && fetch is not null &&
-            openFile is not null
+        if (file is { Kind: Model.FileKind.Audio } clip && fetch != null &&
+            openFile != null
             && clip.Source.Length > 0) {
             // An audio message plays in the card itself.
             audio = new AudioCard(clip, colors, mine, fg, meta, fetch,
                 () => openFile(clip));
             audio.Margin = new Thickness(0, 2, 0, hasText ? 4 : 14);
             stack.Children.Add(audio);
-        } else if (file is not null) {
+        } else if (file != null) {
             // A file: its icon on the accent, the name and the size.
             var card = new Grid {
                 ColumnDefinitions = new ColumnDefinitions("Auto,*"),
@@ -306,9 +306,10 @@ public sealed class Bubble : Border {
                 TextTrimming = TextTrimming.CharacterEllipsis,
             }));
             var size = Format.Bytes(file.Size);
-            if (file.Duration is { } length)
+            var length = file.Duration;
+            if (length != null)
                 size = (size.Length > 0 ? size + " · " : "") +
-                       Format.Duration(length);
+                       Format.Duration(length.Value);
             if (size.Length > 0) {
                 words.Children.Add(Label(new TextBlock {
                     Text = size,
@@ -321,7 +322,7 @@ public sealed class Bubble : Border {
             Grid.SetColumn(words, 1);
             card.Children.Add(disc);
             card.Children.Add(words);
-            if (openFile is not null && file.Source.Length > 0) {
+            if (openFile != null && file.Source.Length > 0) {
                 card.Background = Brushes.Transparent;
                 card.Cursor =
                     new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType
@@ -337,16 +338,18 @@ public sealed class Bubble : Border {
 
         if (hasText)
             stack.Children.Add(body);
-        if (preview is not null && hasText
-                                && cachedRuns.FirstOrDefault(r =>
-                                        r.Href is { } h &&
-                                        r.UserId is null
-                                        && (h.StartsWith("http://") ||
-                                            h.StartsWith("https://")))
-                                    ?.Href is { } link) {
+        string? previewLink = null;
+        if (preview != null && hasText) {
+            previewLink = cachedRuns.FirstOrDefault(r =>
+                r.Href != null && r.UserId == null &&
+                (r.Href.StartsWith("http://") ||
+                 r.Href.StartsWith("https://")))?.Href;
+        }
+
+        if (preview != null && previewLink != null) {
             var slot = new Border();
             stack.Children.Add(slot);
-            _ = FillPreview(slot, link, preview, pictures, openLink);
+            _ = FillPreview(slot, previewLink, preview, pictures, openLink);
         }
 
         metaRow = new StackPanel {
@@ -398,8 +401,8 @@ public sealed class Bubble : Border {
         body.FontFamily = Fonts.System;
         foreach (var label in labels)
             label.FontFamily = Fonts.System;
-        if (senderName is not null && !own) {
-            if (sender is null) {
+        if (senderName != null && !own) {
+            if (sender == null) {
                 sender = Label(new TextBlock {
                     FontSize = 14,
                     FontWeight = FontWeight.SemiBold,
@@ -416,14 +419,14 @@ public sealed class Bubble : Border {
                 brush.Color = color;
             else
                 sender.Foreground = new SolidColorBrush(color);
-        } else if (sender is not null)
+        } else if (sender != null)
             sender.IsVisible = false;
 
-        var text = (editedLabel is null ? "" : editedLabel + " ") + time;
+        var text = (editedLabel == null ? "" : editedLabel + " ") + time;
         metaLabel.Text = text;
         // Reserve the same final-line space as when the bubble was made.
         timeSpace.Width = Math.Ceiling(text.Length * 7.4) + (own ? 24 : 0) + 8;
-        if (own && mark is null) {
+        if (own && mark == null) {
             mark = new Icon {
                 StrokeWidth = 2,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -431,7 +434,7 @@ public sealed class Bubble : Border {
             metaRow.Children.Add(mark);
         }
 
-        if (mark is not null) {
+        if (mark != null) {
             var seen = own && read && !sending && !failed;
             mark.IsVisible = own;
             mark.Glyph = failed ? "alert"
@@ -480,7 +483,8 @@ public sealed class Bubble : Border {
         if (!Uri.TryCreate(href, UriKind.Absolute, out var uri) ||
             uri.Scheme is not ("http" or "https"))
             return;
-        if (TopLevel.GetTopLevel(from)?.Launcher is { } launcher)
+        var launcher = TopLevel.GetTopLevel(from)?.Launcher;
+        if (launcher != null)
             _ = launcher.LaunchUriAsync(uri);
     }
 
@@ -494,13 +498,13 @@ public sealed class Bubble : Border {
     )
     {
         var found = await preview(link);
-        if (found is null)
+        if (found == null)
             return;
         var host = Uri.TryCreate(link, UriKind.Absolute, out var uri)
             ? uri.Host.Replace("www.", "")
             : link;
-        var wide = found.ImageWidth is { } w && found.ImageHeight is { } h &&
-                   w >= h * 1.6;
+        var wide = found.ImageWidth != null && found.ImageHeight != null &&
+                   found.ImageWidth.Value >= found.ImageHeight.Value * 1.6;
         var words = new StackPanel {
             Margin = new Thickness(wide ? 10 : 10, 8, 10, 8),
             VerticalAlignment = VerticalAlignment.Center,
@@ -512,7 +516,8 @@ public sealed class Bubble : Border {
             Foreground = secondary,
             TextTrimming = TextTrimming.CharacterEllipsis,
         }));
-        if (found.Title is { } title) {
+        var title = found.Title;
+        if (title != null) {
             words.Children.Add(Label(new TextBlock {
                 Text = title,
                 FontSize = 15,
@@ -525,7 +530,8 @@ public sealed class Bubble : Border {
             }));
         }
 
-        if (found.Description is { } description) {
+        var description = found.Description;
+        if (description != null) {
             words.Children.Add(Label(new TextBlock {
                 Text = description,
                 FontSize = 13,
@@ -539,7 +545,7 @@ public sealed class Bubble : Border {
 
         var card = new StackPanel();
         Image? picture = null;
-        if (found.Image is not null && pictures is not null) {
+        if (found.Image != null && pictures != null) {
             picture = new Image {
                 Stretch = Stretch.UniformToFill
             };

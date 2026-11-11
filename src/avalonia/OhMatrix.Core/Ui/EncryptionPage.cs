@@ -73,7 +73,8 @@ public sealed class EncryptionPage : Grid {
     /// <summary>Warns that new keys make the old recovery key useless, and goes on to the password.</summary>
     public void AskReset()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
         var go = new TextButton {
@@ -121,7 +122,8 @@ public sealed class EncryptionPage : Grid {
     /// <summary>Asks for the password to set the encryption up, then shows the recovery key to keep.</summary>
     public void AskSetup()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         SetupPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
@@ -147,7 +149,8 @@ public sealed class EncryptionPage : Grid {
         ThemeScope.SetColors(copy, c);
         ThemeScope.SetColors(done, c);
         copy.Click += async (_, _) => {
-            if (window.Clipboard is { } clipboard) {
+            var clipboard = window.Clipboard;
+            if (clipboard != null) {
                 await clipboard.SetTextAsync(key);
                 copy.Title = controller.T("copied");
             }
@@ -187,7 +190,8 @@ public sealed class EncryptionPage : Grid {
             KeyDialog.Close();
         };
         back.Click += (_, _) => {
-            if (ShownKey is { } key)
+            var key = ShownKey;
+            if (key != null)
                 ShowKey(window, key);
         };
         KeyDialog.Show(window, c, controller.T("sec.confirm.title"),
@@ -198,7 +202,8 @@ public sealed class EncryptionPage : Grid {
     /// <summary>Asks for the recovery key to unlock the history of this device.</summary>
     public void AskRecoveryKey()
     {
-        if (TopLevel.GetTopLevel(this) is not { } window)
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
             return;
         RecoveryPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,

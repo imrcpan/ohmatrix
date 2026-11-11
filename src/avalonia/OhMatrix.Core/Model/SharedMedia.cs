@@ -17,7 +17,7 @@ public static class MediaKinds {
     /// <summary>The kind of media a line carries; null for a line without any.</summary>
     public static MediaKind? Of(TimelineItem item)
     {
-        if (item.Image is not null)
+        if (item.Image != null)
             return MediaKind.Image;
         return item.File?.Kind switch {
             FileKind.Video => MediaKind.Video,

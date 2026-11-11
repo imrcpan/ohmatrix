@@ -104,7 +104,7 @@ public partial class ChatPaneTests {
         public Task Send(string text, string? replyToEventId = null,
             IReadOnlyList<string>? mentions = null)
         {
-            if (replyToEventId is not null)
+            if (replyToEventId != null)
                 Replies.Add(replyToEventId);
             Sent.Add(text);
             Mentioned.AddRange(mentions ?? []);
@@ -535,7 +535,8 @@ public partial class ChatPaneTests {
 
         public Task<string> JoinRoom(string idOrAlias)
         {
-            if (JoinGate is { } gate)
+            var gate = JoinGate;
+            if (gate != null)
                 return gate.Task;
             return Task.FromResult("!joined");
         }
@@ -1003,7 +1004,7 @@ public partial class ChatPaneTests {
 
         var armed = true;
         controller.Store.Changed += s => {
-            if (!armed || s.Notice is not null)
+            if (!armed || s.Notice != null)
                 return;
             armed = false;
             controller.Store.Update(x => x with {
@@ -1834,7 +1835,7 @@ public partial class ChatPaneTests {
         LayoutTimeline(window);
         var picture = pane.Messages.GetVisualDescendants()
             .OfType<Image>().First();
-        for (var i = 0; i < 20 && picture.Source is null; i++) {
+        for (var i = 0; i < 20 && picture.Source == null; i++) {
             await Task.Delay(50);
             Dispatcher.UIThread.RunJobs();
         }
@@ -2115,7 +2116,7 @@ public partial class ChatPaneTests {
         Assert.Equal("That message could not be found",
             controller.Store.Value.Notice?.Message);
         var known = controller.Store.Value.Timeline
-            .First(i => i.EventId is not null);
+            .First(i => i.EventId != null);
         await pane.Reveal(known.EventId!);
         Assert.Null(controller.Store.Value.Notice);
     }
@@ -2513,7 +2514,7 @@ public partial class ChatPaneTests {
         var bob =
             controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
         var anchor = panel.Content.Children.OfType<Border>()
-            .First(b => b.Cursor is not null);
+            .First(b => b.Cursor != null);
         panel.OpenMemberMenu(anchor, room, bob);
         Assert.True(panel.MemberMenu.IsOpen);
         Assert.Equal(6, panel.MemberMenu.Rows.Count);
@@ -2801,15 +2802,15 @@ public partial class ChatPaneTests {
         var pane = FindPane(screen);
         var items = controller.Store.Value.Timeline;
         var first = items.First(i =>
-            i.Kind == TimelineKind.Message && i.Image is null &&
-            i.File is null);
+            i.Kind == TimelineKind.Message && i.Image == null &&
+            i.File == null);
         pane.StartSelect(first);
         Assert.True(pane.Selecting);
         Assert.Equal(["" + first.Id], pane.Chosen);
         Save(window, "selecting");
         var second = items.Last(i =>
-            i.Kind == TimelineKind.Message && i.Image is null &&
-            i.File is null);
+            i.Kind == TimelineKind.Message && i.Image == null &&
+            i.File == null);
         pane.ToggleChosen(second.Id);
         Assert.Equal(2, pane.Chosen.Count);
         // Forward: the first step ticks chats, the second asks again.
@@ -2880,7 +2881,7 @@ public partial class ChatPaneTests {
         LayoutTimeline(window);
         var picture = pane.Messages.GetVisualDescendants().OfType<Image>()
             .First();
-        for (var i = 0; i < 20 && picture.Source is null; i++) {
+        for (var i = 0; i < 20 && picture.Source == null; i++) {
             await Task.Delay(50);
             Dispatcher.UIThread.RunJobs();
         }
@@ -3079,7 +3080,7 @@ public partial class ChatPaneTests {
         // An audio message plays in its own card: the name, a bar and its length.
         Assert.Contains("1:15", texts);
         Assert.Single(screen.GetVisualDescendants().OfType<AudioCard>());
-        Assert.Contains(texts, t => t is not null && t.EndsWith("· 1:02:05"));
+        Assert.Contains(texts, t => t != null && t.EndsWith("· 1:02:05"));
         var icons = screen.GetVisualDescendants().OfType<Icon>()
             .Select(i => i.Glyph).ToList();
         Assert.Contains("play", icons);

@@ -94,7 +94,7 @@ public sealed class MessageResultsView : StackPanel {
         if (mine != seq)
             return;
         busy = false;
-        results = from is null
+        results = from == null
             ? [.. page?.Results ?? []]
             : [.. results ?? [], .. page?.Results ?? []];
         next = page?.Next;
@@ -160,7 +160,7 @@ public sealed class MessageResultsView : StackPanel {
             });
         else if (results is { Count: 0 })
             Children.Add(Note(c, controller.T("search.empty"), 15, 24));
-        if (!busy && next is not null) {
+        if (!busy && next != null) {
             var more = new TextButton {
                 Title = controller.T("search.more"),
                 HorizontalAlignment = HorizontalAlignment.Center

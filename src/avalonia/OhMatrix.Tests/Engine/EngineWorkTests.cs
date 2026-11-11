@@ -478,7 +478,8 @@ public class EngineWorkTests {
     {
         var media = new int[4];
         foreach (var line in lines) {
-            if (MediaKinds.Of(line) is { } kind)
+            var kind = MediaKinds.Of(line);
+            if (kind != null)
                 media[(int)kind]++;
         }
 
