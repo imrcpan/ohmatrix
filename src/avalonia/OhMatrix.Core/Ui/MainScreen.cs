@@ -273,6 +273,7 @@ public sealed class MainScreen : Grid {
     }
 
     private Avalonia.Controls.Window? settingsWindow;
+    private bool settingsShown;
 
     private Control? SettingsContent(SidebarPage page)
     {
@@ -361,10 +362,16 @@ public sealed class MainScreen : Grid {
         profileCard.Width = Math.Max(280, Math.Min(440, Bounds.Width - 32));
         profileCard.Height = Math.Max(320, Math.Min(640, Bounds.Height - 48));
         var inSettings = SettingsContent(s.SidebarPage);
-        if (inSettings != null)
+        // Other pages (the profile, say) open over the chats and leave the
+        // settings window as it is; it closes on its own close button.
+        if (inSettings != null) {
+            var wasOpen = settingsWindow != null;
             ShowSettings(inSettings);
-        else
-            settingsWindow?.Close();
+            if (wasOpen && !settingsShown)
+                settingsWindow?.Activate();
+        }
+
+        settingsShown = inSettings != null;
         if (settingsWindow != null)
             ThemeScope.SetColors(settingsWindow, c);
         listHost.Child = s.SidebarPage switch {
