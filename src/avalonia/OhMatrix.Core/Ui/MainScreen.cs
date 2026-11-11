@@ -353,7 +353,15 @@ public sealed class MainScreen : Grid {
         infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
         infoNarrow.Showing = infoNarrow.IsVisible;
         // What opens from the profile is a page of the left pane, whatever its width.
-        var profileOpen = s.SidebarPage == SidebarPage.Profile;
+        // The pages that open from it (the encryption, the accounts) are
+        // pages of the dialog, not of the sidebar.
+        var profileOpen = s.SidebarPage is SidebarPage.Profile
+            or SidebarPage.Encryption or SidebarPage.Accounts;
+        profileCard.Child = s.SidebarPage switch {
+            SidebarPage.Encryption => encryptionPage,
+            SidebarPage.Accounts => accountsPage,
+            _ => profilePage,
+        };
         if (profileOpen && !profileHost.IsVisible)
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 profileHost.Focus());
@@ -377,9 +385,7 @@ public sealed class MainScreen : Grid {
             ThemeScope.SetColors(settingsWindow, c);
         listHost.Child = s.SidebarPage switch {
             SidebarPage.Explore => explorePage,
-            SidebarPage.Encryption => encryptionPage,
             SidebarPage.Space => spacePage,
-            SidebarPage.Accounts => accountsPage,
             _ => strip ? Rail() : list,
         };
         detail.Child = split && open ? wideChat : chip;
