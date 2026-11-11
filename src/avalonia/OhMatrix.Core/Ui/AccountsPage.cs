@@ -83,17 +83,24 @@ public sealed class AccountsPage : Grid {
         content.Children.Clear();
         rows.Clear();
         var list = manager?.Accounts ?? [];
+        // Sort sits at the top right, on the line of the title.
         if (list.Count > 1) {
             var sort = new TextButton {
                 Title = controller.T(reordering
                     ? "accounts.reorder.done"
                     : "accounts.reorder"),
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Margin = new Thickness(0, 4, 12, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0),
             };
             sort.Click += (_, _) => SetReordering(!reordering);
             ThemeScope.SetColors(sort, c);
-            content.Children.Add(sort);
+            var line = new Grid();
+            var title = bar.Child;
+            bar.Child = null;
+            line.Children.Add(title);
+            line.Children.Add(sort);
+            bar.Child = line;
         } else
             reordering = false;
 
