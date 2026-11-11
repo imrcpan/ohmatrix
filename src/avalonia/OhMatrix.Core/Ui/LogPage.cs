@@ -7,12 +7,14 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui;
 
 /// <summary>The app's log (<c>LogPage</c>): the last lines in a monospaced font, the newest at the bottom, with buttons to copy and to empty it.</summary>
 public sealed class LogPage : Grid {
     private readonly AppController controller;
+    private readonly Logger log;
     private readonly StackPanel lines = new();
     private readonly ScrollViewer scroller = new();
     private readonly TextBlock empty = new();
@@ -45,6 +47,7 @@ public sealed class LogPage : Grid {
     public LogPage(AppController controller)
     {
         this.controller = controller;
+        log = Logger.GetDefault();
         RowDefinitions = new RowDefinitions("Auto,Auto,*");
         Children.Add(bar);
         var buttons = new StackPanel {
@@ -67,11 +70,11 @@ public sealed class LogPage : Grid {
         copy.Click += async (_, _) => {
             if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
                 return;
-            await clipboard.SetTextAsync(AppLog.Text(AppLog.Snapshot()));
+            await clipboard.SetTextAsync(log.ReadLog());
             copied = true;
             Apply();
         };
-        clear.Click += (_, _) => AppLog.Clear();
+        clear.Click += (_, _) => log.ClearLog();
         // The page follows the log, but not line by line: a burst of lines is one refresh.
         Action follow = () => {
             if (refreshQueued)
@@ -82,8 +85,8 @@ public sealed class LogPage : Grid {
                 Apply();
             }, DispatcherPriority.Background);
         };
-        AppLog.Changed += follow;
-        Lifetime.OnRelease(this, () => AppLog.Changed -= follow);
+        log.Written += follow;
+        Lifetime.OnRelease(this, () => log.Written -= follow);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
@@ -119,7 +122,7 @@ public sealed class LogPage : Grid {
         clear.Title = controller.T("logs.clear");
         ThemeScope.SetColors(copy, c);
         ThemeScope.SetColors(clear, c);
-        var all = AppLog.Snapshot();
+        var all = LogLine.Parse(log.ReadLog());
         empty.Text = controller.T("logs.empty");
         empty.IsVisible = all.Count == 0;
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
@@ -132,22 +135,16 @@ public sealed class LogPage : Grid {
                 DispatcherPriority.Background);
     }
 
-    // Makes the controls the lines of the log. The log only loses its
-    // oldest lines and gets new ones at the end, so when the lines that are
-    // shown still lead to the new log, the old ones are taken off the start
-    // and the new ones put at the end. In any other case (another theme, the
-    // log emptied) all are made again. True when a line was added.
+    // Makes the controls the lines of the log. The file only gets new lines
+    // at the end or is emptied, so when the lines that are shown are the
+    // start of the log, the new ones are put at the end; in any other case
+    // (another theme, the log emptied) all are made again. True when a line
+    // was added.
     private bool SyncLines(IReadOnlyList<LogLine> all, ColorTokens c)
     {
-        var dropped = ReferenceEquals(shownColors, c)
-            ? Dropped(all)
-            : -1;
-        if (dropped < 0) {
+        if (!ReferenceEquals(shownColors, c) || !StartsWithShown(all)) {
             lines.Children.Clear();
             shown.Clear();
-        } else {
-            lines.Children.RemoveRange(0, dropped);
-            shown.RemoveRange(0, dropped);
         }
 
         shownColors = c;
@@ -160,33 +157,29 @@ public sealed class LogPage : Grid {
         return all.Count > before;
     }
 
-    // How many of the lines shown have left the start of the log, or -1
-    // when the shown ones are not the start of it any more.
-    private int Dropped(IReadOnlyList<LogLine> all)
+    // A line that is told again with more text (the lines of a stack
+    // trace come after it) is not the same line any more.
+    private bool StartsWithShown(IReadOnlyList<LogLine> all)
     {
-        if (shown.Count == 0)
-            return 0;
-        if (all.Count == 0)
-            return -1;
-        var dropped = shown.FindIndex(l => ReferenceEquals(l, all[0]));
-        if (dropped < 0)
-            return -1;
-        var left = shown.Count - dropped;
-        return left <= all.Count &&
-               ReferenceEquals(shown[^1], all[left - 1])
-            ? dropped
-            : -1;
+        if (shown.Count > all.Count)
+            return false;
+        for (var i = 0; i < shown.Count; i++) {
+            if (shown[i] != all[i])
+                return false;
+        }
+
+        return true;
     }
 
     private static SelectableTextBlock Row(LogLine line, ColorTokens c)
     {
         var color = line.Level switch {
-            LogLevel.Error => c.Danger,
+            LogLevel.Error or LogLevel.Fatal => c.Danger,
             LogLevel.Warn => Color.FromRgb(0xE0, 0xA1, 0x00),
             _ => c.Text,
         };
         return new SelectableTextBlock {
-            Text = $"{line.Time:HH:mm:ss.fff} {line.Text}",
+            Text = $"{line.Stamp} {line.Text}",
             FontFamily = new FontFamily("monospace"),
             FontSize = 12,
             LineHeight = 17,

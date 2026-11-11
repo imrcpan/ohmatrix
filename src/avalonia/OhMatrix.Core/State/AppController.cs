@@ -1,4 +1,5 @@
 using OhMatrix.Core.I18n;
+using OhMatrix.Infra.Logging;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.Ui;
 
@@ -465,7 +466,7 @@ public sealed class AppController(
         try {
             await Signalling().Receive(e);
         } catch (Exception ex) {
-            AppLog.Error("call event: " + ex.Message);
+            Logger.GetDefault().Error("call event: " + ex.Message);
         }
     }
 
@@ -1540,7 +1541,7 @@ public sealed class AppController(
         try {
             return await run();
         } catch (Exception e) {
-            AppLog.Error(e.Message);
+            Logger.GetDefault().Error(e.Message);
             return default;
         }
     }
@@ -1551,7 +1552,7 @@ public sealed class AppController(
             await run();
             return true;
         } catch (Exception e) {
-            AppLog.Error(e.Message);
+            Logger.GetDefault().Error(e.Message);
             return false;
         }
     }

@@ -28,6 +28,13 @@ internal static class LogWriter {
         }
     }
 
+    public static void FileClear(string path)
+    {
+        lock (fileLock) {
+            File.WriteAllText(path, "");
+        }
+    }
+
     public static string Read(string path)
     {
         lock (fileLock) {

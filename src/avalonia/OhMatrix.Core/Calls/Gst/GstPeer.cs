@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Calls.Gst;
 
@@ -394,7 +395,7 @@ public sealed class GstPeer : IPeer, IDisposable {
             peer.Receive(pad);
         } catch (Exception e) {
             // A stream that cannot be shown leaves the call as it is.
-            State.AppLog.Error("call stream: " + e.Message);
+            Logger.GetDefault().Error("call stream: " + e.Message);
         }
     }
 

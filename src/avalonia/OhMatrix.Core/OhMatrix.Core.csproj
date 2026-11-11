@@ -23,6 +23,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="../OhMatrix.Infra/OhMatrix.Infra.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Avalonia" Version="12.1.5" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
     </ItemGroup>

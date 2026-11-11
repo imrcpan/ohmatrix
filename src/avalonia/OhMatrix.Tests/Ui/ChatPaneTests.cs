@@ -10,6 +10,7 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui;
+using OhMatrix.Infra.Logging;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;
@@ -3379,14 +3380,14 @@ public partial class ChatPaneTests {
         controller.OpenSidebarPage(SidebarPage.Advanced);
         Dispatcher.UIThread.RunJobs();
         controller.OpenSidebarPage(SidebarPage.Logs);
-        AppLog.Clear();
-        AppLog.Add(LogLevel.Info, "started");
-        AppLog.Error("it broke");
+        Logger.GetDefault().ClearLog();
+        Logger.GetDefault().Info("started");
+        Logger.GetDefault().Error("it broke");
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(2, screen.LogScreen.LineCount);
         Save(window, "log");
-        AppLog.Clear();
+        Logger.GetDefault().ClearLog();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(0, screen.LogScreen.LineCount);
@@ -3397,10 +3398,10 @@ public partial class ChatPaneTests {
         The_log_page_builds_nothing_off_screen_and_adds_only_new_lines()
     {
         var (_, controller, _, _) = await Open("light", 1000);
-        AppLog.Clear();
+        Logger.GetDefault().ClearLog();
         var page = new LogPage(controller);
-        AppLog.Add(LogLevel.Info, "one");
-        AppLog.Add(LogLevel.Info, "two");
+        Logger.GetDefault().Info("one");
+        Logger.GetDefault().Info("two");
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(0, page.LineCount);
@@ -3416,7 +3417,7 @@ public partial class ChatPaneTests {
         var first = page.GetVisualDescendants().OfType<SelectableTextBlock>()
             .First();
 
-        AppLog.Add(LogLevel.Warn, "three");
+        Logger.GetDefault().Warn("three");
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         var rows = page.GetVisualDescendants().OfType<SelectableTextBlock>()
@@ -3424,15 +3425,15 @@ public partial class ChatPaneTests {
         Assert.Equal(3, rows.Count);
         Assert.Same(first, rows[0]);
 
-        // Past its capacity the log loses the oldest lines.
-        for (var i = 0; i < AppLog.Capacity; i++)
-            AppLog.Add(LogLevel.Info, "line " + i);
+        // The file is kept whole: a long run shows every line.
+        for (var i = 0; i < 3000; i++)
+            Logger.GetDefault().Info("line " + i);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(AppLog.Capacity, page.LineCount);
-        Assert.EndsWith("line 0", page.GetVisualDescendants()
-            .OfType<SelectableTextBlock>().First().Text);
-        AppLog.Clear();
+        Assert.Equal(3003, page.LineCount);
+        Assert.EndsWith("line 2999", page.GetVisualDescendants()
+            .OfType<SelectableTextBlock>().Last().Text);
+        Logger.GetDefault().ClearLog();
         host.Close();
     }
 

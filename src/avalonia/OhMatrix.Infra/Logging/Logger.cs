@@ -38,6 +38,19 @@ public class Logger : ILogger {
 
     private readonly Action<PanicMessage>? onPanic = null;
 
+    public event Action? Written;
+
+    // Every line goes to the file, the console and whoever follows the log.
+    private void Write(string line, ConsoleColor? color)
+    {
+        LogWriter.FileWriteLine(pathLog, line);
+        if (color is { } c)
+            LogWriter.ConsoleColorfulWriteLine(line, c);
+        else
+            LogWriter.ConsoleWriteLine(line);
+        Written?.Invoke();
+    }
+
     public static void SetDefault(Logger logger)
     {
         loggerDefault = logger;
@@ -79,9 +92,22 @@ public class Logger : ILogger {
         });
     }
 
+    /// <summary>The log of this run as written; empty before the first line.</summary>
     public string ReadLog()
     {
-        return LogWriter.Read(pathLog);
+        return File.Exists(pathLog) ? LogWriter.Read(pathLog) : "";
+    }
+
+    /// <summary>The path of the log of this run.</summary>
+    public string LogPath => pathLog;
+
+    /// <summary>Empties the log of this run (the one of the run before is kept).</summary>
+    public void ClearLog()
+    {
+        PanicIfFailed(() => {
+            LogWriter.FileClear(pathLog);
+            Written?.Invoke();
+        });
     }
 
     private static string UtcTimeStr(DateTime? time = null)
@@ -94,9 +120,7 @@ public class Logger : ILogger {
         PanicIfFailed(() => {
             if (!enableDebug)
                 return;
-            var fmt = $"DBG {UtcTimeStr()} {message.Invoke()}";
-            LogWriter.FileWriteLine(pathLog, fmt);
-            LogWriter.ConsoleWriteLine(fmt);
+            Write($"DBG {UtcTimeStr()} {message.Invoke()}", null);
         });
     }
 
@@ -105,40 +129,28 @@ public class Logger : ILogger {
         PanicIfFailed(() => {
             if (!enableInfo)
                 return;
-            var fmt = $"INF {UtcTimeStr()} {message}";
-            LogWriter.FileWriteLine(pathLog, fmt);
-            const ConsoleColor color = ConsoleColor.Green;
-            LogWriter.ConsoleColorfulWriteLine(fmt, color);
+            Write($"INF {UtcTimeStr()} {message}", ConsoleColor.Green);
         });
     }
 
     public void Warn(string message)
     {
         PanicIfFailed(() => {
-            var fmt = $"WRN {UtcTimeStr()} {message}";
-            LogWriter.FileWriteLine(pathLog, fmt);
-            const ConsoleColor color = ConsoleColor.Yellow;
-            LogWriter.ConsoleColorfulWriteLine(fmt, color);
+            Write($"WRN {UtcTimeStr()} {message}", ConsoleColor.Yellow);
         });
     }
 
     public void Error(string message)
     {
         PanicIfFailed(() => {
-            var fmt = $"ERR {UtcTimeStr()} {message}";
-            LogWriter.FileWriteLine(pathLog, fmt);
-            const ConsoleColor color = ConsoleColor.Red;
-            LogWriter.ConsoleColorfulWriteLine(fmt, color);
+            Write($"ERR {UtcTimeStr()} {message}", ConsoleColor.Red);
         });
     }
 
     public void Fatal(string message)
     {
         PanicIfFailed(() => {
-            var fmt = $"FTL {UtcTimeStr()} {message}";
-            LogWriter.FileWriteLine(pathLog, fmt);
-            const ConsoleColor color = ConsoleColor.Red;
-            LogWriter.ConsoleColorfulWriteLine(fmt, color);
+            Write($"FTL {UtcTimeStr()} {message}", ConsoleColor.Red);
         });
     }
 

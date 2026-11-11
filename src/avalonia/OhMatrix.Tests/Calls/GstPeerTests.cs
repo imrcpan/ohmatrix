@@ -106,7 +106,9 @@ public class GstPeerTests {
             },
             "picture at b; log: " +
             string.Join(" | ",
-                OhMatrix.Core.State.AppLog.Snapshot().Select(l => l.Text)));
+                OhMatrix.Core.State.LogLine
+                    .Parse(OhMatrix.Infra.Logging.Logger.GetDefault().ReadLog())
+                    .Select(l => l.Text)));
         Assert.Equal(640, seen[0]);
         Assert.Equal(480, seen[1]);
         var back = await Within(() => {
