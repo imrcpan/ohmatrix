@@ -127,7 +127,7 @@ public sealed class ProfilePage : Grid {
     internal static Border NavRow(Theming.ColorTokens c, string glyph,
         string label, Action open,
         double top, string? value = null, bool chevron = true,
-        bool danger = false, bool flat = false)
+        bool danger = false, bool flat = false, bool selectable = false)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -150,16 +150,17 @@ public sealed class ProfilePage : Grid {
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
         if (value != null) {
-            var shown = new TextBlock {
-                Text = value,
-                FontSize = 15,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                Margin = new Thickness(12, 0, 6, 0),
-                TextAlignment = TextAlignment.Right,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+            // A value that is not a setting can be selected to copy it.
+            var shown =
+                selectable ? new SelectableTextBlock() : new TextBlock();
+            shown.Text = value;
+            shown.FontSize = 15;
+            shown.FontFamily = Fonts.System;
+            shown.Foreground = new SolidColorBrush(c.TextSecondary);
+            shown.Margin = new Thickness(12, 0, 6, 0);
+            shown.TextAlignment = TextAlignment.Right;
+            shown.TextTrimming = TextTrimming.CharacterEllipsis;
+            shown.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(shown, 2);
             grid.Children.Add(shown);
             // The name keeps its room and the value takes what is left.
@@ -272,7 +273,7 @@ public sealed class ProfilePage : Grid {
         }
 
         head.Children.Add(mine);
-        head.Children.Add(new TextBlock {
+        head.Children.Add(new SelectableTextBlock {
             Text = shown,
             FontSize = 22,
             FontWeight = FontWeight.Bold,
@@ -281,7 +282,7 @@ public sealed class ProfilePage : Grid {
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 8, 0, 0),
         });
-        head.Children.Add(new TextBlock {
+        head.Children.Add(new SelectableTextBlock {
             Text = id,
             FontSize = 15,
             FontFamily = Fonts.System,
@@ -307,11 +308,11 @@ public sealed class ProfilePage : Grid {
             s.Profile?.Status ?? controller.T("status.empty"), flat: true);
         content.Children.Add(StatusRow);
         content.Children.Add(NavRow(c, "hash", controller.T("userId"), () => {
-        }, 0, id, false, flat: true));
+        }, 0, id, false, flat: true, selectable: true));
         content.Children.Add(NavRow(c, "info", controller.T("homeserver"),
             () => {
             }, 0,
-            s.Homeserver ?? "", false, flat: true));
+            s.Homeserver ?? "", false, flat: true, selectable: true));
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
             FontSize = 13,
