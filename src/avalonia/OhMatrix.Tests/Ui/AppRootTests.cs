@@ -1,3 +1,4 @@
+using OhMatrix.Infra.Logging;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
@@ -11,6 +12,8 @@ using Xunit;
 namespace OhMatrix.Tests.Ui;
 
 public class AppRootTests {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private sealed class Engine : IAuthEngine {
         public Task<Session> LoginWithPassword(string homeserver,
             string username, string password)
@@ -104,7 +107,7 @@ public class AppRootTests {
     private static List<string> LoggedAfter(string marker)
     {
         var log = OhMatrix.Core.State.LogLine
-            .Parse(OhMatrix.Infra.Logging.Logger.GetDefault().ReadLog())
+            .Parse(logger.ReadLog())
             .Select(l => l.Text).ToList();
         return log[(log.LastIndexOf(marker) + 1)..];
     }
@@ -116,7 +119,7 @@ public class AppRootTests {
     public void The_log_says_the_system_theme_is_followed_and_what_it_is(
         bool? dark, string told)
     {
-        OhMatrix.Infra.Logging.Logger.GetDefault()
+        logger
             .Info("marker system " + told);
         var controller = new AppController(new Engine(),
             new FileSessionStore(Directory_()));
@@ -137,7 +140,7 @@ public class AppRootTests {
             Theme = "dark"
         });
         await Task.Delay(100);
-        OhMatrix.Infra.Logging.Logger.GetDefault().Info("marker chosen");
+        logger.Info("marker chosen");
         var controller = new AppController(new Engine(),
             new FileSessionStore(dir), new FilePreferencesStore(dir));
         await controller.Bootstrap();

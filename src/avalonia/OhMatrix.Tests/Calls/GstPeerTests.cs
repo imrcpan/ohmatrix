@@ -1,3 +1,4 @@
+using OhMatrix.Infra.Logging;
 using OhMatrix.Core.Calls;
 using OhMatrix.Core.Calls.Gst;
 using Xunit;
@@ -5,6 +6,8 @@ using Xunit;
 namespace OhMatrix.Tests.Calls;
 
 public class GstPeerTests {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private static readonly GstSources Test = new(
         "audiotestsrc is-live=true wave=silence",
         "fakesink sync=false",
@@ -107,7 +110,7 @@ public class GstPeerTests {
             "picture at b; log: " +
             string.Join(" | ",
                 OhMatrix.Core.State.LogLine
-                    .Parse(OhMatrix.Infra.Logging.Logger.GetDefault().ReadLog())
+                    .Parse(logger.ReadLog())
                     .Select(l => l.Text)));
         Assert.Equal(640, seen[0]);
         Assert.Equal(480, seen[1]);

@@ -11,6 +11,8 @@ using OhMatrix.Infra.Logging;
 namespace OhMatrix.Desktop;
 
 public class App : Application {
+    private static readonly Logger logger = Logger.GetDefault();
+
     public override void Initialize()
     {
         AppStyles.Apply(this);
@@ -92,7 +94,7 @@ public class App : Application {
                 // answer late: both are told, and the root draws again.
                 if (PlatformSettings is { } settings)
                     settings.ColorValuesChanged += (_, e) => {
-                        Logger.GetDefault().Info(
+                        logger.Info(
                             $"System theme changed: {e.ThemeVariant}");
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                             root?.Apply());

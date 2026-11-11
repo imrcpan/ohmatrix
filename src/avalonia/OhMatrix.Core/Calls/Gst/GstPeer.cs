@@ -17,6 +17,8 @@ public sealed record GstSources(
 /// Events are raised on the thread this was made on (the UI thread) when it has a synchronisation context.
 /// </summary>
 public sealed class GstPeer : IPeer, IDisposable {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private const int Offer = 1;
     private const int Answer = 3;
 
@@ -395,7 +397,7 @@ public sealed class GstPeer : IPeer, IDisposable {
             peer.Receive(pad);
         } catch (Exception e) {
             // A stream that cannot be shown leaves the call as it is.
-            Logger.GetDefault().Error("call stream: " + e.Message);
+            logger.Error("call stream: " + e.Message);
         }
     }
 

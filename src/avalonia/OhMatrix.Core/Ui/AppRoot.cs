@@ -12,6 +12,8 @@ namespace OhMatrix.Core.Ui;
 /// for: a spinner while the saved session is being restored, the sign-in page when signed out, the main page when signed in.
 /// </summary>
 public sealed class AppRoot : Border {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private AppController controller;
     private readonly AccountManager? accounts;
     private readonly string defaultHomeserver;
@@ -89,14 +91,13 @@ public sealed class AppRoot : Border {
     // said is told as well.
     private static void LogTheme(string theme, bool? dark)
     {
-        var log = Logger.GetDefault();
         if (theme != Themes.System) {
-            log.Info($"Use theme {theme}.");
+            logger.Info($"Use theme {theme}.");
             return;
         }
 
-        log.Info("No theme set in config. Follow system default.");
-        log.Info($"Detect system theme: {SystemTheme(dark)}");
+        logger.Info("No theme set in config. Follow system default.");
+        logger.Info($"Detect system theme: {SystemTheme(dark)}");
     }
 
     private static string SystemTheme(bool? dark) => dark switch {

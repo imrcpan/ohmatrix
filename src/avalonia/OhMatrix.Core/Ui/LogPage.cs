@@ -14,7 +14,7 @@ namespace OhMatrix.Core.Ui;
 /// <summary>The app's log (<c>LogPage</c>): the last lines in a monospaced font, the newest at the bottom, with buttons to copy and to empty it.</summary>
 public sealed class LogPage : Grid {
     private readonly AppController controller;
-    private readonly Logger log;
+    private static readonly Logger logger = Logger.GetDefault();
     private readonly StackPanel lines = new();
     private readonly ScrollViewer scroller = new();
     private readonly TextBlock empty = new();
@@ -47,7 +47,6 @@ public sealed class LogPage : Grid {
     public LogPage(AppController controller)
     {
         this.controller = controller;
-        log = Logger.GetDefault();
         RowDefinitions = new RowDefinitions("Auto,Auto,*");
         Children.Add(bar);
         var buttons = new StackPanel {
@@ -70,11 +69,11 @@ public sealed class LogPage : Grid {
         copy.Click += async (_, _) => {
             if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
                 return;
-            await clipboard.SetTextAsync(log.ReadLog());
+            await clipboard.SetTextAsync(logger.ReadLog());
             copied = true;
             Apply();
         };
-        clear.Click += (_, _) => log.ClearLog();
+        clear.Click += (_, _) => logger.ClearLog();
         // The page follows the log, but not line by line: a burst of lines is one refresh.
         Action follow = () => {
             if (refreshQueued)
@@ -85,8 +84,8 @@ public sealed class LogPage : Grid {
                 Apply();
             }, DispatcherPriority.Background);
         };
-        log.Written += follow;
-        Lifetime.OnRelease(this, () => log.Written -= follow);
+        logger.Written += follow;
+        Lifetime.OnRelease(this, () => logger.Written -= follow);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
@@ -122,7 +121,7 @@ public sealed class LogPage : Grid {
         clear.Title = controller.T("logs.clear");
         ThemeScope.SetColors(copy, c);
         ThemeScope.SetColors(clear, c);
-        var all = LogLine.Parse(log.ReadLog());
+        var all = LogLine.Parse(logger.ReadLog());
         empty.Text = controller.T("logs.empty");
         empty.IsVisible = all.Count == 0;
         empty.Foreground = new SolidColorBrush(c.TextSecondary);

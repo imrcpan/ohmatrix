@@ -16,6 +16,8 @@ using Xunit;
 namespace OhMatrix.Tests.Ui;
 
 public partial class ChatPaneTests {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private static readonly long Now =
         new DateTimeOffset(2026, 11, 7, 12, 30, 0, TimeSpan.Zero)
             .ToUnixTimeMilliseconds();
@@ -3380,14 +3382,14 @@ public partial class ChatPaneTests {
         controller.OpenSidebarPage(SidebarPage.Advanced);
         Dispatcher.UIThread.RunJobs();
         controller.OpenSidebarPage(SidebarPage.Logs);
-        Logger.GetDefault().ClearLog();
-        Logger.GetDefault().Info("started");
-        Logger.GetDefault().Error("it broke");
+        logger.ClearLog();
+        logger.Info("started");
+        logger.Error("it broke");
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(2, screen.LogScreen.LineCount);
         Save(window, "log");
-        Logger.GetDefault().ClearLog();
+        logger.ClearLog();
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(0, screen.LogScreen.LineCount);
@@ -3398,10 +3400,10 @@ public partial class ChatPaneTests {
         The_log_page_builds_nothing_off_screen_and_adds_only_new_lines()
     {
         var (_, controller, _, _) = await Open("light", 1000);
-        Logger.GetDefault().ClearLog();
+        logger.ClearLog();
         var page = new LogPage(controller);
-        Logger.GetDefault().Info("one");
-        Logger.GetDefault().Info("two");
+        logger.Info("one");
+        logger.Info("two");
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(0, page.LineCount);
@@ -3417,7 +3419,7 @@ public partial class ChatPaneTests {
         var first = page.GetVisualDescendants().OfType<SelectableTextBlock>()
             .First();
 
-        Logger.GetDefault().Warn("three");
+        logger.Warn("three");
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         var rows = page.GetVisualDescendants().OfType<SelectableTextBlock>()
@@ -3427,13 +3429,13 @@ public partial class ChatPaneTests {
 
         // The file is kept whole: a long run shows every line.
         for (var i = 0; i < 3000; i++)
-            Logger.GetDefault().Info("line " + i);
+            logger.Info("line " + i);
         await Task.Delay(100);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(3003, page.LineCount);
         Assert.EndsWith("line 2999", page.GetVisualDescendants()
             .OfType<SelectableTextBlock>().Last().Text);
-        Logger.GetDefault().ClearLog();
+        logger.ClearLog();
         host.Close();
     }
 
