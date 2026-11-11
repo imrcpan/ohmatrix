@@ -52,6 +52,9 @@ public sealed class RecordingDialog {
     /// <summary>Opens the dialog and starts recording; why it could not start is shown in the dialog.</summary>
     public void Open(TopLevel window, bool video)
     {
+        // Thrown away with its page: the microphone is not opened for nobody.
+        if (retired)
+            return;
         Discard();
         var c = ThemeScope.GetColors(window);
         var rec = new MediaRecorder(video);
@@ -127,9 +130,12 @@ public sealed class RecordingDialog {
     private void Dispose()
     {
         dialog.OnClose = null;
+        retired = true;
         Discard();
-        dialog.Close();
+        dialog.Retire();
     }
+
+    private bool retired;
 
     /// <summary>Throws a recording in progress away.</summary>
     public void Discard()

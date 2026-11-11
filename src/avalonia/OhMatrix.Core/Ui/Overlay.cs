@@ -6,4 +6,7 @@ namespace OhMatrix.Core.Ui;
 /// </summary>
 public interface IOverlay {
     void Close();
+
+    /// <summary>Closes it for good, when the page that owns it is thrown away: an answer that comes late does not open it again.</summary>
+    void Retire();
 }

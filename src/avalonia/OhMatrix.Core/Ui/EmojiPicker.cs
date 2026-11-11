@@ -19,6 +19,17 @@ public sealed class EmojiPicker : IOverlay {
     private const double Margin = 8;
     public const int RecentMax = 24;
 
+    // Set when the page that owns it is thrown away: an answer that comes
+    // late must not open it again over the page that is shown now.
+    private bool retired;
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        retired = true;
+        Close();
+    }
+
     private OverlayLayer? layer;
 
     private Action<string> pick = _ => {
@@ -191,7 +202,7 @@ public sealed class EmojiPicker : IOverlay {
         double tall)
     {
         Close();
-        layer = OverlayLayer.GetOverlayLayer(window);
+        layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
         var origin = anchor.TranslatePoint(new Point(0, 0), window) ??

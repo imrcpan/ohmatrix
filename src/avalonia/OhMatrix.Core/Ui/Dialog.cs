@@ -17,6 +17,17 @@ public sealed class Dialog : IOverlay {
     private const double MaxWidth = 400;
     private const double Pad = 24;
 
+    // Set when the page that owns it is thrown away: an answer that comes
+    // late must not open it again over the page that is shown now.
+    private bool retired;
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        retired = true;
+        Close();
+    }
+
     private OverlayLayer? layer;
 
     private readonly Grid shade = new() {
@@ -84,7 +95,7 @@ public sealed class Dialog : IOverlay {
     )
     {
         Close();
-        layer = OverlayLayer.GetOverlayLayer(window);
+        layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
         shade.Background = new SolidColorBrush(colors.Overlay);

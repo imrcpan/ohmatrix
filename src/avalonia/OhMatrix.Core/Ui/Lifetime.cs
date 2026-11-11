@@ -25,6 +25,10 @@ public static class Lifetime {
     private static readonly ConditionalWeakTable<object, List<object>> Owned =
         new();
 
+    // What has been released: what it comes to own afterwards (a dialog
+    // made on first use by a late answer) is released at once.
+    private static readonly ConditionalWeakTable<object, object> Gone = new();
+
     /// <summary>Calls <paramref name="handler"/> for each change of the store of <paramref name="controller"/> until <paramref name="owner"/> is released.</summary>
     public static void Watch(object owner, AppController controller,
         Action<AppState> handler)
@@ -53,6 +57,11 @@ public static class Lifetime {
     {
         if (child is null)
             return;
+        if (Gone.TryGetValue(owner, out _)) {
+            Release(child);
+            return;
+        }
+
         lock (Owned)
             Owned.GetOrCreateValue(owner).Add(child);
     }
@@ -75,6 +84,7 @@ public static class Lifetime {
     {
         if (root is null)
             return;
+        Gone.AddOrUpdate(root, root);
         List<Action>? cleanups = null;
         List<object>? owned = null;
         lock (Cleanups) {
@@ -94,7 +104,7 @@ public static class Lifetime {
         // A dialog or a menu hangs on the overlay of the window and not on
         // the page, so the tree does not reach it: it is closed here.
         if (root is IOverlay overlay)
-            overlay.Close();
+            overlay.Retire();
         if (cleanups is not null)
             foreach (var cleanup in cleanups)
                 cleanup();

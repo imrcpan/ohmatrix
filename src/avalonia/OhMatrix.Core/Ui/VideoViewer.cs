@@ -18,6 +18,17 @@ namespace OhMatrix.Core.Ui;
 /// and change where it is, and the time. A press on the picture plays or pauses; Esc, the cross or a press outside closes it.
 /// </summary>
 public sealed class VideoViewer : IOverlay {
+    // Set when the page that owns it is thrown away: an answer that comes
+    // late must not open it again over the page that is shown now.
+    private bool retired;
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        retired = true;
+        Close();
+    }
+
     private OverlayLayer? layer;
     private MediaPlayer? player;
     private WriteableBitmap? bitmap;
@@ -164,7 +175,7 @@ public sealed class VideoViewer : IOverlay {
         Func<FileAttachment, Task<string?>> fetch)
     {
         Close();
-        layer = OverlayLayer.GetOverlayLayer(window);
+        layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
         var mine = ++session;

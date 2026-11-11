@@ -167,4 +167,11 @@ public sealed class VerifyDialog : IOverlay {
     {
         Dialog.Close();
     }
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        Close();
+        Dialog.Retire();
+    }
 }

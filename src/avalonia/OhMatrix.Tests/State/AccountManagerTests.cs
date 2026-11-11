@@ -282,4 +282,62 @@ public class AccountManagerTests {
         Assert.Equal(baseline, layer.Children.Count);
         return new WeakReference<MainScreen>(screen);
     }
+
+    [AvaloniaFact]
+    public async Task An_answer_that_comes_late_does_not_open_a_dialog_again()
+    {
+        var (manager, _, _) = Make("@a:s", "@b:s");
+        await manager.Start();
+        var root = new AppRoot(manager, "s", () => false);
+        var window = new Avalonia.Controls.Window {
+            Content = root,
+            Width = 1000,
+            Height = 700,
+        };
+        window.Show();
+        var (old, dialog) = LeaveWithDialogsPending(manager, root, window);
+        for (var i = 0; i < 4; i++) {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        // The request of the old page ends after the switch and shows its
+        // dialog; nothing is shown and the old page can still go.
+        Assert.False(dialog.IsOpen);
+        Assert.False(old.TryGetTarget(out _));
+        GC.KeepAlive(root);
+        GC.KeepAlive(window);
+    }
+
+    private static (WeakReference<MainScreen>, Dialog) LeaveWithDialogsPending(
+        AccountManager manager, AppRoot root, Avalonia.Controls.Window window)
+    {
+        var colors = OhMatrix.Core.Theming.Themes.Get("light")!.Colors;
+        var screen = Assert.IsType<MainScreen>(root.Page);
+        var layer = Avalonia.Controls.Primitives.OverlayLayer
+            .GetOverlayLayer(window)!;
+        var baseline = layer.Children.Count;
+        var chooser = new AccountsPage(manager.Current);
+        chooser.Switch(manager.Accounts[1]);
+        Lifetime.Release(chooser);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        // What the old page's request does when it returns.
+        var dialogs = new Dialog[] {
+            screen.Wide.GroupDialog, screen.SpaceScreen.SpaceDialog,
+            screen.EncryptionScreen.KeyDialog, screen.Wide.Forwarding.Dialog,
+        };
+        foreach (var d in dialogs)
+            d.Show(window, colors, "late");
+        screen.ExploreScreen.AddPrompt.Show(window, colors, "en", "t", "m", [],
+            "ok", _ => Task.CompletedTask);
+        screen.SettingsScreen.DownloadMenu.Show(screen.SettingsScreen, window,
+        [
+            new MenuItem("a", () => {
+            })
+        ]);
+        Assert.Equal(baseline, layer.Children.Count);
+        return (new WeakReference<MainScreen>(screen), dialogs[0]);
+    }
 }

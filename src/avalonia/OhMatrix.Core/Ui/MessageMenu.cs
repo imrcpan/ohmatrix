@@ -21,6 +21,17 @@ public sealed class MessageMenu : IOverlay {
     private const double Gap = 4;
     private const double Margin = 8;
 
+    // Set when the page that owns it is thrown away: an answer that comes
+    // late must not open it again over the page that is shown now.
+    private bool retired;
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        retired = true;
+        Close();
+    }
+
     private OverlayLayer? layer;
 
     private readonly Canvas shade = new() {
@@ -62,7 +73,7 @@ public sealed class MessageMenu : IOverlay {
         IReadOnlyList<MenuItem> actions)
     {
         Close();
-        layer = OverlayLayer.GetOverlayLayer(window);
+        layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
         var dark = colors.Bg.R < 128;

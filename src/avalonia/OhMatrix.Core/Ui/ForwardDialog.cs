@@ -296,4 +296,11 @@ public sealed class ForwardDialog : IOverlay {
             confirming ? T("forward.confirm") : T("forward.title"), null,
             [.. content]);
     }
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        Close();
+        dialog.Retire();
+    }
 }

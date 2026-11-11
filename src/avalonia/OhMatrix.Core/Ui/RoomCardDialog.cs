@@ -111,4 +111,11 @@ public sealed class RoomCardDialog : IOverlay {
     {
         dialog.Close();
     }
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        Close();
+        dialog.Retire();
+    }
 }

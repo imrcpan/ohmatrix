@@ -145,4 +145,11 @@ public sealed class PromptDialog : IOverlay {
             Refresh();
         }
     }
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        Close();
+        dialog.Retire();
+    }
 }

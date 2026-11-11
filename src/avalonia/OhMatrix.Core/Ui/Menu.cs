@@ -28,6 +28,17 @@ public sealed class Menu : IOverlay {
     private const double DefaultWidth = 220;
     private const double Margin = 8;
 
+    // Set when the page that owns it is thrown away: an answer that comes
+    // late must not open it again over the page that is shown now.
+    private bool retired;
+
+    /// <summary>Closes it for good: it is not shown again.</summary>
+    public void Retire()
+    {
+        retired = true;
+        Close();
+    }
+
     private OverlayLayer? layer;
 
     private readonly Canvas shade = new() {
@@ -128,7 +139,7 @@ public sealed class Menu : IOverlay {
             : Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
 
         Close();
-        layer = OverlayLayer.GetOverlayLayer(window);
+        layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer is null)
             return;
         Canvas.SetLeft(surface, left);

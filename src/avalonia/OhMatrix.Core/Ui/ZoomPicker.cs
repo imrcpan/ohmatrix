@@ -116,4 +116,11 @@ public sealed class ZoomPicker : IOverlay {
         Menu.Close();
         dialog.Close();
     }
+
+    /// <summary>Closes both for good: they are not shown again.</summary>
+    public void Retire()
+    {
+        Menu.Retire();
+        dialog.Retire();
+    }
 }
