@@ -5,10 +5,7 @@ namespace OhMatrix.Infra.Logging;
 public class PanicMessage {
     public required string FullMessage { get; init; } = string.Empty;
 
-    public required string Exception {
-        get;
-        init;
-    }
+    public required string Exception { get; init; }
 
     public string PrintStr => GenPrintStr();
 
@@ -24,9 +21,7 @@ public class PanicMessage {
         return sb.ToString();
     }
 
-    public static PanicMessage Empty {
-        get;
-    } = new() {
+    public static PanicMessage Empty { get; } = new() {
         FullMessage = "Empty PanicMessage.",
         Exception = "Empty PanicMessage.",
     };
@@ -41,7 +36,7 @@ public class Logger : ILogger {
 
     private static Logger? loggerDefault = null;
 
-    private Action<PanicMessage>? onPanic = null;
+    private readonly Action<PanicMessage>? onPanic = null;
 
     public static void SetDefault(Logger logger)
     {
@@ -161,9 +156,7 @@ public class Logger : ILogger {
 
     private volatile bool panic = false;
 
-    public void Panic(
-        string msgFull,
-        string exception)
+    public void Panic(string msgFull, string exception)
     {
         if (panic)
             return;
