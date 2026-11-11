@@ -143,13 +143,13 @@ public sealed class SessionsPage : Grid {
             if (controller.CanVerify && security == SecurityState.Ready)
                 content.Children.Add(ProfilePage.NavRow(c, "lock",
                     controller.T("verify.state.yes"), () => {
-                    }, 8, chevron: false));
+                    }, 0, chevron: false, flat: true));
             else if (controller.CanVerify &&
                      security == SecurityState.NeedsRecovery)
                 content.Children.Add(ProfilePage.NavRow(c, "lock",
                     controller.T("verify.session"),
-                    () => _ = controller.RequestVerification(), 8,
-                    controller.T("verify.state.no")));
+                    () => _ = controller.RequestVerification(), 0,
+                    controller.T("verify.state.no"), flat: true));
         }
 
         Caption(c, controller.T("sessions.others"));
@@ -196,7 +196,7 @@ public sealed class SessionsPage : Grid {
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Accent),
-            Margin = new Thickness(26, 18, 12, 6),
+            Margin = new Thickness(26, 18, 12, 4),
         });
     }
 
@@ -207,9 +207,9 @@ public sealed class SessionsPage : Grid {
         };
         grid.Children.Add(new Icon {
             Glyph = "device",
-            Size = 22,
-            Color = new SolidColorBrush(c.Accent),
-            Margin = new Thickness(0, 0, 12, 0),
+            Size = 21,
+            Color = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(0, 0, 14, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
         var words = new StackPanel {
@@ -232,14 +232,13 @@ public sealed class SessionsPage : Grid {
         Grid.SetColumn(words, 1);
         grid.Children.Add(words);
         var card = new Border {
-            Margin = new Thickness(12, 0, 12, 6),
-            Padding = new Thickness(14, 8),
+            Padding = new Thickness(26, 8),
             MinHeight = 56,
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = new SolidColorBrush(c.BgSecondary),
+            Background = Brushes.Transparent,
             Child = grid,
         };
         if (press != null) {
+            ProfilePage.Hover(card, c);
             card.Cursor = new Cursor(StandardCursorType.Hand);
             card.PointerPressed += (_, e) => {
                 e.Handled = true;
