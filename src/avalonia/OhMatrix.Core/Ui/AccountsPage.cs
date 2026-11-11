@@ -130,12 +130,19 @@ public sealed class AccountsPage : Grid {
             Width = 44,
             Height = 44,
             CornerRadius = new CornerRadius(22),
-            Background = new SolidColorBrush(c.BgSecondary),
+            // As on the React Native page: the separator colour on dark
+            // themes, a light grey on light ones.
+            Background = c.Bg.R + c.Bg.G + c.Bg.B < 384
+                ? new SolidColorBrush(c.Separator)
+                : new SolidColorBrush(Color.FromArgb(0x1C, 60, 60, 67)),
             Margin = new Thickness(0, 0, 14, 0),
             Child = new Icon {
                 Glyph = "userPlus",
                 Size = 22,
                 Color = new SolidColorBrush(c.TextSecondary),
+                // The glyph's weight is on its left (the person), so it
+                // is nudged right to look centred.
+                Margin = new Thickness(3, 0, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             },
