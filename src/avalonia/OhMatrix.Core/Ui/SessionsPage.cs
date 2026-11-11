@@ -165,26 +165,23 @@ public sealed class SessionsPage : Grid {
 
         foreach (var d in others)
             content.Children.Add(Card(c, d, () => AskSignOut([d.Id], false)));
-        if (others.Count > 0) {
-            var all = new TextButton {
-                Title = controller.T("sessions.signOutAll"),
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-            ThemeScope.SetColors(all, c with {
-                Accent = c.Danger
-            });
-            all.Click += (_, _) =>
-                AskSignOut([.. others.Select(d => d.Id)], true);
-            content.Children.Add(all);
-        }
-
+        // The note, then the way out of all the others, as on the React
+        // Native page.
         content.Children.Add(new TextBlock {
             Text = controller.T("sessions.footer"),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(26, 12, 20, 24),
+            Margin = new Thickness(26, 6, 20, 8),
+        });
+        if (others.Count > 0)
+            content.Children.Add(ProfilePage.NavRow(c, "signOut",
+                controller.T("sessions.signOutAll"),
+                () => AskSignOut([.. others.Select(d => d.Id)], true), 0,
+                chevron: false, danger: true, flat: true));
+        content.Children.Add(new Border {
+            Height = 24
         });
     }
 
