@@ -95,13 +95,15 @@ public sealed class FontPage : Grid {
         var line = new Grid {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
-        line.Children.Add(new TextBlock {
+        var label = new TextBlock {
             Text = name ?? controller.T("font.system"),
             FontSize = 16,
             FontFamily = name == null ? Fonts.System : new FontFamily(name),
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-        });
+        };
+        Fonts.Center(label);
+        line.Children.Add(label);
         if (active) {
             var check = new Icon {
                 Glyph = "check",

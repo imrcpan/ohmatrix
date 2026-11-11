@@ -147,6 +147,7 @@ public sealed class ProfilePage : Grid {
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        Fonts.Center(text);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
         if (value != null) {
@@ -161,6 +162,7 @@ public sealed class ProfilePage : Grid {
             shown.TextAlignment = TextAlignment.Right;
             shown.TextTrimming = TextTrimming.CharacterEllipsis;
             shown.VerticalAlignment = VerticalAlignment.Center;
+            Fonts.Center(shown);
             Grid.SetColumn(shown, 2);
             grid.Children.Add(shown);
             // The name keeps its room and the value takes what is left.
@@ -230,6 +232,7 @@ public sealed class ProfilePage : Grid {
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(26, 0, 0, 0),
         };
+        Fonts.Center(title);
         var row = new Grid {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };

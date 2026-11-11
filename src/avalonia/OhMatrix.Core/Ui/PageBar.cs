@@ -22,14 +22,16 @@ public static class PageBar {
             VerticalAlignment = VerticalAlignment.Center,
         };
         row.Children.Add(back);
-        row.Children.Add(new TextBlock {
+        var heading = new TextBlock {
             Text = title,
             FontSize = titleSize,
             FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(colors.Text),
             VerticalAlignment = VerticalAlignment.Center,
-        });
+        };
+        Fonts.Center(heading);
+        row.Children.Add(heading);
         bar.Height = 56;
         bar.BorderThickness = new Thickness(0);
         bar.Child = row;

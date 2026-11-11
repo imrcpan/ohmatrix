@@ -59,13 +59,15 @@ public sealed class LanguagePage : Grid {
             var line = new Grid {
                 ColumnDefinitions = new ColumnDefinitions("*,Auto")
             };
-            line.Children.Add(new TextBlock {
+            var label = new TextBlock {
                 Text = language.Label,
                 FontSize = 16,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            Fonts.Center(label);
+            line.Children.Add(label);
             if (active) {
                 var check = new Icon {
                     Glyph = "check",

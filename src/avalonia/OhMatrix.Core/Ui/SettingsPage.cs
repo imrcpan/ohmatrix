@@ -291,6 +291,7 @@ public sealed class SettingsPage : Grid {
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
         };
+        Fonts.Center(text);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
         Grid.SetColumn(toggle, 2);
