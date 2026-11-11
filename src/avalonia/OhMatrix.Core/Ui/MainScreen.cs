@@ -161,6 +161,8 @@ public sealed class MainScreen : Grid {
         // The profile is a dialog over the window, not a page of the
         // left pane: the pane keeps the list under it.
         Grid.SetColumnSpan(profileHost, 4);
+        // Above the resizer, so that the dialog's backdrop takes its pointer.
+        profileHost.ZIndex = 10;
         profileBackdrop.PointerPressed += (_, e) => {
             e.Handled = true;
             controller.OpenSidebarPage(SidebarPage.Chats);
