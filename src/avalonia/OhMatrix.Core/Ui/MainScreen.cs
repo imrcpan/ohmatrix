@@ -278,6 +278,12 @@ public sealed class MainScreen : Grid {
     {
         return page switch {
             SidebarPage.Settings => settingsPage,
+            SidebarPage.Theme => themePage,
+            SidebarPage.Language => languagePage,
+            SidebarPage.Font => fontPage,
+            SidebarPage.Advanced => advancedPage,
+            SidebarPage.Sessions => sessionsPage,
+            SidebarPage.Logs => logPage,
             _ => null,
         };
     }
@@ -294,6 +300,7 @@ public sealed class MainScreen : Grid {
                 MinHeight = 320,
                 WindowStartupLocation = Avalonia.Controls.WindowStartupLocation
                     .CenterOwner,
+                Content = content,
             };
             ThemeScope.SetColors(window, ThemeScope.GetColors(this));
             window.Closed += (_, _) => {
@@ -361,16 +368,10 @@ public sealed class MainScreen : Grid {
         if (settingsWindow != null)
             ThemeScope.SetColors(settingsWindow, c);
         listHost.Child = s.SidebarPage switch {
-            SidebarPage.Theme => themePage,
-            SidebarPage.Language => languagePage,
             SidebarPage.Explore => explorePage,
-            SidebarPage.Sessions => sessionsPage,
             SidebarPage.Encryption => encryptionPage,
             SidebarPage.Space => spacePage,
-            SidebarPage.Advanced => advancedPage,
-            SidebarPage.Logs => logPage,
             SidebarPage.Accounts => accountsPage,
-            SidebarPage.Font => fontPage,
             _ => strip ? Rail() : list,
         };
         detail.Child = split && open ? wideChat : chip;
