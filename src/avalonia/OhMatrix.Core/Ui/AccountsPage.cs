@@ -91,7 +91,10 @@ public sealed class AccountsPage : Grid {
                     : "accounts.reorder"),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0),
+                Height = 36,
+                Padding = new Thickness(12, 0),
+                CornerRadius = new CornerRadius(18),
+                Margin = new Thickness(0, 0, 10, 0),
             };
             sort.Click += (_, _) => SetReordering(!reordering);
             ThemeScope.SetColors(sort, c);
