@@ -51,6 +51,7 @@ public sealed class AdvancedPage : Grid {
         content.Children.Clear();
         content.Children.Add(ProfilePage.NavRow(c, "file",
             controller.T("logs.view"),
-            () => controller.OpenSidebarPage(SidebarPage.Logs), 12));
+            () => controller.OpenSidebarPage(SidebarPage.Logs), 0,
+            flat: true));
     }
 }
