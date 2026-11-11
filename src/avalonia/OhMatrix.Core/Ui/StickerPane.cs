@@ -5,7 +5,6 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -119,29 +118,6 @@ public sealed class StickerPane : Grid {
                 (int)Math.Floor((available - 2 * Pad + Gap) / (Tile + Gap))));
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     private (IReadOnlyList<StickerGroup> Groups, StickerGroup Group, int Index)
         Current()
@@ -157,9 +133,11 @@ public sealed class StickerPane : Grid {
     /// <summary>What a group is called: its name, or "Group n" while it has none.</summary>
     public string Label(StickerGroup g, int index)
     {
-        return g.Name.Length > 0 ? g.Name
-            : g.Id == StickerPack.DefaultGroup ? T("sticker.group.default")
-            : T("sticker.group.n", ("n", index));
+        return g.Name.Length > 0
+            ? g.Name
+            : g.Id == StickerPack.DefaultGroup
+                ? controller.T("sticker.group.default")
+                : controller.T("sticker.group.n", ("n", index));
     }
 
     /// <summary>Shows a group, and keeps it as the one to open next time.</summary>
@@ -178,8 +156,8 @@ public sealed class StickerPane : Grid {
             await controller.SetStickerGroups(next);
         } catch (Exception e) {
             controller.ShowNotice(
-                T("sticker.group.failed",
-                    ("reason", Failure.Reason(e, k => T(k)))),
+                controller.T("sticker.group.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
                 NoticeKind.Error);
         }
     }
@@ -224,19 +202,21 @@ public sealed class StickerPane : Grid {
         var reason = "";
         controller.ShowNotice(
             paths.Count > 1
-                ? T("sticker.uploading.n", ("n", paths.Count), ("i", 1))
-                : T("sticker.uploading"), NoticeKind.Progress);
+                ? controller.T("sticker.uploading.n", ("n", paths.Count),
+                    ("i", 1))
+                : controller.T("sticker.uploading"), NoticeKind.Progress);
         for (var i = 0; i < paths.Count; i++) {
             if (paths.Count > 1)
                 controller.ShowNotice(
-                    T("sticker.uploading.n", ("n", paths.Count), ("i", i + 1)),
+                    controller.T("sticker.uploading.n", ("n", paths.Count),
+                        ("i", i + 1)),
                     NoticeKind.Progress);
             try {
                 added.Add(await controller.AddSticker(paths[i]));
             } catch (Exception e) {
                 failed++;
                 if (reason.Length == 0)
-                    reason = Failure.Reason(e, k => T(k));
+                    reason = Failure.Reason(e, k => controller.T(k));
             }
         }
 
@@ -253,13 +233,16 @@ public sealed class StickerPane : Grid {
                         .ToList()
                 }).ToList());
         if (failed == 1 && paths.Count == 1)
-            controller.ShowNotice(T("sticker.add.failed", ("reason", reason)),
+            controller.ShowNotice(
+                controller.T("sticker.add.failed", ("reason", reason)),
                 NoticeKind.Error);
         else if (failed == 0)
-            controller.ShowNotice(T("sticker.add.done", ("n", added.Count)));
+            controller.ShowNotice(controller.T("sticker.add.done",
+                ("n", added.Count)));
         else
             controller.ShowNotice(
-                T("sticker.add.some", ("n", failed), ("total", paths.Count),
+                controller.T("sticker.add.some", ("n", failed),
+                    ("total", paths.Count),
                     ("reason", reason)),
                 NoticeKind.Error);
     }
@@ -294,8 +277,8 @@ public sealed class StickerPane : Grid {
             await controller.SendSticker(shortcode);
         } catch (Exception e) {
             controller.ShowNotice(
-                T("sticker.send.failed",
-                    ("reason", Failure.Reason(e, k => T(k)))),
+                controller.T("sticker.send.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
                 NoticeKind.Error);
         }
     }
@@ -311,8 +294,8 @@ public sealed class StickerPane : Grid {
             await controller.RemoveStickers(codes);
         } catch (Exception e) {
             controller.ShowNotice(
-                T("sticker.remove.failed",
-                    ("reason", Failure.Reason(e, k => T(k)))),
+                controller.T("sticker.remove.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
                 NoticeKind.Error);
         }
     }
@@ -331,8 +314,8 @@ public sealed class StickerPane : Grid {
             await Save(rest);
         } catch (Exception e) {
             controller.ShowNotice(
-                T("sticker.remove.failed",
-                    ("reason", Failure.Reason(e, k => T(k)))),
+                controller.T("sticker.remove.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
                 NoticeKind.Error);
         }
     }
@@ -354,8 +337,10 @@ public sealed class StickerPane : Grid {
         var (_, group, _) = Current();
         prompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("sticker.name.title"), T("sticker.name.body"),
-            [new PromptField(T("sticker.name.label"), "hash", true)], T("save"),
+            controller.T("sticker.name.title"),
+            controller.T("sticker.name.body"),
+            [new PromptField(controller.T("sticker.name.label"), "hash", true)],
+            controller.T("save"),
             values => Change(g => g with {
                 Name = values[0].Trim()
             }));
@@ -369,9 +354,10 @@ public sealed class StickerPane : Grid {
         var (groups, _, _) = Current();
         prompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("sticker.group.new"), T("sticker.name.body"),
-            [new PromptField(T("sticker.name.label"), "hash", true)],
-            T("sticker.group.create"),
+            controller.T("sticker.group.new"),
+            controller.T("sticker.name.body"),
+            [new PromptField(controller.T("sticker.name.label"), "hash", true)],
+            controller.T("sticker.group.create"),
             async values => {
                 // A new group has no cover of its own: it shows its first sticker, or a smiling face until it has one.
                 var id = StickerPack.NewGroupId(groups);
@@ -381,7 +367,8 @@ public sealed class StickerPane : Grid {
                 ]);
                 Show(id);
             });
-        prompt.Fields[0].Text = T("sticker.group.n", ("n", groups.Count));
+        prompt.Fields[0].Text =
+            controller.T("sticker.group.n", ("n", groups.Count));
     }
 
     private Control Warning(string a, string b, string c)
@@ -430,28 +417,31 @@ public sealed class StickerPane : Grid {
         var colors = ThemeScope.GetColors(this);
         var (_, group, index) = Current();
         var title = Label(group, index);
-        dialog.Show(window, colors, T("sticker.group.delete.title"), null,
-            Warning(T("sticker.group.delete.a"),
-                T("sticker.group.delete.b", ("n", group.Stickers.Count)),
-                T("sticker.group.delete.c")),
-            Primary(T("sticker.group.delete"), () => {
+        dialog.Show(window, colors, controller.T("sticker.group.delete.title"),
+            null,
+            Warning(controller.T("sticker.group.delete.a"),
+                controller.T("sticker.group.delete.b",
+                    ("n", group.Stickers.Count)),
+                controller.T("sticker.group.delete.c")),
+            Primary(controller.T("sticker.group.delete"), () => {
                 dialog.Close();
                 dialog.Modal = true;
-                dialog.Show(window, colors, T("sticker.group.delete.title2"),
+                dialog.Show(window, colors,
+                    controller.T("sticker.group.delete.title2"),
                     null,
-                    Warning(T("sticker.group.delete.2a"),
-                        T("sticker.group.delete.2b", ("name", title),
+                    Warning(controller.T("sticker.group.delete.2a"),
+                        controller.T("sticker.group.delete.2b", ("name", title),
                             ("n", group.Stickers.Count)),
-                        T("sticker.group.delete.2c")),
-                    Primary(T("sticker.group.delete.yes"), () => {
+                        controller.T("sticker.group.delete.2c")),
+                    Primary(controller.T("sticker.group.delete.yes"), () => {
                         dialog.Close();
                         dialog.Modal = false;
                         _ = DeleteGroup();
-                    }), Cancel(T("cancel"), () => {
+                    }), Cancel(controller.T("cancel"), () => {
                         dialog.Close();
                         dialog.Modal = false;
                     }));
-            }), Cancel(T("cancel"), dialog.Close));
+            }), Cancel(controller.T("cancel"), dialog.Close));
     }
 
     private void AskRemove()
@@ -459,12 +449,12 @@ public sealed class StickerPane : Grid {
         if (Window is not { } window)
             return;
         dialog.Show(window, ThemeScope.GetColors(this),
-            T("sticker.remove.title"),
-            T("sticker.remove.body"),
-            Primary(T("sticker.remove"), () => {
+            controller.T("sticker.remove.title"),
+            controller.T("sticker.remove.body"),
+            Primary(controller.T("sticker.remove"), () => {
                 dialog.Close();
                 _ = RemoveChosen();
-            }), Cancel(T("cancel"), dialog.Close));
+            }), Cancel(controller.T("cancel"), dialog.Close));
     }
 
     /// <summary>The cover of the group on show: one of my stickers, a picture from the device, or an emoji.</summary>
@@ -499,7 +489,7 @@ public sealed class StickerPane : Grid {
                 Height = 220,
                 Content = s.Stickers.Count == 0
                     ? new TextBlock {
-                        Text = T("sticker.empty"),
+                        Text = controller.T("sticker.empty"),
                         TextWrapping = TextWrapping.Wrap,
                         Foreground = new SolidColorBrush(colors.TextSecondary)
                     }
@@ -533,16 +523,17 @@ public sealed class StickerPane : Grid {
             };
         } else {
             var stack = new StackPanel();
-            stack.Children.Add(Cancel(T("sticker.cover.pack"),
+            stack.Children.Add(Cancel(controller.T("sticker.cover.pack"),
                 () => AskCover("pack")));
-            stack.Children.Add(Cancel(T("sticker.cover.upload"),
+            stack.Children.Add(Cancel(controller.T("sticker.cover.upload"),
                 () => _ = FromDevice()));
-            stack.Children.Add(Cancel(T("sticker.cover.emoji"),
+            stack.Children.Add(Cancel(controller.T("sticker.cover.emoji"),
                 () => AskCover("emoji")));
             body = stack;
         }
 
-        dialog.Show(window, colors, T("sticker.cover.title"), null, body);
+        dialog.Show(window, colors, controller.T("sticker.cover.title"), null,
+            body);
 
         async Task FromDevice()
         {
@@ -554,8 +545,8 @@ public sealed class StickerPane : Grid {
                 Pick(icon);
             } catch (Exception e) {
                 controller.ShowNotice(
-                    T("sticker.add.failed",
-                        ("reason", Failure.Reason(e, k => T(k)))),
+                    controller.T("sticker.add.failed",
+                        ("reason", Failure.Reason(e, k => controller.T(k)))),
                     NoticeKind.Error);
             }
         }
@@ -601,19 +592,22 @@ public sealed class StickerPane : Grid {
         var isDefault = group.Id == StickerPack.DefaultGroup;
         var items = new List<MenuItem>();
         if (group.Stickers.Count > 0)
-            items.Add(new MenuItem(T("sticker.select"),
+            items.Add(new MenuItem(controller.T("sticker.select"),
                 () => SetMode(PaneMode.Choose),
                 Icon: "multiSelect"));
         if (group.Stickers.Count > 1)
-            items.Add(new MenuItem(T("sticker.reorder"),
+            items.Add(new MenuItem(controller.T("sticker.reorder"),
                 () => SetMode(PaneMode.Reorder),
                 Icon: "sort"));
-        items.Add(new MenuItem(T("sticker.name.set"), AskName, Icon: "edit"));
+        items.Add(new MenuItem(controller.T("sticker.name.set"), AskName,
+            Icon: "edit"));
         // The default group keeps its cover and cannot be deleted: the stickers that no group has have to be somewhere.
         if (!isDefault) {
-            items.Add(new MenuItem(T("sticker.cover.set"), () => AskCover(),
+            items.Add(new MenuItem(controller.T("sticker.cover.set"),
+                () => AskCover(),
                 Icon: "image"));
-            items.Add(new MenuItem(T("sticker.group.delete"), AskDeleteGroup,
+            items.Add(new MenuItem(controller.T("sticker.group.delete"),
+                AskDeleteGroup,
                 Icon: "trash",
                 Danger: true));
         }
@@ -737,20 +731,22 @@ public sealed class StickerPane : Grid {
                 OpenSettings();
             };
             Avalonia.Automation.AutomationProperties.SetName(button,
-                T("sticker.settings"));
+                controller.T("sticker.settings"));
             Grid.SetColumn(button, 1);
             row.Children.Add(button);
         } else {
-            row.Children.Add(BarButton(c, T("sticker.done"), Stop, true, true));
+            row.Children.Add(BarButton(c, controller.T("sticker.done"), Stop,
+                true, true));
             if (Mode == PaneMode.Choose) {
-                var delete = BarButton(c, T("sticker.delete"), AskRemove,
+                var delete = BarButton(c, controller.T("sticker.delete"),
+                    AskRemove,
                     chosen.Count > 0, false,
                     true);
                 Grid.SetColumn(delete, 1);
                 row.Children.Add(delete);
             } else {
                 var hint = new TextBlock {
-                    Text = T("sticker.reorder.hint"),
+                    Text = controller.T("sticker.reorder.hint"),
                     FontSize = 15,
                     FontWeight = FontWeight.Bold,
                     FontFamily = Fonts.System,
@@ -788,7 +784,7 @@ public sealed class StickerPane : Grid {
                 _ = Pick();
             };
             Avalonia.Automation.AutomationProperties.SetName(add,
-                T("sticker.new"));
+                controller.T("sticker.new"));
             grid.Children.Add(add);
         }
 
@@ -878,7 +874,9 @@ public sealed class StickerPane : Grid {
         if (shown.Count == 0)
             grid.Children.Add(new TextBlock {
                 Text =
-                    isDefault ? T("sticker.empty") : T("sticker.group.empty"),
+                    isDefault
+                        ? controller.T("sticker.empty")
+                        : controller.T("sticker.group.empty"),
                 FontSize = 13,
                 LineHeight = 18,
                 FontFamily = Fonts.System,
@@ -968,7 +966,8 @@ public sealed class StickerPane : Grid {
         }
 
         if (groups.Count - 1 < StickerPack.GroupsMax)
-            row.Children.Add(Tab(T("sticker.group.new"), false, AskNewGroup,
+            row.Children.Add(Tab(controller.T("sticker.group.new"), false,
+                AskNewGroup,
                 new Icon {
                     Glyph = "plus",
                     Size = GroupIcon - 14,

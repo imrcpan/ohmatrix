@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -36,29 +35,6 @@ public sealed class VerifyDialog : IOverlay {
 
     public IReadOnlyList<string> Symbols { get; private set; } = [];
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Shows what the verification is at, or closes the dialog when there is none.</summary>
     public void Update(VerifyFlow? flow)
@@ -81,10 +57,10 @@ public sealed class VerifyDialog : IOverlay {
         {
             PressableButton b = primary
                 ? new PrimaryButton {
-                    Title = T(key)
+                    Title = controller.T(key)
                 }
                 : new TextButton {
-                    Title = T(key)
+                    Title = controller.T(key)
                 };
             ThemeScope.SetColors(b, c);
             b.Click += (_, _) => _ = press();
@@ -93,33 +69,33 @@ public sealed class VerifyDialog : IOverlay {
         }
 
         var close = () => controller.DismissVerification();
-        var who = flow.Who ?? T("verify.ownSession");
+        var who = flow.Who ?? controller.T("verify.ownSession");
         Symbols = [];
         var content = new List<Control>();
         string title;
         string? body;
         switch (flow.Phase) {
             case VerifyPhase.Requested when flow.Incoming:
-                title = T("verify.request.title");
-                body = T("verify.request.body", ("who", who));
+                title = controller.T("verify.request.title");
+                body = controller.T("verify.request.body", ("who", who));
                 content.Add(Button("verify.accept", true,
                     () => controller.AcceptVerification()));
                 content.Add(Button("verify.decline", false, close));
                 break;
             case VerifyPhase.Requested:
-                title = T("verify.waiting.title");
-                body = T("verify.waiting.body",
-                    ("who", T("verify.ownSession")));
+                title = controller.T("verify.waiting.title");
+                body = controller.T("verify.waiting.body",
+                    ("who", controller.T("verify.ownSession")));
                 content.Add(Button("verify.close", false, close));
                 break;
             case VerifyPhase.Waiting:
-                title = T("verify.waiting.title");
-                body = T("verify.starting");
+                title = controller.T("verify.waiting.title");
+                body = controller.T("verify.starting");
                 content.Add(Button("verify.close", false, close));
                 break;
             case VerifyPhase.Emojis:
-                title = T("verify.compare.title");
-                body = T("verify.compare.body");
+                title = controller.T("verify.compare.title");
+                body = controller.T("verify.compare.body");
                 Symbols = flow.Emojis?.Select(e => e.Symbol).ToList() ?? [];
                 content.Add(Pictures(flow.Emojis ?? [], c));
                 content.Add(
@@ -129,20 +105,20 @@ public sealed class VerifyDialog : IOverlay {
                     () => controller.ConfirmVerification(false)));
                 break;
             case VerifyPhase.Done:
-                title = T("verify.done.title");
+                title = controller.T("verify.done.title");
                 body = flow.Who is null
-                    ? T("verify.done.own")
-                    : T("verify.done.user", ("who", flow.Who));
+                    ? controller.T("verify.done.own")
+                    : controller.T("verify.done.user", ("who", flow.Who));
                 content.Add(Button("verify.close", true, close));
                 break;
             case VerifyPhase.Cancelled:
-                title = T("verify.cancelled.title");
-                body = T("verify.cancelled.body");
+                title = controller.T("verify.cancelled.title");
+                body = controller.T("verify.cancelled.body");
                 content.Add(Button("verify.close", true, close));
                 break;
             default:
-                title = T("verify.failed.title");
-                body = T("verify.failed.body");
+                title = controller.T("verify.failed.title");
+                body = controller.T("verify.failed.body");
                 content.Add(Button("verify.close", true, close));
                 break;
         }

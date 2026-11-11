@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 
 namespace OhMatrix.Core.Ui;
@@ -41,20 +40,17 @@ public sealed class AdvancedPage : Grid {
         Apply();
     }
 
-    private string T(string key)
-    {
-        return Strings.T(controller.Store.Value.Locale, key);
-    }
-
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, T("advanced.options"), T("settings"),
+        PageBar.Fill(bar, c, controller.T("advanced.options"),
+            controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));
         content.Children.Clear();
-        content.Children.Add(ProfilePage.NavRow(c, "file", T("logs.view"),
+        content.Children.Add(ProfilePage.NavRow(c, "file",
+            controller.T("logs.view"),
             () => controller.OpenSidebarPage(SidebarPage.Logs), 12));
     }
 }

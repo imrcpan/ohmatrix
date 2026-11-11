@@ -6,7 +6,6 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -117,7 +116,7 @@ public sealed partial class ChatPane : Grid {
             ChosenItems().Where(i => i.Image is null && i.File is null)
                 .Select(i => i.Body));
         await Copy(window, text);
-        controller.ShowNotice(T("copied"));
+        controller.ShowNotice(controller.T("copied"));
         CancelSelect();
     }
 
@@ -163,7 +162,7 @@ public sealed partial class ChatPane : Grid {
 
         emojiPicker.Show(emojiButton, window, ThemeScope.GetColors(this),
             s.Prefs.RecentEmoji,
-            T("emoji.search"), InsertEmoji);
+            controller.T("emoji.search"), InsertEmoji);
     }
 
     private StickerPane? stickerPane;
@@ -377,7 +376,7 @@ public sealed partial class ChatPane : Grid {
             c0.Bg.R, c0.Bg.G, c0.Bg.B));
         dropHint.BorderBrush = new SolidColorBrush(c0.Accent);
         if (dropHint.Child is TextBlock hint) {
-            hint.Text = T("drop.hint");
+            hint.Text = controller.T("drop.hint");
             hint.Foreground = new SolidColorBrush(c0.Accent);
         }
 
@@ -594,29 +593,6 @@ public sealed partial class ChatPane : Grid {
         ]);
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The name a person goes by in the open chat, or the start of their id.</summary>
     private string NameOfUser(string id)
@@ -663,7 +639,7 @@ public sealed partial class ChatPane : Grid {
             MaxWidth = 360,
         };
         stack.Children.Add(new TextBlock {
-            Text = T("chatNotFound"),
+            Text = controller.T("chatNotFound"),
             FontSize = 20,
             FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
@@ -671,7 +647,7 @@ public sealed partial class ChatPane : Grid {
             TextAlignment = TextAlignment.Center,
         });
         stack.Children.Add(new TextBlock {
-            Text = T("chatNotFound.body"),
+            Text = controller.T("chatNotFound.body"),
             FontSize = 15,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -679,7 +655,7 @@ public sealed partial class ChatPane : Grid {
             TextWrapping = TextWrapping.Wrap,
         });
         var back = new TextButton {
-            Title = T("backToChats"),
+            Title = controller.T("backToChats"),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         ThemeScope.SetColors(back, c);
@@ -782,7 +758,8 @@ public sealed partial class ChatPane : Grid {
                 .FirstOrDefault(i => i.EventId == eventId);
 
             if (Find() is null) {
-                controller.ShowNotice(T("jump.looking"), NoticeKind.Progress);
+                controller.ShowNotice(controller.T("jump.looking"),
+                    NoticeKind.Progress);
                 revealNotice = controller.Store.Value.Notice;
                 for (var n = 0; n < 40 && Find() is null; n++) {
                     if (Superseded())
@@ -818,7 +795,8 @@ public sealed partial class ChatPane : Grid {
             if (Superseded())
                 return;
             if (Find() is not { } hit || !ScrollToMessage(hit.Id)) {
-                controller.ShowNotice(T("jump.notFound"), NoticeKind.Error);
+                controller.ShowNotice(controller.T("jump.notFound"),
+                    NoticeKind.Error);
                 revealNotice = controller.Store.Value.Notice;
                 return;
             }
@@ -874,8 +852,8 @@ public sealed partial class ChatPane : Grid {
         if (latest.Child is Icon icon)
             icon.Color = new SolidColorBrush(c.TextSecondary);
         var label = newWhileAway > 0
-            ? T("scroll.newCount", ("n", newWhileAway))
-            : T("scroll.latest");
+            ? controller.T("scroll.newCount", ("n", newWhileAway))
+            : controller.T("scroll.latest");
         Avalonia.Automation.AutomationProperties.SetName(latest, label);
         if (newWhileAway > 0)
             ToolTip.SetTip(latest, label);
@@ -987,7 +965,7 @@ public sealed partial class ChatPane : Grid {
         input.Foreground = new SolidColorBrush(c.Text);
         input.CaretBrush = new SolidColorBrush(c.Text);
         input.SelectionBrush = new SolidColorBrush(c.Accent, 0.4);
-        input.PlaceholderText = T("message");
+        input.PlaceholderText = controller.T("message");
         input.Resources["TextControlPlaceholderForeground"] =
             new SolidColorBrush(c.TextSecondary);
         input.Resources["TextControlPlaceholderForegroundFocused"] =
@@ -1000,11 +978,11 @@ public sealed partial class ChatPane : Grid {
             Brushes.Transparent;
         UpdateSend(c, true);
         Avalonia.Automation.AutomationProperties.SetName(send,
-            T("send.files.send"));
+            controller.T("send.files.send"));
         Avalonia.Automation.AutomationProperties.SetName(attach,
-            T("attach.label"));
+            controller.T("attach.label"));
         Avalonia.Automation.AutomationProperties.SetName(emojiButton,
-            T("emoji"));
+            controller.T("emoji"));
 
         var s = controller.Store.Value;
         // While messages are being chosen the message box gives way to how many there are.
@@ -1013,8 +991,8 @@ public sealed partial class ChatPane : Grid {
         selectionBar.Child = selectedCount;
         selectedCount.Foreground = new SolidColorBrush(c.BubbleInText);
         selectedCount.Text = chosen.Count == 1
-            ? T("selected.one")
-            : T("selected.count", ("n", chosen.Count));
+            ? controller.T("selected.one")
+            : controller.T("selected.count", ("n", chosen.Count));
         inputBar.IsVisible = !Selecting;
         UpdateOverlay(s);
         BuildPinnedBar(c, s);
@@ -1042,11 +1020,12 @@ public sealed partial class ChatPane : Grid {
         if (names.Count == 0)
             return "";
         if (direct)
-            return T("typing.short");
+            return controller.T("typing.short");
         return names.Count switch {
-            1 => T("typing.one", ("a", names[0])),
-            2 => T("typing.two", ("a", names[0]), ("b", names[1])),
-            _ => T("typing.many", ("a", names[0]), ("n", names.Count - 1)),
+            1 => controller.T("typing.one", ("a", names[0])),
+            2 => controller.T("typing.two", ("a", names[0]), ("b", names[1])),
+            _ => controller.T("typing.many", ("a", names[0]),
+                ("n", names.Count - 1)),
         };
     }
 
@@ -1058,7 +1037,7 @@ public sealed partial class ChatPane : Grid {
             Margin = new Thickness(20, 0, 12, 0),
         };
         var cancel = new TextBlock {
-            Text = T("cancel"),
+            Text = controller.T("cancel"),
             FontSize = 17,
             FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
@@ -1071,10 +1050,11 @@ public sealed partial class ChatPane : Grid {
             e.Handled = true;
             CancelSelect();
         };
-        Avalonia.Automation.AutomationProperties.SetName(cancel, T("cancel"));
+        Avalonia.Automation.AutomationProperties.SetName(cancel,
+            controller.T("cancel"));
         grid.Children.Add(cancel);
         var any = chosen.Count > 0;
-        var copy = new IconButton("copy", T("copy"), 22) {
+        var copy = new IconButton("copy", controller.T("copy"), 22) {
             Tint = any ? c.Accent : c.TextTertiary
         };
         copy.Click += (_, _) => {
@@ -1083,7 +1063,7 @@ public sealed partial class ChatPane : Grid {
         };
         Grid.SetColumn(copy, 2);
         grid.Children.Add(copy);
-        var forward = new IconButton("forward", T("forward"), 22) {
+        var forward = new IconButton("forward", controller.T("forward"), 22) {
             Tint = any ? c.Accent : c.TextTertiary
         };
         forward.Click += (_, _) => {
@@ -1115,7 +1095,7 @@ public sealed partial class ChatPane : Grid {
             VerticalAlignment = VerticalAlignment.Center,
         };
         if (onBack is not null) {
-            var back = new IconButton("back", T("back"), 26);
+            var back = new IconButton("back", controller.T("back"), 26);
             back.Click += (_, _) => onBack();
             row.Children.Add(back);
         }
@@ -1138,9 +1118,9 @@ public sealed partial class ChatPane : Grid {
             var typing = s.Typing;
             words.Children.Add(new TextBlock {
                 Text = typing.Count > 0 ? TypingLabel(typing, room.IsDirect)
-                    : room.IsDirect ? T("directChat")
-                    : room.MemberCount == 1 ? T("member.one")
-                    : T("members", ("n", room.MemberCount)),
+                    : room.IsDirect ? controller.T("directChat")
+                    : room.MemberCount == 1 ? controller.T("member.one")
+                    : controller.T("members", ("n", room.MemberCount)),
                 FontSize = 14,
                 FontFamily = Fonts.System,
                 Foreground =
@@ -1155,13 +1135,13 @@ public sealed partial class ChatPane : Grid {
             ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto")
         };
         bar.Children.Add(row);
-        var find = new IconButton("search", T("search.inChat"), 22) {
+        var find = new IconButton("search", controller.T("search.inChat"), 22) {
             Tint = searching ? c.Accent : c.TextSecondary
         };
         find.Click += (_, _) => ToggleSearch();
         Grid.SetColumn(find, 1);
         bar.Children.Add(find);
-        var info = new IconButton("info", T("chatInfo"), 24) {
+        var info = new IconButton("info", controller.T("chatInfo"), 24) {
             Margin = new Thickness(0, 0, 12, 0),
             Tint = s.RoomInfoOpen ? c.Accent : null,
         };
@@ -1211,10 +1191,10 @@ public sealed partial class ChatPane : Grid {
                 _ => {
                 },
                 [
-                    new MenuItem(T("resend"),
+                    new MenuItem(controller.T("resend"),
                         () => _ = controller.ResendMessage(item.Id),
                         Icon: "send"),
-                    new MenuItem(T("delete"),
+                    new MenuItem(controller.T("delete"),
                         () => _ = controller.DiscardMessage(item.Id),
                         Icon: "trash", Danger: true),
                 ]);
@@ -1223,35 +1203,40 @@ public sealed partial class ChatPane : Grid {
 
         var items = new List<MenuItem>();
         if (item.Body.Length > 0 && item.Image is null && item.File is null)
-            items.Add(new MenuItem(T("copy"), () => _ = Copy(window, item.Body),
+            items.Add(new MenuItem(controller.T("copy"),
+                () => _ = Copy(window, item.Body),
                 Icon: "copy"));
-        items.Add(new MenuItem(T("reply"), () => controller.SetReplyTo(item),
+        items.Add(new MenuItem(controller.T("reply"),
+            () => controller.SetReplyTo(item),
             Icon: "reply"));
         var isText = item.Image is null && item.File is null;
         if (item.IsOwn && item.EventId is not null && !item.Failed && isText)
-            items.Add(new MenuItem(T("edit"), () => controller.StartEdit(item),
+            items.Add(new MenuItem(controller.T("edit"),
+                () => controller.StartEdit(item),
                 Icon: "edit"));
         if (item.EventId is { } eventId) {
             var pinned = PinnedIds().Contains(eventId);
-            items.Add(new MenuItem(T(pinned ? "unpin" : "pin"),
+            items.Add(new MenuItem(controller.T(pinned ? "unpin" : "pin"),
                 () => _ = controller.SetMessagePinned(item.Id, !pinned),
                 Icon: "pin"));
         }
 
         if (Forward.Content(item) is not null)
-            items.Add(new MenuItem(T("forward"), () => {
+            items.Add(new MenuItem(controller.T("forward"), () => {
                 Forwarding.Show(window, [item]);
             }, Icon: "forward"));
         if (item.Image is { } picture && controller.CanStickers
                                       && picture.Source.StartsWith("mxc://",
                                           StringComparison.Ordinal))
-            items.Add(new MenuItem(T("sticker.add"),
+            items.Add(new MenuItem(controller.T("sticker.add"),
                 () => AskStickerGroup(window, item),
                 Icon: "sticker"));
-        items.Add(new MenuItem(T("select.multi"), () => StartSelect(item),
+        items.Add(new MenuItem(controller.T("select.multi"),
+            () => StartSelect(item),
             Icon: "multiSelect"));
         if (item.IsOwn && item.EventId is not null && !item.Failed)
-            items.Add(new MenuItem(T("delete"), () => AskDelete(window, item),
+            items.Add(new MenuItem(controller.T("delete"),
+                () => AskDelete(window, item),
                 Icon: "trash",
                 Danger: true));
         var mine = item.Reactions.Where(r => r.Mine).Select(r => r.Key)
@@ -1276,10 +1261,11 @@ public sealed partial class ChatPane : Grid {
         StickerPaneOnce();
         _ = Quietly(controller.LoadStickers);
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         cancel.Click += (_, _) => groupDialog.Close();
-        groupDialog.Show(window, colors, T("sticker.add.where"), null,
+        groupDialog.Show(window, colors, controller.T("sticker.add.where"),
+            null,
             stickerPane.GroupChoice(id => {
                 groupDialog.Close();
                 _ = AddToStickers(item, id);
@@ -1290,11 +1276,11 @@ public sealed partial class ChatPane : Grid {
     {
         try {
             await controller.AddStickerFrom(item, groupId);
-            controller.ShowNotice(T("sticker.added"));
+            controller.ShowNotice(controller.T("sticker.added"));
         } catch (Exception e) {
             controller.ShowNotice(
-                T("sticker.add.failed",
-                    ("reason", Failure.Reason(e, k => T(k)))),
+                controller.T("sticker.add.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
                 NoticeKind.Error);
         }
     }
@@ -1346,8 +1332,8 @@ public sealed partial class ChatPane : Grid {
         var words = new StackPanel();
         words.Children.Add(new TextBlock {
             Text = ids.Count > 1
-                ? $"{T("pinned.title")} {pinnedAt + 1}/{ids.Count}"
-                : T("pinned.title"),
+                ? $"{controller.T("pinned.title")} {pinnedAt + 1}/{ids.Count}"
+                : controller.T("pinned.title"),
             FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
@@ -1364,7 +1350,7 @@ public sealed partial class ChatPane : Grid {
         });
         Grid.SetColumn(words, 2);
         grid.Children.Add(words);
-        var all = new IconButton("more", T("pinned.all"), 20, 32) {
+        var all = new IconButton("more", controller.T("pinned.all"), 20, 32) {
             VerticalAlignment = VerticalAlignment.Center
         };
         all.Click += (_, _) => OpenPinnedList();
@@ -1425,11 +1411,12 @@ public sealed partial class ChatPane : Grid {
         }
 
         var close = new TextButton {
-            Title = T("viewer.close")
+            Title = controller.T("viewer.close")
         };
         ThemeScope.SetColors(close, c);
         close.Click += (_, _) => pinnedDialog.Close();
-        pinnedDialog.Show(window, c, $"{T("pinned.title")} · {ids.Count}", null,
+        pinnedDialog.Show(window, c,
+            $"{controller.T("pinned.title")} · {ids.Count}", null,
             new ScrollViewer {
                 Content = rowsList,
                 MaxHeight = 360
@@ -1482,7 +1469,8 @@ public sealed partial class ChatPane : Grid {
         up.Click += (_, _) => Step(-1);
         var down = new IconButton("chevronDown", "Next", 20, 32);
         down.Click += (_, _) => Step(1);
-        var close = new IconButton("close", T("search.close"), 20, 32);
+        var close =
+            new IconButton("close", controller.T("search.close"), 20, 32);
         close.Click += (_, _) => ToggleSearch();
         Grid.SetColumn(up, 3);
         Grid.SetColumn(down, 4);
@@ -1557,7 +1545,7 @@ public sealed partial class ChatPane : Grid {
             matchAt[matches[i]] = i;
         current = matches.Count - 1;
         searchCount.Text = query.Length < 2 ? "" :
-            matches.Count == 0 ? T("search.empty") :
+            matches.Count == 0 ? controller.T("search.empty") :
             $"{current + 1}/{matches.Count}";
         Mark();
     }
@@ -1578,7 +1566,7 @@ public sealed partial class ChatPane : Grid {
         searchBar.BorderBrush = new SolidColorBrush(c.Separator);
         searchInput.Foreground = new SolidColorBrush(c.Text);
         searchInput.CaretBrush = new SolidColorBrush(c.Text);
-        searchInput.PlaceholderText = T("search.inChat");
+        searchInput.PlaceholderText = controller.T("search.inChat");
         searchInput.Resources["TextControlPlaceholderForeground"] =
             new SolidColorBrush(c.TextSecondary);
         searchInput.Resources["TextControlBackgroundFocused"] =
@@ -1712,17 +1700,19 @@ public sealed partial class ChatPane : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         var items = new List<MenuItem> {
-            new(T("attach.image"), () => _ = PickAndSend(window, true),
+            new(controller.T("attach.image"),
+                () => _ = PickAndSend(window, true),
                 Icon: "image"),
-            new(T("attach.file"), () => _ = PickAndSend(window, false),
+            new(controller.T("attach.file"),
+                () => _ = PickAndSend(window, false),
                 Icon: "file"),
         };
         if (RecordingDialog.Available(false))
-            items.Add(new MenuItem(T("record.voice"),
+            items.Add(new MenuItem(controller.T("record.voice"),
                 () => recording.Open(window, false),
                 Icon: "mic"));
         if (RecordingDialog.Available(true))
-            items.Add(new MenuItem(T("record.video"),
+            items.Add(new MenuItem(controller.T("record.video"),
                 () => recording.Open(window, true),
                 Icon: "video"));
         // Calls are for one-to-one chats, where this machine can make them.
@@ -1730,10 +1720,11 @@ public sealed partial class ChatPane : Grid {
         if (controller.CallsSupported &&
             s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId)
                 is { IsDirect: true }) {
-            items.Add(new MenuItem(T("call.voice"),
+            items.Add(new MenuItem(controller.T("call.voice"),
                 () => AskCall(window, false),
                 Icon: "fluentCall"));
-            items.Add(new MenuItem(T("call.video"), () => AskCall(window, true),
+            items.Add(new MenuItem(controller.T("call.video"),
+                () => AskCall(window, true),
                 Icon: "fluentVideo"));
         }
 
@@ -1749,19 +1740,22 @@ public sealed partial class ChatPane : Grid {
             return;
         CallPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T(video ? "call.video.ask" : "call.voice.ask"), T("call.ask.body"),
+            controller.T(video ? "call.video.ask" : "call.voice.ask"),
+            controller.T("call.ask.body"),
             [],
-            T(video ? "call.video.start" : "call.voice.start"), async _ => {
+            controller.T(video ? "call.video.start" : "call.voice.start"),
+            async _ => {
                 try {
                     await controller.PlaceCall(roomId, video);
                 } catch (InvalidOperationException e) {
                     throw new EngineException(EngineErrorCode.Unsupported,
                         e.Message switch {
-                            "direct" => T("call.only.direct"),
-                            "unsupported" => T("call.unsupported"),
-                            "no_media" => T("call.end.nomedia"),
-                            "busy" => T("call.end.busy"),
-                            _ => T("call.failed", ("reason", e.Message)),
+                            "direct" => controller.T("call.only.direct"),
+                            "unsupported" => controller.T("call.unsupported"),
+                            "no_media" => controller.T("call.end.nomedia"),
+                            "busy" => controller.T("call.end.busy"),
+                            _ => controller.T("call.failed",
+                                ("reason", e.Message)),
                         });
                 }
             });
@@ -1800,10 +1794,10 @@ public sealed partial class ChatPane : Grid {
     {
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
-            Title = T("delete")
+            Title = controller.T("delete")
         };
         var no = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
@@ -1812,7 +1806,8 @@ public sealed partial class ChatPane : Grid {
             _ = controller.DeleteMessage(item.Id);
         };
         no.Click += (_, _) => deleteDialog.Close();
-        deleteDialog.Show(window, c, T("delete.title"), T("delete.body"), yes,
+        deleteDialog.Show(window, c, controller.T("delete.title"),
+            controller.T("delete.body"), yes,
             no);
     }
 
@@ -1902,8 +1897,8 @@ public sealed partial class ChatPane : Grid {
         Grid.SetColumn(bar, 1);
         var words = new StackPanel();
         words.Children.Add(new TextBlock {
-            Text = editing is not null ? T("edit.title") :
-                to.IsOwn ? T("you") : to.SenderName,
+            Text = editing is not null ? controller.T("edit.title") :
+                to.IsOwn ? controller.T("you") : to.SenderName,
             FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
@@ -1918,7 +1913,7 @@ public sealed partial class ChatPane : Grid {
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         Grid.SetColumn(words, 2);
-        var cancel = new IconButton("close", T("cancel"), 18, 28) {
+        var cancel = new IconButton("close", controller.T("cancel"), 18, 28) {
             Tint = c.TextSecondary
         };
         cancel.Click += (_, _) => {

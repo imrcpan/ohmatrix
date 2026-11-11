@@ -185,17 +185,20 @@ public sealed class RoomListPane : Grid {
             plus,
             window,
             [
-                new MenuItem(T("newChat"), () => People.Show(window,
+                new MenuItem(controller.T("newChat"), () => People.Show(window,
                     ThemeScope.GetColors(this),
-                    T("newChat"), T("newChat.body"), false, _ => T("newChat"),
+                    controller.T("newChat"), controller.T("newChat.body"),
+                    false, _ => controller.T("newChat"),
                     v => controller.StartDirectChat(v[0])), Icon: "user"),
-                new MenuItem(T("newGroup"), () => Ask(window, "newGroup",
+                new MenuItem(controller.T("newGroup"), () => Ask(window,
+                        "newGroup",
                         [
-                            new PromptField(T("groupName"), "users"),
-                            new PromptField(T("userIdPlaceholder"), "user",
+                            new PromptField(controller.T("groupName"), "users"),
+                            new PromptField(controller.T("userIdPlaceholder"),
+                                "user",
                                 true)
                         ],
-                        T("create"),
+                        controller.T("create"),
                         v => controller.CreateGroup(v[0],
                             v[1].Length == 0
                                 ? []
@@ -204,17 +207,22 @@ public sealed class RoomListPane : Grid {
                     Icon: "users"),
                 .. controller.CanManageSpaces
                     ? [
-                        new MenuItem(T("newSpace"), () => Ask(window,
+                        new MenuItem(controller.T("newSpace"), () => Ask(window,
                             "space.new",
-                            [new PromptField(T("space.name"), "users")],
-                            T("create"),
+                            [
+                                new PromptField(controller.T("space.name"),
+                                    "users")
+                            ],
+                            controller.T("create"),
                             v => controller.CreateSpace(v[0])), Icon: "users")
                     ]
                     : Array.Empty<MenuItem>(),
-                new MenuItem(T("joinRoom"), () => Ask(window, "joinRoom",
-                    [new PromptField(T("roomIdOrAlias"), "hash")], T("join"),
+                new MenuItem(controller.T("joinRoom"), () => Ask(window,
+                    "joinRoom",
+                    [new PromptField(controller.T("roomIdOrAlias"), "hash")],
+                    controller.T("join"),
                     v => controller.JoinRoom(v[0])), Icon: "hash"),
-                new MenuItem(T("explore"),
+                new MenuItem(controller.T("explore"),
                     () => controller.OpenSidebarPage(SidebarPage.Explore),
                     Icon: "globe"),
             ]
@@ -226,50 +234,27 @@ public sealed class RoomListPane : Grid {
         Func<IReadOnlyList<string>, Task> run)
     {
         prompt.Show(window, ThemeScope.GetColors(this),
-            controller.Store.Value.Locale, T(key),
-            T(key + ".body"),
+            controller.Store.Value.Locale, controller.T(key),
+            controller.T(key + ".body"),
             fields, confirm, run);
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The preview line of a row (<c>previewOf</c>).</summary>
     public static string PreviewOf(RoomSummary room,
-        Func<string, (string, object)[], string> t)
+        Translate t)
     {
         if (room.Invite)
-            return t("invite.from", [("name", room.Inviter!)]);
+            return t("invite.from", ("name", room.Inviter!));
         if (room.LastMessage is null)
-            return t("noMessages", []);
+            return t("noMessages");
         // Each run of white space is one space: no array, no pieces, and the
         // text itself when it is clean already.
         var body = Snippet.Collapse(room.LastMessage);
         if (room.LastIsLine)
             return body;
         if (room.LastSender is null)
-            return $"{t("you", [])}: {body}";
+            return $"{t("you")}: {body}";
         return room.IsDirect ? body : $"{room.LastSender}: {body}";
     }
 
@@ -377,7 +362,8 @@ public sealed class RoomListPane : Grid {
                                   .Any(r => r.IsEnabled) && !searchMessages &&
                               s.SyncState == SyncState.Syncing && !Rail &&
                               !loading;
-            empty.Text = T(query.Length > 0 ? "noResults" : "noChats");
+            empty.Text =
+                controller.T(query.Length > 0 ? "noResults" : "noChats");
             empty.Foreground = new SolidColorBrush(c.TextSecondary);
             empty.FontFamily = Fonts.System;
             if (joinFailure is not null) {
@@ -393,7 +379,7 @@ public sealed class RoomListPane : Grid {
         Background = new SolidColorBrush(c.Bg);
         if (s.SyncState == SyncState.Syncing)
             connectedOnce = true;
-        search.Placeholder = T("search");
+        search.Placeholder = controller.T("search");
         search.IsVisible = !Rail;
         name.Foreground = new SolidColorBrush(c.Text);
         name.FontFamily = Fonts.System;
@@ -423,15 +409,16 @@ public sealed class RoomListPane : Grid {
         var waiting = s.SyncState == SyncState.Syncing && s.Profile is null;
         name.Text = s.SyncState == SyncState.Syncing || !connectedOnce
             ? shown
-            : T("connecting");
+            : controller.T("connecting");
         name.IsVisible = !Rail && !waiting;
         nameSkeleton.IsVisible = !Rail && waiting;
-        Avalonia.Automation.AutomationProperties.SetName(profile, T("profile"));
+        Avalonia.Automation.AutomationProperties.SetName(profile,
+            controller.T("profile"));
         bar.Padding = Rail
             ? new Thickness(6, 10, 6, 0)
             : new Thickness(12, 10, 12, 8);
         Avalonia.Automation.AutomationProperties.SetName(plus,
-            T("newChat.menu"));
+            controller.T("newChat.menu"));
     }
 
     private void Select(string? id, bool selected)
@@ -484,7 +471,7 @@ public sealed class RoomListPane : Grid {
         if (active && presentation)
             hits?.RefreshPresentation();
         if (messagesLabel is not null) {
-            messagesLabel.Text = T("search.messages");
+            messagesLabel.Text = controller.T("search.messages");
             messagesLabel.Foreground = new SolidColorBrush(c.TextSecondary);
             messagesLabel.FontFamily = Fonts.System;
         }
@@ -501,7 +488,8 @@ public sealed class RoomListPane : Grid {
             if (!joiningRows.TryGetValue(joining.Id, out var row))
                 continue;
             var seconds = Math.Max(0, (int)(time - joining.Since).TotalSeconds);
-            var preview = $"{T("explore.joining.item")} ({seconds}s)";
+            var preview =
+                $"{controller.T("explore.joining.item")} ({seconds}s)";
             if (!font && row.Title == joining.Name && row.Preview == preview &&
                 row.AvatarUrl == joining.AvatarUrl)
                 continue;
@@ -543,17 +531,17 @@ public sealed class RoomListPane : Grid {
             anchor,
             window,
             [
-                new MenuItem(T(room.Pinned ? "unpin" : "pin"),
+                new MenuItem(controller.T(room.Pinned ? "unpin" : "pin"),
                     () => _ = controller.SetPinned(room.Id, !room.Pinned),
                     Icon: "pin"),
-                new MenuItem(T(room.Muted ? "unmute" : "mute"),
+                new MenuItem(controller.T(room.Muted ? "unmute" : "mute"),
                     () => _ = controller.SetRoomMuted(room.Id, !room.Muted),
                     Icon: room.Muted ? "bell" : "bellOff"),
                 unread
-                    ? new MenuItem(T("markRead"),
+                    ? new MenuItem(controller.T("markRead"),
                         () => _ = controller.MarkRoomRead(room.Id),
                         Icon: "mailUnread")
-                    : new MenuItem(T("markUnread"),
+                    : new MenuItem(controller.T("markUnread"),
                         () => _ = controller.SetMarkedUnread(room.Id, true),
                         Icon: "mailUnread"),
             ]
@@ -596,7 +584,8 @@ public sealed class RoomListPane : Grid {
             old.LastMessage != room.LastMessage ||
             old.LastSender != room.LastSender ||
             old.LastIsLine != room.LastIsLine || old.IsDirect != room.IsDirect)
-            preview = PreviewOf(room, (key, values) => T(key, values));
+            preview = PreviewOf(room,
+                controller.T);
         var at = row.Time;
         if (added || language || dates ||
             old.LastActivityTs != room.LastActivityTs)
@@ -623,7 +612,7 @@ public sealed class RoomListPane : Grid {
         row.AvatarUrl = room.AvatarUrl;
         if (invitation) {
             row.Invite = room.Invite
-                ? (T("accept"), T("decline"),
+                ? (controller.T("accept"), controller.T("decline"),
                     () => _ = controller.AcceptInvite(room.Id),
                     () => _ = controller.DeclineInvite(room.Id))
                 : null;

@@ -6,7 +6,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Calls;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -1951,7 +1950,8 @@ public partial class ChatPaneTests {
     [Fact]
     public void A_share_is_described_by_its_files_and_text()
     {
-        string T(string k, (string, object)[] v) =>
+        string T(string k,
+            params ReadOnlySpan<OhMatrix.Core.I18n.Arg> v) =>
             OhMatrix.Core.I18n.Strings.T("en", k, v);
 
         Assert.Equal("2 files · hi",
@@ -3656,35 +3656,34 @@ public partial class ChatPaneTests {
 
     [AvaloniaFact]
     public async Task
-        The_text_of_the_interface_takes_a_number_or_a_name_without_boxing_or_an_array()
+        The_text_of_the_interface_takes_values_without_an_array_or_a_string_of_a_number()
     {
         var (_, controller, _, screen) = await Open("light", 1000);
-        var pane = FindPane(screen);
-        var locale = controller.Store.Value.Locale;
         var n = 7;
         var name = "Bob";
         string? sink = null;
+        const string five = "{a} {b} {c} {d} {e}";
 
-        // What the text itself costs: the same call to the library with the
-        // typed form. The wrapper of the pane must add nothing to it.
-        var none = PerCall(() => sink = Strings.T(locale, "cancel"));
-        var one = PerCall(() => sink = Strings.T(locale, "members", ("n", 7L)));
-        var two = PerCall(() => sink = Strings.T(locale, "typing.many",
-            ("a", "Bob"), ("n", 7L)));
-        var other = PerCall(() => sink = Strings.T(locale, "typing.many",
-            ("n", 7L), ("a", "Bob")));
-
-        Assert.Equal(none, PerCall(() => sink = pane.T("cancel")));
-        Assert.Equal(one, PerCall(() => sink = pane.T("members", ("n", n))));
-        Assert.Equal(two, PerCall(() => sink = pane.T("typing.many",
-            ("a", name), ("n", n))));
-        Assert.Equal(other, PerCall(() => sink = pane.T("typing.many",
-            ("n", n), ("a", name))));
-        Assert.Equal("7 members", pane.T("members", ("n", n)));
+        // The same text with a word where the number goes: what a call
+        // costs of itself. The number must cost no more, so no text is made
+        // of it, and no list of values for the five.
+        var words = PerCall(() => sink = controller.T(five, ("a", "1"),
+            ("b", "2"), ("c", "3"), ("d", "4"), ("e", "5")));
+        var numbers = PerCall(() => sink = controller.T(five, ("a", "1"),
+            ("b", "2"), ("c", "3"), ("d", "4"), ("e", 7L)));
+        Assert.True(numbers <= words,
+            $"{numbers} bytes for a number, {words} for a word");
+        Assert.Equal("1 2 3 4 7", controller.T(five, ("a", "1"), ("b", "2"),
+            ("c", "3"), ("d", "4"), ("e", n)));
+        Assert.Equal("7 members", controller.T("members", ("n", n)));
+        // No value at all makes no list; one makes the text only.
+        var none = PerCall(() => sink = controller.T("cancel"));
+        var one = PerCall(() => controller.T("members", ("n", 7L)));
+        Assert.True(one <= none + 22 + 2L * 12,
+            $"{one} bytes for one value, {none} for none");
         Assert.NotNull(sink);
-
-        // Another type still works, by the general form.
-        Assert.Equal("2.5 members", pane.T("members", ("n", 2.5)));
+        Assert.Equal("Bob", name);
+        Assert.NotNull(sink);
     }
 
     private static ChatPane FindPane(MainScreen screen)

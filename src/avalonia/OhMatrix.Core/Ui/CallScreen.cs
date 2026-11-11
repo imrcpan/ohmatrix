@@ -7,7 +7,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using OhMatrix.Core.Calls;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 
@@ -198,12 +197,14 @@ public sealed class CallScreen : Grid {
         var devices = controller.CallDevices();
         var items = new List<MenuItem>();
         foreach (var d in devices.Microphones)
-            items.Add(new MenuItem($"{T("call.microphone")}: {d.Label}",
+            items.Add(new MenuItem(
+                $"{controller.T("call.microphone")}: {d.Label}",
                 () => controller.UseCallDevice(false, d.Id),
                 Checked: d.Current));
         if (controller.Store.Value.Call is { Video: true }) {
             foreach (var d in devices.Cameras)
-                items.Add(new MenuItem($"{T("call.camera")}: {d.Label}",
+                items.Add(new MenuItem(
+                    $"{controller.T("call.camera")}: {d.Label}",
                     () => controller.UseCallDevice(true, d.Id),
                     Checked: d.Current));
         }
@@ -316,29 +317,6 @@ public sealed class CallScreen : Grid {
         middle.IsVisible = !pictureShown;
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     private static string ClockText(TimeSpan t)
     {
@@ -351,7 +329,7 @@ public sealed class CallScreen : Grid {
     private string StatusOf(CallInfo call)
     {
         if (call.Phase == CallPhase.Ended) {
-            return T(call.EndReason switch {
+            return controller.T(call.EndReason switch {
                 EndReason.Rejected => "call.end.rejected",
                 EndReason.Cancelled => "call.end.cancelled",
                 EndReason.Busy => "call.end.busy",
@@ -364,16 +342,16 @@ public sealed class CallScreen : Grid {
 
         if (call.Phase == CallPhase.Connected) {
             return call.Poor
-                ? T("call.poor")
+                ? controller.T("call.poor")
                 : ClockText(time.GetUtcNow() -
                             (call.ConnectedAt ?? time.GetUtcNow()));
         }
 
         if (call.Incoming && call.Phase == CallPhase.Ringing)
-            return T(call.Video
+            return controller.T(call.Video
                 ? "call.incoming.video"
                 : "call.incoming.voice");
-        return T(call.Phase == CallPhase.Ringing
+        return controller.T(call.Phase == CallPhase.Ringing
             ? "call.calling"
             : "call.connecting");
     }
@@ -408,14 +386,15 @@ public sealed class CallScreen : Grid {
             e.Handled = true;
             press();
         };
-        Avalonia.Automation.AutomationProperties.SetName(disc, T(key));
+        Avalonia.Automation.AutomationProperties.SetName(disc,
+            controller.T(key));
         var cell = new StackPanel {
             Width = 112,
             Spacing = 8
         };
         cell.Children.Add(disc);
         cell.Children.Add(new TextBlock {
-            Text = T(key),
+            Text = controller.T(key),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground =

@@ -890,7 +890,8 @@ public class RoomListTests {
     [Fact]
     public void Previews_are_worded_as_the_react_native_list()
     {
-        string T(string key, (string, object)[] v)
+        string T(string key,
+            params ReadOnlySpan<OhMatrix.Core.I18n.Arg> v)
         {
             return OhMatrix.Core.I18n.Strings.T("en", key, v);
         }

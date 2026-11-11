@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 
@@ -27,29 +26,6 @@ public sealed class RoomCardDialog : IOverlay {
     /// <summary>The Join button of the card shown.</summary>
     public PrimaryButton? JoinButton { get; private set; }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Opens the card of <paramref name="room"/>; Join closes it and calls <paramref name="join"/>.</summary>
     public void Show(TopLevel window, PublicRoom room, Action join)
@@ -76,8 +52,8 @@ public sealed class RoomCardDialog : IOverlay {
         });
         head.Children.Add(new TextBlock {
             Text = room.Members == 1
-                ? T("member.one")
-                : T("explore.members", ("count", room.Members)),
+                ? controller.T("member.one")
+                : controller.T("explore.members", ("count", room.Members)),
             FontSize = 14,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -98,18 +74,19 @@ public sealed class RoomCardDialog : IOverlay {
                 },
             });
         var copy = new TextButton {
-            Title = T("explore.copy")
+            Title = controller.T("explore.copy")
         };
         copy.Click += async (_, _) => {
             try {
                 await window.Clipboard!.SetTextAsync(room.Alias ?? room.RoomId);
-                copy.Title = T("copied");
+                copy.Title = controller.T("copied");
             } catch (Exception) {
-                controller.ShowNotice(T("copyFailed"), NoticeKind.Error);
+                controller.ShowNotice(controller.T("copyFailed"),
+                    NoticeKind.Error);
             }
         };
         var joinButton = new PrimaryButton {
-            Title = T("join")
+            Title = controller.T("join")
         };
         JoinButton = joinButton;
         joinButton.Click += (_, _) => {
@@ -117,7 +94,7 @@ public sealed class RoomCardDialog : IOverlay {
             join();
         };
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         cancel.Click += (_, _) => dialog.Close();
         foreach (var b in new Control[] {

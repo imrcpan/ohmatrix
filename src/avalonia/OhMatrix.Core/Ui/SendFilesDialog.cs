@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 
 namespace OhMatrix.Core.Ui;
@@ -22,29 +21,6 @@ public sealed class SendFilesDialog : IOverlay {
     public Dialog Dialog => dialog;
     public PrimaryButton? SendButton { get; private set; }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The kind of a file by its type, as the list words it.</summary>
     public static string KindOf(string path)
@@ -103,7 +79,7 @@ public sealed class SendFilesDialog : IOverlay {
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
             text.Children.Add(new TextBlock {
-                Text = $"{T(kind)} · {Format.Bytes(sizes[i])}",
+                Text = $"{controller.T(kind)} · {Format.Bytes(sizes[i])}",
                 FontSize = 13,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -115,17 +91,18 @@ public sealed class SendFilesDialog : IOverlay {
 
         if (paths.Count > MaxRows)
             list.Children.Add(new TextBlock {
-                Text = T("send.files.more", ("n", paths.Count - MaxRows)),
+                Text = controller.T("send.files.more",
+                    ("n", paths.Count - MaxRows)),
                 FontSize = 13,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
         var yes = new PrimaryButton {
-            Title = T("send.files.send")
+            Title = controller.T("send.files.send")
         };
         var no = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
@@ -137,10 +114,11 @@ public sealed class SendFilesDialog : IOverlay {
         no.Click += (_, _) => dialog.Close();
         dialog.Show(window, c,
             paths.Count == 1
-                ? T("send.files.one")
-                : T("send.files.title", ("n", paths.Count)),
+                ? controller.T("send.files.one")
+                : controller.T("send.files.title", ("n", paths.Count)),
             paths.Count > 1
-                ? T("send.files.total", ("size", Format.Bytes(sizes.Sum())))
+                ? controller.T("send.files.total",
+                    ("size", Format.Bytes(sizes.Sum())))
                 : null,
             list, yes, no);
     }

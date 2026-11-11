@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -130,13 +129,13 @@ public sealed class ExplorePage : Grid {
             return;
         AddPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("explore.add.title"), T("explore.add.body"),
-            [new PromptField(T("explore.add.server"), "globe")],
-            T("explore.add"), v => {
+            controller.T("explore.add.title"), controller.T("explore.add.body"),
+            [new PromptField(controller.T("explore.add.server"), "globe")],
+            controller.T("explore.add"), v => {
                 var name = ServerName.Parse(v[0]);
                 if (name is null)
                     throw new InvalidOperationException(
-                        T("explore.add.invalid"));
+                        controller.T("explore.add.invalid"));
                 if (Servers().All(x => x.Name != name))
                     controller.SetPreferences(p => p with {
                         ExploreServers = [.. p.ExploreServers, name]
@@ -149,29 +148,6 @@ public sealed class ExplorePage : Grid {
     /// <summary>The names of the rooms shown.</summary>
     public IReadOnlyList<string> Names => found.Select(r => r.Name).ToList();
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Searches the directory for what the field holds.</summary>
     public async Task Load()
@@ -234,9 +210,9 @@ public sealed class ExplorePage : Grid {
 
         wasOpen = open;
         Background = new SolidColorBrush(c.Bg);
-        search.Placeholder = T("explore.search");
+        search.Placeholder = controller.T("explore.search");
         ThemeScope.SetColors(search, c);
-        PageBar.Fill(bar, c, T("explore"), T("chats"),
+        PageBar.Fill(bar, c, controller.T("explore"), controller.T("chats"),
             () => controller.OpenSidebarPage(SidebarPage.Chats));
         BuildServers(c);
         rows.Children.Clear();
@@ -251,7 +227,7 @@ public sealed class ExplorePage : Grid {
 
         if (found.Count == 0) {
             rows.Children.Add(new TextBlock {
-                Text = T("explore.empty"),
+                Text = controller.T("explore.empty"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -280,7 +256,7 @@ public sealed class ExplorePage : Grid {
                 () => ChooseServer(server)));
         }
 
-        servers.Children.Add(Chip(c, "+ " + T("explore.add"), false,
+        servers.Children.Add(Chip(c, "+ " + controller.T("explore.add"), false,
             AskAddServer));
     }
 
@@ -381,8 +357,8 @@ public sealed class ExplorePage : Grid {
         });
         words.Children.Add(new TextBlock {
             Text = room.Members == 1
-                ? T("member.one")
-                : T("explore.members", ("count", room.Members)),
+                ? controller.T("member.one")
+                : controller.T("explore.members", ("count", room.Members)),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -415,27 +391,27 @@ public sealed class ExplorePage : Grid {
         var actions = new WrapPanel {
             HorizontalAlignment = HorizontalAlignment.Left
         };
-        var copy = Pill(c, T("explore.copy"), c.Hover, c.Text);
+        var copy = Pill(c, controller.T("explore.copy"), c.Hover, c.Text);
         copy.PointerPressed += async (_, e) => {
             e.Handled = true;
             if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) {
                 await clipboard.SetTextAsync(room.Alias ?? room.RoomId);
-                ((TextBlock)copy.Child!).Text = T("copied");
+                ((TextBlock)copy.Child!).Text = controller.T("copied");
             }
         };
         actions.Children.Add(copy);
         if (joined)
-            actions.Children.Add(Pill(c, T("explore.in"), c.Hover,
+            actions.Children.Add(Pill(c, controller.T("explore.in"), c.Hover,
                 c.TextSecondary));
         else {
-            var join = Pill(c, T("join"), c.Accent, c.OnAccent);
+            var join = Pill(c, controller.T("join"), c.Accent, c.OnAccent);
             join.PointerPressed += (_, e) => {
                 e.Handled = true;
                 Full.Close();
                 AskJoin(room);
             };
             Avalonia.Automation.AutomationProperties.SetName(join,
-                $"{T("join")} {room.Name}");
+                $"{controller.T("join")} {room.Name}");
             actions.Children.Add(join);
         }
 

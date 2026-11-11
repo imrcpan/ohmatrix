@@ -2,7 +2,6 @@ using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 
@@ -78,11 +77,11 @@ public sealed class EncryptionPage : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var go = new TextButton {
-            Title = T("keys.reset.confirm"),
+            Title = controller.T("keys.reset.confirm"),
             Danger = true
         };
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(go, c);
         ThemeScope.SetColors(cancel, c);
@@ -92,43 +91,21 @@ public sealed class EncryptionPage : Grid {
         };
         cancel.Click += (_, _) => ResetDialog.Close();
         var warning = new TextBlock {
-            Text = T("keys.reset.warning"),
+            Text = controller.T("keys.reset.warning"),
             FontSize = 14,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Danger),
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,
         };
-        ResetDialog.Show(window, c, T("keys.reset"), T("keys.reset.body"),
+        ResetDialog.Show(window, c, controller.T("keys.reset"),
+            controller.T("keys.reset.body"),
             warning, go, cancel);
     }
 
     /// <summary>The row that asks my other sessions to verify this one; null when the state has no such step.</summary>
     public Border? VerifyRow { get; private set; }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The words for a state, as the profile and this page show it.</summary>
     public static string Words(SecurityState state, Func<string, string> t)
@@ -148,9 +125,9 @@ public sealed class EncryptionPage : Grid {
             return;
         SetupPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("sec.setup.title"), T("sec.setup.body"),
-            [new PromptField(T("password"), "lock", false, true)],
-            T("sec.action.setup"),
+            controller.T("sec.setup.title"), controller.T("sec.setup.body"),
+            [new PromptField(controller.T("password"), "lock", false, true)],
+            controller.T("sec.action.setup"),
             async v => {
                 var key = await controller.SetUpEncryption(v[0]);
                 ShowKey(window, key);
@@ -162,17 +139,17 @@ public sealed class EncryptionPage : Grid {
         ShownKey = key;
         var c = ThemeScope.GetColors(this);
         var copy = new PrimaryButton {
-            Title = T("sec.copy")
+            Title = controller.T("sec.copy")
         };
         var done = new TextButton {
-            Title = T("sec.done")
+            Title = controller.T("sec.done")
         };
         ThemeScope.SetColors(copy, c);
         ThemeScope.SetColors(done, c);
         copy.Click += async (_, _) => {
             if (window.Clipboard is { } clipboard) {
                 await clipboard.SetTextAsync(key);
-                copy.Title = T("copied");
+                copy.Title = controller.T("copied");
             }
         };
         done.Click += (_, _) => AskSaved(window);
@@ -189,7 +166,8 @@ public sealed class EncryptionPage : Grid {
                 TextWrapping = TextWrapping.Wrap,
             },
         };
-        KeyDialog.Show(window, c, T("sec.saved.title"), T("sec.saved.body"),
+        KeyDialog.Show(window, c, controller.T("sec.saved.title"),
+            controller.T("sec.saved.body"),
             shown, copy, done);
     }
 
@@ -197,10 +175,10 @@ public sealed class EncryptionPage : Grid {
     {
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
-            Title = T("sec.confirm.yes")
+            Title = controller.T("sec.confirm.yes")
         };
         var back = new TextButton {
-            Title = T("sec.confirm.back")
+            Title = controller.T("sec.confirm.back")
         };
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(back, c);
@@ -212,7 +190,8 @@ public sealed class EncryptionPage : Grid {
             if (ShownKey is { } key)
                 ShowKey(window, key);
         };
-        KeyDialog.Show(window, c, T("sec.confirm.title"), T("sec.confirm.body"),
+        KeyDialog.Show(window, c, controller.T("sec.confirm.title"),
+            controller.T("sec.confirm.body"),
             yes, back);
     }
 
@@ -223,9 +202,13 @@ public sealed class EncryptionPage : Grid {
             return;
         RecoveryPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("sec.recovery.title"), T("sec.recovery.body"),
-            [new PromptField(T("sec.recoveryKey"), "key", false, true)],
-            T("sec.action.verify"),
+            controller.T("sec.recovery.title"),
+            controller.T("sec.recovery.body"),
+            [
+                new PromptField(controller.T("sec.recoveryKey"), "key", false,
+                    true)
+            ],
+            controller.T("sec.action.verify"),
             v => controller.RestoreWithRecoveryKey(v[0]));
     }
 
@@ -235,52 +218,57 @@ public sealed class EncryptionPage : Grid {
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, T("encryption"), T("profile"),
+        PageBar.Fill(bar, c, controller.T("encryption"),
+            controller.T("profile"),
             () => controller.OpenSidebarPage(SidebarPage.Profile));
         content.Children.Clear();
         content.Children.Add(new TextBlock {
-            Text = T("security"),
+            Text = controller.T("security"),
             FontSize = 13,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(26, 18, 12, 0),
         });
-        content.Children.Add(ProfilePage.NavRow(c, "lock", T("encryption"),
+        content.Children.Add(ProfilePage.NavRow(c, "lock",
+            controller.T("encryption"),
             () => {
             }, 6,
-            Words(s.Security, k => T(k)), false));
+            Words(s.Security, k => controller.T(k)), false));
         RecoveryRow = null;
         VerifyRow = null;
         SetupRow = null;
         ResetRow = null;
         if (s.Security == SecurityState.NeedsSetup) {
-            SetupRow = ProfilePage.NavRow(c, "key", T("sec.setup.title"),
+            SetupRow = ProfilePage.NavRow(c, "key",
+                controller.T("sec.setup.title"),
                 AskSetup, 12);
             content.Children.Add(SetupRow);
         }
 
         if (s.Security == SecurityState.Ready) {
-            ResetRow = ProfilePage.NavRow(c, "refresh", T("keys.reset"),
+            ResetRow = ProfilePage.NavRow(c, "refresh",
+                controller.T("keys.reset"),
                 AskReset, 12, null, false,
                 true);
             content.Children.Add(ResetRow);
         }
 
         if (s.Security == SecurityState.NeedsRecovery) {
-            RecoveryRow = ProfilePage.NavRow(c, "key", T("sec.recovery.title"),
+            RecoveryRow = ProfilePage.NavRow(c, "key",
+                controller.T("sec.recovery.title"),
                 AskRecoveryKey, 12);
             content.Children.Add(RecoveryRow);
             VerifyRow = ProfilePage.NavRow(
                 c,
                 "device",
-                T("verify.session"),
+                controller.T("verify.session"),
                 () => _ = controller.RequestVerification(),
                 12
             );
             content.Children.Add(VerifyRow);
             content.Children.Add(new TextBlock {
-                Text = T("verify.session.footer"),
+                Text = controller.T("verify.session.footer"),
                 FontSize = 13,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),

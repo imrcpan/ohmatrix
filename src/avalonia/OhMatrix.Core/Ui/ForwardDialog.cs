@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -46,29 +45,6 @@ public sealed class ForwardDialog : IOverlay {
     /// <summary>The rows of chats as drawn now (their ids are in their names).</summary>
     public IReadOnlyList<Control> Rows => list.Children;
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Opens for <paramref name="messages"/> of the open chat; <paramref name="onSent"/> runs when all went through.</summary>
     public void Show(TopLevel top, IReadOnlyList<TimelineItem> messages,
@@ -144,7 +120,7 @@ public sealed class ForwardDialog : IOverlay {
         sending = false;
         if (left.Count == 0) {
             Close();
-            controller.ShowNotice(T("forward.done"));
+            controller.ShowNotice(controller.T("forward.done"));
             sent?.Invoke();
             return;
         }
@@ -246,7 +222,7 @@ public sealed class ForwardDialog : IOverlay {
             list.Children.Add(Row(c, room, picked.Contains(room.Id), false));
         if (shown.Count == 0)
             list.Children.Add(new TextBlock {
-                Text = T("forward.empty"),
+                Text = controller.T("forward.empty"),
                 FontSize = 14,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -277,21 +253,21 @@ public sealed class ForwardDialog : IOverlay {
             });
             if (failed > 0)
                 content.Add(new TextBlock {
-                    Text = T("forward.failed", ("n", failed)),
+                    Text = controller.T("forward.failed", ("n", failed)),
                     FontSize = 14,
                     FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.Danger),
                     TextAlignment = TextAlignment.Center,
                     TextWrapping = TextWrapping.Wrap,
                 });
-            primary.Title = T("forward");
+            primary.Title = controller.T("forward");
             primary.Loading = sending;
             primary.Disabled = keep.Count == 0;
             primary.Click += (_, _) => _ = Send();
-            other.Title = T("back");
+            other.Title = controller.T("back");
             other.Click += (_, _) => Back();
         } else {
-            filter.Placeholder = T("search");
+            filter.Placeholder = controller.T("search");
             ThemeScope.SetColors(filter, c);
             FillPicks(c, postable);
             content.Add(filter);
@@ -300,11 +276,11 @@ public sealed class ForwardDialog : IOverlay {
                 Content = list
             });
             primary.Title = picked.Count > 0
-                ? $"{T("forward")} ({picked.Count})"
-                : T("forward");
+                ? $"{controller.T("forward")} ({picked.Count})"
+                : controller.T("forward");
             primary.Disabled = picked.Count == 0;
             primary.Click += (_, _) => Confirm();
-            other.Title = T("cancel");
+            other.Title = controller.T("cancel");
             other.Click += (_, _) => Close();
         }
 
@@ -312,7 +288,9 @@ public sealed class ForwardDialog : IOverlay {
         content.Add(other);
         dialog.Modal = confirming;
         dialog.Show(window, c,
-            confirming ? T("forward.confirm") : T("forward.title"), null,
+            confirming
+                ? controller.T("forward.confirm")
+                : controller.T("forward.title"), null,
             [.. content]);
     }
 

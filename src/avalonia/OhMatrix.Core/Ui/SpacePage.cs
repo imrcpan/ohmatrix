@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -61,29 +60,6 @@ public sealed class SpacePage : Grid {
     /// <summary>The rooms shown, in the order the space lists them.</summary>
     public IReadOnlyList<SpaceChild> Children_ => children ?? [];
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Asks the engine for the rooms of the open space again.</summary>
     public async Task Reload()
@@ -132,12 +108,14 @@ public sealed class SpacePage : Grid {
 
     private async Task JoinChild(SpaceChild room)
     {
-        controller.ShowNotice(T("explore.joining", ("name", room.Name)),
+        controller.ShowNotice(
+            controller.T("explore.joining", ("name", room.Name)),
             NoticeKind.Progress);
         try {
             await controller.JoinRoom(room.RoomId);
             controller.OpenSidebarPage(SidebarPage.Chats);
-            controller.ShowNotice(T("explore.joined", ("name", room.Name)));
+            controller.ShowNotice(controller.T("explore.joined",
+                ("name", room.Name)));
         } catch (Exception e) {
             controller.ShowNotice(e.Message, NoticeKind.Error);
         }
@@ -157,12 +135,13 @@ public sealed class SpacePage : Grid {
 
         Background = new SolidColorBrush(c.Bg);
         var space = s.Rooms.FirstOrDefault(r => r.Id == s.OpenSpaceId);
-        PageBar.Fill(bar, c, space?.Name ?? T("space"), T("chats"),
+        PageBar.Fill(bar, c, space?.Name ?? controller.T("space"),
+            controller.T("chats"),
             () => controller.OpenSidebarPage(SidebarPage.Chats));
         bar.BorderBrush = new SolidColorBrush(c.Separator);
         bar.BorderThickness = new Thickness(0, 0, 0, 1);
         bar.Height = 56;
-        more = new IconButton("more", T("more"), 22) {
+        more = new IconButton("more", controller.T("more"), 22) {
             Tint = c.TextSecondary,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
@@ -181,7 +160,7 @@ public sealed class SpacePage : Grid {
         }
 
         bar.Child = barRow;
-        search.Placeholder = T("search");
+        search.Placeholder = controller.T("search");
         rows.Children.Clear();
         if (children is null) {
             rows.Children.Add(new Spinner {
@@ -194,7 +173,7 @@ public sealed class SpacePage : Grid {
 
         if (children.Count == 0) {
             rows.Children.Add(new TextBlock {
-                Text = T("space.empty"),
+                Text = controller.T("space.empty"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -212,7 +191,7 @@ public sealed class SpacePage : Grid {
             .ToList();
         if (shown.Count == 0) {
             rows.Children.Add(new TextBlock {
-                Text = T("noResults"),
+                Text = controller.T("noResults"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -244,19 +223,25 @@ public sealed class SpacePage : Grid {
             controller.Store.Value.Rooms.FirstOrDefault(r => r.Id == id);
         SpaceMenu.AlignRight = true;
         SpaceMenu.Show(more, window, [
-            new MenuItem(T("space.createRoom"), () => AskCreateRoom(id),
+            new MenuItem(controller.T("space.createRoom"),
+                () => AskCreateRoom(id),
                 Icon: "plus"),
-            new MenuItem(T("space.addRoom"), () => _ = AskAddRoom(id),
+            new MenuItem(controller.T("space.addRoom"),
+                () => _ = AskAddRoom(id),
                 Icon: "chat"),
-            new MenuItem(T("space.manageRooms"), () => _ = AskManage(id),
+            new MenuItem(controller.T("space.manageRooms"),
+                () => _ = AskManage(id),
                 Icon: "edit"),
-            new MenuItem(T("space.members"), () => OpenInfo(id), Icon: "users"),
-            new MenuItem(T("space.invite"), () => AskInvite(id),
+            new MenuItem(controller.T("space.members"), () => OpenInfo(id),
+                Icon: "users"),
+            new MenuItem(controller.T("space.invite"), () => AskInvite(id),
                 Icon: "userPlus"),
-            new MenuItem(T("space.share"),
+            new MenuItem(controller.T("space.share"),
                 () => AskShare(id, space?.Name ?? ""), Icon: "hash"),
-            new MenuItem(T("space.settings"), () => OpenInfo(id), Icon: "gear"),
-            new MenuItem(T("space.leave"), () => AskLeave(id), Icon: "signOut",
+            new MenuItem(controller.T("space.settings"), () => OpenInfo(id),
+                Icon: "gear"),
+            new MenuItem(controller.T("space.leave"), () => AskLeave(id),
+                Icon: "signOut",
                 Danger: true),
         ]);
     }
@@ -274,9 +259,9 @@ public sealed class SpacePage : Grid {
             return;
         confirm.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("space.createRoom"), T("newGroup.body"),
-            [new PromptField(T("groupName"), "users")],
-            T("create"), async v => {
+            controller.T("space.createRoom"), controller.T("newGroup.body"),
+            [new PromptField(controller.T("groupName"), "users")],
+            controller.T("create"), async v => {
                 await controller.CreateRoomInSpace(id, v[0]);
                 await Reload();
             });
@@ -299,7 +284,7 @@ public sealed class SpacePage : Grid {
         var list = new StackPanel();
         if (candidates.Count == 0)
             list.Children.Add(new TextBlock {
-                Text = T("space.noCandidates"),
+                Text = controller.T("space.noCandidates"),
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextAlignment = TextAlignment.Center,
@@ -318,14 +303,15 @@ public sealed class SpacePage : Grid {
         }
 
         var close = new TextButton {
-            Title = T("close")
+            Title = controller.T("close")
         };
         ThemeScope.SetColors(close, c);
         close.Click += (_, _) => SpaceDialog.Close();
-        SpaceDialog.Show(window, c, T("space.addRoom"), null, new ScrollViewer {
-            Content = list,
-            MaxHeight = 320
-        }, close);
+        SpaceDialog.Show(window, c, controller.T("space.addRoom"), null,
+            new ScrollViewer {
+                Content = list,
+                MaxHeight = 320
+            }, close);
     }
 
     /// <summary>Tick rooms and take them out of the space.</summary>
@@ -338,7 +324,7 @@ public sealed class SpacePage : Grid {
         var picked = new HashSet<string>();
         var list = new StackPanel();
         var remove = new PrimaryButton {
-            Title = T("space.removeRooms", ("n", 0)),
+            Title = controller.T("space.removeRooms", ("n", 0)),
             IsEnabled = false
         };
         foreach (var child in listed) {
@@ -348,7 +334,8 @@ public sealed class SpacePage : Grid {
                 e.Handled = true;
                 if (!picked.Remove(target.RoomId))
                     picked.Add(target.RoomId);
-                remove.Title = T("space.removeRooms", ("n", picked.Count));
+                remove.Title =
+                    controller.T("space.removeRooms", ("n", picked.Count));
                 remove.IsEnabled = picked.Count > 0;
                 SetChecked(line, picked.Contains(target.RoomId), c);
             };
@@ -357,14 +344,14 @@ public sealed class SpacePage : Grid {
 
         if (listed.Count == 0)
             list.Children.Add(new TextBlock {
-                Text = T("space.empty"),
+                Text = controller.T("space.empty"),
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextAlignment = TextAlignment.Center,
                 Margin = new Thickness(12),
             });
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(remove, c);
         ThemeScope.SetColors(cancel, c);
@@ -375,7 +362,7 @@ public sealed class SpacePage : Grid {
                 await controller.RemoveSpaceChild(id, room);
             await Reload();
         };
-        SpaceDialog.Show(window, c, T("space.manageRooms"), null,
+        SpaceDialog.Show(window, c, controller.T("space.manageRooms"), null,
             new ScrollViewer {
                 Content = list,
                 MaxHeight = 320
@@ -436,12 +423,13 @@ public sealed class SpacePage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         Invite ??= new PeoplePicker(controller);
-        Invite.Show(window, ThemeScope.GetColors(this), T("room.invite"),
-            T("room.inviteBody"),
+        Invite.Show(window, ThemeScope.GetColors(this),
+            controller.T("room.invite"),
+            controller.T("room.inviteBody"),
             true,
             n => n == 0
-                ? T("room.inviteNone")
-                : T("room.inviteAction", ("n", n)),
+                ? controller.T("room.inviteNone")
+                : controller.T("room.inviteAction", ("n", n)),
             ids => controller.InviteToRoom(id, ids));
     }
 
@@ -454,10 +442,10 @@ public sealed class SpacePage : Grid {
         var alias = controller.Store.Value.Details?.Aliases.FirstOrDefault();
         var link = "https://matrix.to/#/" + (alias ?? id);
         var copy = new PrimaryButton {
-            Title = T("copy")
+            Title = controller.T("copy")
         };
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(copy, c);
         ThemeScope.SetColors(cancel, c);
@@ -465,15 +453,15 @@ public sealed class SpacePage : Grid {
         copy.Click += async (_, _) => {
             try {
                 await window.Clipboard!.SetTextAsync(link);
-                controller.ShowNotice(T("copied"));
+                controller.ShowNotice(controller.T("copied"));
                 SpaceDialog.Close();
             } catch (Exception) {
-                controller.ShowNotice(T("space.share.failed"),
+                controller.ShowNotice(controller.T("space.share.failed"),
                     NoticeKind.Error);
             }
         };
-        SpaceDialog.Show(window, c, T("space.share.title"),
-            T("space.share.body", ("name", name)),
+        SpaceDialog.Show(window, c, controller.T("space.share.title"),
+            controller.T("space.share.body", ("name", name)),
             new Border {
                 Padding = new Thickness(12),
                 CornerRadius = new CornerRadius(10),
@@ -495,10 +483,10 @@ public sealed class SpacePage : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
-            Title = T("space.leave")
+            Title = controller.T("space.leave")
         };
         var no = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
@@ -508,7 +496,8 @@ public sealed class SpacePage : Grid {
             controller.OpenSidebarPage(SidebarPage.Chats);
         };
         no.Click += (_, _) => SpaceDialog.Close();
-        SpaceDialog.Show(window, c, T("leaveSpace.title"), T("leaveSpace.body"),
+        SpaceDialog.Show(window, c, controller.T("leaveSpace.title"),
+            controller.T("leaveSpace.body"),
             yes, no);
     }
 
@@ -519,15 +508,15 @@ public sealed class SpacePage : Grid {
             || !controller.CanManageSpaces)
             return;
         RoomMenu.Show(anchor, window, [
-            new MenuItem(T("space.moveFirst"),
+            new MenuItem(controller.T("space.moveFirst"),
                 () => _ =
                     Then(controller.MoveSpaceChild(id, child.RoomId, true)),
                 Icon: "send"),
-            new MenuItem(T("space.moveLast"),
+            new MenuItem(controller.T("space.moveLast"),
                 () => _ =
                     Then(controller.MoveSpaceChild(id, child.RoomId, false)),
                 Icon: "signOut"),
-            new MenuItem(T("space.removeRoom"),
+            new MenuItem(controller.T("space.removeRoom"),
                 () => _ = Then(controller.RemoveSpaceChild(id, child.RoomId)),
                 Icon: "close", Danger: true),
         ]);
@@ -540,7 +529,7 @@ public sealed class SpacePage : Grid {
         } catch (EngineException e) {
             controller.ShowNotice(
                 e.Code == EngineErrorCode.Forbidden
-                    ? T("notAllowed")
+                    ? controller.T("notAllowed")
                     : e.Message,
                 NoticeKind.Error);
         }
@@ -573,8 +562,8 @@ public sealed class SpacePage : Grid {
         });
         words.Children.Add(new TextBlock {
             Text = child.Members == 1
-                ? T("member.one")
-                : T("explore.members", ("count", child.Members)),
+                ? controller.T("member.one")
+                : controller.T("explore.members", ("count", child.Members)),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -593,7 +582,7 @@ public sealed class SpacePage : Grid {
         grid.Children.Add(words);
         if (!joined) {
             var tag = new TextBlock {
-                Text = T("space.joinToView"),
+                Text = controller.T("space.joinToView"),
                 FontSize = 13,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Accent),

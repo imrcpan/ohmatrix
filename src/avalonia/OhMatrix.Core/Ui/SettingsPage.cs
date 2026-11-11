@@ -70,29 +70,6 @@ public sealed class SettingsPage : Grid {
     public ZoomPicker Zoom => zoom;
     public Control ZoomRow => zoomAnchor;
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     public Border? DownloadRow { get; private set; }
     public Menu DownloadMenu { get; } = new();
@@ -104,11 +81,11 @@ public sealed class SettingsPage : Grid {
             return;
         var folder = controller.Store.Value.Prefs.DownloadFolder;
         DownloadMenu.Show(DownloadRow, window, [
-            new MenuItem(T("downloadFolder.default"), () =>
+            new MenuItem(controller.T("downloadFolder.default"), () =>
                 controller.SetPreferences(p => p with {
                     DownloadFolder = null
                 }), Checked: string.IsNullOrEmpty(folder)),
-            new MenuItem(T("downloadFolder.choose"),
+            new MenuItem(controller.T("downloadFolder.choose"),
                 () => _ = ChooseFolder(window),
                 Checked: !string.IsNullOrEmpty(folder)),
         ]);
@@ -133,10 +110,10 @@ public sealed class SettingsPage : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
-            Title = T("signOut")
+            Title = controller.T("signOut")
         };
         var no = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         yes.Click += (_, _) => {
             confirm.Close();
@@ -145,7 +122,8 @@ public sealed class SettingsPage : Grid {
         no.Click += (_, _) => confirm.Close();
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
-        confirm.Show(window, c, T("signOut.title"), T("signOut.body"), yes, no);
+        confirm.Show(window, c, controller.T("signOut.title"),
+            controller.T("signOut.body"), yes, no);
     }
 
     /// <summary>The small explanation under a setting.</summary>
@@ -185,18 +163,19 @@ public sealed class SettingsPage : Grid {
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, T("settings"), T("profile"),
+        PageBar.Fill(bar, c, controller.T("settings"), controller.T("profile"),
             () => controller.OpenSidebarPage(SidebarPage.Profile));
         content.Children.Clear();
 
-        Group(c, T("notifications"));
-        content.Children.Add(ToggleRow(c, T("notif.messages"),
+        Group(c, controller.T("notifications"));
+        content.Children.Add(ToggleRow(c, controller.T("notif.messages"),
             NotificationsToggle,
             s.Prefs.Notifications, on => controller.SetPreferences(p => p with {
                 Notifications = on
             }), 6));
         if (s.Prefs.Notifications) {
-            content.Children.Add(ToggleRow(c, T("notif.preview"), PreviewToggle,
+            content.Children.Add(ToggleRow(c, controller.T("notif.preview"),
+                PreviewToggle,
                 s.Prefs.NotificationPreview, on =>
                     controller.SetPreferences(p => p with {
                         NotificationPreview = on
@@ -204,7 +183,7 @@ public sealed class SettingsPage : Grid {
         }
 
         content.Children.Add(new TextBlock {
-            Text = T("notif.footer.default"),
+            Text = controller.T("notif.footer.default"),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -212,47 +191,52 @@ public sealed class SettingsPage : Grid {
             Margin = new Thickness(26, 6, 20, 0),
         });
 
-        Group(c, T("appearance"));
+        Group(c, controller.T("appearance"));
         var language = Strings.Languages.FirstOrDefault(l => l.Id == s.Locale)
                        ?? Strings.Languages[0];
-        content.Children.Add(ProfilePage.NavRow(c, "globe", T("language"),
+        content.Children.Add(ProfilePage.NavRow(c, "globe",
+            controller.T("language"),
             () => controller.OpenSidebarPage(SidebarPage.Language), 6,
             language.Label));
-        var zoomRow = ProfilePage.NavRow(c, "zoomIn", T("zoom"),
+        var zoomRow = ProfilePage.NavRow(c, "zoomIn", controller.T("zoom"),
             () => zoom.Open(zoomAnchor), 12,
             ZoomPicker.Percent(s.Prefs.UiScale));
         zoomAnchor = zoomRow;
         content.Children.Add(zoomRow);
-        Footer(c, T("zoom.footer"));
-        content.Children.Add(ProfilePage.NavRow(c, "font", T("font"),
+        Footer(c, controller.T("zoom.footer"));
+        content.Children.Add(ProfilePage.NavRow(c, "font", controller.T("font"),
             () => controller.OpenSidebarPage(SidebarPage.Font), 12,
-            s.Prefs.Font ?? T("font.system")));
-        DownloadRow = ProfilePage.NavRow(c, "download", T("downloadFolder"),
+            s.Prefs.Font ?? controller.T("font.system")));
+        DownloadRow = ProfilePage.NavRow(c, "download",
+            controller.T("downloadFolder"),
             OpenDownloadMenu, 12,
             s.Prefs.DownloadFolder is { Length: > 0 } dl
                 ? Path.GetFileName(dl.TrimEnd('/', '\\'))
-                : T("downloadFolder.default"));
+                : controller.T("downloadFolder.default"));
         content.Children.Add(DownloadRow);
         var themeName = s.Prefs.Theme == Themes.System
-            ? T("theme.system")
+            ? controller.T("theme.system")
             : Themes.Get(s.Prefs.Theme)?.LabelFor(s.Locale) ?? s.Prefs.Theme;
-        content.Children.Add(ProfilePage.NavRow(c, "palette", T("theme"),
+        content.Children.Add(ProfilePage.NavRow(c, "palette",
+            controller.T("theme"),
             () => controller.OpenSidebarPage(SidebarPage.Theme), 12,
             themeName));
-        content.Children.Add(ToggleRow(c, T("ownAccent"), AccentToggle,
+        content.Children.Add(ToggleRow(c, controller.T("ownAccent"),
+            AccentToggle,
             s.Prefs.OwnBubbleAccent,
             on => controller.SetPreferences(p => p with {
                 OwnBubbleAccent = on
             }), 12));
-        Footer(c, T("ownAccent.footer"));
+        Footer(c, controller.T("ownAccent.footer"));
 
-        Group(c, T("advanced"));
+        Group(c, controller.T("advanced"));
         content.Children.Add(ProfilePage.NavRow(c, "gear",
-            T("advanced.options"),
+            controller.T("advanced.options"),
             () => controller.OpenSidebarPage(SidebarPage.Advanced), 6));
 
-        Group(c, T("account"));
-        content.Children.Add(ProfilePage.NavRow(c, "device", T("sessions"),
+        Group(c, controller.T("account"));
+        content.Children.Add(ProfilePage.NavRow(c, "device",
+            controller.T("sessions"),
             () => controller.OpenSidebarPage(SidebarPage.Sessions), 6));
         var row = new Border {
             Margin = new Thickness(12, 12, 12, 0),
@@ -264,7 +248,7 @@ public sealed class SettingsPage : Grid {
                 new Avalonia.Input.Cursor(
                     Avalonia.Input.StandardCursorType.Hand),
             Child = new TextBlock {
-                Text = T("signOut"),
+                Text = controller.T("signOut"),
                 FontSize = 16,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Danger),
@@ -275,18 +259,19 @@ public sealed class SettingsPage : Grid {
             e.Handled = true;
             AskSignOut();
         };
-        Avalonia.Automation.AutomationProperties.SetName(row, T("signOut"));
+        Avalonia.Automation.AutomationProperties.SetName(row,
+            controller.T("signOut"));
         SignOutRow = row;
         content.Children.Add(row);
 
-        Group(c, T("about"));
-        Footer(c, T("about.feedback"));
+        Group(c, controller.T("about"));
+        Footer(c, controller.T("about.feedback"));
         content.Children.Add(ProfilePage.NavRow(c, "external", "GitHub",
             OpenRepository, 6,
             Repository.Replace("https://github.com/", "")));
         content.Children.Add(ProfilePage.NavRow(c, "about", "OhMatrix", () => {
             }, 12,
-            $"{T("version")} {Version}", false));
+            $"{controller.T("version")} {Version}", false));
         content.Children.Add(new Border {
             Height = 24
         });

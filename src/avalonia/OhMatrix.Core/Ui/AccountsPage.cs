@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 
@@ -59,29 +58,6 @@ public sealed class AccountsPage : Grid {
 
     private readonly List<Control> rows = [];
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     public void SetReordering(bool on)
     {
@@ -102,14 +78,14 @@ public sealed class AccountsPage : Grid {
 
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, T("accounts"), T("profile"),
+        PageBar.Fill(bar, c, controller.T("accounts"), controller.T("profile"),
             () => controller.OpenSidebarPage(SidebarPage.Profile));
         content.Children.Clear();
         rows.Clear();
         var list = manager?.Accounts ?? [];
         if (list.Count > 1) {
             var sort = new TextButton {
-                Title = T(reordering
+                Title = controller.T(reordering
                     ? "accounts.reorder.done"
                     : "accounts.reorder"),
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -158,7 +134,7 @@ public sealed class AccountsPage : Grid {
             },
         });
         var text = new TextBlock {
-            Text = T("addAccount"),
+            Text = controller.T("addAccount"),
             FontSize = 16,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
@@ -247,7 +223,7 @@ public sealed class AccountsPage : Grid {
             };
         else if (current)
             trailing = new TextBlock {
-                Text = T("account.current"),
+                Text = controller.T("account.current"),
                 FontSize = 14,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Accent),
@@ -296,7 +272,8 @@ public sealed class AccountsPage : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         menu.Show(anchor, window, [
-            new MenuItem(T("account.signOut"), () => AskSignOut(account),
+            new MenuItem(controller.T("account.signOut"),
+                () => AskSignOut(account),
                 Icon: "signOut",
                 Danger: true)
         ]);
@@ -313,10 +290,10 @@ public sealed class AccountsPage : Grid {
             ? dn
             : account.UserId;
         var yes = new PrimaryButton {
-            Title = T("signOut")
+            Title = controller.T("signOut")
         };
         var no = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         yes.Click += (_, _) => {
             confirm.Close();
@@ -325,8 +302,9 @@ public sealed class AccountsPage : Grid {
         no.Click += (_, _) => confirm.Close();
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
-        confirm.Show(window, c, T("account.signOut.title", ("name", name)),
-            T("signOut.body"),
+        confirm.Show(window, c,
+            controller.T("account.signOut.title", ("name", name)),
+            controller.T("signOut.body"),
             yes, no);
     }
 
@@ -374,7 +352,7 @@ public sealed class AccountsPage : Grid {
 
         content.Children.Add(host);
         content.Children.Add(new TextBlock {
-            Text = T("accounts.reorder.hint"),
+            Text = controller.T("accounts.reorder.hint"),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),

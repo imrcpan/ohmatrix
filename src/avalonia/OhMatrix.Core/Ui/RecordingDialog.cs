@@ -2,7 +2,6 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Audio;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 
 namespace OhMatrix.Core.Ui;
@@ -46,9 +45,6 @@ public sealed class RecordingDialog {
     /// <summary>Whether this machine can record sound, or a clip.</summary>
     public static bool Available(bool video) => MediaRecorder.Available(video);
 
-    private string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
     /// <summary>Opens the dialog and starts recording; why it could not start is shown in the dialog.</summary>
     public void Open(TopLevel window, bool video)
     {
@@ -69,10 +65,10 @@ public sealed class RecordingDialog {
         clock.Foreground = new SolidColorBrush(c.Danger);
         clock.Text = "● 0:00";
         sendButton = new PrimaryButton {
-            Title = T("record.send")
+            Title = controller.T("record.send")
         };
         var cancel = new TextButton {
-            Title = T("record.cancel")
+            Title = controller.T("record.cancel")
         };
         ThemeScope.SetColors(sendButton, c);
         ThemeScope.SetColors(cancel, c);
@@ -84,7 +80,7 @@ public sealed class RecordingDialog {
             ticker.Start();
         } catch (Exception) {
             rec.Cancel();
-            notice.Text = T(MediaRecorder.Available(video)
+            notice.Text = controller.T(MediaRecorder.Available(video)
                 ? "record.noDevice"
                 : "record.unsupported");
             notice.IsVisible = true;
@@ -92,7 +88,8 @@ public sealed class RecordingDialog {
             clock.Text = "";
         }
 
-        dialog.Show(window, c, T(video ? "record.video" : "record.voice"), null,
+        dialog.Show(window, c,
+            controller.T(video ? "record.video" : "record.voice"), null,
             clock, notice,
             sendButton, cancel);
     }
@@ -114,7 +111,8 @@ public sealed class RecordingDialog {
             if (done.Duration >= TimeSpan.FromMilliseconds(500))
                 await controller.SendAttachment(done.Path);
         } catch (Exception) {
-            controller.ShowNotice(T("record.unsupported"), NoticeKind.Error);
+            controller.ShowNotice(controller.T("record.unsupported"),
+                NoticeKind.Error);
         } finally {
             try {
                 File.Delete(done.Path);

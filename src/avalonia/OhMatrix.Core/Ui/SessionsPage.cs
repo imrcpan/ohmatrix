@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -70,29 +69,6 @@ public sealed class SessionsPage : Grid {
         Apply();
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Asks for the password to sign these sessions out.</summary>
     public void AskSignOut(IReadOnlyList<string> ids, bool all)
@@ -101,17 +77,17 @@ public sealed class SessionsPage : Grid {
             return;
         confirm.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T(all ? "sessions.confirm.all" : "sessions.confirm.one"),
-            T("sessions.confirm.body"),
-            [new PromptField(T("password"), "lock", false, true)],
-            T("sessions.signOut"),
+            controller.T(all ? "sessions.confirm.all" : "sessions.confirm.one"),
+            controller.T("sessions.confirm.body"),
+            [new PromptField(controller.T("password"), "lock", false, true)],
+            controller.T("sessions.signOut"),
             async v => {
                 try {
                     await controller.RemoveDevices(ids, v[0]);
                 } catch (EngineException e) when (e.Code ==
                                                   EngineErrorCode.Forbidden) {
                     throw new InvalidOperationException(
-                        T("sessions.wrongPassword"));
+                        controller.T("sessions.wrongPassword"));
                 }
 
                 await Reload();
@@ -121,10 +97,10 @@ public sealed class SessionsPage : Grid {
     private string LastActive(DeviceInfo d)
     {
         if (d.LastSeenTs is not { } ts)
-            return T("sessions.neverSeen");
+            return controller.T("sessions.neverSeen");
         var when = Format.Relative(ts, time.GetUtcNow(),
             controller.Store.Value.Locale);
-        var text = T("sessions.lastActive", ("when", when));
+        var text = controller.T("sessions.lastActive", ("when", when));
         return d.LastSeenIp is { } ip ? text + " · " + ip : text;
     }
 
@@ -142,7 +118,7 @@ public sealed class SessionsPage : Grid {
 
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, T("sessions"), T("settings"),
+        PageBar.Fill(bar, c, controller.T("sessions"), controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));
         content.Children.Clear();
         if (devices is null) {
@@ -157,27 +133,27 @@ public sealed class SessionsPage : Grid {
         var current = devices.FirstOrDefault(d => d.Current);
         var others = devices.Where(d => !d.Current).ToList();
         if (current is not null) {
-            Caption(c, T("sessions.thisDevice"));
+            Caption(c, controller.T("sessions.thisDevice"));
             content.Children.Add(Card(c, current, null));
             // Whether this session is verified by the keys of the account;
             // when it is not, it can be verified from another session.
             var security = controller.Store.Value.Security;
             if (controller.CanVerify && security == SecurityState.Ready)
                 content.Children.Add(ProfilePage.NavRow(c, "lock",
-                    T("verify.state.yes"), () => {
+                    controller.T("verify.state.yes"), () => {
                     }, 8, chevron: false));
             else if (controller.CanVerify &&
                      security == SecurityState.NeedsRecovery)
                 content.Children.Add(ProfilePage.NavRow(c, "lock",
-                    T("verify.session"),
+                    controller.T("verify.session"),
                     () => _ = controller.RequestVerification(), 8,
-                    T("verify.state.no")));
+                    controller.T("verify.state.no")));
         }
 
-        Caption(c, T("sessions.others"));
+        Caption(c, controller.T("sessions.others"));
         if (others.Count == 0) {
             content.Children.Add(new TextBlock {
-                Text = T("sessions.empty"),
+                Text = controller.T("sessions.empty"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -189,7 +165,7 @@ public sealed class SessionsPage : Grid {
             content.Children.Add(Card(c, d, () => AskSignOut([d.Id], false)));
         if (others.Count > 0) {
             var all = new TextButton {
-                Title = T("sessions.signOutAll"),
+                Title = controller.T("sessions.signOutAll"),
                 Margin = new Thickness(0, 12, 0, 0)
             };
             ThemeScope.SetColors(all, c with {
@@ -201,7 +177,7 @@ public sealed class SessionsPage : Grid {
         }
 
         content.Children.Add(new TextBlock {
-            Text = T("sessions.footer"),
+            Text = controller.T("sessions.footer"),
             FontSize = 13,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),

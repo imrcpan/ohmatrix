@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 
@@ -53,16 +52,13 @@ public sealed class FontPage : Grid {
     public StackPanel Rows => rows;
     public SearchField Search => search;
 
-    private string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, T("font"), T("settings"),
+        PageBar.Fill(bar, c, controller.T("font"), controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));
-        search.Placeholder = T("font.search");
+        search.Placeholder = controller.T("font.search");
         installed ??= Fonts.Installed();
         var current = controller.Store.Value.Prefs.Font;
         var query = search.Text.Trim();
@@ -77,7 +73,7 @@ public sealed class FontPage : Grid {
             rows.Children.Add(Row(c, name, name == current));
         if (names.Count == 0)
             rows.Children.Add(new TextBlock {
-                Text = T("font.empty"),
+                Text = controller.T("font.empty"),
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 FontFamily = Fonts.System,
                 Margin = new Thickness(8, 16),
@@ -85,7 +81,7 @@ public sealed class FontPage : Grid {
             });
         else
             rows.Children.Add(new TextBlock {
-                Text = T("font.footer"),
+                Text = controller.T("font.footer"),
                 FontSize = 13,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -100,7 +96,7 @@ public sealed class FontPage : Grid {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
         line.Children.Add(new TextBlock {
-            Text = name ?? T("font.system"),
+            Text = name ?? controller.T("font.system"),
             FontSize = 16,
             FontFamily = name is null ? Fonts.System : new FontFamily(name),
             Foreground = new SolidColorBrush(c.Text),

@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 
@@ -53,29 +52,6 @@ public sealed class ProfilePage : Grid {
     /// <summary>The row that changes the name.</summary>
     public Border NameRow { get; private set; } = new();
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>Asks for a picture file and makes it my picture; the path can be given to skip the dialog.</summary>
     public async Task ChangePhoto(string? path = null)
@@ -112,9 +88,12 @@ public sealed class ProfilePage : Grid {
             return;
         var s = controller.Store.Value;
         StatusPrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
-            T("status.edit"), "",
-            [new PromptField(T("status.placeholder"), "smile", true)],
-            T("save"), async v => {
+            controller.T("status.edit"), "",
+            [
+                new PromptField(controller.T("status.placeholder"), "smile",
+                    true)
+            ],
+            controller.T("save"), async v => {
                 try {
                     await controller.SetStatus(v[0].Length > 100
                         ? v[0][..100]
@@ -122,7 +101,7 @@ public sealed class ProfilePage : Grid {
                 } catch (EngineException e) when (e.Code ==
                                                   EngineErrorCode.Unsupported) {
                     throw new InvalidOperationException(
-                        T("status.unsupported"));
+                        controller.T("status.unsupported"));
                 }
             });
         StatusPrompt.Fields[0].Text = s.Profile?.Status ?? "";
@@ -135,8 +114,8 @@ public sealed class ProfilePage : Grid {
             return;
         var s = controller.Store.Value;
         NamePrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
-            T("editName"), "",
-            [new PromptField(T("name"))], T("save"),
+            controller.T("editName"), "",
+            [new PromptField(controller.T("name"))], controller.T("save"),
             values => controller.SetDisplayName(values[0]));
         NamePrompt.Fields[0].Text = s.Profile?.DisplayName ?? "";
     }
@@ -220,7 +199,7 @@ public sealed class ProfilePage : Grid {
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, T("profile"), T("chats"),
+        PageBar.Fill(bar, c, controller.T("profile"), controller.T("chats"),
             () => controller.OpenSidebarPage(SidebarPage.Chats));
 
         var id = s.UserId ?? "";
@@ -267,40 +246,43 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(head);
 
         content.Children.Add(new TextBlock {
-            Text = T("account"),
+            Text = controller.T("account"),
             FontSize = 13,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(26, 18, 12, 0),
         });
-        content.Children.Add(NavRow(c, "camera", T("changePhoto"), ChangePhoto,
+        content.Children.Add(NavRow(c, "camera", controller.T("changePhoto"),
+            ChangePhoto,
             6));
-        NameRow = NavRow(c, "user", T("name"), AskName, 12, shown);
+        NameRow = NavRow(c, "user", controller.T("name"), AskName, 12, shown);
         content.Children.Add(NameRow);
-        StatusRow = NavRow(c, "smile", T("status"), AskStatus, 12,
-            s.Profile?.Status ?? T("status.empty"));
+        StatusRow = NavRow(c, "smile", controller.T("status"), AskStatus, 12,
+            s.Profile?.Status ?? controller.T("status.empty"));
         content.Children.Add(StatusRow);
-        content.Children.Add(NavRow(c, "hash", T("userId"), () => {
+        content.Children.Add(NavRow(c, "hash", controller.T("userId"), () => {
         }, 12, id, false));
-        content.Children.Add(NavRow(c, "info", T("homeserver"), () => {
+        content.Children.Add(NavRow(c, "info", controller.T("homeserver"),
+            () => {
             }, 12,
             s.Homeserver ?? "", false));
         content.Children.Add(new TextBlock {
-            Text = T("security"),
+            Text = controller.T("security"),
             FontSize = 13,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(26, 18, 12, 0),
         });
-        content.Children.Add(NavRow(c, "lock", T("encryption"),
+        content.Children.Add(NavRow(c, "lock", controller.T("encryption"),
             () => controller.OpenSidebarPage(SidebarPage.Encryption), 6,
-            EncryptionPage.Words(s.Security, k => T(k))));
+            EncryptionPage.Words(s.Security, k => controller.T(k))));
         if (controller.Accounts is not null)
-            content.Children.Add(NavRow(c, "user", T("switchAccount"),
+            content.Children.Add(NavRow(c, "user",
+                controller.T("switchAccount"),
                 () => controller.OpenSidebarPage(SidebarPage.Accounts), 6));
-        content.Children.Add(NavRow(c, "gear", T("settings"),
+        content.Children.Add(NavRow(c, "gear", controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 20));
     }
 }

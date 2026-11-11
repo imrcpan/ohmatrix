@@ -359,9 +359,9 @@ public sealed partial class ChatPane {
                 var text = (TextBlock)view.Frame!.Child!;
                 text.Text = item.Kind == TimelineKind.Date
                     ? Format.DayLabel(item.Ts, time.GetUtcNow(), messageLocale!,
-                        key => T(key))
+                        key => controller.T(key))
                     : item.Body == TimelineItem.Undecryptable
-                        ? T("undecryptable")
+                        ? controller.T("undecryptable")
                         : item.Body;
                 text.Foreground = new SolidColorBrush(colors.ServiceChipText);
                 text.FontFamily = Fonts.System;
@@ -401,7 +401,7 @@ public sealed partial class ChatPane {
                 Format.Clock(item.Ts, messageLocale!), item.IsOwn,
                 messageGroup ? item.SenderName : null, item.SenderId,
                 entry.Above, entry.Below, item.Sending, item.Failed,
-                item.Edited ? T("edited") : null, messageAccent,
+                item.Edited ? controller.T("edited") : null, messageAccent,
                 item.Read, ReadLabel(item));
         }
 
@@ -445,7 +445,7 @@ public sealed partial class ChatPane {
             StuckBelow = entry.Below,
             Sending = item.Sending,
             Failed = item.Failed,
-            EditedLabel = item.Edited ? T("edited") : null,
+            EditedLabel = item.Edited ? controller.T("edited") : null,
             Accent = messageAccent,
             Reply = item.Reply,
             Image = item.Image,
@@ -485,9 +485,9 @@ public sealed partial class ChatPane {
         if (!item.IsOwn || !item.Read || item.Sending || item.Failed)
             return null;
         return item.ReadBy.Count > 0
-            ? T("readBy", ("names", string.Join(", ",
+            ? controller.T("readBy", ("names", string.Join(", ",
                 item.ReadBy.Select(NameOfUser))))
-            : T("read");
+            : controller.T("read");
     }
 
     private static bool SameContent(TimelineItem a, TimelineItem b) =>

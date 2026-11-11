@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 
 namespace OhMatrix.Core.Ui;
@@ -50,29 +49,6 @@ public sealed class ZoomPicker : IOverlay {
     public Menu Menu { get; }
     public Dialog Dialog => dialog;
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The text of a size: <c>125%</c>.</summary>
     public static string Percent(double scale)
@@ -111,7 +87,7 @@ public sealed class ZoomPicker : IOverlay {
 
         var left = Math.Max(0,
             (int)Math.Ceiling((trial.Until - time.GetUtcNow()).TotalSeconds));
-        var message = T("zoom.confirm.body", ("n", left.ToString()),
+        var message = controller.T("zoom.confirm.body", ("n", left.ToString()),
             ("from", Percent(trial.From)));
         if (dialog.IsOpen) {
             dialog.SetMessage(message);
@@ -120,9 +96,10 @@ public sealed class ZoomPicker : IOverlay {
 
         if (TopLevel.GetTopLevel(host) is not { } window)
             return;
-        keep.Title = T("zoom.confirm.keep");
-        revert.Title = T("zoom.confirm.revert");
-        dialog.Show(window, ThemeScope.GetColors(host), T("zoom.confirm.title"),
+        keep.Title = controller.T("zoom.confirm.keep");
+        revert.Title = controller.T("zoom.confirm.revert");
+        dialog.Show(window, ThemeScope.GetColors(host),
+            controller.T("zoom.confirm.title"),
             message, keep,
             revert);
         countdown.Start();

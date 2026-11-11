@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -138,16 +137,17 @@ public sealed class RoomInfoPanel : Grid {
             if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
                 throw new InvalidOperationException();
             await clipboard.SetTextAsync(text);
-            controller.ShowNotice(T("copied"));
+            controller.ShowNotice(controller.T("copied"));
         } catch (Exception) {
-            controller.ShowNotice(T("copyFailed"), NoticeKind.Error);
+            controller.ShowNotice(controller.T("copyFailed"), NoticeKind.Error);
         }
     }
 
     /// <summary>The page of one person: who they are, and what can be done with them (copy their link, write to them, block).</summary>
     private void BuildMember(ColorTokens c, RoomMemberInfo m)
     {
-        PageBar.Fill(bar, c, T("member.info"), T("chatInfo"), LeaveMember);
+        PageBar.Fill(bar, c, controller.T("member.info"),
+            controller.T("chatInfo"), LeaveMember);
         var me = m.UserId == controller.Store.Value.UserId;
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -179,22 +179,23 @@ public sealed class RoomInfoPanel : Grid {
             TextWrapping = TextWrapping.Wrap,
         });
         content.Children.Add(head);
-        content.Children.Add(ProfilePage.NavRow(c, "copy", T("member.copyLink"),
+        content.Children.Add(ProfilePage.NavRow(c, "copy",
+            controller.T("member.copyLink"),
             () => Copy($"https://matrix.to/#/{m.UserId}"), 12, chevron: false));
         content.Children.Add(ProfilePage.NavRow(c, "copy",
-            T("member.copyAddress"),
+            controller.T("member.copyAddress"),
             () => Copy(m.UserId), 8, chevron: false));
         if (!me) {
             content.Children.Add(ProfilePage.NavRow(c, "chat",
-                T("member.message"),
+                controller.T("member.message"),
                 () => AskMessage(m), 8, chevron: false));
             if (controller.CanVerifyUser)
                 content.Children.Add(ProfilePage.NavRow(c, "lock",
-                    T("member.verify"),
+                    controller.T("member.verify"),
                     () => _ = controller.VerifyUser(m.UserId), 8,
                     chevron: false));
             content.Children.Add(ProfilePage.NavRow(c, "close",
-                T("member.block"),
+                controller.T("member.block"),
                 () => AskBlock(m), 8, chevron: false, danger: true));
         }
     }
@@ -205,10 +206,10 @@ public sealed class RoomInfoPanel : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var start = new PrimaryButton {
-            Title = T("member.message.start")
+            Title = controller.T("member.message.start")
         };
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(start, c);
         ThemeScope.SetColors(cancel, c);
@@ -226,8 +227,8 @@ public sealed class RoomInfoPanel : Grid {
             }
         };
         MemberDialog.Show(window, c,
-            T("member.message.title", ("name", m.Name)),
-            T("member.message.body"), start, cancel);
+            controller.T("member.message.title", ("name", m.Name)),
+            controller.T("member.message.body"), start, cancel);
     }
 
     public void AskBlockForTest(RoomMemberInfo m)
@@ -241,10 +242,10 @@ public sealed class RoomInfoPanel : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var block = new PrimaryButton {
-            Title = T("member.block")
+            Title = controller.T("member.block")
         };
         var cancel = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         ThemeScope.SetColors(block, c);
         ThemeScope.SetColors(cancel, c);
@@ -254,14 +255,15 @@ public sealed class RoomInfoPanel : Grid {
             try {
                 await controller.BlockUser(m.UserId);
                 MemberDialog.Close();
-                controller.ShowNotice(T("member.blocked"));
+                controller.ShowNotice(controller.T("member.blocked"));
             } catch (Exception e) {
                 MemberDialog.Close();
                 controller.ShowNotice(e.Message, NoticeKind.Error);
             }
         };
-        MemberDialog.Show(window, c, T("member.block.title", ("name", m.Name)),
-            T("member.block.body"), block, cancel);
+        MemberDialog.Show(window, c,
+            controller.T("member.block.title", ("name", m.Name)),
+            controller.T("member.block.body"), block, cancel);
     }
 
     private readonly List<Image> mediaThumbs = [];
@@ -297,8 +299,9 @@ public sealed class RoomInfoPanel : Grid {
             return;
         EditPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("room.editName"), "",
-            [new PromptField(T("room.editName"), "users")], T("save"),
+            controller.T("room.editName"), "",
+            [new PromptField(controller.T("room.editName"), "users")],
+            controller.T("save"),
             v => controller.SetRoomName(room.Id, v[0]));
         EditPrompt.Fields[0].Text = room.Name;
     }
@@ -310,9 +313,9 @@ public sealed class RoomInfoPanel : Grid {
             return;
         EditPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("room.editTopic"), "",
-            [new PromptField(T("room.editTopic"), "info", true)],
-            T("save"), v => controller.SetRoomTopic(room.Id, v[0]));
+            controller.T("room.editTopic"), "",
+            [new PromptField(controller.T("room.editTopic"), "info", true)],
+            controller.T("save"), v => controller.SetRoomTopic(room.Id, v[0]));
         EditPrompt.Fields[0].Text = topic ?? "";
     }
 
@@ -323,7 +326,7 @@ public sealed class RoomInfoPanel : Grid {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
         var items = new List<MenuItem> {
-            new(T("member.view"), () => ViewMember(m), Icon: "user"),
+            new(controller.T("member.view"), () => ViewMember(m), Icon: "user"),
         };
         foreach (var role in new[] {
                      MemberRole.Admin, MemberRole.Moderator, MemberRole.Member
@@ -336,17 +339,21 @@ public sealed class RoomInfoPanel : Grid {
                 _ => "makeMember",
             };
             var target = role;
-            items.Add(new MenuItem(T(key), () => AskRole(room, m, target),
+            items.Add(new MenuItem(controller.T(key),
+                () => AskRole(room, m, target),
                 Icon: "user"));
         }
 
         if (controller.Store.Value.Details?.Can.ChangeRoles == true)
-            items.Add(new MenuItem(T("setLevel"), () => AskLevel(room, m),
+            items.Add(new MenuItem(controller.T("setLevel"),
+                () => AskLevel(room, m),
                 Icon: "edit"));
-        items.Add(new MenuItem(T("removeMember"), () => AskRemove(room, m),
+        items.Add(new MenuItem(controller.T("removeMember"),
+            () => AskRemove(room, m),
             Icon: "trash",
             Danger: true));
-        items.Add(new MenuItem(T("ban"), () => AskBan(room, m), Icon: "lock",
+        items.Add(new MenuItem(controller.T("ban"), () => AskBan(room, m),
+            Icon: "lock",
             Danger: true));
         MemberMenu.Show(anchor, window, items);
     }
@@ -362,10 +369,13 @@ public sealed class RoomInfoPanel : Grid {
         var max = mine?.Power ?? 100;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("setLevel"), T("level.custom.body", ("max", max)),
-            [new PromptField(T("level.field"), "info")], T("save"), v => {
+            controller.T("setLevel"),
+            controller.T("level.custom.body", ("max", max)),
+            [new PromptField(controller.T("level.field"), "info")],
+            controller.T("save"), v => {
                 if (!int.TryParse(v[0].Trim(), out var n) || n < 0 || n > max)
-                    throw new InvalidOperationException(T("level.invalid",
+                    throw new InvalidOperationException(controller.T(
+                        "level.invalid",
                         ("max", max)));
                 return controller.SetMemberPower(room.Id, m.UserId, n);
             });
@@ -378,7 +388,7 @@ public sealed class RoomInfoPanel : Grid {
     private void AddBanned(ColorTokens c, RoomSummary room, RoomDetails details)
     {
         content.Children.Add(Section(c,
-            $"{T("banned.title")} · {details.Banned.Count}"));
+            $"{controller.T("banned.title")} · {details.Banned.Count}"));
         foreach (var b in details.Banned) {
             var line = new StackPanel {
                 Margin = new Thickness(20, 6),
@@ -410,7 +420,7 @@ public sealed class RoomInfoPanel : Grid {
                     e.Handled = true;
                     if (TopLevel.GetTopLevel(this) is { } window)
                         BannedMenu.Show(line, window, [
-                            new MenuItem(T("unban"),
+                            new MenuItem(controller.T("unban"),
                                 () => _ =
                                     Run(controller.UnbanMember(room.Id,
                                         banned.UserId)),
@@ -432,15 +442,17 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         var name =
-            T(role == MemberRole.Admin ? "role.admin" : "role.moderator");
+            controller.T(role == MemberRole.Admin
+                ? "role.admin"
+                : "role.moderator");
         var kind = role == MemberRole.Admin ? "admin" : "moderator";
-        var body = T($"role.confirm.{kind}.body");
+        var body = controller.T($"role.confirm.{kind}.body");
         if (role == MemberRole.Admin)
-            body += "\n\n" + T("role.confirm.admin.warn");
+            body += "\n\n" + controller.T("role.confirm.admin.warn");
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T($"role.confirm.{kind}.title"), body, [],
-            T("role.confirm.yes", ("role", name.ToLowerInvariant())),
+            controller.T($"role.confirm.{kind}.title"), body, [],
+            controller.T("role.confirm.yes", ("role", name.ToLowerInvariant())),
             _ => controller.SetMemberRole(room.Id, m.UserId, role));
     }
 
@@ -451,9 +463,11 @@ public sealed class RoomInfoPanel : Grid {
             return;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("removeMember.title", ("name", m.Name)), T("removeMember.body"),
+            controller.T("removeMember.title", ("name", m.Name)),
+            controller.T("removeMember.body"),
             [],
-            T("removeMember"), _ => controller.RemoveMember(room.Id, m.UserId));
+            controller.T("removeMember"),
+            _ => controller.RemoveMember(room.Id, m.UserId));
     }
 
     /// <summary>Asks before a person is banned, with the reason that may be given.</summary>
@@ -463,8 +477,10 @@ public sealed class RoomInfoPanel : Grid {
             return;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("ban.title", ("name", m.Name)), T("ban.body"),
-            [new PromptField(T("ban.reason"), "info", true)], T("ban"),
+            controller.T("ban.title", ("name", m.Name)),
+            controller.T("ban.body"),
+            [new PromptField(controller.T("ban.reason"), "info", true)],
+            controller.T("ban"),
             v => controller.BanMember(room.Id, m.UserId, v[0]));
     }
 
@@ -473,12 +489,13 @@ public sealed class RoomInfoPanel : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        Invite.Show(window, ThemeScope.GetColors(this), T("room.invite"),
-            T("room.inviteBody"),
+        Invite.Show(window, ThemeScope.GetColors(this),
+            controller.T("room.invite"),
+            controller.T("room.inviteBody"),
             true,
             n => n == 0
-                ? T("room.inviteNone")
-                : T("room.inviteAction", ("n", n)),
+                ? controller.T("room.inviteNone")
+                : controller.T("room.inviteAction", ("n", n)),
             ids => controller.InviteToRoom(room.Id, ids));
     }
 
@@ -489,10 +506,10 @@ public sealed class RoomInfoPanel : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
-            Title = T(room.IsDirect ? "deleteChat" : "leaveGroup")
+            Title = controller.T(room.IsDirect ? "deleteChat" : "leaveGroup")
         };
         var no = new TextButton {
-            Title = T("cancel")
+            Title = controller.T("cancel")
         };
         yes.Click += (_, _) => {
             LeaveDialog.Close();
@@ -502,36 +519,13 @@ public sealed class RoomInfoPanel : Grid {
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
         LeaveDialog.Show(window, c,
-            T(room.IsDirect ? "deleteChat.title"
+            controller.T(room.IsDirect ? "deleteChat.title"
                 : room.IsSpace ? "leaveSpace.title" : "leaveGroup.title"),
-            T(room.IsDirect ? "deleteChat.body"
+            controller.T(room.IsDirect ? "deleteChat.body"
                 : room.IsSpace ? "leaveSpace.body" : "leaveGroup.body"),
             yes, no);
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     // The store changes for many reasons (every message, every typing
     // mark); the panel is made again only when a part it shows changed.
@@ -658,7 +652,7 @@ public sealed class RoomInfoPanel : Grid {
 
         stale = false;
         Background = new SolidColorBrush(c.Bg);
-        var close = new IconButton("close", T("cancel"), 22) {
+        var close = new IconButton("close", controller.T("cancel"), 22) {
             Tint = c.TextSecondary
         };
         close.Click += (_, _) => controller.OpenRoomInfo(false);
@@ -667,7 +661,7 @@ public sealed class RoomInfoPanel : Grid {
             Margin = new Thickness(20, 0, 8, 0),
         };
         barRow.Children.Add(new TextBlock {
-            Text = T("chatInfo"),
+            Text = controller.T("chatInfo"),
             FontSize = 17,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
@@ -695,7 +689,8 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         if (gallery && viewingRoom == room.Id) {
-            PageBar.Fill(bar, c, T("sharedMedia"), T("chatInfo"), LeaveGallery);
+            PageBar.Fill(bar, c, controller.T("sharedMedia"),
+                controller.T("chatInfo"), LeaveGallery);
             // Kept while the page is open, so a rebuild (a theme change, a sync) does not ask the server again.
             Gallery ??= new SharedMediaView(controller, room.Id, Viewer);
             content.Children.Add(Gallery);
@@ -726,9 +721,9 @@ public sealed class RoomInfoPanel : Grid {
             Margin = new Thickness(0, 8, 0, 0),
         });
         head.Children.Add(new TextBlock {
-            Text = room.IsDirect ? T("directChat")
-                : room.MemberCount == 1 ? T("member.one")
-                : T("members", ("n", room.MemberCount)),
+            Text = room.IsDirect ? controller.T("directChat")
+                : room.MemberCount == 1 ? controller.T("member.one")
+                : controller.T("members", ("n", room.MemberCount)),
             FontSize = 15,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
@@ -751,7 +746,7 @@ public sealed class RoomInfoPanel : Grid {
         PhotoButton = null;
         if (!room.IsDirect) {
             PhotoButton = new TextButton {
-                Title = T("room.changePhoto")
+                Title = controller.T("room.changePhoto")
             };
             PhotoButton.Click += (_, _) => _ = ChangePhoto(room);
             ThemeScope.SetColors(PhotoButton, c);
@@ -761,7 +756,8 @@ public sealed class RoomInfoPanel : Grid {
         LeaveButton = null;
         if (!room.IsDirect) {
             EditNameButton = new TextButton {
-                Title = T("room.editName") + " · " + T("modify")
+                Title = controller.T("room.editName") + " · " +
+                        controller.T("modify")
             };
             EditNameButton.Click += (_, _) => AskName(room);
             ThemeScope.SetColors(EditNameButton, c);
@@ -769,9 +765,9 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         if (details.Topic is not null || !room.IsDirect) {
-            content.Children.Add(Section(c, T("topic")));
+            content.Children.Add(Section(c, controller.T("topic")));
             content.Children.Add(new TextBlock {
-                Text = details.Topic ?? T("room.noTopic"),
+                Text = details.Topic ?? controller.T("room.noTopic"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
@@ -780,7 +776,8 @@ public sealed class RoomInfoPanel : Grid {
             });
             if (!room.IsDirect) {
                 EditTopicButton = new TextButton {
-                    Title = T("room.editTopic") + " · " + T("modify")
+                    Title = controller.T("room.editTopic") + " · " +
+                            controller.T("modify")
                 };
                 EditTopicButton.Click += (_, _) =>
                     AskTopic(room, details.Topic);
@@ -790,15 +787,17 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         if (!room.IsSpace) {
-            content.Children.Add(SettingRow(c, T("encryption"),
-                T(details.IsEncrypted ? "room.encrypted" : "room.notEncrypted"),
+            content.Children.Add(SettingRow(c, controller.T("encryption"),
+                controller.T(details.IsEncrypted
+                    ? "room.encrypted"
+                    : "room.notEncrypted"),
                 details.IsEncrypted ? "lock" : "info", null));
         }
 
         InviteButton = null;
         if (!room.IsDirect) {
             InviteButton = new TextButton {
-                Title = T("room.invite")
+                Title = controller.T("room.invite")
             };
             InviteButton.Click += (_, _) => AskInvite(room);
             ThemeScope.SetColors(InviteButton, c);
@@ -806,7 +805,7 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         if (!room.IsDirect) {
-            content.Children.Add(Section(c, T("access.title")));
+            content.Children.Add(Section(c, controller.T("access.title")));
             AddAccessSettings(c, room, details);
         }
 
@@ -816,7 +815,7 @@ public sealed class RoomInfoPanel : Grid {
         AddShared(c, s.Timeline);
         if (!room.IsDirect && details.Banned.Count > 0)
             AddBanned(c, room, details);
-        content.Children.Add(Section(c, T("membersTitle")));
+        content.Children.Add(Section(c, controller.T("membersTitle")));
         // A big room has a thousand members; the rows come a page at a time.
         if (memberRoom != room.Id) {
             memberRoom = room.Id;
@@ -833,7 +832,7 @@ public sealed class RoomInfoPanel : Grid {
 
         content.Children.Add(membersHost);
         LeaveButton = new TextButton {
-            Title = T(room.IsDirect ? "deleteChat" : "leaveGroup"),
+            Title = controller.T(room.IsDirect ? "deleteChat" : "leaveGroup"),
             Margin = new Thickness(0, 16, 0, 0),
         };
         LeaveButton.Click += (_, _) => AskLeave(room);
@@ -852,32 +851,34 @@ public sealed class RoomInfoPanel : Grid {
         var can = details.Can.ChangeSettings;
         var joinLabel = JoinKey(details.JoinRule);
         Border? joinRow = null;
-        joinRow = SettingRow(c, T("join.title"), T(joinLabel), "lock", can
-            ? () => {
-                if (TopLevel.GetTopLevel(this) is not { } window)
-                    return;
-                MemberMenu.Show(joinRow!, window, [
-                    .. new[] {
-                        JoinRule.Public, JoinRule.Invite
-                    }.Select(r =>
-                        new MenuItem(T(JoinKey(r)),
-                            () => _ = Run(controller.SetJoinRule(room.Id, r)),
-                            Checked: details.JoinRule == r))
-                ]);
-            }
-            : null);
+        joinRow = SettingRow(c, controller.T("join.title"),
+            controller.T(joinLabel), "lock", can
+                ? () => {
+                    if (TopLevel.GetTopLevel(this) is not { } window)
+                        return;
+                    MemberMenu.Show(joinRow!, window, [
+                        .. new[] {
+                            JoinRule.Public, JoinRule.Invite
+                        }.Select(r =>
+                            new MenuItem(controller.T(JoinKey(r)),
+                                () => _ =
+                                    Run(controller.SetJoinRule(room.Id, r)),
+                                Checked: details.JoinRule == r))
+                    ]);
+                }
+                : null);
         content.Children.Add(joinRow);
 
         Border? historyRow = null;
-        historyRow = SettingRow(c, T("history.title"),
-            T(HistoryKey(details.HistoryVisibility)),
+        historyRow = SettingRow(c, controller.T("history.title"),
+            controller.T(HistoryKey(details.HistoryVisibility)),
             "clock", can
                 ? () => {
                     if (TopLevel.GetTopLevel(this) is not { } window)
                         return;
                     MemberMenu.Show(historyRow!, window, [
                         .. Enum.GetValues<HistoryVisibility>().Select(v =>
-                            new MenuItem(T(HistoryKey(v)),
+                            new MenuItem(controller.T(HistoryKey(v)),
                                 () => _ =
                                     Run(controller.SetHistoryVisibility(room.Id,
                                         v)),
@@ -886,29 +887,32 @@ public sealed class RoomInfoPanel : Grid {
                 }
                 : null);
         content.Children.Add(historyRow);
-        content.Children.Add(Hint(c, T(details.JoinRule == JoinRule.Public
-            ? "join.public.hint"
-            : "join.invite.hint")));
+        content.Children.Add(Hint(c, controller.T(
+            details.JoinRule == JoinRule.Public
+                ? "join.public.hint"
+                : "join.invite.hint")));
 
         if (details.Aliases.Count > 0 || can) {
-            content.Children.Add(Section(c, T("addresses.title")));
+            content.Children.Add(Section(c, controller.T("addresses.title")));
             for (var i = 0; i < details.Aliases.Count; i++) {
                 var alias = details.Aliases[i];
                 Border? row = null;
-                row = SettingRow(c, alias, i == 0 ? T("address.main") : "",
+                row = SettingRow(c, alias,
+                    i == 0 ? controller.T("address.main") : "",
                     "hash", can
                         ? () => {
                             if (TopLevel.GetTopLevel(this) is not { } window)
                                 return;
                             var items = new List<MenuItem>();
                             if (i0(details, alias) != 0)
-                                items.Add(new MenuItem(T("address.makeMain"),
+                                items.Add(new MenuItem(
+                                    controller.T("address.makeMain"),
                                     () => AskMainAlias(room, details, alias),
                                     Icon: "hash"));
                             items.Add(new MenuItem(
                                 Foreign(alias, details)
-                                    ? T("address.unlist")
-                                    : T("address.remove"),
+                                    ? controller.T("address.unlist")
+                                    : controller.T("address.remove"),
                                 () => AskRemoveAlias(room, details, alias,
                                     false), Icon: "close", Danger: true));
                             MemberMenu.Show(row!, window, items);
@@ -918,12 +922,13 @@ public sealed class RoomInfoPanel : Grid {
             }
 
             if (can)
-                content.Children.Add(SettingRow(c, T("address.add"), "", "plus",
+                content.Children.Add(SettingRow(c, controller.T("address.add"),
+                    "", "plus",
                     () => AskAddAlias(room)));
-            content.Children.Add(Hint(c, T("addresses.footer")));
+            content.Children.Add(Hint(c, controller.T("addresses.footer")));
         }
 
-        content.Children.Add(Section(c, T("perm.title")));
+        content.Children.Add(Section(c, controller.T("perm.title")));
         var myRole = details.Members
             .FirstOrDefault(m => m.UserId == controller.Store.Value.UserId)
             ?.Role ?? MemberRole.Member;
@@ -961,29 +966,32 @@ public sealed class RoomInfoPanel : Grid {
             var current = get(levels);
             var editable = details.Can.ChangeRoles && current <= myPower;
             Border? row = null;
-            row = SettingRow(c, T(key), LevelLabel(current), "info", editable
-                ? () => {
-                    if (TopLevel.GetTopLevel(this) is not { } window)
-                        return;
-                    var presets = new[] {
-                        0, 50, 100
-                    }.Where(n => n <= myPower).ToList();
-                    var items = presets.Select(n => new MenuItem(LevelLabel(n),
-                        () => _ =
-                            Run(controller.SetPowerThresholds(room.Id,
-                                set(levels, n))),
-                        Checked: current == n)).ToList();
-                    items.Add(new MenuItem(T("level.customAction"),
-                        () => AskLevel(room, current, myPower,
-                            n => set(levels, n)),
-                        Checked: !presets.Contains(current)));
-                    MemberMenu.Show(row!, window, items);
-                }
-                : null);
+            row = SettingRow(c, controller.T(key), LevelLabel(current), "info",
+                editable
+                    ? () => {
+                        if (TopLevel.GetTopLevel(this) is not { } window)
+                            return;
+                        var presets = new[] {
+                            0, 50, 100
+                        }.Where(n => n <= myPower).ToList();
+                        var items = presets.Select(n =>
+                            new MenuItem(LevelLabel(n),
+                                () => _ =
+                                    Run(controller.SetPowerThresholds(room.Id,
+                                        set(levels, n))),
+                                Checked: current == n)).ToList();
+                        items.Add(new MenuItem(
+                            controller.T("level.customAction"),
+                            () => AskLevel(room, current, myPower,
+                                n => set(levels, n)),
+                            Checked: !presets.Contains(current)));
+                        MemberMenu.Show(row!, window, items);
+                    }
+                    : null);
             content.Children.Add(row);
         }
 
-        content.Children.Add(Hint(c, T("perm.footer")));
+        content.Children.Add(Hint(c, controller.T("perm.footer")));
     }
 
     private static int i0(RoomDetails d, string alias) =>
@@ -1018,10 +1026,10 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>"Admin · 100", "Moderator · 50", "Member · 0" or "Level 25".</summary>
     private string LevelLabel(int level)
     {
-        return level >= 100 ? $"{T("role.admin")} · {level}"
-            : level == 50 ? $"{T("role.moderator")} · 50"
-            : level == 0 ? $"{T("role.member")} · 0"
-            : T("level.custom", ("n", level));
+        return level >= 100 ? $"{controller.T("role.admin")} · {level}"
+            : level == 50 ? $"{controller.T("role.moderator")} · 50"
+            : level == 0 ? $"{controller.T("role.member")} · 0"
+            : controller.T("level.custom", ("n", level));
     }
 
     private TextBlock Hint(ColorTokens c, string text)
@@ -1044,7 +1052,7 @@ public sealed class RoomInfoPanel : Grid {
         } catch (EngineException e) {
             controller.ShowNotice(
                 e.Code == EngineErrorCode.Forbidden
-                    ? T("notAllowed")
+                    ? controller.T("notAllowed")
                     : e.Message,
                 NoticeKind.Error);
         }
@@ -1058,33 +1066,35 @@ public sealed class RoomInfoPanel : Grid {
         var server = ServerOf(controller.Store.Value.UserId ?? "");
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("address.add"), T("address.add.body"),
-            [new PromptField(T("address.localpart"), "hash")],
-            T("address.add.confirm"),
+            controller.T("address.add"), controller.T("address.add.body"),
+            [new PromptField(controller.T("address.localpart"), "hash")],
+            controller.T("address.add.confirm"),
             async v => {
                 var name = v[0].Trim().TrimStart('#');
                 if (name.Length == 0 ||
                     !System.Text.RegularExpressions.Regex.IsMatch(name,
                         "^[a-zA-Z0-9._=/+-]+$"))
-                    throw new InvalidOperationException(T("address.invalid"));
+                    throw new InvalidOperationException(
+                        controller.T("address.invalid"));
                 var alias = $"#{name}:{server}";
                 bool free;
                 try {
                     free = await controller.IsAliasAvailable(alias);
                 } catch (Exception) {
                     throw new InvalidOperationException(
-                        T("address.check.failed"));
+                        controller.T("address.check.failed"));
                 }
 
                 if (!free)
-                    throw new InvalidOperationException(T("address.taken"));
+                    throw new InvalidOperationException(
+                        controller.T("address.taken"));
                 try {
                     await controller.AddRoomAlias(room.Id, alias);
                 } catch (EngineException e) {
                     throw new InvalidOperationException(
                         e.Code == EngineErrorCode.Forbidden
-                            ? T("notAllowed")
-                            : T("address.invalid"));
+                            ? controller.T("notAllowed")
+                            : controller.T("address.invalid"));
                 }
             });
     }
@@ -1093,13 +1103,14 @@ public sealed class RoomInfoPanel : Grid {
     {
         if (TopLevel.GetTopLevel(this) is not { } window)
             return;
-        var body = T("address.main.body");
+        var body = controller.T("address.main.body");
         if (d.Aliases.Count > 0 && d.Aliases[0] != alias)
-            body += " " + T("address.main.old", ("alias", d.Aliases[0]));
+            body += " " +
+                    controller.T("address.main.old", ("alias", d.Aliases[0]));
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("address.main.title"), body + "\n\n" + alias, [],
-            T("address.main.yes"),
+            controller.T("address.main.title"), body + "\n\n" + alias, [],
+            controller.T("address.main.yes"),
             _ => controller.SetMainAlias(room.Id, alias));
     }
 
@@ -1115,12 +1126,16 @@ public sealed class RoomInfoPanel : Grid {
         var locale = controller.Store.Value.Locale;
         if (!sure) {
             MemberPrompt.Show(window, colors, locale,
-                foreign ? T("address.unlist.title") : T("address.remove.title"),
+                foreign
+                    ? controller.T("address.unlist.title")
+                    : controller.T("address.remove.title"),
                 (foreign
-                    ? T("address.unlist.body", ("server", server))
-                    : T("address.remove.body"))
+                    ? controller.T("address.unlist.body", ("server", server))
+                    : controller.T("address.remove.body"))
                 + "\n\n" + alias, [],
-                foreign ? T("address.unlist") : T("address.remove"),
+                foreign
+                    ? controller.T("address.unlist")
+                    : controller.T("address.remove"),
                 _ => {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         AskRemoveAlias(room, d, alias, true));
@@ -1130,23 +1145,29 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         var warn = foreign
-            ? T("address.unlist.warn", ("server", server))
-            : T("address.remove.warn");
+            ? controller.T("address.unlist.warn", ("server", server))
+            : controller.T("address.remove.warn");
         if (d.Aliases.Count > 0 && d.Aliases[0] == alias)
-            warn += " " + T("address.remove.main", ("next", d.Aliases.Count > 1
-                ? T("address.remove.next", ("alias", d.Aliases[1]))
-                : T("address.remove.none")));
+            warn += " " + controller.T("address.remove.main", ("next",
+                d.Aliases.Count > 1
+                    ? controller.T("address.remove.next",
+                        ("alias", d.Aliases[1]))
+                    : controller.T("address.remove.none")));
         MemberPrompt.Show(window, colors, locale,
-            foreign ? T("address.unlist.title2") : T("address.remove.title2"),
+            foreign
+                ? controller.T("address.unlist.title2")
+                : controller.T("address.remove.title2"),
             warn + "\n\n" + alias, [],
-            foreign ? T("address.unlist.yes") : T("address.remove.yes"),
+            foreign
+                ? controller.T("address.unlist.yes")
+                : controller.T("address.remove.yes"),
             async _ => {
                 await controller.RemoveRoomAlias(room.Id, alias);
                 if (!foreign &&
                     controller.Store.Value.Details?.Aliases.Contains(alias) ==
                     true)
                     controller.ShowNotice(
-                        T("address.remove.kept", ("alias", alias)),
+                        controller.T("address.remove.kept", ("alias", alias)),
                         NoticeKind.Error);
             });
     }
@@ -1159,10 +1180,13 @@ public sealed class RoomInfoPanel : Grid {
             return;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            T("level.customAction"), T("level.custom.body", ("max", max)),
-            [new PromptField(T("level.field"), "info")], T("save"), v => {
+            controller.T("level.customAction"),
+            controller.T("level.custom.body", ("max", max)),
+            [new PromptField(controller.T("level.field"), "info")],
+            controller.T("save"), v => {
                 if (!int.TryParse(v[0].Trim(), out var n) || n < 0 || n > max)
-                    throw new InvalidOperationException(T("level.invalid",
+                    throw new InvalidOperationException(controller.T(
+                        "level.invalid",
                         ("max", max)));
                 return controller.SetPowerThresholds(room.Id, make(n));
             });
@@ -1233,7 +1257,7 @@ public sealed class RoomInfoPanel : Grid {
         if (details.Members.Count <= memberLimit)
             return;
         var more = new TextButton {
-            Title = T("members.more",
+            Title = controller.T("members.more",
                 ("n", Math.Min(MemberPage,
                     details.Members.Count - memberLimit)))
         };
@@ -1253,12 +1277,13 @@ public sealed class RoomInfoPanel : Grid {
             .Take(MediaShown).ToList();
         var files = timeline.Where(i => i.File is not null).Reverse()
             .Take(FilesShown).ToList();
-        sharedHost.Children.Add(Section(c, T("sharedMedia")));
-        sharedHost.Children.Add(ProfilePage.NavRow(c, "image", T("viewAll"),
+        sharedHost.Children.Add(Section(c, controller.T("sharedMedia")));
+        sharedHost.Children.Add(ProfilePage.NavRow(c, "image",
+            controller.T("viewAll"),
             OpenGallery, 0));
         if (pictures.Count == 0 && files.Count == 0) {
             sharedHost.Children.Add(new TextBlock {
-                Text = T("media.none"),
+                Text = controller.T("media.none"),
                 FontSize = 15,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
@@ -1308,7 +1333,7 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         if (files.Count > 0) {
-            sharedHost.Children.Add(Section(c, T("sharedFiles")));
+            sharedHost.Children.Add(Section(c, controller.T("sharedFiles")));
             foreach (var item in files) {
                 var row = new Grid {
                     ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
@@ -1383,7 +1408,7 @@ public sealed class RoomInfoPanel : Grid {
         grid.Children.Add(name);
         if (m.Role != MemberRole.Member) {
             var role = new TextBlock {
-                Text = T(m.Role == MemberRole.Admin
+                Text = controller.T(m.Role == MemberRole.Admin
                     ? "role.admin"
                     : "role.moderator"),
                 FontSize = 13,

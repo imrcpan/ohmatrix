@@ -4,7 +4,6 @@ using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -62,9 +61,6 @@ public sealed class MessageResultsView : StackPanel {
 
     /// <summary>Whether the term is long enough to search.</summary>
     public static bool Active(string term) => term.Trim().Length >= 2;
-
-    private string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
 
     /// <summary>Searches for a term after a short pause in the typing; fewer than two characters clears the results.</summary>
     public void SetTerm(string value)
@@ -126,7 +122,7 @@ public sealed class MessageResultsView : StackPanel {
             Children.Clear();
             builtHits = [];
             builtTerm = null;
-            Children.Add(Note(c, T("search.hint"), 14, 24));
+            Children.Add(Note(c, controller.T("search.hint"), 14, 24));
             return;
         }
 
@@ -163,10 +159,10 @@ public sealed class MessageResultsView : StackPanel {
                 HorizontalAlignment = HorizontalAlignment.Center
             });
         else if (results is { Count: 0 })
-            Children.Add(Note(c, T("search.empty"), 15, 24));
+            Children.Add(Note(c, controller.T("search.empty"), 15, 24));
         if (!busy && next is not null) {
             var more = new TextButton {
-                Title = T("search.more"),
+                Title = controller.T("search.more"),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
             more.Click += (_, _) => _ = Load(next);

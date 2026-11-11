@@ -204,29 +204,6 @@ public sealed class LoginScreen : Grid {
         Children.Add(zoomButton);
     }
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     private bool Busy => controller.Store.Value.Auth == AuthStatus.SigningIn;
 
@@ -246,22 +223,27 @@ public sealed class LoginScreen : Grid {
             return null;
         var code = s.AuthErrorCode;
         if (code == EngineErrorCode.Network)
-            return T("login.network", ("server", homeserver.Text.Trim()));
+            return controller.T("login.network",
+                ("server", homeserver.Text.Trim()));
         if (creating) {
             return code switch {
-                EngineErrorCode.TokenRequired => T("register.tokenNeeded"),
-                EngineErrorCode.TokenInvalid => T("register.tokenWrong"),
-                EngineErrorCode.Conflict => T("register.taken"),
-                EngineErrorCode.Forbidden => T("register.closed"),
-                EngineErrorCode.Unsupported => T("register.unsupported"),
+                EngineErrorCode.TokenRequired => controller.T(
+                    "register.tokenNeeded"),
+                EngineErrorCode.TokenInvalid => controller.T(
+                    "register.tokenWrong"),
+                EngineErrorCode.Conflict => controller.T("register.taken"),
+                EngineErrorCode.Forbidden => controller.T("register.closed"),
+                EngineErrorCode.Unsupported => controller.T(
+                    "register.unsupported"),
                 _ => s.AuthError,
             };
         }
 
         return code switch {
-            EngineErrorCode.Forbidden or EngineErrorCode.Unauthorized => T(
-                "login.rejected"),
-            EngineErrorCode.Conflict => T("login.exists"),
+            EngineErrorCode.Forbidden or EngineErrorCode.Unauthorized =>
+                controller.T(
+                    "login.rejected"),
+            EngineErrorCode.Conflict => controller.T("login.exists"),
             _ => s.AuthError,
         };
     }
@@ -321,41 +303,49 @@ public sealed class LoginScreen : Grid {
         mismatchText.Foreground = new SolidColorBrush(c.Danger);
         errorText.Foreground = new SolidColorBrush(c.Danger);
 
-        title.Text = T("welcome.title");
-        subtitle.Text = creating ? T("register.title") : T("welcome.subtitle");
-        homeserver.Label = T("homeserver");
-        username.Label = T("username");
-        password.Label = T("password");
-        confirm.Label = T("register.confirm");
+        title.Text = controller.T("welcome.title");
+        subtitle.Text = creating
+            ? controller.T("register.title")
+            : controller.T("welcome.subtitle");
+        homeserver.Label = controller.T("homeserver");
+        username.Label = controller.T("username");
+        password.Label = controller.T("password");
+        confirm.Label = controller.T("register.confirm");
         // Setting the reveal button hides the text again, so only when its labels change.
         if (revealLocale != s.Locale) {
             revealLocale = s.Locale;
-            password.Reveal = (T("password.show"), T("password.hide"));
-            confirm.Reveal = (T("password.show"), T("password.hide"));
+            password.Reveal = (controller.T("password.show"),
+                controller.T("password.hide"));
+            confirm.Reveal = (controller.T("password.show"),
+                controller.T("password.hide"));
         }
 
-        token.Label = T("register.token");
+        token.Label = controller.T("register.token");
         confirm.IsVisible = creating;
         token.IsVisible = creating;
 
-        mismatchText.Text = T("register.mismatch");
+        mismatchText.Text = controller.T("register.mismatch");
         mismatchText.IsVisible = Mismatched;
         errorText.Text = WordedError();
         errorText.IsVisible = !string.IsNullOrEmpty(errorText.Text);
 
-        submitButton.Title = creating ? T("register.submit") : T("signIn");
+        submitButton.Title = creating
+            ? controller.T("register.submit")
+            : controller.T("signIn");
         submitButton.Loading = Busy;
         submitButton.Disabled = !Ready;
         toggleButton.Title =
-            creating ? T("register.back") : T("register.toggle");
+            creating
+                ? controller.T("register.back")
+                : controller.T("register.toggle");
         backButton.IsVisible = back is not null && !Busy;
         backButton.Title = back?.Label ?? "";
 
         var language = Strings.Languages.FirstOrDefault(l => l.Id == s.Locale)
                        ?? Strings.Languages[0];
         languageButton.Text = language.Label;
-        languageButton.Description = T("language");
+        languageButton.Description = controller.T("language");
         zoomButton.Text = $"{Math.Round(s.Prefs.UiScale * 100)}%";
-        zoomButton.Description = T("zoom");
+        zoomButton.Description = controller.T("zoom");
     }
 }

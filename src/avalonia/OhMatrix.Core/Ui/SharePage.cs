@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -72,29 +71,6 @@ public sealed class SharePage : Grid {
     public bool Sending => sending;
     public int Failed => failed;
 
-    internal string T(string key) =>
-        Strings.T(controller.Store.Value.Locale, key);
-
-    internal string T(string key, (string, string) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, long) a) =>
-        Strings.T(controller.Store.Value.Locale, key, a);
-
-    internal string T(string key, (string, string) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, string) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, string) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, (string, long) a, (string, long) b) =>
-        Strings.T(controller.Store.Value.Locale, key, a, b);
-
-    internal string T(string key, params (string, object)[] values) =>
-        Strings.T(controller.Store.Value.Locale, key, values);
 
     /// <summary>The chats that can be posted in, in the order of the list.</summary>
     public IReadOnlyList<RoomSummary> Postable =>
@@ -144,13 +120,13 @@ public sealed class SharePage : Grid {
                 ShowConfirm(window);
             }));
         var send = new PrimaryButton {
-            Title = T("send.files.send"),
+            Title = controller.T("send.files.send"),
             Loading = sending,
             IsEnabled = keep.Count > 0 && !sending,
         };
         send.Click += async (_, _) => await Send();
         var back = new TextButton {
-            Title = T("back")
+            Title = controller.T("back")
         };
         back.Click += (_, _) => confirmDialog.Close();
         ThemeScope.SetColors(send, c);
@@ -163,7 +139,7 @@ public sealed class SharePage : Grid {
         };
         if (failed > 0)
             content.Add(new TextBlock {
-                Text = T("forward.failed", ("n", failed)),
+                Text = controller.T("forward.failed", ("n", failed)),
                 Foreground = new SolidColorBrush(c.Danger),
                 FontSize = 14,
                 FontFamily = Fonts.System,
@@ -171,7 +147,8 @@ public sealed class SharePage : Grid {
             });
         content.Add(send);
         content.Add(back);
-        confirmDialog.Show(window, c, T("forward.confirm"), null, [.. content]);
+        confirmDialog.Show(window, c, controller.T("forward.confirm"), null,
+            [.. content]);
     }
 
     /// <summary>Sends to each kept chat in turn; the ones that failed stay chosen.</summary>
@@ -267,17 +244,17 @@ public sealed class SharePage : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
-        describe.Text = s.Share.Describe((k, v) => T(k, v));
+        describe.Text = s.Share.Describe(controller.T);
         describe.Foreground = new SolidColorBrush(c.TextSecondary);
-        filter.Placeholder = T("search");
-        var close = new IconButton("close", T("cancel"), 22) {
+        filter.Placeholder = controller.T("search");
+        var close = new IconButton("close", controller.T("cancel"), 22) {
             Tint = c.TextSecondary
         };
         close.Click += (_, _) => Cancel();
         var next = new TextButton {
             Title = picked.Count > 0
-                ? $"{T("send.files.send")} ({picked.Count})"
-                : T("send.files.send"),
+                ? $"{controller.T("send.files.send")} ({picked.Count})"
+                : controller.T("send.files.send"),
             IsEnabled = picked.Count > 0,
         };
         next.Click += (_, _) => Confirm();
@@ -288,7 +265,7 @@ public sealed class SharePage : Grid {
         };
         row.Children.Add(close);
         var title = new TextBlock {
-            Text = T("share.title"),
+            Text = controller.T("share.title"),
             FontSize = 20,
             FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,

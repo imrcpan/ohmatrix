@@ -5,7 +5,6 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 
@@ -102,11 +101,6 @@ public sealed class LogPage : Grid {
     public TextButton CopyButton => copy;
     public TextButton ClearButton => clear;
 
-    private string T(string key)
-    {
-        return Strings.T(controller.Store.Value.Locale, key);
-    }
-
     private void Apply()
     {
         if (!this.IsAttachedToVisualTree()) {
@@ -118,14 +112,15 @@ public sealed class LogPage : Grid {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, T("logs"), T("advanced.options"),
+        PageBar.Fill(bar, c, controller.T("logs"),
+            controller.T("advanced.options"),
             () => controller.OpenSidebarPage(SidebarPage.Advanced));
-        copy.Title = copied ? T("copied") : T("copy");
-        clear.Title = T("logs.clear");
+        copy.Title = copied ? controller.T("copied") : controller.T("copy");
+        clear.Title = controller.T("logs.clear");
         ThemeScope.SetColors(copy, c);
         ThemeScope.SetColors(clear, c);
         var all = AppLog.Snapshot();
-        empty.Text = T("logs.empty");
+        empty.Text = controller.T("logs.empty");
         empty.IsVisible = all.Count == 0;
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
         empty.FontFamily = Fonts.System;

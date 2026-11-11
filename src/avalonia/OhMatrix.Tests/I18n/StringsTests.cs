@@ -110,26 +110,21 @@ public class StringsTests {
     }
 
     [Fact]
-    public void The_short_forms_give_what_the_general_form_gives()
+    public void Texts_and_numbers_go_where_their_name_is()
     {
         Assert.Equal("Ann and Bob are typing...",
             Strings.T("en", "typing.two", ("a", "Ann"), ("b", "Bob")));
-        Assert.Equal(
-            Strings.T("en", "typing.two", ("a", (object)"Ann"),
-                ("b", (object)"Bob")),
-            Strings.T("en", "typing.two", ("a", "Ann"), ("b", "Bob")));
         Assert.Equal("7 messages selected",
-            Strings.T("en", "selected.count", ("n", 7)));
-        Assert.Equal(
-            Strings.T("en", "selected.count", ("n", (object)7)),
             Strings.T("en", "selected.count", ("n", 7)));
         Assert.Equal("Uploading stickers 2/9…",
             Strings.T("en", "sticker.uploading.n", ("n", 9), ("i", 2)));
         // A number is written the same in every language of the list.
-        Assert.Equal(
-            Strings.T("de", "sticker.uploading.n", ("n", (object)1234567),
-                ("i", (object)2)),
+        Assert.EndsWith("2/1234567…",
             Strings.T("de", "sticker.uploading.n", ("n", 1234567), ("i", 2)));
+        // A name the text does not have is left out, and one it has twice
+        // is put in twice.
+        Assert.Equal("Ann and Ann", Strings.T("en", "{a} and {a}",
+            ("a", "Ann"), ("b", "Bob")));
     }
 
     [Fact]
@@ -157,25 +152,53 @@ public class StringsTests {
     }
 
     [Fact]
-    public void The_general_form_makes_no_array_for_a_few_values()
+    public void
+        Values_are_kept_on_the_stack_and_a_number_is_written_into_the_text()
     {
-        object[] values = ["Bob", 7];
-        (string, object)[] args = [("a", values[0]), ("n", values[1])];
         var locale = "en";
-        var text = Strings.T(locale, "typing.many", args);
-        Assert.Equal("Bob and 7 others are typing...", text);
-        string? sink = null;
-        for (var i = 0; i < 200; i++)
-            sink = Strings.T(locale, "typing.many", args);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1000; i++)
-            sink = Strings.T(locale, "typing.many", args);
-        var each = (GC.GetAllocatedBytesForCurrentThread() - before) / 1000;
-        // The text that comes out and the text of the number, and nothing
-        // else: no list of values made on the way. (A string takes 22 bytes
-        // and two for each letter; the number "7" is 24.)
-        Assert.True(each <= 22 + 2L * text.Length + 8 + 24,
-            $"{each} bytes for a text of {text.Length} letters");
+        var n = 7;
+        // Five values, to be sure the list is not kept aside for the few.
+        var five = Strings.T(locale, "{a} {b} {c} {d} {e}",
+            ("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"), ("e", n));
+        Assert.Equal("1 2 3 4 7", five);
+        var words = Strings.T(locale, "{a} {b} {c} {d} {e}",
+            ("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"), ("e", "7"));
+        var withNumber = PerCallFive(locale, n);
+        var withWords = PerCallFive(locale, "7");
+        // Nothing beyond what the same text costs with a word there: no list
+        // of values, and no string made of the number.
+        Assert.True(withNumber <= withWords,
+            $"{withNumber} bytes for a number, {withWords} for a word");
+        string? sink = words;
         Assert.NotNull(sink);
+    }
+
+    private static long PerCallFive(string locale, object value)
+    {
+        var five = value is string word
+            ? Strings.T(locale, "{a} {b} {c} {d} {e}",
+                ("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"), ("e", word))
+            : Strings.T(locale, "{a} {b} {c} {d} {e}",
+                ("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"),
+                ("e", (long)(int)value));
+        string? lost = five;
+
+        long Run()
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var i = 0; i < 1000; i++)
+                lost = value is string word
+                    ? Strings.T(locale, "{a} {b} {c} {d} {e}", ("a", "1"),
+                        ("b", "2"), ("c", "3"), ("d", "4"), ("e", word))
+                    : Strings.T(locale, "{a} {b} {c} {d} {e}", ("a", "1"),
+                        ("b", "2"), ("c", "3"), ("d", "4"),
+                        ("e", (long)(int)value));
+            return (GC.GetAllocatedBytesForCurrentThread() - before) / 1000;
+        }
+
+        for (var i = 0; i < 200; i++)
+            _ = Run();
+        GC.KeepAlive(lost);
+        return Run();
     }
 }

@@ -63,11 +63,6 @@ public sealed class ThemePage : Grid {
 
     public WrapPanel Cards => cards;
 
-    private string T(string key)
-    {
-        return Strings.T(controller.Store.Value.Locale, key);
-    }
-
     // The page shows the language, the chosen theme, the themes there are
     // and the font; the store changes for many other reasons.
     private string? seenLocale;
@@ -91,14 +86,14 @@ public sealed class ThemePage : Grid {
         seenThemes = Themes.All();
         seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, T("theme"), T("settings"),
+        PageBar.Fill(bar, c, controller.T("theme"), controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings));
 
         previewHost.Child = Preview(c, s.Locale);
         cards.Children.Clear();
         var light = Themes.Get("light")!;
         var dark = Themes.Get("dark")!;
-        cards.Children.Add(Card(c, Themes.System, T("theme.system"),
+        cards.Children.Add(Card(c, Themes.System, controller.T("theme.system"),
             s.Prefs.Theme,
             SystemPreview(light, dark)));
         foreach (var def in Themes.All())
