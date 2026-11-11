@@ -99,4 +99,50 @@ public class AppRootTests {
         var zoom = (LayoutTransformControl)root.Child!;
         Assert.Equal(2, ((ScaleTransform)zoom.LayoutTransform!).ScaleX);
     }
+
+    // The lines of the log written since the marker.
+    private static List<string> LoggedAfter(string marker)
+    {
+        var log = OhMatrix.Core.State.LogLine
+            .Parse(OhMatrix.Infra.Logging.Logger.GetDefault().ReadLog())
+            .Select(l => l.Text).ToList();
+        return log[(log.LastIndexOf(marker) + 1)..];
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, "Dark")]
+    [InlineData(false, "Light")]
+    [InlineData(null, "Unknown")]
+    public void The_log_says_the_system_theme_is_followed_and_what_it_is(
+        bool? dark, string told)
+    {
+        OhMatrix.Infra.Logging.Logger.GetDefault()
+            .Info("marker system " + told);
+        var controller = new AppController(new Engine(),
+            new FileSessionStore(Directory_()));
+        _ = new AppRoot(controller, "matrix.org", () => dark);
+        Assert.Equal([
+            "No theme set in config. Follow system default.",
+            "Detect system theme: " + told,
+        ], LoggedAfter("marker system " + told));
+    }
+
+    [AvaloniaFact]
+    public async Task The_log_says_a_theme_of_the_preferences_is_used()
+    {
+        var dir = Directory_();
+        var first = new AppController(new Engine(), new FileSessionStore(dir),
+            new FilePreferencesStore(dir));
+        first.SetPreferences(p => p with {
+            Theme = "dark"
+        });
+        await Task.Delay(100);
+        OhMatrix.Infra.Logging.Logger.GetDefault().Info("marker chosen");
+        var controller = new AppController(new Engine(),
+            new FileSessionStore(dir), new FilePreferencesStore(dir));
+        await controller.Bootstrap();
+        _ = new AppRoot(controller, "matrix.org", () => false);
+        // The system is not asked about, nor told of.
+        Assert.Equal(["Use theme dark."], LoggedAfter("marker chosen"));
+    }
 }

@@ -6,6 +6,7 @@ using OhMatrix.Core;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Storage;
 using OhMatrix.Core.Ui;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Desktop;
 
@@ -87,6 +88,15 @@ public class App : Application {
                         }
                 );
                 desktop.MainWindow.Content = root;
+                // The system can change its theme while the app runs, and can
+                // answer late: both are told, and the root draws again.
+                if (PlatformSettings is { } settings)
+                    settings.ColorValuesChanged += (_, e) => {
+                        Logger.GetDefault().Info(
+                            $"System theme changed: {e.ThemeVariant}");
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            root?.Apply());
+                    };
                 // Files named on the command line, or dropped on the window, are offered to be shared to chats.
                 var named = (desktop.Args ?? []).Where(File.Exists)
                     .Select(Path.GetFullPath).ToList();

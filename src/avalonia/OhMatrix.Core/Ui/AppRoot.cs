@@ -3,6 +3,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui;
 
@@ -83,6 +84,27 @@ public sealed class AppRoot : Border {
     private bool? appliedDark;
     private double? appliedScale;
 
+    // Which theme is used and why: a theme chosen in the preferences is
+    // used as it is; otherwise the system is followed, and what the system
+    // said is told as well.
+    private static void LogTheme(string theme, bool? dark)
+    {
+        var log = Logger.GetDefault();
+        if (theme != Themes.System) {
+            log.Info($"Use theme {theme}.");
+            return;
+        }
+
+        log.Info("No theme set in config. Follow system default.");
+        log.Info($"Detect system theme: {SystemTheme(dark)}");
+    }
+
+    private static string SystemTheme(bool? dark) => dark switch {
+        true => "Dark",
+        false => "Light",
+        _ => "Unknown",
+    };
+
     public void Apply()
     {
         var s = controller.Store.Value;
@@ -90,6 +112,7 @@ public sealed class AppRoot : Border {
         if (appliedTheme != s.Prefs.Theme || appliedDark != dark) {
             appliedTheme = s.Prefs.Theme;
             appliedDark = dark;
+            LogTheme(s.Prefs.Theme, dark);
             var colors = Themes.Resolve(s.Prefs.Theme, dark).Colors;
             ThemeScope.SetColors(this, colors);
             Background = new SolidColorBrush(colors.Bg);
