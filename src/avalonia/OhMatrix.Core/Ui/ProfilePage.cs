@@ -127,23 +127,27 @@ public sealed class ProfilePage : Grid {
     internal static Border NavRow(Theming.ColorTokens c, string glyph,
         string label, Action open,
         double top, string? value = null, bool chevron = true,
-        bool danger = false, bool flat = false, bool selectable = false)
+        bool danger = false, bool flat = false, bool selectable = false,
+        bool accent = false)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
         grid.Children.Add(new Icon {
             Glyph = glyph,
-            Size = 22,
-            Color = new SolidColorBrush(danger ? c.Danger : c.Accent),
-            Margin = new Thickness(0, 0, 12, 0),
+            Size = 21,
+            Color = new SolidColorBrush(danger ? c.Danger
+                : accent ? c.Accent : c.TextSecondary),
+            Margin = new Thickness(0, 0, 14, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
         var text = new TextBlock {
             Text = label,
             FontSize = 16,
+            FontWeight = accent ? FontWeight.Medium : FontWeight.Normal,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(danger ? c.Danger : c.Text),
+            Foreground = new SolidColorBrush(danger ? c.Danger
+                : accent ? c.Accent : c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -171,7 +175,7 @@ public sealed class ProfilePage : Grid {
         if (chevron) {
             var arrow = new Icon {
                 Glyph = "chevronRight",
-                Size = 18,
+                Size = 16,
                 Color = new SolidColorBrush(c.TextTertiary),
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -223,8 +227,8 @@ public sealed class ProfilePage : Grid {
         close.Click += (_, _) => controller.OpenSidebarPage(SidebarPage.Chats);
         var title = new TextBlock {
             Text = controller.T("profile"),
-            FontSize = 17,
-            FontWeight = FontWeight.SemiBold,
+            FontSize = 22,
+            FontWeight = FontWeight.Bold,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
@@ -293,10 +297,10 @@ public sealed class ProfilePage : Grid {
 
         content.Children.Add(new TextBlock {
             Text = controller.T("account"),
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
+            Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });
         content.Children.Add(NavRow(c, "camera", controller.T("changePhoto"),
@@ -315,10 +319,10 @@ public sealed class ProfilePage : Grid {
             s.Homeserver ?? "", false, flat: true, selectable: true));
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
+            Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });
         content.Children.Add(NavRow(c, "lock", controller.T("encryption"),
@@ -332,7 +336,7 @@ public sealed class ProfilePage : Grid {
                 flat: true));
         content.Children.Add(NavRow(c, "gear", controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 0,
-            flat: true));
+            flat: true, accent: true));
         content.Children.Add(new Border {
             Height = 16
         });
