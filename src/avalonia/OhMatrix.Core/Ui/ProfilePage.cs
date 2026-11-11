@@ -17,7 +17,7 @@ public sealed class ProfilePage : Grid {
     private readonly StackPanel content = new();
 
     private readonly Border bar = new() {
-        Height = 44
+        Height = 56
     };
 
     // Registered once for the type: a handler made in the constructor
