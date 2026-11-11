@@ -17,13 +17,17 @@ export function Avatar(props: { id: string; name: string; size?: number; src?: s
   const size = props.size ?? 52;
   const radius = props.shape === "square" ? Math.round(size * 0.28) : size / 2;
   const [failed, setFailed] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<string | null>(null);
   if (props.src && failed !== props.src) {
+    // The colour of the person is only what stands in until the picture is there: a picture with a transparent background must show what is
+    // behind it, not that colour.
     return (
       <Image
         source={{ uri: props.src }}
+        onLoad={() => setLoaded(props.src ?? null)}
         onError={() => setFailed(props.src ?? null)}
         accessibilityLabel={props.name}
-        style={{ width: size, height: size, borderRadius: radius, backgroundColor: peerColor(props.id) }}
+        style={{ width: size, height: size, borderRadius: radius, ...(loaded === props.src ? {} : { backgroundColor: peerColor(props.id) }) }}
       />
     );
   }
