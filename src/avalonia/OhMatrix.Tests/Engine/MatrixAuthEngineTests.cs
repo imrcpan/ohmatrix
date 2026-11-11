@@ -846,6 +846,54 @@ public class MatrixEngineWorkLiveTests {
     }
 
     [Fact]
+    public async Task
+        A_new_device_shows_the_last_message_of_a_room_not_its_join()
+    {
+        var server = Environment.GetEnvironmentVariable(
+            "OHMATRIX_TEST_HOMESERVER")!;
+        // Someone makes a room and says something in it.
+        var a = await SignIn();
+        var aRooms = new MatrixRoomsEngine(a);
+        await aRooms.StartSync();
+        var id = await NewRoom(a,
+            "Recent " + Guid.NewGuid().ToString("N")[..6]);
+        var text = "hello " + Guid.NewGuid().ToString("N")[..6];
+        await (await new MatrixChatEngine(a).Open(id)).Send(text);
+
+        // A new account joins it: the last event of the room is its join.
+        var name = "recent" + Guid.NewGuid().ToString("N")[..8];
+        var password = "Passw0rd-" + name;
+        var first = new MatrixAuthEngine(Path.Combine(Path.GetTempPath(),
+            "ohm-new-" + Guid.NewGuid().ToString("N")));
+        var session = await first.Register(server, name, password, null);
+        await a.Client!.GetRoom(id)!.InviteUserById(session.UserId);
+        await first.Client!.JoinRoomById(id);
+        await Task.Delay(2000);
+
+        // It signs in on a device that has nothing of the room on disk.
+        var auth = new MatrixAuthEngine(Path.Combine(Path.GetTempPath(),
+            "ohm-new-" + Guid.NewGuid().ToString("N")));
+        await auth.LoginWithPassword(server, name, password);
+        var rooms = new MatrixRoomsEngine(auth);
+        var listed = new System.Collections.Concurrent.ConcurrentDictionary<
+            string, RoomSummary>();
+        rooms.RoomsChanged += list => {
+            foreach (var r in list)
+                listed[r.Id] = r;
+        };
+        await rooms.StartSync();
+        await Until(() => listed.TryGetValue(id, out var r) &&
+                          r.LastMessage == text && !r.LastIsLine,
+            "the message of the room did not come",
+            () => listed.TryGetValue(id, out var r)
+                ? "preview: " + (r.LastMessage ?? "(none)")
+                : "room not listed");
+        await a.Client!.GetRoom(id)!.Leave();
+        await rooms.StopSync();
+        await aRooms.StopSync();
+    }
+
+    [Fact]
     public async Task The_shared_files_of_a_room_come_in_pages()
     {
         var auth = await SignIn();

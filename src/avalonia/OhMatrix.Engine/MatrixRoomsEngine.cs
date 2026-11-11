@@ -2,6 +2,7 @@
 using System.Threading.Channels;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Infra.Logging;
 using uniffi.matrix_sdk;
 using uniffi.matrix_sdk_ffi;
 using MatrixSdk = uniffi.matrix_sdk_ffi;
@@ -14,6 +15,8 @@ namespace OhMatrix.Engine;
 /// applied to a list of rooms, each room's summary is made and kept up to date, and the whole list is handed on.
 /// </summary>
 public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     // One queue for each run of the sync: the changes of a run that is over
     // are not read by the next, whose list they do not belong to.
     private readonly RunChannel<RoomListEntriesUpdate[]> updates = new();
@@ -34,6 +37,23 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     // The rooms read at the same time are few, whatever the number of changes.
     private readonly KeyedWork work = new(MaxReading);
     private const int MaxReading = 16;
+
+    // The newest message of a room whose newest event is not one (the join
+    // of an account that is new, a name that changed): the SDK keeps one event
+    // of a room it has not read, so the row of the room would say there is
+    // none. A few rooms are read at a time, once each, and only the recent
+    // events of the room: no history is asked for beyond that.
+    private readonly KeyedWork recovering = new(MaxRecovering);
+    private const int MaxRecovering = 3;
+    private const int RecentPages = 2;
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,
+        Recent> recent = new();
+
+    private readonly MatrixChatEngine chats = new(auth);
+
+    // Text is null for a room that was read and has no message in its recent events.
+    private sealed record Recent(string? Text, string? Sender, long Ts);
 
     /// <summary>How many rooms have their changes watched; the rooms of the list, and no others.</summary>
     public int WatchedRooms => Volatile.Read(ref watchedRooms);
@@ -615,6 +635,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     {
         // The run is over at once: a read that is on its way is not written.
         book.End();
+        recent.Clear();
         updates.Close();
         loop?.Cancel();
         loop = null;
@@ -724,12 +745,95 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         try {
             var info = await entered.Item.RoomInfo();
             var latest = await entered.Item.LatestEvent();
-            return book.Write(gen, entered.Id, entered.Entry,
-                Summarize(info, latest));
+            var summary = Summarize(info, latest);
+            if (summary != null && NeedsRecent(summary))
+                summary = WithRecent(summary, entered, gen);
+            return book.Write(gen, entered.Id, entered.Entry, summary);
         } catch (Exception) {
             // The room is gone, or the SDK is not ready: the next change tries again.
             return false;
         }
+    }
+
+    // A room that is not an invite or a space, whose row has no message.
+    private static bool NeedsRecent(RoomSummary room)
+    {
+        return room.Inviter == null && !room.IsSpace &&
+               (room.LastMessage == null || room.LastIsLine);
+    }
+
+    // The row with the newest message read for the room; when it has not
+    // been read yet, the row as it is, and the room is read.
+    private RoomSummary WithRecent(RoomSummary room,
+        RoomBook<Room>.Entered entered, int gen)
+    {
+        if (!recent.TryGetValue(entered.Id, out var found)) {
+            recovering.Request($"{entered.Id}#{entered.Entry}",
+                () => ReadRecent(entered, gen));
+            return room;
+        }
+
+        if (found.Text == null)
+            return room;
+        return room with {
+            LastMessage = found.Text,
+            LastSender = found.Sender,
+            LastIsLine = false,
+            LastActivityTs = Math.Max(room.LastActivityTs, found.Ts),
+        };
+    }
+
+    private async Task ReadRecent(RoomBook<Room>.Entered entered, int gen)
+    {
+        Recent result;
+        try {
+            result = await FindRecent(entered.Id);
+        } catch (Exception e) {
+            // Read again by the next change of the room.
+            logger.Warn($"Recent messages of {entered.Id}: {e.Message}");
+            return;
+        }
+
+        recent[entered.Id] = result;
+        if (result.Text != null && await Refresh(entered, gen))
+            burst.Poke(() => Emit(gen));
+    }
+
+    private async Task<Recent> FindRecent(string roomId)
+    {
+        using var session = await chats.Open(roomId);
+        for (var page = 0;; page++) {
+            // The lines come from the SDK on their own: waited for a moment.
+            for (var wait = 0;
+                 wait < 15 && Newest(session.Items) == null;
+                 wait++)
+                await Task.Delay(100);
+            if (Newest(session.Items) is { } message)
+                return message;
+            if (page == RecentPages || await session.LoadOlder())
+                return new Recent(null, null, 0);
+        }
+    }
+
+    private static Recent? Newest(
+        IReadOnlyList<OhMatrix.Core.Model.TimelineItem> items)
+    {
+        for (var i = items.Count - 1; i >= 0; i--) {
+            var item = items[i];
+            if (item.Kind != TimelineKind.Message)
+                continue;
+            var text = item.Body.Length > 0 ? item.Body : item.File?.Name;
+            if (string.IsNullOrEmpty(text))
+                continue;
+            var sender = item.IsOwn
+                ? null
+                : item.SenderName.Length > 0
+                    ? item.SenderName
+                    : item.SenderId;
+            return new Recent(text, sender, item.Ts);
+        }
+
+        return null;
     }
 
     private void Emit(int gen)
