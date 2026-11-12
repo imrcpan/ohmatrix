@@ -8,7 +8,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// Changing the size of the interface (<c>useZoomChange</c> and the zoom menu): a menu of sizes, a new size tried at once, and a dialog that asks to

@@ -6,7 +6,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// The advanced options (<c>AdvancedPage</c>): the way to the log. Pull to refresh is a gesture of the phone, so it is not offered here.

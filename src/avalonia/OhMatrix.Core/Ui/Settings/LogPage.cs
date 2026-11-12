@@ -12,7 +12,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using OhMatrix.Infra.Logging;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// The app's log (<c>LogPage</c>): a toolbar like the one of a text viewer, with Back at its left and Copy and Clear at its right; under it the

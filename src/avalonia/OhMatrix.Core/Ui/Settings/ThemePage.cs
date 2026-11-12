@@ -11,7 +11,7 @@ using OhMatrix.Core.Ui.Chat.Messages;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// The theme picker (<c>ThemePage</c> and <c>ThemeGrid</c>): a small chat drawn with the real bubbles in the theme as it is now stays at the top, so

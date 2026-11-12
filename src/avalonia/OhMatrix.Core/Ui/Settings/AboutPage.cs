@@ -7,7 +7,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>The about pane of the settings window: the repository, the way to ask for more, the version and the licence.</summary>
 public sealed class AboutPage : Grid {

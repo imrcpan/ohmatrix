@@ -8,7 +8,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// The general pane of the settings window (<c>SettingsPage</c>), as far as it is ported: the groups Notifications and Appearance (zoom, the

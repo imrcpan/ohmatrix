@@ -7,7 +7,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// The rows, headings and notes of the panes of the settings window. They are made for the desktop and are not shared with the other pages: a

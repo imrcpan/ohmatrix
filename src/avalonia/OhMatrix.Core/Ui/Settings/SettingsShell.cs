@@ -9,7 +9,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// What the settings window shows: the list of the kinds of settings at the left, the options of the chosen kind at the right, and Sign out at the

@@ -7,7 +7,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>The language picker (<c>LanguagePage</c>): every language by its own name, the one in use checked; choosing one changes the interface at once.</summary>
 public sealed class LanguagePage : Grid {

@@ -7,7 +7,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>The font picker (<c>FontDialog</c>): the installed fonts to choose the interface's from, each name drawn in its own font, with a search; the system's own first.</summary>
 public sealed class FontPage : Grid {

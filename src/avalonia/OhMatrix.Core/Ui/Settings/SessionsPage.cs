@@ -12,7 +12,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Settings;
 
 /// <summary>
 /// The sessions of the account (<c>SessionsPage</c>): this device, the other sessions with when they were last active, and a way to sign one or all

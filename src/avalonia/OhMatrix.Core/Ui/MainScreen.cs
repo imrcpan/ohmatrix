@@ -11,6 +11,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Chat;
 using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Rooms;
+using OhMatrix.Core.Ui.Settings;
 using OhMatrix.Core.Ui.Support;
 
 namespace OhMatrix.Core.Ui;

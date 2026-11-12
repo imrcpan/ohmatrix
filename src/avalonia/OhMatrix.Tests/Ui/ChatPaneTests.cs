@@ -17,6 +17,7 @@ using OhMatrix.Core.Ui.Chat.Composer;
 using OhMatrix.Core.Ui.Chat.Messages;
 using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Rooms;
+using OhMatrix.Core.Ui.Settings;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using OhMatrix.Infra.Logging;
