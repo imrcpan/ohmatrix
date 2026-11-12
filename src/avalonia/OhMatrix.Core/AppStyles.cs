@@ -21,12 +21,12 @@ public static class AppStyles {
         ThinScrollBars(app);
     }
 
-    // The thumb of the web and React Native apps (index.html): 8 wide, no
+    // The thumb of the web and React Native apps (index.html): thin, no
     // track and no arrows, a grey that shows on both themes and darkens on
     // hover and drag. Nothing scrolls sideways unless a control says so.
     private static void ThinScrollBars(Application app)
     {
-        app.Resources["ScrollBarSize"] = 8.0;
+        app.Resources["ScrollBarSize"] = 6.0;
         app.Resources["ScrollBarThumbBackgroundColor"] =
             Color.FromArgb(0x66, 0x80, 0x80, 0x80);
         app.Resources["ScrollBarPanningThumbBackgroundColor"] =
@@ -66,5 +66,20 @@ public static class AppStyles {
             .Class(":pointerover").Template().OfType<ScrollBar>());
         shown.Setters.Add(new Setter(Visual.OpacityProperty, 1.0));
         app.Styles.Add(shown);
+        // The thumb is always the full width of the bar (Fluent draws it as
+        // a hairline until the pointer is on the bar), with a half circle
+        // at each end.
+        var thumb = new Style(x => x.OfType<ScrollBar>().Template()
+            .OfType<Thumb>());
+        thumb.Setters.Add(new Setter(Visual.RenderTransformProperty, null));
+        thumb.Setters.Add(new Setter(TemplatedControl.CornerRadiusProperty,
+            new CornerRadius(3)));
+        app.Styles.Add(thumb);
+        var round = new Style(x => x.OfType<ScrollBar>().Template()
+            .OfType<Thumb>().Template().OfType<Border>());
+        round.Setters.Add(new Setter(Border.CornerRadiusProperty,
+            new CornerRadius(3)));
+        round.Setters.Add(new Setter(Visual.RenderTransformProperty, null));
+        app.Styles.Add(round);
     }
 }
