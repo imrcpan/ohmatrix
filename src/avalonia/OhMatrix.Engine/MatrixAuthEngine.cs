@@ -191,10 +191,23 @@ public sealed class MatrixAuthEngine(
             : null;
     }
 
+    // Failures that happen in the ordinary run and are dealt with by their
+    // callers: they are logged on one line, without the stack.
+    private static bool IsExpected(Exception e)
+    {
+        var said = e.Message;
+        return said.Contains("M_FORBIDDEN") ||
+               said.Contains("Cannot find any thumbnails") ||
+               said.Contains("Failed retrieving user identity");
+    }
+
     /// <summary>What the SDK threw, as the one error type of an engine.</summary>
     public static EngineException Translate(Exception e)
     {
-        logger.Error($"Engine error: {e}");
+        if (IsExpected(e))
+            logger.Warn($"Engine error: {e.GetType().Name}: {e.Message}");
+        else
+            logger.Error($"Engine error: {e}");
         switch (e) {
             case ClientException.MatrixApi api: {
                 var kind = api.kind switch {
