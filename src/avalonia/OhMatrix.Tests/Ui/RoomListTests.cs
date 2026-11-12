@@ -346,6 +346,30 @@ public class RoomListTests {
         return (window, controller, list);
     }
 
+    [AvaloniaFact]
+    public void The_plus_button_of_the_strip_is_under_my_picture()
+    {
+        var (window, controller, list) = OpenList([], true);
+        try {
+            list.Width = Layout.SidebarRail;
+            list.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            window.UpdateLayout();
+            var picture = list.GetVisualDescendants().OfType<Avatar>().First();
+            var plus = list.GetVisualDescendants().OfType<IconButton>()
+                .Single();
+            Assert.Equal(44, picture.Bounds.Width);
+            // The picture has the place of a row's picture (6 and 8 aside).
+            Assert.Equal(14, picture.TranslatePoint(default, list)!.Value.X);
+            Assert.True(plus.TranslatePoint(default, list)!.Value.Y >=
+                        picture.TranslatePoint(default, list)!.Value.Y + 44);
+            Assert.Equal(Layout.SidebarRail / 2,
+                plus.TranslatePoint(new Avalonia.Point(plus.Bounds.Width / 2,
+                    0), list)!.Value.X);
+        } finally {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

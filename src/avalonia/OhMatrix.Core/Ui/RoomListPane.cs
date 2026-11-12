@@ -31,14 +31,22 @@ public sealed class RoomListPane : Grid {
         Padding = new Thickness(12, 10, 12, 8)
     };
 
-    private readonly Border profile = new() {
+    private readonly ProfileButton profile = new() {
         CornerRadius = new CornerRadius(10),
         Padding = new Thickness(4, 2),
-        Background = Brushes.Transparent,
-        Cursor =
-            new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
         HorizontalAlignment = HorizontalAlignment.Left,
     };
+
+    /// <summary>My picture and name: a tint under the pointer, like the rows.</summary>
+    private sealed class ProfileButton : PressableButton {
+        protected override void Refresh()
+        {
+            var c = Colors;
+            Background = Pressed ? new SolidColorBrush(c.Separator)
+                : Hovered ? new SolidColorBrush(c.Hover)
+                : Brushes.Transparent;
+        }
+    }
 
     private readonly Border avatarHolder = new();
     private readonly SearchField search = new();
@@ -103,30 +111,51 @@ public sealed class RoomListPane : Grid {
         plus = new IconButton("plus", "New", rail ? 28 : 24, rail ? 44 : 36);
         RowDefinitions = new RowDefinitions("Auto,*");
         var header = new StackPanel {
-            Spacing = 10
+            Spacing = rail ? 0 : 10
         };
-        var top = new Grid {
-            Height = 44,
-            ColumnDefinitions = new ColumnDefinitions("*,Auto")
-        };
-        var line = new StackPanel {
-            Orientation = Orientation.Horizontal,
-            Spacing = 10
+        var line = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*")
         };
         line.Children.Add(avatarHolder);
-        line.Children.Add(name);
-        line.Children.Add(nameSkeleton);
+        // A long name ends where the plus button starts, it does not run
+        // under it.
+        foreach (var label in new Control[] {
+                     name, nameSkeleton
+                 }) {
+            label.Margin = new Thickness(10, 0, 0, 0);
+            Grid.SetColumn(label, 1);
+            line.Children.Add(label);
+        }
+
         profile.Child = line;
-        profile.PointerPressed += (_, e) => {
-            e.Handled = true;
+        profile.Click += (_, _) =>
             controller.OpenSidebarPage(SidebarPage.Profile);
-        };
-        top.Children.Add(profile);
-        Grid.SetColumn(plus, 1);
-        plus.HorizontalAlignment = HorizontalAlignment.Right;
-        top.Children.Add(plus);
-        header.Children.Add(top);
-        header.Children.Add(search);
+        if (rail) {
+            // The strip: my picture with the room around it that a picture
+            // has in a row, then the plus button under it.
+            profile.Margin = new Thickness(6, 0);
+            profile.Padding = new Thickness(8, 7);
+            profile.CornerRadius = new CornerRadius(12);
+            profile.HorizontalAlignment = HorizontalAlignment.Stretch;
+            header.Children.Add(profile);
+            plus.HorizontalAlignment = HorizontalAlignment.Center;
+            header.Children.Add(new Border {
+                Padding = new Thickness(0, 2, 0, 0),
+                Child = plus,
+            });
+        } else {
+            var top = new Grid {
+                Height = 44,
+                ColumnDefinitions = new ColumnDefinitions("*,Auto")
+            };
+            top.Children.Add(profile);
+            Grid.SetColumn(plus, 1);
+            plus.HorizontalAlignment = HorizontalAlignment.Right;
+            top.Children.Add(plus);
+            header.Children.Add(top);
+            header.Children.Add(search);
+        }
+
         bar.Child = header;
         Children.Add(bar);
 
@@ -420,7 +449,7 @@ public sealed class RoomListPane : Grid {
         Avalonia.Automation.AutomationProperties.SetName(profile,
             controller.T("profile"));
         bar.Padding = Rail
-            ? new Thickness(6, 10, 6, 0)
+            ? new Thickness(0, 10, 0, 0)
             : new Thickness(12, 10, 12, 8);
         Avalonia.Automation.AutomationProperties.SetName(plus,
             controller.T("newChat.menu"));
