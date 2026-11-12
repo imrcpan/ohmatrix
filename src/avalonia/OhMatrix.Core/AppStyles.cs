@@ -24,15 +24,18 @@ public static class AppStyles {
     // The thumb of the web and React Native apps (index.html): thin, no
     // track and no arrows, a grey that shows on both themes and darkens on
     // hover and drag. Nothing scrolls sideways unless a control says so.
+    private const double FullThumb = 6;
+    private const double ThinThumb = 3;
+
     private static void ThinScrollBars(Application app)
     {
-        app.Resources["ScrollBarSize"] = 6.0;
-        // Fluent squeezes the thumb into a hairline until the pointer is on
-        // the bar; these are the scales it uses for that, left as none.
+        app.Resources["ScrollBarSize"] = FullThumb;
+        // Until the pointer is on the bar Fluent draws the thumb squeezed
+        // (this scale); here it is 3 wide against the 6 of the full thumb.
         app.Resources["VerticalSmallScrollThumbScaleTransform"] =
-            new ScaleTransform(1, 1);
+            new ScaleTransform(ThinThumb / FullThumb, 1);
         app.Resources["HorizontalSmallScrollThumbScaleTransform"] =
-            new ScaleTransform(1, 1);
+            new ScaleTransform(1, ThinThumb / FullThumb);
         app.Resources["ScrollBarThumbBackgroundColor"] =
             Color.FromArgb(0x66, 0x80, 0x80, 0x80);
         app.Resources["ScrollBarPanningThumbBackgroundColor"] =
@@ -40,9 +43,9 @@ public static class AppStyles {
         app.Resources["ScrollBarThumbFill"] =
             new SolidColorBrush(Color.FromArgb(0x66, 0x80, 0x80, 0x80));
         app.Resources["ScrollBarThumbFillPointerOver"] =
-            new SolidColorBrush(Color.FromArgb(0xA6, 0x80, 0x80, 0x80));
+            new SolidColorBrush(Color.FromArgb(0x99, 0x80, 0x80, 0x80));
         app.Resources["ScrollBarThumbFillPressed"] =
-            new SolidColorBrush(Color.FromArgb(0xCC, 0x80, 0x80, 0x80));
+            new SolidColorBrush(Color.FromArgb(0xE6, 0x80, 0x80, 0x80));
         app.Resources["ScrollBarTrackFill"] = Brushes.Transparent;
         app.Resources["ScrollBarTrackFillPointerOver"] = Brushes.Transparent;
         app.Resources["ScrollBarTrackStroke"] = Brushes.Transparent;
