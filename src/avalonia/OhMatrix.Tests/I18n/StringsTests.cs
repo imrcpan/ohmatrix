@@ -65,7 +65,7 @@ public class StringsTests {
     {
         var values = new Regex(@"\{(\w+)\}");
         var keys = Strings.Keys();
-        Assert.Equal(635, keys.Count);
+        Assert.Equal(642, keys.Count);
         var problems = new List<string>();
         foreach (var language in Strings.Languages) {
             Assert.True(Strings.HasCatalog(language.Id));
