@@ -93,9 +93,8 @@ public sealed class RoomRowSkeleton : Pulse {
     {
         Height = RoomRow.RowHeight;
         Margin = new Thickness(6, 0);
-        var row = new StackPanel {
-            Orientation = Orientation.Horizontal,
-            Spacing = 11,
+        var row = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
             Margin = new Thickness(8, 7),
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -103,11 +102,31 @@ public sealed class RoomRowSkeleton : Pulse {
         if (!compact) {
             // The lines differ a little from row to row, so the list does not look like a pattern.
             var lines = new StackPanel {
-                Spacing = 9,
+                Spacing = 8,
+                Margin = new Thickness(11, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            lines.Children.Add(new SkeletonBlock(90 + index * 37 % 70, 14));
-            lines.Children.Add(new SkeletonBlock(140 + index * 53 % 90, 12));
+            // The title with the time at the other end.
+            var title = new Grid {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto")
+            };
+            title.Children.Add(new SkeletonBlock(90 + index * 37 % 70, 14));
+            var time = new SkeletonBlock(30, 11) {
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            Grid.SetColumn(time, 1);
+            title.Children.Add(time);
+            lines.Children.Add(title);
+            // As wide as it is, and no wider than the place there is.
+            var preview = new Grid {
+                ColumnDefinitions = new ColumnDefinitions("1000*,*")
+            };
+            preview.ColumnDefinitions[0].MaxWidth = 140 + index * 53 % 90;
+            preview.Children.Add(new SkeletonBlock(double.NaN, 12) {
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            });
+            lines.Children.Add(preview);
+            Grid.SetColumn(lines, 1);
             row.Children.Add(lines);
         }
 
