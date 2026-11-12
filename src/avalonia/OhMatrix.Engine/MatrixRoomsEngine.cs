@@ -263,8 +263,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
     private sealed class
         DirectoryListener : RoomDirectorySearchEntriesListener {
         private readonly List<RoomDescription> rooms = [];
-        private int version;
 
+        private int version;
         public int Version => Volatile.Read(ref version);
 
         public IReadOnlyList<PublicRoom> Rooms()
@@ -287,53 +287,58 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         {
             lock (rooms) {
                 foreach (var update in roomEntriesUpdate) {
-                    switch (update) {
-                        case RoomDirectorySearchEntryUpdate.Append a:
-                            rooms.AddRange(a.Values);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.Reset r:
-                            rooms.Clear();
-                            rooms.AddRange(r.Values);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.Clear:
-                            rooms.Clear();
-                            break;
-                        case RoomDirectorySearchEntryUpdate.PushFront f:
-                            rooms.Insert(0, f.Value);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.PushBack b:
-                            rooms.Add(b.Value);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.PopFront
-                            when rooms.Count > 0:
-                            rooms.RemoveAt(0);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.PopBack
-                            when rooms.Count > 0:
-                            rooms.RemoveAt(rooms.Count - 1);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.Insert i
-                            when i.Index <= rooms.Count:
-                            rooms.Insert((int)i.Index, i.Value);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.Set s
-                            when s.Index < rooms.Count:
-                            rooms[(int)s.Index] = s.Value;
-                            break;
-                        case RoomDirectorySearchEntryUpdate.Remove x
-                            when x.Index < rooms.Count:
-                            rooms.RemoveAt((int)x.Index);
-                            break;
-                        case RoomDirectorySearchEntryUpdate.Truncate t
-                            when t.Length < rooms.Count:
-                            rooms.RemoveRange((int)t.Length,
-                                rooms.Count - (int)t.Length);
-                            break;
-                    }
+                    ApplyUpdate(update);
                 }
             }
 
             Interlocked.Increment(ref version);
+        }
+
+        private void ApplyUpdate(RoomDirectorySearchEntryUpdate update)
+        {
+            switch (update) {
+                case RoomDirectorySearchEntryUpdate.Append a:
+                    rooms.AddRange(a.Values);
+                    break;
+                case RoomDirectorySearchEntryUpdate.Reset r:
+                    rooms.Clear();
+                    rooms.AddRange(r.Values);
+                    break;
+                case RoomDirectorySearchEntryUpdate.Clear:
+                    rooms.Clear();
+                    break;
+                case RoomDirectorySearchEntryUpdate.PushFront f:
+                    rooms.Insert(0, f.Value);
+                    break;
+                case RoomDirectorySearchEntryUpdate.PushBack b:
+                    rooms.Add(b.Value);
+                    break;
+                case RoomDirectorySearchEntryUpdate.PopFront
+                    when rooms.Count > 0:
+                    rooms.RemoveAt(0);
+                    break;
+                case RoomDirectorySearchEntryUpdate.PopBack
+                    when rooms.Count > 0:
+                    rooms.RemoveAt(rooms.Count - 1);
+                    break;
+                case RoomDirectorySearchEntryUpdate.Insert i
+                    when i.Index <= rooms.Count:
+                    rooms.Insert((int)i.Index, i.Value);
+                    break;
+                case RoomDirectorySearchEntryUpdate.Set s
+                    when s.Index < rooms.Count:
+                    rooms[(int)s.Index] = s.Value;
+                    break;
+                case RoomDirectorySearchEntryUpdate.Remove x
+                    when x.Index < rooms.Count:
+                    rooms.RemoveAt((int)x.Index);
+                    break;
+                case RoomDirectorySearchEntryUpdate.Truncate t
+                    when t.Length < rooms.Count:
+                    rooms.RemoveRange((int)t.Length,
+                        rooms.Count - (int)t.Length);
+                    break;
+            }
         }
     }
 
