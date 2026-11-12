@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Support;
 
 /// <summary>
 /// Something shown on the overlay of the window (a dialog, a menu, a viewer). It is not in the tree of the page that opened it, so a page that

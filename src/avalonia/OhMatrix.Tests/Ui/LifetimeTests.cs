@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Support;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

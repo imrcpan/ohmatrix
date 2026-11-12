@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Support;
 
 /// <summary>Times as the screens show them (<c>format.ts</c> of the React Native app).</summary>
 public static class Format {

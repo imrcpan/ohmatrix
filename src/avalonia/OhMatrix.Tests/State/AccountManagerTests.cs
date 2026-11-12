@@ -2,6 +2,7 @@ using Avalonia.Headless.XUnit;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Support;
 using Xunit;
 
 namespace OhMatrix.Tests.State;

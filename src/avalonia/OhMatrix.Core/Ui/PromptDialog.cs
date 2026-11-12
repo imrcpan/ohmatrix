@@ -3,6 +3,7 @@ using Avalonia.Media;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Support;
 
 namespace OhMatrix.Core.Ui;
 

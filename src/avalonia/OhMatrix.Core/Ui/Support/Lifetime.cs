@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using OhMatrix.Core.State;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Support;
 
 /// <summary>
 /// What a page hooks onto things that outlive it (the store of the account, the log, timers) and how it lets go when it is thrown away. An

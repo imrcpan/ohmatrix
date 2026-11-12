@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Support;
 
 namespace OhMatrix.Core.Ui;
 

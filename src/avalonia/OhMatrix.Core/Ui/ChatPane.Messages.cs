@@ -10,6 +10,7 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Support;
 
 namespace OhMatrix.Core.Ui;
 

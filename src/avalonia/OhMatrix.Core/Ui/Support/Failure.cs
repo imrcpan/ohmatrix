@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using OhMatrix.Core.Model;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Support;
 
 /// <summary>Why something could not be done, in words for the person: a known cause by what it means, and for anything else what the server said, so that a notice is never just "failed" (<c>failureReason</c>).</summary>
 public static class Failure {
