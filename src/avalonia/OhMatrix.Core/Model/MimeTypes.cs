@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Model;
 
 /// <summary>What kind a file is, from its name (there is no sniffing of the content).</summary>
 public static class MimeTypes {

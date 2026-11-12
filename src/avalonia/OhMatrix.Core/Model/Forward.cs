@@ -25,7 +25,7 @@ public static class Forward {
         var picture = item.Image;
         if (picture != null) {
             var info = new JsonObject {
-                ["mimetype"] = Ui.MimeTypes.For(picture.FileName)
+                ["mimetype"] = MimeTypes.For(picture.FileName)
             };
             var w = picture.Width;
             if (w != null)
