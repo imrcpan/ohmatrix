@@ -9,7 +9,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Media;
 
 /// <summary>
 /// The full-size picture (<c>ImageViewer</c>): over a near-black backdrop, fitted to the window, zoomed with the wheel (about the pointer) or a

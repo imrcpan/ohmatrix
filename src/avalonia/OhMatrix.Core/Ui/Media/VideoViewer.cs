@@ -14,7 +14,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Media;
 
 /// <summary>
 /// The video of a message in the app: over a near-black backdrop, the picture fitted to the window with a play or pause button, a bar to see

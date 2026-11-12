@@ -3,7 +3,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using OhMatrix.Core.State;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Widgets;
 using Xunit;
 
@@ -191,6 +191,7 @@ public class MediaSizeTests {
     [Xunit.InlineData(2000, 100, 300, 90)]
     public void Fits_the_long_edge_with_a_floor(int? w, int? h, int ew, int eh)
     {
-        Xunit.Assert.Equal((ew, eh), OhMatrix.Core.Ui.MediaSize.Fit(w, h));
+        Xunit.Assert.Equal((ew, eh),
+            OhMatrix.Core.Ui.Media.MediaSize.Fit(w, h));
     }
 }

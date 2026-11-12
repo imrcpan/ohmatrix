@@ -5,7 +5,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using OhMatrix.Core.Audio;
 using OhMatrix.Core.Model;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Media;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

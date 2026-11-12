@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Media;
 
 /// <summary>How big a picture is drawn in a bubble (<c>mediaSize.ts</c>).</summary>
 public static class MediaSize {

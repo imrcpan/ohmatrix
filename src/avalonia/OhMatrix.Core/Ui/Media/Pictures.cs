@@ -3,7 +3,7 @@ using Avalonia.Media.Imaging;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Media;
 
 /// <summary>
 /// The pictures of rooms and people (<c>useMediaUrl</c> of the React Native app): fetched once for each address and size, kept, and asked for only

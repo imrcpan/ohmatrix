@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Media;
 
 /// <summary>The system dialog to choose a file.</summary>
 public static class FilePicker {
