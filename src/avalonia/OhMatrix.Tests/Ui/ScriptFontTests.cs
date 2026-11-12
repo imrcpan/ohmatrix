@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -1364,5 +1365,50 @@ public class ScriptFontTests {
         } finally {
             Fonts.Use(new Preferences());
         }
+    }
+
+    // ---- nothing is told a font ----
+
+    private static string Source([CallerFilePath] string here = "")
+    {
+        var path = Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(here)!, "..", "..", "OhMatrix.Core"));
+        if (!Directory.Exists(path))
+            Assert.Skip("The sources are not where they were built.");
+        return path;
+    }
+
+    // A weight that is a number or a name: texts ask for Fonts.Light,
+    // Fonts.Normal or Fonts.Bold, and never for a weight of their own.
+    private static readonly System.Text.RegularExpressions.Regex Weighed =
+        new(
+            @"FontWeight\.(Thin|ExtraLight|Light|Normal|Medium|SemiBold|Bold|ExtraBold|Black)\b|\(FontWeight\)");
+
+    [Fact]
+    public void No_text_is_told_the_font_of_the_interface()
+    {
+        // The font reaches a text by the window handing it down, and its
+        // letters by the formatter; code takes the mono font by being told to
+        // (Fonts.Code) and every weight is one of the three kinds: a text
+        // that sets the family or a weight itself is one that a change of
+        // the fonts does not reach.
+        var found = Directory.EnumerateFiles(Source(), "*.cs",
+                SearchOption.AllDirectories)
+            .Where(f => !f.Contains(Path.DirectorySeparatorChar + "obj" +
+                                    Path.DirectorySeparatorChar) &&
+                        !f.Contains(Path.DirectorySeparatorChar + "bin" +
+                                    Path.DirectorySeparatorChar) &&
+                        Path.GetFileName(f) != "Fonts.cs")
+            .SelectMany(f => File.ReadLines(f).Select((line, i) =>
+                (f, i, line)))
+            .Where(x => x.line.Contains("FontFamily = Fonts.System") ||
+                        x.line.Contains("FontFamily = Fonts.English") ||
+                        x.line.Contains("FontFamily = Fonts.Other") ||
+                        x.line.Contains("FontFamily = Fonts.Mono") ||
+                        x.line.Contains("new FontFamily(") ||
+                        Weighed.IsMatch(x.line))
+            .Select(x => $"{Path.GetFileName(x.f)}:{x.i + 1}: {x.line.Trim()}")
+            .ToList();
+        Assert.True(found.Count == 0, string.Join("\n", found));
     }
 }

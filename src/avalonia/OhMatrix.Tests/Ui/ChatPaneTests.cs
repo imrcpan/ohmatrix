@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Calls;
@@ -2110,6 +2111,229 @@ public partial class ChatPaneTests {
 
     [AvaloniaFact]
     public async Task
+        Choosing_the_fonts_in_the_font_page_changes_how_letters_are_drawn()
+    {
+        var (_, controller, _, _) = await Open("light", 1000);
+        var page = new FontPage(controller);
+        var sample = new TextBlock {
+            Text = "Hello 中文",
+            FontSize = 20
+        };
+        var grid = new Grid {
+            RowDefinitions = new RowDefinitions("*,Auto")
+        };
+        grid.Children.Add(page);
+        Grid.SetRow(sample, 1);
+        grid.Children.Add(sample);
+        var host = new Window {
+            Content = grid,
+            Width = 500,
+            Height = 700
+        };
+        ThemeScope.SetColors(host,
+            OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
+        host.Show();
+        Dispatcher.UIThread.RunJobs();
+        host.UpdateLayout();
+
+        // Two installed fonts that draw both the Latin and the Chinese.
+        var wide = ScriptFontTests.Installed().Wide.Take(2).ToList();
+        if (wide.Count < 2)
+            Assert.Skip("Two fonts that draw Latin and Chinese are needed.");
+
+        void Choose(string row, string font)
+        {
+            var label = controller.T(row);
+            var field = page.Rows.Children.OfType<Border>().Single(b =>
+                Avalonia.Automation.AutomationProperties.GetName(b) == label);
+            field.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(field,
+                new Avalonia.Input.Pointer(0,
+                    Avalonia.Input.PointerType.Mouse, true), field,
+                new Avalonia.Point(10, 10), 0,
+                new Avalonia.Input.PointerPointProperties(
+                    Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                    Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+                Avalonia.Input.KeyModifiers.None) {
+                RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent,
+            });
+            Assert.True(page.Chooser.IsOpen);
+            var item = page.Chooser.Rows.OfType<Border>().Single(b =>
+                Avalonia.Automation.AutomationProperties.GetName(b) == font);
+            item.RaiseEvent(Release(item));
+            Assert.False(page.Chooser.IsOpen);
+            host.UpdateLayout();
+        }
+
+        string Of(char letter)
+        {
+            return sample.TextLayout.TextLines
+                .SelectMany(l => l.TextRuns.OfType<ShapedTextRun>())
+                .First(r => r.Text.ToString().Contains(letter)).GlyphRun
+                .GlyphTypeface.FamilyName;
+        }
+
+        try {
+            Choose("font.english", wide[0]);
+            Choose("font.other", wide[1]);
+            Assert.Equal(wide[0], controller.Store.Value.Prefs.EnglishFont);
+            Assert.Equal(wide[1], controller.Store.Value.Prefs.OtherFont);
+            Assert.Equal(wide[0], Of('H'));
+            Assert.Equal(wide[1], Of('中'));
+
+            // The other way round, with the page open: nothing is made again.
+            Choose("font.english", wide[1]);
+            Choose("font.other", wide[0]);
+            Assert.Equal(wide[1], Of('H'));
+            Assert.Equal(wide[0], Of('中'));
+
+            // Following the general font again: both are drawn by it.
+            Choose("font.english", controller.T("font.follow"));
+            Choose("font.other", controller.T("font.follow"));
+            Choose("font.general", wide[0]);
+            Assert.Null(controller.Store.Value.Prefs.EnglishFont);
+            Assert.Null(controller.Store.Value.Prefs.OtherFont);
+            Assert.Equal(wide[0], Of('H'));
+            Assert.Equal(wide[0], Of('中'));
+        } finally {
+            controller.SetPreferences(p => p with {
+                Font = null,
+                EnglishFont = null,
+                OtherFont = null
+            });
+            Fonts.Use(new Preferences());
+            host.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task
+        Every_text_of_the_settings_window_is_drawn_in_the_font_of_its_letters()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        var wide = ScriptFontTests.Installed().Wide.Take(2).ToList();
+        if (wide.Count < 2)
+            Assert.Skip("Two fonts that draw Latin and Chinese are needed.");
+        try {
+            controller.SetPreferences(p => p with {
+                Locale = "zh-CN",
+                EnglishFont = wide[0],
+                OtherFont = wide[1]
+            });
+            controller.OpenSidebarPage(SidebarPage.Font);
+            Dispatcher.UIThread.RunJobs();
+            var shell = screen.SettingsWindowContent;
+            var host = Assert.IsType<Avalonia.Controls.Window>(
+                TopLevel.GetTopLevel(shell));
+
+            void Check(string english, string other)
+            {
+                host.UpdateLayout();
+                var texts = shell.GetVisualDescendants().OfType<TextBlock>()
+                    .Where(t => !string.IsNullOrEmpty(t.Text)).ToList();
+                Assert.True(texts.Count > 10, $"{texts.Count} texts");
+                var han = 0;
+                var latin = 0;
+                foreach (var text in texts) {
+                    foreach (var (letter, font) in
+                             ScriptFontTests.Letters(text.TextLayout)) {
+                        if (letter is >= '\u4E00' and <= '\u9FFF') {
+                            han++;
+                            Assert.True(font == ScriptFontTests.Drawn(other),
+                                $"[{letter}] of [{text.Text}] is in {font}");
+                        } else if (letter is >= 'A' and <= 'Z'
+                                   or >= 'a' and <= 'z') {
+                            latin++;
+                            Assert.True(font == ScriptFontTests.Drawn(english),
+                                $"[{letter}] of [{text.Text}] is in {font}");
+                        }
+                    }
+                }
+
+                // The list of the kinds is in Chinese; the names of the
+                // fonts are in Latin letters: both are there.
+                Assert.True(han > 10 && latin > 10, $"{han} and {latin}");
+            }
+
+            Check(wide[0], wide[1]);
+            // The fonts change with the window open.
+            controller.SetPreferences(p => p with {
+                EnglishFont = wide[1],
+                OtherFont = wide[0]
+            });
+            Check(wide[1], wide[0]);
+        } finally {
+            controller.SetPreferences(p => p with {
+                Locale = "en",
+                EnglishFont = null,
+                OtherFont = null
+            });
+            Fonts.Use(new Preferences());
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task
+        Every_text_of_the_settings_window_is_drawn_in_the_chosen_weight()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        try {
+            controller.OpenSidebarPage(SidebarPage.Font);
+            Dispatcher.UIThread.RunJobs();
+            var shell = screen.SettingsWindowContent;
+            var host = Assert.IsType<Avalonia.Controls.Window>(
+                TopLevel.GetTopLevel(shell));
+
+            void Check(int light, int normal, int bold)
+            {
+                host.UpdateLayout();
+                var texts = shell.GetVisualDescendants().OfType<TextBlock>()
+                    .Where(t => !string.IsNullOrEmpty(t.Text)).ToList();
+                Assert.True(texts.Count > 10, $"{texts.Count} texts");
+                var kinds = new HashSet<int>();
+                foreach (var text in texts) {
+                    var run = text.TextLayout.TextLines
+                        .SelectMany(l => l.TextRuns.OfType<ShapedTextRun>())
+                        .First();
+                    var weight = (int)run.Properties.Typeface.Weight;
+                    var asked = (int)text.FontWeight;
+                    var expected = asked <= 350 ? light
+                        : asked <= 550 ? normal
+                        : bold;
+                    Assert.True(weight == expected,
+                        $"[{text.Text}] asks for {asked}, is drawn in {weight}, not {expected}");
+                    kinds.Add(weight);
+                }
+
+                // The captions are bold and the rows are normal: both kinds
+                // of text are in the window.
+                Assert.Contains(normal, kinds);
+                Assert.Contains(bold, kinds);
+            }
+
+            Check(300, 400, 700);
+            controller.SetPreferences(p => p with {
+                LightWeight = 200,
+                NormalWeight = 500,
+                BoldWeight = 900
+            });
+            Check(200, 500, 900);
+            controller.SetPreferences(p => p with {
+                NormalWeight = 300,
+                BoldWeight = 600
+            });
+            Check(200, 300, 600);
+        } finally {
+            controller.SetPreferences(p => p with {
+                LightWeight = 300,
+                NormalWeight = 400,
+                BoldWeight = 700
+            });
+            Fonts.Use(new Preferences());
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task
         The_log_lines_follow_the_mono_font_without_being_made_again()
     {
         var (_, controller, _, _) = await Open("light", 1000);
@@ -2153,6 +2377,96 @@ public partial class ChatPaneTests {
             });
             Fonts.Use(new Preferences());
             logger.ClearLog();
+            host.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task
+        Choosing_a_weight_and_the_mono_font_in_the_font_page_changes_the_texts()
+    {
+        var (_, controller, _, _) = await Open("light", 1000);
+        var page = new FontPage(controller);
+        var bold = new TextBlock {
+            Text = "boldword",
+            FontSize = 20,
+            FontWeight = Fonts.Bold
+        };
+        var code = new TextBlock {
+            Text = "codeword",
+            FontSize = 20
+        };
+        Fonts.Code(code);
+        var grid = new Grid {
+            RowDefinitions = new RowDefinitions("*,Auto,Auto")
+        };
+        grid.Children.Add(page);
+        Grid.SetRow(bold, 1);
+        grid.Children.Add(bold);
+        Grid.SetRow(code, 2);
+        grid.Children.Add(code);
+        var host = new Window {
+            Content = grid,
+            Width = 500,
+            Height = 800
+        };
+        ThemeScope.SetColors(host,
+            OhMatrix.Core.Theming.Themes.Get("light")!.Colors);
+        host.Show();
+        Dispatcher.UIThread.RunJobs();
+        host.UpdateLayout();
+        var latin = ScriptFontTests.Installed();
+        var fonts = latin.Wide.Concat(latin.Narrow).Take(2).ToList();
+        if (fonts.Count < 2)
+            Assert.Skip("Two fonts that draw Latin letters are needed.");
+
+        void Choose(string row, string item)
+        {
+            var field = page.Rows.Children.OfType<Border>().Single(b =>
+                Avalonia.Automation.AutomationProperties.GetName(b) == row);
+            field.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(field,
+                new Avalonia.Input.Pointer(0,
+                    Avalonia.Input.PointerType.Mouse, true), field,
+                new Avalonia.Point(10, 10), 0,
+                new Avalonia.Input.PointerPointProperties(
+                    Avalonia.Input.RawInputModifiers.LeftMouseButton,
+                    Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+                Avalonia.Input.KeyModifiers.None) {
+                RoutedEvent = Avalonia.Input.InputElement.PointerPressedEvent,
+            });
+            Assert.True(page.Chooser.IsOpen);
+            var row2 = page.Chooser.Rows.OfType<Border>().Single(b =>
+                Avalonia.Automation.AutomationProperties.GetName(b) == item);
+            row2.RaiseEvent(Release(row2));
+            host.UpdateLayout();
+        }
+
+        try {
+            Assert.Equal((FontWeight)700,
+                ScriptFontTests.WeightOf(bold.TextLayout, "boldword"));
+            Choose("Bold", "Black 900");
+            Assert.Equal(900, controller.Store.Value.Prefs.BoldWeight);
+            Assert.Equal((FontWeight)900,
+                ScriptFontTests.WeightOf(bold.TextLayout, "boldword"));
+            Choose("Bold", "SemiBold 600");
+            Assert.Equal((FontWeight)600,
+                ScriptFontTests.WeightOf(bold.TextLayout, "boldword"));
+
+            Choose(controller.T("font.mono"), fonts[0]);
+            Assert.Equal(fonts[0], controller.Store.Value.Prefs.MonoFont);
+            Assert.All(ScriptFontTests.Letters(code.TextLayout),
+                l => Assert.Equal(ScriptFontTests.Drawn(fonts[0]), l.Font));
+            Choose(controller.T("font.mono"), fonts[1]);
+            Assert.All(ScriptFontTests.Letters(code.TextLayout),
+                l => Assert.Equal(ScriptFontTests.Drawn(fonts[1]), l.Font));
+            Choose(controller.T("font.mono"), controller.T("font.system"));
+            Assert.Null(controller.Store.Value.Prefs.MonoFont);
+        } finally {
+            controller.SetPreferences(p => p with {
+                BoldWeight = 700,
+                MonoFont = null
+            });
+            Fonts.Use(new Preferences());
             host.Close();
         }
     }

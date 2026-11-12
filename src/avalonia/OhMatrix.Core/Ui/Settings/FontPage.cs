@@ -6,17 +6,52 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using Menu = OhMatrix.Core.Ui.Overlays.Menu;
+using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
 namespace OhMatrix.Core.Ui.Settings;
 
-/// <summary>The font picker (<c>FontDialog</c>): the installed fonts to choose the interface's from, each name drawn in its own font, with a search; the system's own first.</summary>
+/// <summary>
+/// The font settings (<c>FontDialog</c>, as a pane of the settings window): the fonts of the interface (the general one; the English and the
+/// other-language ones, which follow the general one until they are chosen; and the monospaced one), and the weights that the Light, Normal and
+/// Bold texts are drawn in. The weight names are not translated.
+/// </summary>
 public sealed class FontPage : Grid {
+    private enum Target {
+        General,
+        English,
+        Other,
+        Mono,
+    }
+
+    private enum Role {
+        Light,
+        Normal,
+        Bold,
+    }
+
+    // The weights a role can take, with the names they are called by.
+    private static readonly (string Name, int Weight)[] Weights = [
+        ("Thin", 100),
+        ("ExtraLight", 200),
+        ("Light", 300),
+        ("Normal", 400),
+        ("Medium", 500),
+        ("SemiBold", 600),
+        ("Bold", 700),
+        ("ExtraBold", 800),
+        ("Black", 900),
+    ];
+
     private readonly AppController controller;
     private readonly Border bar = new();
-    private readonly SearchField search = new();
 
     private readonly StackPanel rows = new() {
-        Margin = new Thickness(0, 4, 0, 24)
+        Margin = new Thickness(0, 0, 0, 24)
+    };
+
+    private readonly Menu chooser = new() {
+        AlignRight = true
     };
 
     private IReadOnlyList<string>? installed;
@@ -33,67 +68,165 @@ public sealed class FontPage : Grid {
     public FontPage(AppController controller)
     {
         this.controller = controller;
-        RowDefinitions = new RowDefinitions("Auto,Auto,*");
+        RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(bar);
-        search.Margin = new Thickness(SettingsShell.Side, 4,
-            SettingsShell.Side, 6);
-        Grid.SetRow(search, 1);
-        Children.Add(search);
         var scroller = new ScrollViewer {
             Content = rows,
             HorizontalScrollBarVisibility =
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
-        Grid.SetRow(scroller, 2);
+        Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        search.TextChanged += (_, _) => Apply();
+        Lifetime.OwnAll(this, chooser);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
 
     public StackPanel Rows => rows;
-    public SearchField Search => search;
+
+    /// <summary>The list of fonts or weights that is open under a field.</summary>
+    public Menu Chooser => chooser;
 
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
+        var p = controller.Store.Value.Prefs;
         Background = new SolidColorBrush(c.Bg);
         PageBar.Title(bar, c, controller.T("font"));
-        search.Placeholder = controller.T("font.search");
-        installed ??= Fonts.Installed();
-        var current = controller.Store.Value.Prefs.Font;
-        var query = search.Text.Trim();
         rows.Children.Clear();
-        var names = new List<string?>();
-        if (query.Length == 0)
-            names.Add(null);
-        names.AddRange(installed.Where(n =>
-            query.Length == 0 || n.Contains(query,
-                StringComparison.CurrentCultureIgnoreCase)));
-        foreach (var name in names)
-            rows.Children.Add(Row(c, name, name == current));
-        if (names.Count == 0)
-            rows.Children.Add(new TextBlock {
-                Text = controller.T("font.empty"),
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                Margin = new Thickness(8, 16),
-                TextAlignment = TextAlignment.Center,
-            });
-        else
-            rows.Children.Add(new TextBlock {
-                Text = controller.T("font.footer"),
-                FontSize = SettingsShell.NoteFont,
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(SettingsShell.Side, 12),
-            });
+
+        rows.Children.Add(SettingsRows.Caption(c,
+            controller.T("font.section.fonts")));
+        rows.Children.Add(FontRow(c, Target.General,
+            controller.T("font.general"),
+            p.Font == null ? controller.T("font.system") : p.Font));
+        rows.Children.Add(FontRow(c, Target.English,
+            controller.T("font.english"),
+            Shown(p.EnglishFont, controller.T("font.follow"))));
+        rows.Children.Add(FontRow(c, Target.Other,
+            controller.T("font.other"),
+            Shown(p.OtherFont, controller.T("font.follow"))));
+        rows.Children.Add(FontRow(c, Target.Mono, controller.T("font.mono"),
+            p.MonoFont ?? controller.T("font.system")));
+        rows.Children.Add(SettingsRows.Note(c, controller.T("font.footer")));
+
+        rows.Children.Add(SettingsRows.Caption(c,
+            controller.T("font.section.weights")));
+        rows.Children.Add(WeightRow(c, Role.Light, "Light", p.LightWeight));
+        rows.Children.Add(WeightRow(c, Role.Normal, "Normal", p.NormalWeight));
+        rows.Children.Add(WeightRow(c, Role.Bold, "Bold", p.BoldWeight));
+        rows.Children.Add(new Border {
+            Height = 24
+        });
     }
 
-    private Control Row(ColorTokens c, string? name, bool active)
+    // The value of a font that can follow the general one: null follows it,
+    // an empty name is the system's own.
+    private string Shown(string? name, string follow)
     {
-        return SettingsRows.Choice(c, name ?? controller.T("font.system"),
-            active, () => controller.SetPreferences(p => p with {
+        return name == null ? follow
+            : name.Length == 0 ? controller.T("font.system")
+            : name;
+    }
+
+    // A row of the fonts: its value, and the list of the installed fonts
+    // under the field that is pressed.
+    private Border FontRow(ColorTokens c, Target target, string label,
+        string value)
+    {
+        Border? field = null;
+        var row = SettingsRows.Dropdown(c, "font", label,
+            () => ChooseFont(target, field!), value, out field);
+        return row;
+    }
+
+    private void ChooseFont(Target target, Control anchor)
+    {
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
+            return;
+        var p = controller.Store.Value.Prefs;
+        var current = target switch {
+            Target.General => p.Font,
+            Target.English => p.EnglishFont,
+            Target.Other => p.OtherFont,
+            _ => p.MonoFont,
+        };
+        var items = new List<MenuItem>();
+        // The English and the other-language fonts can follow the general
+        // one, and the system's own is a choice of its own.
+        if (target is Target.English or Target.Other) {
+            items.Add(new MenuItem(controller.T("font.follow"),
+                () => Change(target, null), Checked: current == null));
+            items.Add(new MenuItem(controller.T("font.system"),
+                () => Change(target, ""), Checked: current == ""));
+        } else {
+            items.Add(new MenuItem(controller.T("font.system"),
+                () => Change(target, null), Checked: current == null));
+        }
+
+        installed ??= Fonts.Installed();
+        foreach (var name in installed) {
+            items.Add(new MenuItem(name, () => Change(target, name),
+                Checked: name == current));
+        }
+
+        chooser.Show(anchor, window, items);
+    }
+
+    private void Change(Target target, string? name)
+    {
+        controller.SetPreferences(p => target switch {
+            Target.General => p with {
                 Font = name
-            }), name == null ? Fonts.System : new FontFamily(name));
+            },
+            Target.English => p with {
+                EnglishFont = name
+            },
+            Target.Other => p with {
+                OtherFont = name
+            },
+            _ => p with {
+                MonoFont = name
+            },
+        });
+    }
+
+    // A row of a weight: its name and its number, and the list of the
+    // weights under the field that is pressed.
+    private Border WeightRow(ColorTokens c, Role role, string label, int weight)
+    {
+        Border? field = null;
+        var name = Weights.FirstOrDefault(w => w.Weight == weight).Name;
+        var value = name == null ? weight.ToString() : $"{name} {weight}";
+        var row = SettingsRows.Dropdown(c, "font", label,
+            () => ChooseWeight(role, field!), value, out field);
+        return row;
+    }
+
+    private void ChooseWeight(Role role, Control anchor)
+    {
+        var window = TopLevel.GetTopLevel(this);
+        if (window == null)
+            return;
+        var p = controller.Store.Value.Prefs;
+        var current = role switch {
+            Role.Light => p.LightWeight,
+            Role.Normal => p.NormalWeight,
+            _ => p.BoldWeight,
+        };
+        var items = Weights.Select(w => new MenuItem($"{w.Name} {w.Weight}",
+            () => controller.SetPreferences(q => role switch {
+                Role.Light => q with {
+                    LightWeight = w.Weight
+                },
+                Role.Normal => q with {
+                    NormalWeight = w.Weight
+                },
+                _ => q with {
+                    BoldWeight = w.Weight
+                },
+            }), Checked: w.Weight == current)).ToList();
+        chooser.Show(anchor, window, items);
     }
 }
