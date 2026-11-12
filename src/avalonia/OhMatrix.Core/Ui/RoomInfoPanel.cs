@@ -134,13 +134,16 @@ public sealed class RoomInfoPanel : Grid {
 
     private async Task CopyAsync(string text)
     {
+        Ops.Start("copy");
         try {
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard == null)
                 throw new InvalidOperationException();
             await clipboard.SetTextAsync(text);
+            Ops.Done("copy");
             controller.ShowNotice(controller.T("copied"));
-        } catch (Exception) {
+        } catch (Exception e) {
+            Ops.Fail("copy", e);
             controller.ShowNotice(controller.T("copyFailed"), NoticeKind.Error);
         }
     }
@@ -219,12 +222,15 @@ public sealed class RoomInfoPanel : Grid {
         cancel.Click += (_, _) => MemberDialog.Close();
         start.Click += async (_, _) => {
             start.Loading = true;
+            Ops.Start("start direct chat", m.UserId);
             try {
                 // The chat that opens replaces this panel (choosing a room closes the chat info).
                 await controller.StartDirectChat(m.UserId);
+                Ops.Done("start direct chat", m.UserId);
                 MemberDialog.Close();
                 viewing = null;
             } catch (Exception e) {
+                Ops.Fail("start direct chat", e, m.UserId);
                 MemberDialog.Close();
                 controller.ShowNotice(e.Message, NoticeKind.Error);
             }
@@ -256,11 +262,14 @@ public sealed class RoomInfoPanel : Grid {
         cancel.Click += (_, _) => MemberDialog.Close();
         block.Click += async (_, _) => {
             block.Loading = true;
+            Ops.Start("block user", m.UserId);
             try {
                 await controller.BlockUser(m.UserId);
+                Ops.Done("block user", m.UserId);
                 MemberDialog.Close();
                 controller.ShowNotice(controller.T("member.blocked"));
             } catch (Exception e) {
+                Ops.Fail("block user", e, m.UserId);
                 MemberDialog.Close();
                 controller.ShowNotice(e.Message, NoticeKind.Error);
             }
@@ -286,10 +295,20 @@ public sealed class RoomInfoPanel : Grid {
 
         if (path == null)
             return;
+        Ops.Start("set room avatar", room.Id);
+        controller.ShowNotice(controller.T("avatar.uploading"),
+            NoticeKind.Progress);
         try {
             await controller.SetRoomAvatar(room.Id, path);
-        } catch (Exception) {
+            Ops.Done("set room avatar", room.Id);
+            controller.ShowNotice(controller.T("avatar.done"));
+        } catch (Exception e) {
+            Ops.Fail("set room avatar", e, room.Id);
             // The picture stays as it was; choosing again tries again.
+            controller.ShowNotice(
+                controller.T("avatar.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
+                NoticeKind.Error);
         }
     }
 
@@ -1067,9 +1086,12 @@ public sealed class RoomInfoPanel : Grid {
     /// <summary>Runs a change of the room's settings; why it failed is shown as a notice.</summary>
     private async Task Run(Task change)
     {
+        Ops.Start("change room settings");
         try {
             await change;
+            Ops.Done("change room settings");
         } catch (EngineException e) {
+            Ops.Fail("change room settings", e);
             controller.ShowNotice(
                 e.Code == EngineErrorCode.Forbidden
                     ? controller.T("notAllowed")
@@ -1185,13 +1207,21 @@ public sealed class RoomInfoPanel : Grid {
                 ? controller.T("address.unlist.yes")
                 : controller.T("address.remove.yes"),
             async _ => {
+                Ops.Start("remove room address", alias);
                 await controller.RemoveRoomAlias(room.Id, alias);
                 if (!foreign &&
                     controller.Store.Value.Details?.Aliases.Contains(alias) ==
-                    true)
+                    true) {
+                    Ops.Fail("remove room address",
+                        new InvalidOperationException("the address stayed"),
+                        alias);
                     controller.ShowNotice(
                         controller.T("address.remove.kept", ("alias", alias)),
                         NoticeKind.Error);
+                    return;
+                }
+
+                Ops.Done("remove room address", alias);
             });
     }
 

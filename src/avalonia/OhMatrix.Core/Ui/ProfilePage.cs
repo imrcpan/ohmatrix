@@ -64,10 +64,20 @@ public sealed class ProfilePage : Grid {
 
         if (path == null)
             return;
+        Ops.Start("set avatar", Path.GetFileName(path));
+        controller.ShowNotice(controller.T("avatar.uploading"),
+            NoticeKind.Progress);
         try {
             await controller.SetAvatar(path);
-        } catch (Exception) {
+            Ops.Done("set avatar");
+            controller.ShowNotice(controller.T("avatar.done"));
+        } catch (Exception e) {
+            Ops.Fail("set avatar", e);
             // The picture stays as it was; choosing again tries again.
+            controller.ShowNotice(
+                controller.T("avatar.failed",
+                    ("reason", Failure.Reason(e, k => controller.T(k)))),
+                NoticeKind.Error);
         }
     }
 

@@ -152,9 +152,12 @@ public sealed class StickerPane : Grid {
 
     private async Task Save(IReadOnlyList<StickerGroup> next)
     {
+        Ops.Start("save sticker groups");
         try {
             await controller.SetStickerGroups(next);
+            Ops.Done("save sticker groups");
         } catch (Exception e) {
+            Ops.Fail("save sticker groups", e);
             controller.ShowNotice(
                 controller.T("sticker.group.failed",
                     ("reason", Failure.Reason(e, k => controller.T(k)))),
@@ -200,6 +203,7 @@ public sealed class StickerPane : Grid {
         var added = new List<string>();
         var failed = 0;
         var reason = "";
+        Ops.Start("add stickers", paths.Count + " files");
         controller.ShowNotice(
             paths.Count > 1
                 ? controller.T("sticker.uploading.n", ("n", paths.Count),
@@ -214,6 +218,7 @@ public sealed class StickerPane : Grid {
             try {
                 added.Add(await controller.AddSticker(paths[i]));
             } catch (Exception e) {
+                Ops.Fail("add stickers", e, Path.GetFileName(paths[i]));
                 failed++;
                 if (reason.Length == 0)
                     reason = Failure.Reason(e, k => controller.T(k));
@@ -232,6 +237,8 @@ public sealed class StickerPane : Grid {
                     Stickers = g.Stickers.Where(x => !fresh.Contains(x))
                         .ToList()
                 }).ToList());
+        if (failed == 0)
+            Ops.Done("add stickers", added.Count + " added");
         if (failed == 1 && paths.Count == 1)
             controller.ShowNotice(
                 controller.T("sticker.add.failed", ("reason", reason)),
@@ -274,9 +281,12 @@ public sealed class StickerPane : Grid {
 
     private async Task SendNow(string shortcode)
     {
+        Ops.Start("send sticker", shortcode);
         try {
             await controller.SendSticker(shortcode);
+            Ops.Done("send sticker", shortcode);
         } catch (Exception e) {
+            Ops.Fail("send sticker", e, shortcode);
             controller.ShowNotice(
                 controller.T("sticker.send.failed",
                     ("reason", Failure.Reason(e, k => controller.T(k)))),
@@ -291,9 +301,12 @@ public sealed class StickerPane : Grid {
         Stop();
         if (codes.Count == 0)
             return;
+        Ops.Start("remove stickers", codes.Count + " stickers");
         try {
             await controller.RemoveStickers(codes);
+            Ops.Done("remove stickers");
         } catch (Exception e) {
+            Ops.Fail("remove stickers", e);
             controller.ShowNotice(
                 controller.T("sticker.remove.failed",
                     ("reason", Failure.Reason(e, k => controller.T(k)))),
@@ -308,12 +321,15 @@ public sealed class StickerPane : Grid {
         Show(StickerPack.DefaultGroup);
         if (group.Id == StickerPack.DefaultGroup)
             return;
+        Ops.Start("delete sticker group", group.Id);
         try {
             if (group.Stickers.Count > 0)
                 await controller.RemoveStickers(group.Stickers);
             var rest = Current().Groups.Where(x => x.Id != group.Id).ToList();
             await Save(rest);
+            Ops.Done("delete sticker group", group.Id);
         } catch (Exception e) {
+            Ops.Fail("delete sticker group", e, group.Id);
             controller.ShowNotice(
                 controller.T("sticker.remove.failed",
                     ("reason", Failure.Reason(e, k => controller.T(k)))),
@@ -546,10 +562,13 @@ public sealed class StickerPane : Grid {
             var path = await FilePicker.PickImage(window);
             if (path == null)
                 return;
+            Ops.Start("upload sticker group icon", Path.GetFileName(path));
             try {
                 var icon = await controller.UploadGroupIcon(path);
+                Ops.Done("upload sticker group icon");
                 Pick(icon);
             } catch (Exception e) {
+                Ops.Fail("upload sticker group icon", e);
                 controller.ShowNotice(
                     controller.T("sticker.add.failed",
                         ("reason", Failure.Reason(e, k => controller.T(k)))),

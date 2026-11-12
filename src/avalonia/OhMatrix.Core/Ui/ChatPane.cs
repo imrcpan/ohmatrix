@@ -116,7 +116,9 @@ public sealed partial class ChatPane : Grid {
         var text = string.Join("\n",
             ChosenItems().Where(i => i.Image == null && i.File == null)
                 .Select(i => i.Body));
+        Ops.Start("copy messages");
         await Copy(window, text);
+        Ops.Done("copy messages");
         controller.ShowNotice(controller.T("copied"));
         CancelSelect();
     }
@@ -762,7 +764,10 @@ public sealed partial class ChatPane : Grid {
             TimelineItem? Find() => controller.Store.Value.Timeline
                 .FirstOrDefault(i => i.EventId == eventId);
 
+            var searched = false;
             if (Find() == null) {
+                searched = true;
+                Ops.Start("find message", eventId);
                 controller.ShowNotice(controller.T("jump.looking"),
                     NoticeKind.Progress);
                 revealNotice = controller.Store.Value.Notice;
@@ -801,6 +806,9 @@ public sealed partial class ChatPane : Grid {
                 return;
             var hit = Find();
             if (hit == null || !ScrollToMessage(hit.Id)) {
+                if (searched)
+                    Ops.Fail("find message",
+                        new InvalidOperationException("not found"), eventId);
                 controller.ShowNotice(controller.T("jump.notFound"),
                     NoticeKind.Error);
                 revealNotice = controller.Store.Value.Notice;
@@ -808,6 +816,8 @@ public sealed partial class ChatPane : Grid {
             }
 
             revealPending = false;
+            if (searched)
+                Ops.Done("find message", eventId);
             ClearRevealNotice();
             highlightId = hit.Id;
             revealHighlight = hit.Id;
@@ -1285,10 +1295,13 @@ public sealed partial class ChatPane : Grid {
 
     private async Task AddToStickers(TimelineItem item, string groupId)
     {
+        Ops.Start("add sticker from message", groupId);
         try {
             await controller.AddStickerFrom(item, groupId);
+            Ops.Done("add sticker from message", groupId);
             controller.ShowNotice(controller.T("sticker.added"));
         } catch (Exception e) {
+            Ops.Fail("add sticker from message", e, groupId);
             controller.ShowNotice(
                 controller.T("sticker.add.failed",
                     ("reason", Failure.Reason(e, k => controller.T(k)))),

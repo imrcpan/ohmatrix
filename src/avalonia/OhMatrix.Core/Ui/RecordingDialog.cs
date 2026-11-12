@@ -107,10 +107,13 @@ public sealed class RecordingDialog {
         dialog.OnClose = Discard;
         if (done == null)
             return;
+        Ops.Start("send recording");
         try {
             if (done.Duration >= TimeSpan.FromMilliseconds(500))
                 await controller.SendAttachment(done.Path);
-        } catch (Exception) {
+            Ops.Done("send recording");
+        } catch (Exception e) {
+            Ops.Fail("send recording", e);
             controller.ShowNotice(controller.T("record.unsupported"),
                 NoticeKind.Error);
         } finally {

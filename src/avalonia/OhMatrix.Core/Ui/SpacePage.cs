@@ -112,15 +112,18 @@ public sealed class SpacePage : Grid {
 
     private async Task JoinChild(SpaceChild room)
     {
+        Ops.Start("join room", room.RoomId);
         controller.ShowNotice(
             controller.T("explore.joining", ("name", room.Name)),
             NoticeKind.Progress);
         try {
             await controller.JoinRoom(room.RoomId);
+            Ops.Done("join room", room.RoomId);
             controller.OpenSidebarPage(SidebarPage.Chats);
             controller.ShowNotice(controller.T("explore.joined",
                 ("name", room.Name)));
         } catch (Exception e) {
+            Ops.Fail("join room", e, room.RoomId);
             controller.ShowNotice(e.Message, NoticeKind.Error);
         }
     }
@@ -461,11 +464,14 @@ public sealed class SpacePage : Grid {
         ThemeScope.SetColors(cancel, c);
         cancel.Click += (_, _) => SpaceDialog.Close();
         copy.Click += async (_, _) => {
+            Ops.Start("copy space link");
             try {
                 await window.Clipboard!.SetTextAsync(link);
+                Ops.Done("copy space link");
                 controller.ShowNotice(controller.T("copied"));
                 SpaceDialog.Close();
-            } catch (Exception) {
+            } catch (Exception e) {
+                Ops.Fail("copy space link", e);
                 controller.ShowNotice(controller.T("space.share.failed"),
                     NoticeKind.Error);
             }
@@ -536,9 +542,12 @@ public sealed class SpacePage : Grid {
 
     private async Task Then(Task change)
     {
+        Ops.Start("change space");
         try {
             await change;
+            Ops.Done("change space");
         } catch (EngineException e) {
+            Ops.Fail("change space", e);
             controller.ShowNotice(
                 e.Code == EngineErrorCode.Forbidden
                     ? controller.T("notAllowed")

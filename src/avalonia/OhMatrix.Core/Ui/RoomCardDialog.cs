@@ -77,10 +77,13 @@ public sealed class RoomCardDialog : IOverlay {
             Title = controller.T("explore.copy")
         };
         copy.Click += async (_, _) => {
+            Ops.Start("copy room address", room.RoomId);
             try {
                 await window.Clipboard!.SetTextAsync(room.Alias ?? room.RoomId);
+                Ops.Done("copy room address", room.RoomId);
                 copy.Title = controller.T("copied");
-            } catch (Exception) {
+            } catch (Exception e) {
+                Ops.Fail("copy room address", e, room.RoomId);
                 controller.ShowNotice(controller.T("copyFailed"),
                     NoticeKind.Error);
             }

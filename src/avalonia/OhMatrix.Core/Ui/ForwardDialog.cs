@@ -108,17 +108,20 @@ public sealed class ForwardDialog : IOverlay {
         sending = true;
         Build();
         var left = new HashSet<string>();
+        Ops.Start("forward messages", targets.Count + " chats");
         foreach (var room in targets) {
             try {
                 foreach (var item in items)
                     await controller.ForwardMessage(item, room.Id);
-            } catch (Exception) {
+            } catch (Exception e) {
+                Ops.Fail("forward messages", e, room.Id);
                 left.Add(room.Id);
             }
         }
 
         sending = false;
         if (left.Count == 0) {
+            Ops.Done("forward messages");
             Close();
             controller.ShowNotice(controller.T("forward.done"));
             sent?.Invoke();

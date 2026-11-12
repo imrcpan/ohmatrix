@@ -159,6 +159,7 @@ public sealed class AppController(
     {
         var joiningName = Strings.T(Store.Value.Locale, "explore.joining",
             ("name", room.Name));
+        Ops.Start("join public room", room.RoomId);
         ShowNotice(room.Members > BigRoom
             ? joiningName + " " + Strings.T(Store.Value.Locale,
                 "explore.joining.big")
@@ -173,9 +174,11 @@ public sealed class AppController(
         });
         try {
             await JoinRoom(room.Alias ?? room.RoomId);
+            Ops.Done("join public room", room.RoomId);
             ShowNotice(Strings.T(Store.Value.Locale, "explore.joined",
                 ("name", room.Name)));
         } catch (EngineException e) {
+            Ops.Fail("join public room", e, room.RoomId);
             Store.Update(s => s with {
                 JoinError = e.Message,
                 Notice = null
@@ -812,6 +815,7 @@ public sealed class AppController(
     {
         if (media == null)
             return;
+        Ops.Start("save picture", name);
         try {
             var path = await media.Download(source, name, "");
             if (path == null)
@@ -820,6 +824,7 @@ public sealed class AppController(
                 Directory.Exists(folder)) {
                 var kept = Path.Combine(folder, Path.GetFileName(name));
                 File.Copy(path, kept, true);
+                Ops.Done("save picture", name);
                 ShowNotice(Strings.T(Store.Value.Locale, "viewer.saved"));
                 return;
             }
@@ -833,8 +838,10 @@ public sealed class AppController(
             await using (var from = File.OpenRead(path))
             await using (var to = await target.OpenWriteAsync())
                 await from.CopyToAsync(to);
+            Ops.Done("save picture", name);
             ShowNotice(Strings.T(Store.Value.Locale, "viewer.saved"));
-        } catch (Exception) {
+        } catch (Exception e) {
+            Ops.Fail("save picture", e, name);
             ShowNotice(Strings.T(Store.Value.Locale, "copyFailed"),
                 NoticeKind.Error);
         }
