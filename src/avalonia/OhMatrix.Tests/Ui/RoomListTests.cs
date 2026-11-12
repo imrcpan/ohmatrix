@@ -346,14 +346,46 @@ public class RoomListTests {
         return (window, controller, list);
     }
 
+    [AvaloniaTheory]
+    [InlineData(SecurityState.NeedsSetup, "Set up")]
+    [InlineData(SecurityState.NeedsRecovery, "Verify")]
+    public void A_banner_asks_to_set_up_or_verify_the_encryption(
+        SecurityState state, string action)
+    {
+        var (window, controller, list) = OpenList([]);
+        try {
+            var banner = list.GetVisualDescendants().OfType<Banner>().Single();
+            Assert.False(banner.IsVisible);
+            controller.Store.Update(s => s with {
+                Security = state
+            });
+            window.UpdateLayout();
+            Assert.True(banner.IsVisible);
+            Assert.Contains(banner.GetVisualDescendants().OfType<TextBlock>(),
+                t => t.Text == action);
+            controller.Store.Update(s => s with {
+                Security = SecurityState.Ready
+            });
+            Assert.False(banner.IsVisible);
+        } finally {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
-    public void The_plus_button_of_the_strip_is_under_my_picture()
+    public void
+        The_strip_has_no_banner_and_the_plus_button_is_under_my_picture()
     {
         var (window, controller, list) = OpenList([], true);
         try {
             list.Width = Layout.SidebarRail;
             list.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            controller.Store.Update(s => s with {
+                Security = SecurityState.NeedsRecovery
+            });
             window.UpdateLayout();
+            Assert.False(list.GetVisualDescendants().OfType<Banner>().Single()
+                .IsVisible);
             var picture = list.GetVisualDescendants().OfType<Avatar>().First();
             var plus = list.GetVisualDescendants().OfType<IconButton>()
                 .Single();

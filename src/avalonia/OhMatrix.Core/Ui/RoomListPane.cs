@@ -48,6 +48,7 @@ public sealed class RoomListPane : Grid {
         }
     }
 
+    private readonly Banner banner = new();
     private readonly Border avatarHolder = new();
     private readonly SearchField search = new();
     private readonly StackPanel rows = new();
@@ -109,7 +110,7 @@ public sealed class RoomListPane : Grid {
         this.time = time ?? TimeProvider.System;
         Rail = rail;
         plus = new IconButton("plus", "New", rail ? 28 : 24, rail ? 44 : 36);
-        RowDefinitions = new RowDefinitions("Auto,*");
+        RowDefinitions = new RowDefinitions("Auto,Auto,*");
         var header = new StackPanel {
             Spacing = rail ? 0 : 10
         };
@@ -158,6 +159,11 @@ public sealed class RoomListPane : Grid {
 
         bar.Child = header;
         Children.Add(bar);
+        Grid.SetRow(banner, 1);
+        banner.IsVisible = false;
+        banner.Pressed += (_, _) =>
+            controller.OpenSidebarPage(SidebarPage.Encryption);
+        Children.Add(banner);
 
         var list = new StackPanel();
         list.Children.Add(new Border {
@@ -177,7 +183,7 @@ public sealed class RoomListPane : Grid {
             // left pane keeps its width.
             AllowAutoHide = true,
         };
-        Grid.SetRow(scroller, 1);
+        Grid.SetRow(scroller, 2);
         Children.Add(scroller);
 
         ticker.Tick += (_, _) => {
@@ -314,7 +320,7 @@ public sealed class RoomListPane : Grid {
 
         if (before == null || theme || language || font ||
             before.Profile != s.Profile || before.UserId != s.UserId ||
-            before.SyncState != s.SyncState)
+            before.SyncState != s.SyncState || before.Security != s.Security)
             ApplyHeader(s, before, c, font);
 
         // A timeline, typing or notice update does not walk the room list.
@@ -448,6 +454,19 @@ public sealed class RoomListPane : Grid {
         nameSkeleton.IsVisible = !Rail && waiting;
         Avalonia.Automation.AutomationProperties.SetName(profile,
             controller.T("profile"));
+        // The notice to set up or to verify the encryption, above the chats;
+        // not in the strip.
+        var needs = s.Security is SecurityState.NeedsSetup
+            or SecurityState.NeedsRecovery;
+        banner.IsVisible = needs && !Rail;
+        if (needs)
+            banner.Set(
+                controller.T(s.Security == SecurityState.NeedsSetup
+                    ? "sec.banner.setup"
+                    : "sec.banner.recovery"),
+                controller.T(s.Security == SecurityState.NeedsSetup
+                    ? "sec.action.setup"
+                    : "sec.action.verify"));
         bar.Padding = Rail
             ? new Thickness(0, 10, 0, 0)
             : new Thickness(12, 10, 12, 8);
