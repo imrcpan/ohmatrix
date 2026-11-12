@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
+using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
 namespace OhMatrix.Core.Ui;
 

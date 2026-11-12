@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Overlays;
 
 /// <summary>Where a menu goes and how tall it is shown (<c>placeMenu</c> of menuPlace.ts).</summary>
 public readonly record struct MenuPlace(

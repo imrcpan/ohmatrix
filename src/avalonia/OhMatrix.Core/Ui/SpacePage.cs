@@ -8,8 +8,11 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using Menu = OhMatrix.Core.Ui.Overlays.Menu;
+using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
 namespace OhMatrix.Core.Ui;

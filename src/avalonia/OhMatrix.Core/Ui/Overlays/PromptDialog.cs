@@ -6,7 +6,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Overlays;
 
 /// <summary>A field of a <see cref="PromptDialog"/>.</summary>
 public sealed record PromptField(

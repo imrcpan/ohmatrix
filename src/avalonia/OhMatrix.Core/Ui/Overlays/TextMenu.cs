@@ -3,7 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using OhMatrix.Core.State;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Overlays;
 
 /// <summary>
 /// The right-click menu of a text field: the menu of the app (the surface, the radius and the shadow of the other menus), not the white one

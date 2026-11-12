@@ -6,7 +6,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Widgets;
 using Xunit;
 

@@ -9,7 +9,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Overlays;
 
 /// <summary>
 /// A centred card over a dimmed backdrop (<c>Dialog</c> of the React Native app): 400 wide at most, 16 corners, 20 padding, a 19/700 title, an optional

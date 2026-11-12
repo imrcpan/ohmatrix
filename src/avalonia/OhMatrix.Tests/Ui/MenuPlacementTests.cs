@@ -1,4 +1,4 @@
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Overlays;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

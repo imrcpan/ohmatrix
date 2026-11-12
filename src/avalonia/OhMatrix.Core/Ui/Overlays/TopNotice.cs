@@ -7,7 +7,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Overlays;
 
 /// <summary>
 /// A short message in a pill at the top of the screen (<c>TopNotice</c>): the surface of the theme with an outline and a mark: a check for good

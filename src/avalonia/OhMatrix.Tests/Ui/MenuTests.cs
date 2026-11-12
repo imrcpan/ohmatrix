@@ -7,8 +7,8 @@ using Avalonia.Media.Imaging;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using Xunit;
-using Menu = OhMatrix.Core.Ui.Menu;
-using MenuItem = OhMatrix.Core.Ui.MenuItem;
+using Menu = OhMatrix.Core.Ui.Overlays.Menu;
+using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
 namespace OhMatrix.Tests.Ui;
 
