@@ -187,6 +187,8 @@ public sealed class MainScreen : Grid {
         Children.Add(callScreen);
         notice = new TopNotice(controller);
         Grid.SetColumnSpan(notice, 4);
+        // Above the profile dialog (10): a notice is over whatever shows.
+        notice.ZIndex = 20;
         Children.Add(notice);
         Lifetime.Watch(this, controller, state => {
             if (Differs(state))
