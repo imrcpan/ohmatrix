@@ -9,7 +9,7 @@ namespace OhMatrix.Core.Ui;
 /// <summary>
 /// A row of the chat list (<c>RoomRow</c>): 62 high, a 44 picture, the bold title with the time, the preview with the unread count; selected is
 /// filled with the selection colour. <see cref="Compact"/> is only the picture with the count on it (the narrow strip).
-/// Single lines end in an ellipsis. Set the properties, then call <see cref="Update"/>.
+/// Single lines end in three dots (<see cref="EllipsisText"/>). Set the properties, then call <see cref="Update"/>.
 /// </summary>
 public sealed class RoomRow : PressableButton {
     public const double RowHeight = 62;
@@ -60,8 +60,8 @@ public sealed class RoomRow : PressableButton {
         ColumnDefinitions = new ColumnDefinitions("*,Auto")
     };
 
-    private readonly TextBlock title = Ellipsis(16, FontWeight.SemiBold);
-    private readonly TextBlock preview = Ellipsis(15, FontWeight.Normal);
+    private readonly EllipsisText title = Ellipsis(16, FontWeight.SemiBold);
+    private readonly EllipsisText preview = Ellipsis(15, FontWeight.Normal);
 
     private readonly TextBlock time = new() {
         FontSize = 13,
@@ -308,15 +308,19 @@ public sealed class RoomRow : PressableButton {
         Text((TextBlock)decline!.Child!, invite.Value.Decline);
     }
 
-    private static TextBlock Ellipsis(double size, FontWeight weight)
+    private static EllipsisText Ellipsis(double size, FontWeight weight)
     {
-        return new TextBlock {
+        return new EllipsisText {
             FontSize = size,
             FontWeight = weight,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            TextWrapping = TextWrapping.NoWrap,
             VerticalAlignment = VerticalAlignment.Center,
         };
+    }
+
+    private static void Text(EllipsisText label, string value)
+    {
+        label.Text = value;
+        label.FontFamily = Fonts.System;
     }
 
     private static void Text(TextBlock label, string value)
