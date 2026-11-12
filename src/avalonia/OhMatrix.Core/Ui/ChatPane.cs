@@ -487,6 +487,8 @@ public sealed partial class ChatPane : Grid {
         var bar = inputBar;
         bar.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
         bar.Margin = new Thickness(10, 8);
+        Lifetime.Own(this, TextMenu.Attach(input, controller));
+        Lifetime.Own(this, TextMenu.Attach(searchInput, controller));
         mic.CornerRadius = new CornerRadius(0);
         mic.Margin = new Thickness(6, 0, -8, 0);
         mic.Click += (_, _) => {

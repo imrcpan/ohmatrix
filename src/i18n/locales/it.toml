@@ -630,3 +630,6 @@
 "push.invited" = "{name} ti ha inviato un invito"
 "call.video.switching" = "L’immagine non arriva. Provo un altro formato video…"
 "call.video.unavailable" = "Su questa connessione non è possibile mostrare l’immagine. La chiamata continua con l’audio."
+"edit.cut" = "Taglia"
+"edit.paste" = "Incolla"
+"edit.selectAll" = "Seleziona tutto"

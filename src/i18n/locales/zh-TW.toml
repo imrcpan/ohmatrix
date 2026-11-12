@@ -630,3 +630,6 @@
 "push.invited" = "{name} 邀請了你"
 "call.video.switching" = "畫面沒有出現，正在嘗試其他影片格式…"
 "call.video.unavailable" = "這個連線上無法顯示畫面，通話仍可繼續聽到聲音。"
+"edit.cut" = "剪下"
+"edit.paste" = "貼上"
+"edit.selectAll" = "全選"

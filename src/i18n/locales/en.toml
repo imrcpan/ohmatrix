@@ -630,3 +630,6 @@
 "push.invited" = "{name} invited you"
 "call.video.switching" = "The picture isn't coming through. Trying another video format…"
 "call.video.unavailable" = "The picture can't be shown on this connection. The call goes on with sound."
+"edit.cut" = "Cut"
+"edit.paste" = "Paste"
+"edit.selectAll" = "Select all"
