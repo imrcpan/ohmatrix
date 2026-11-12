@@ -22,6 +22,24 @@ public static class AppStyles {
         app.Styles.Add(new FluentTheme());
         app.RequestedThemeVariant = ThemeVariant.Light;
         ThinScrollBars(app);
+        FullPlaceholders();
+    }
+
+    private static bool placeholders;
+
+    // The template of Fluent draws the placeholder of a text box at half its
+    // colour; the colour is already the one meant (the secondary text), as in
+    // the React Native app, so it is drawn whole.
+    private static void FullPlaceholders()
+    {
+        if (placeholders)
+            return;
+        placeholders = true;
+        TemplatedControl.TemplateAppliedEvent
+            .AddClassHandler<TextBox>((_, e) => {
+                if (e.NameScope.Find("PART_Placeholder") is Visual part)
+                    part.Opacity = 1;
+            });
     }
 
     // The bar is 4 wide, with 4 of space on its left and 2 on its right as
