@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Shell;
 
 /// <summary>The widths of the panes (<c>layout.ts</c>).</summary>
 public static class Layout {

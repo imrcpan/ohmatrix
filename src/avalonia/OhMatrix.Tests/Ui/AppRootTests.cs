@@ -1,4 +1,5 @@
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Shell;
 using OhMatrix.Infra.Logging;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -7,7 +8,6 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Storage;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

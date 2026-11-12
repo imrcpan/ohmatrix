@@ -9,7 +9,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Infra.Logging;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Shell;
 
 /// <summary>
 /// The root of the app (<c>Root</c> of <c>App.tsx</c>): sets the theme and the zoom for everything below, and shows what the sign-in status asks

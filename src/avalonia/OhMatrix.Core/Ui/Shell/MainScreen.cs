@@ -14,7 +14,7 @@ using OhMatrix.Core.Ui.Rooms;
 using OhMatrix.Core.Ui.Settings;
 using OhMatrix.Core.Ui.Support;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Shell;
 
 /// <summary>
 /// The page of a signed-in account (<c>MainScreen</c>): from <see cref="SplitBreakpoint"/> wide, the chat list beside the open chat with a divider

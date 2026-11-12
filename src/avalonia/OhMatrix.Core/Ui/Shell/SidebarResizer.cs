@@ -4,7 +4,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Shell;
 
 /// <summary>
 /// The draggable divider on the right edge of the sidebar (<c>SidebarResizer</c>). It reports the live width while dragging and the final width on

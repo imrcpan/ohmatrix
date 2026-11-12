@@ -5,7 +5,7 @@ using Avalonia.Platform;
 using OhMatrix.Core;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Storage;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Shell;
 using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Desktop;

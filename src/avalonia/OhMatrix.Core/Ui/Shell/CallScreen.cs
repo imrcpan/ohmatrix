@@ -15,7 +15,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Shell;
 
 /// <summary>
 /// The call over the whole window (<c>CallScreen</c> of the React Native app): the person's picture and name, what the call is doing (calling,

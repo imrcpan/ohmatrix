@@ -7,8 +7,8 @@ using Microsoft.Extensions.Time.Testing;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Shell;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

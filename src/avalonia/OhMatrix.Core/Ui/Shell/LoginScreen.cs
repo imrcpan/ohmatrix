@@ -13,7 +13,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Shell;
 
 /// <summary>
 /// The sign-in and account creation page (<c>LoginScreen</c> of the React Native app): the logo with the name and what the page is for, the
