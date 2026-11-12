@@ -4,7 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>The rounded search field (<c>SearchField</c>): the secondary fill, no border, a magnifier and the placeholder; 36 high.</summary>
 public sealed class SearchField : Border {

@@ -6,9 +6,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
-using Spinner = OhMatrix.Core.Ui.Spinner;
+using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Widgets;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

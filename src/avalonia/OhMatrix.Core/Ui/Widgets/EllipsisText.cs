@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// Single-line text that ends in three ASCII dots ("...") where it does not fit, not in the "…" of the platform (<c>EllipsisText</c> of the React Native

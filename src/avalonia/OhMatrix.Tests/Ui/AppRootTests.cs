@@ -59,7 +59,7 @@ public class AppRootTests {
             new FilePreferencesStore(dir)
         );
         var root = new AppRoot(controller, "matrix.org", () => false);
-        Assert.IsType<OhMatrix.Core.Ui.Spinner>(root.Page);
+        Assert.IsType<OhMatrix.Core.Ui.Widgets.Spinner>(root.Page);
         await controller.Bootstrap();
         Assert.IsType<LoginScreen>(root.Page);
         await controller.Login("matrix.org", "alice", "pw");

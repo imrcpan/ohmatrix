@@ -5,7 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The click area of the vertical scrollbars: a strip of 10 at the right edge of each scroll viewer (the 4 of the bar, 4 of space on its left and 2 on its right). A press in the strip, and a drag from it, scroll the viewer to the place of the pointer, so the whole strip is clickable and the bar

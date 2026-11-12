@@ -1,6 +1,7 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using OhMatrix.Core.State;
+using OhMatrix.Core.Ui.Widgets;
 
 namespace OhMatrix.Core.Ui;
 

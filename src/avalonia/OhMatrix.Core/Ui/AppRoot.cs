@@ -6,6 +6,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Infra.Logging;
+using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
 namespace OhMatrix.Core.Ui;
 

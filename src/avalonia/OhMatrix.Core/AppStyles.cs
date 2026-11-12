@@ -9,7 +9,7 @@ using Avalonia.Themes.Fluent;
 
 namespace OhMatrix.Core;
 
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Widgets;
 
 public static class AppStyles {
     /// <summary>

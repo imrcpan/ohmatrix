@@ -3,7 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Xunit;
-using Spinner = OhMatrix.Core.Ui.Spinner;
+using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
 namespace OhMatrix.Tests.Ui;
 

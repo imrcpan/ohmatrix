@@ -5,6 +5,7 @@ using Avalonia.Media;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
+using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
 namespace OhMatrix.Core.Ui;
 

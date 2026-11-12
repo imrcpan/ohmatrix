@@ -5,7 +5,7 @@ using Avalonia.Media;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>The bar at the top of a page of the left pane (<c>PageHeader</c>): Back, then the title; 56 high, with no line under it.</summary>
 public static class PageBar {

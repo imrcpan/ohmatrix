@@ -5,7 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The rows of a page that opens something (<c>NavRow</c>): an icon, the name, the value of the setting if it has one and a small arrow, on the

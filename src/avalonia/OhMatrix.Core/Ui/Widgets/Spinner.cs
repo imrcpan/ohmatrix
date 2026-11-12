@@ -6,7 +6,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// A turning ring: three quarters of a circle that goes round. <see cref="Size"/> is the width of the control; with no

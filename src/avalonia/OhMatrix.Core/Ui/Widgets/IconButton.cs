@@ -2,7 +2,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>A round button with an icon (<c>IconButton</c>): 36 by default, a tint under the pointer, the accent colour unless another is given.</summary>
 public sealed class IconButton : PressableButton {

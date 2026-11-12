@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Widgets;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

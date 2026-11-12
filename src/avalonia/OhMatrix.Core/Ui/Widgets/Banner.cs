@@ -4,7 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The notice bar with an action that stands above a list (<c>Banner</c>): the text on the secondary surface, and the action as a pill in the

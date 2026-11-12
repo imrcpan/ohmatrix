@@ -7,7 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>Everything inside pulses together between 55% and full, the way the rows of the chat list do while it is arriving (<c>Pulse</c>).</summary>
 public class Pulse : Panel {

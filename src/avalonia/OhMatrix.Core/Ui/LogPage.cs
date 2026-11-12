@@ -9,6 +9,7 @@ using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
+using OhMatrix.Core.Ui.Widgets;
 using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui;

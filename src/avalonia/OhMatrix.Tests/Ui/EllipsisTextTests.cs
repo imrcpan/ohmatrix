@@ -3,8 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
-using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Widgets;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

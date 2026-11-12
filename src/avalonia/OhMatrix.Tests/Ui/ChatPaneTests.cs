@@ -12,6 +12,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
+using OhMatrix.Core.Ui.Widgets;
 using OhMatrix.Infra.Logging;
 using Xunit;
 
@@ -1547,7 +1548,7 @@ public partial class ChatPaneTests {
         var notice = screen.Notice;
         controller.ShowNotice("Joining", NoticeKind.Progress);
         var ring = notice.GetVisualDescendants()
-            .OfType<OhMatrix.Core.Ui.Spinner>().Single();
+            .OfType<OhMatrix.Core.Ui.Widgets.Spinner>().Single();
         var label = notice.GetVisualDescendants().OfType<TextBlock>().Single();
 
         controller.Store.Update(s => s with {
@@ -1560,13 +1561,13 @@ public partial class ChatPaneTests {
         controller.ShowNotice("Still joining", NoticeKind.Progress);
         Assert.Equal("Still joining", notice.Text);
         Assert.Same(ring, notice.GetVisualDescendants()
-            .OfType<OhMatrix.Core.Ui.Spinner>()
+            .OfType<OhMatrix.Core.Ui.Widgets.Spinner>()
             .Single());
 
         // A good end puts a check in the place of the ring.
         controller.ShowNotice("Joined", NoticeKind.Success);
         Assert.Empty(notice.GetVisualDescendants()
-            .OfType<OhMatrix.Core.Ui.Spinner>());
+            .OfType<OhMatrix.Core.Ui.Widgets.Spinner>());
         Assert.Equal("Joined", notice.Text);
         Assert.Single(notice.GetVisualDescendants().OfType<Icon>());
         controller.ShowNotice("Failed", NoticeKind.Error);

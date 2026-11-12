@@ -4,7 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The borderless button that opens a menu (language and zoom of the sign-in screen): 36 high, an optional icon, the name in the secondary colour and

@@ -5,7 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The labelled text box of the forms (<c>TextField</c> with an icon): 44 high on the secondary surface, the icon at its left, the label as its

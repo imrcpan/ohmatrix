@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using OhMatrix.Core.Ui.Widgets;
 
 namespace OhMatrix.Core.Ui;
 

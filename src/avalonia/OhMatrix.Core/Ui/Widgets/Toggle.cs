@@ -5,7 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>The switch (<c>Toggle</c>): a low, wide track that takes the accent colour when on, and a round white knob that slides across.</summary>
 public sealed class Toggle : Border {

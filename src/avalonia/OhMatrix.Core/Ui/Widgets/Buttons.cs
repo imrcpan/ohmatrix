@@ -6,7 +6,7 @@ using Avalonia.Media;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The base of the buttons: a pressable area that knows whether the pointer is over it or down on it, and redraws its colours from the theme.

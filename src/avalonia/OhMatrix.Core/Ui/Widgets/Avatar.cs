@@ -4,7 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Widgets;
 
 /// <summary>
 /// The picture of a person or a room (<c>Avatar</c>): a circle for chats and people, a rounded square for spaces, with the picture when there is
