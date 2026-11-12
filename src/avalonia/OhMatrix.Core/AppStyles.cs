@@ -37,13 +37,13 @@ public static class AppStyles {
         app.Resources["HorizontalSmallScrollThumbScaleTransform"] =
             new ScaleTransform(1, ThinThumb / FullThumb);
         app.Resources["ScrollBarThumbBackgroundColor"] =
-            Color.FromArgb(0x66, 0x80, 0x80, 0x80);
+            Color.FromArgb(0xE6, 0x80, 0x80, 0x80);
         app.Resources["ScrollBarPanningThumbBackgroundColor"] =
-            Color.FromArgb(0x66, 0x80, 0x80, 0x80);
+            Color.FromArgb(0xE6, 0x80, 0x80, 0x80);
         app.Resources["ScrollBarThumbFill"] =
-            new SolidColorBrush(Color.FromArgb(0x66, 0x80, 0x80, 0x80));
+            new SolidColorBrush(Color.FromArgb(0xE6, 0x80, 0x80, 0x80));
         app.Resources["ScrollBarThumbFillPointerOver"] =
-            new SolidColorBrush(Color.FromArgb(0x99, 0x80, 0x80, 0x80));
+            new SolidColorBrush(Color.FromArgb(0xE6, 0x80, 0x80, 0x80));
         app.Resources["ScrollBarThumbFillPressed"] =
             new SolidColorBrush(Color.FromArgb(0xE6, 0x80, 0x80, 0x80));
         app.Resources["ScrollBarTrackFill"] = Brushes.Transparent;
