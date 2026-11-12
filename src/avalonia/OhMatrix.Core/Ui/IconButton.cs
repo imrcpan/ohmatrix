@@ -28,6 +28,12 @@ public sealed class IconButton : PressableButton {
         set => icon.Glyph = value;
     }
 
+    /// <summary>The width of the icon's line; null is the one of the glyph.</summary>
+    public double? StrokeWidth {
+        get => icon.StrokeWidth;
+        set => icon.StrokeWidth = value;
+    }
+
     /// <summary>The colour of the icon; null is the accent.</summary>
     public Color? Tint {
         get;

@@ -37,7 +37,11 @@ public sealed partial class ChatPane : Grid {
             .ScrollBarVisibility.Disabled,
     };
 
-    private readonly Border composer = new();
+    // A line above the bar, and a little air between it and the newest message.
+    private readonly Border composer = new() {
+        BorderThickness = new Thickness(0, 1, 0, 0),
+        Margin = new Thickness(0, 2, 0, 0),
+    };
 
     private readonly MessageMenu actions = new();
     private readonly Grid inputBar = new();
@@ -135,8 +139,20 @@ public sealed partial class ChatPane : Grid {
 
     private readonly Dialog groupDialog = new();
 
-    private readonly IconButton attach = new("attach", "Attach", 24, 38);
-    private readonly IconButton emojiButton = new("sticker", "Emoji", 30, 38);
+    private readonly IconButton attach = new("plusCircle", "Attach", 30, 38) {
+        StrokeWidth = 1.6
+    };
+
+    private readonly IconButton emojiButton = new("sticker", "Emoji", 32, 38) {
+        StrokeWidth = 1.6
+    };
+
+    // Voice sits inside the field, at its right edge, until something is typed.
+    private readonly IconButton mic = new("mic", "Voice", 22, 30) {
+        Height = 24,
+        VerticalAlignment = VerticalAlignment.Bottom,
+    };
+
     private readonly EmojiPicker emojiPicker = new();
 
     /// <summary>The emoji picker over the composer.</summary>
@@ -280,10 +296,12 @@ public sealed partial class ChatPane : Grid {
         MinHeight = 0,
     };
 
+    // 24 of text, 2 x 6 and the 1 borders are 38: as tall as the buttons.
     private readonly Border inputBox = new() {
         MinHeight = 38,
         CornerRadius = new CornerRadius(19),
-        Padding = new Thickness(14, 8),
+        BorderThickness = new Thickness(1),
+        Padding = new Thickness(14, 5, 14, 5),
     };
 
     private readonly Border send = new() {
@@ -297,6 +315,7 @@ public sealed partial class ChatPane : Grid {
     private readonly Icon sendIcon = new() {
         Glyph = "send",
         Size = 20,
+        StrokeWidth = 2.5,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
     };
@@ -468,7 +487,20 @@ public sealed partial class ChatPane : Grid {
         var bar = inputBar;
         bar.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
         bar.Margin = new Thickness(10, 8);
-        inputBox.Child = input;
+        mic.CornerRadius = new CornerRadius(0);
+        mic.Margin = new Thickness(6, 0, -8, 0);
+        mic.Click += (_, _) => {
+            if (TopLevel.GetTopLevel(this) is { } w)
+                recording.Open(w, false);
+        };
+        Grid.SetColumn(mic, 1);
+        var field = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        field.Children.Add(input);
+        field.Children.Add(mic);
+        inputBox.Child = field;
         Grid.SetColumn(inputBox, 1);
         attach.VerticalAlignment = VerticalAlignment.Bottom;
         attach.Click += (_, _) => OpenAttach();
@@ -937,9 +969,11 @@ public sealed partial class ChatPane : Grid {
         if (!force && sendReady == ready)
             return;
         sendReady = ready;
-        send.Background = new SolidColorBrush(ready ? c.Accent : c.Separator);
+        send.Background =
+            new SolidColorBrush(ready ? c.Accent : c.BgSecondary);
         sendIcon.Color =
-            new SolidColorBrush(ready ? c.OnAccent : c.TextSecondary);
+            new SolidColorBrush(ready ? c.OnAccent : c.TextTertiary);
+        mic.IsVisible = !ready && RecordingDialog.Available(false);
     }
 
     /// <summary>The background of the send button now: the accent with text to send.</summary>
@@ -977,7 +1011,12 @@ public sealed partial class ChatPane : Grid {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.ChatBg);
         composer.Background = new SolidColorBrush(c.Bg);
-        inputBox.Background = new SolidColorBrush(c.BgSecondary);
+        composer.BorderBrush = new SolidColorBrush(c.Separator);
+        inputBox.Background = new SolidColorBrush(c.Bg);
+        inputBox.BorderBrush = new SolidColorBrush(c.Separator);
+        attach.Tint = c.TextSecondary;
+        emojiButton.Tint = c.TextSecondary;
+        mic.Tint = c.TextSecondary;
         input.Foreground = new SolidColorBrush(c.Text);
         input.CaretBrush = new SolidColorBrush(c.Text);
         input.SelectionBrush = new SolidColorBrush(c.Accent, 0.4);
