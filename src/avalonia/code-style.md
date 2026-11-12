@@ -19,6 +19,26 @@ This project does not use AXAML. All UI is created entirely in C# code.
 - All controls, layouts, styles, and templates defined in C#
 - Declarative UI through C# fluent APIs or object initializers
 
+## UI Folders
+
+`OhMatrix.Core/Ui/` has no files of its own: every file is in a folder, and the namespace of a file is the namespace of its folder
+(`OhMatrix.Core.Ui.Chat.Messages` for `Ui/Chat/Messages/`). A folder uses only the folders below it, so there are no cycles:
+
+| Folder                                               | What is in it                                                     | May use                                           |
+| ---------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------- |
+| `Appearance`                                         | colours (`ThemeScope`), fonts, radii, icons and the logo          | nothing                                           |
+| `Support`                                            | what pages hang onto (`Lifetime`, `IOverlay`), error texts, times | nothing                                           |
+| `Widgets`                                            | buttons, fields, rows, text and skeleton parts that any page uses | `Appearance`                                      |
+| `Overlays`                                           | dialogs, menus and notices over the window                        | `Widgets` and the above                           |
+| `Media`                                              | pictures, viewers and the file picker                             | `Overlays` and the above                          |
+| `Account`, `Rooms`, `Chat/Messages`, `Chat/Composer` | the parts of a feature                                            | `Media` and the above                             |
+| `Chat`                                               | the open chat                                                     | the parts of a feature, `Rooms`                   |
+| `Settings`                                           | the panes of the settings window                                  | `Chat/Messages` (the theme preview) and the above |
+| `Shell`                                              | the root, the screens and the frame of the app                    | everything                                        |
+
+A widget that knows a page is in the wrong place: it takes the page's numbers as parameters, or goes next to the page. The rule is kept by
+`UiStructureTests`. Code outside `Ui/` uses it as little as it can (`AppController` holds the pictures and sets the fonts).
+
 ## Project File Structure
 
 All `.csproj` files must explicitly include the following properties in the first `<PropertyGroup>`, in this exact order:
