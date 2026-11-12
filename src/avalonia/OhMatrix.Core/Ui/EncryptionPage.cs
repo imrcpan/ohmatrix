@@ -235,7 +235,7 @@ public sealed class EncryptionPage : Grid {
             Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });
-        content.Children.Add(ProfilePage.NavRow(c, "lock",
+        content.Children.Add(NavRows.Make(c, "lock",
             controller.T("encryption"),
             () => {
             }, 0,
@@ -245,14 +245,14 @@ public sealed class EncryptionPage : Grid {
         SetupRow = null;
         ResetRow = null;
         if (s.Security == SecurityState.NeedsSetup) {
-            SetupRow = ProfilePage.NavRow(c, "key",
+            SetupRow = NavRows.Make(c, "key",
                 controller.T("sec.setup.title"),
                 AskSetup, 0, flat: true);
             content.Children.Add(SetupRow);
         }
 
         if (s.Security == SecurityState.Ready) {
-            ResetRow = ProfilePage.NavRow(c, "refresh",
+            ResetRow = NavRows.Make(c, "refresh",
                 controller.T("keys.reset"),
                 AskReset, 0, null, false,
                 true, true);
@@ -260,11 +260,11 @@ public sealed class EncryptionPage : Grid {
         }
 
         if (s.Security == SecurityState.NeedsRecovery) {
-            RecoveryRow = ProfilePage.NavRow(c, "key",
+            RecoveryRow = NavRows.Make(c, "key",
                 controller.T("sec.recovery.title"),
                 AskRecoveryKey, 0, flat: true);
             content.Children.Add(RecoveryRow);
-            VerifyRow = ProfilePage.NavRow(
+            VerifyRow = NavRows.Make(
                 c,
                 "device",
                 controller.T("verify.session"),

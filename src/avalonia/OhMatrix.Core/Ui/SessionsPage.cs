@@ -212,7 +212,7 @@ public sealed class SessionsPage : Grid {
             Child = grid,
         };
         if (press != null) {
-            ProfilePage.Hover(card, c);
+            NavRows.Hover(card, c);
             card.Cursor = new Cursor(StandardCursorType.Hand);
             card.PointerPressed += (_, e) => {
                 e.Handled = true;

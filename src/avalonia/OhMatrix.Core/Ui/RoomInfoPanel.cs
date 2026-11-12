@@ -184,22 +184,22 @@ public sealed class RoomInfoPanel : Grid {
             TextWrapping = TextWrapping.Wrap,
         });
         content.Children.Add(head);
-        content.Children.Add(ProfilePage.NavRow(c, "copy",
+        content.Children.Add(NavRows.Make(c, "copy",
             controller.T("member.copyLink"),
             () => Copy($"https://matrix.to/#/{m.UserId}"), 12, chevron: false));
-        content.Children.Add(ProfilePage.NavRow(c, "copy",
+        content.Children.Add(NavRows.Make(c, "copy",
             controller.T("member.copyAddress"),
             () => Copy(m.UserId), 8, chevron: false));
         if (!me) {
-            content.Children.Add(ProfilePage.NavRow(c, "chat",
+            content.Children.Add(NavRows.Make(c, "chat",
                 controller.T("member.message"),
                 () => AskMessage(m), 8, chevron: false));
             if (controller.CanVerifyUser)
-                content.Children.Add(ProfilePage.NavRow(c, "lock",
+                content.Children.Add(NavRows.Make(c, "lock",
                     controller.T("member.verify"),
                     () => _ = controller.VerifyUser(m.UserId), 8,
                     chevron: false));
-            content.Children.Add(ProfilePage.NavRow(c, "close",
+            content.Children.Add(NavRows.Make(c, "close",
                 controller.T("member.block"),
                 () => AskBlock(m), 8, chevron: false, danger: true));
         }
@@ -1332,7 +1332,7 @@ public sealed class RoomInfoPanel : Grid {
         var files = timeline.Where(i => i.File != null).Reverse()
             .Take(FilesShown).ToList();
         sharedHost.Children.Add(Section(c, controller.T("sharedMedia")));
-        sharedHost.Children.Add(ProfilePage.NavRow(c, "image",
+        sharedHost.Children.Add(NavRows.Make(c, "image",
             controller.T("viewAll"),
             OpenGallery, 0));
         if (pictures.Count == 0 && files.Count == 0) {
