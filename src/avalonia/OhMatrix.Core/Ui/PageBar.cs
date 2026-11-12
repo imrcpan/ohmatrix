@@ -36,4 +36,35 @@ public static class PageBar {
         bar.BorderThickness = new Thickness(0);
         bar.Child = row;
     }
+
+    /// <summary>
+    /// The room above the heading of a pane of the settings window, and the height of its bar: the heading sits at the top of the bar, so the room
+    /// under it is what is left. The first entry of the list beside it is level with the heading.
+    /// </summary>
+    public const double TitleTop = 21;
+
+    public const double TitleHeight = 62;
+
+    /// <summary>
+    /// Fills <paramref name="bar"/> with the title alone, level with the rows under it: the heading of a pane of the settings window, which has no
+    /// way back to go (the list at its left is the way to the others).
+    /// </summary>
+    public static void Title(Border bar, ColorTokens colors, string title,
+        double titleSize = 22)
+    {
+        var heading = new TextBlock {
+            Text = title,
+            FontSize = titleSize,
+            FontWeight = FontWeight.Bold,
+            FontFamily = Fonts.System,
+            Foreground = new SolidColorBrush(colors.Text),
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(SettingsShell.Side, TitleTop,
+                SettingsShell.Side, 0),
+        };
+        Fonts.Center(heading);
+        bar.Height = TitleHeight;
+        bar.BorderThickness = new Thickness(0);
+        bar.Child = heading;
+    }
 }

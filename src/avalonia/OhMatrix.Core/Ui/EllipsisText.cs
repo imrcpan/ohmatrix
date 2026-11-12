@@ -19,6 +19,7 @@ public sealed class EllipsisText : Decorator {
     };
 
     private string text = "";
+    private bool fromStart;
     private string cutText = "";
     private double cutWidth = double.NaN;
     private string? cutFont;
@@ -37,6 +38,20 @@ public sealed class EllipsisText : Decorator {
             text = value;
             // Whole until the next layout pass cuts it to the width.
             label.Text = value;
+            InvalidateMeasure();
+        }
+    }
+
+    /// <summary>
+    /// Cut at the start instead of the end: the dots stand in front and the end of the text is kept, as in a path, where the name of the folder
+    /// is the part that matters.
+    /// </summary>
+    public bool FromStart {
+        get => fromStart;
+        set {
+            if (fromStart == value)
+                return;
+            fromStart = value;
             InvalidateMeasure();
         }
     }
@@ -88,7 +103,7 @@ public sealed class EllipsisText : Decorator {
 
     private string Fit(string whole, double width)
     {
-        var font = $"{FontFamily}|{FontWeight}|{FontSize}";
+        var font = $"{FontFamily}|{FontWeight}|{FontSize}|{fromStart}";
         var room = double.IsInfinity(width) ? width : Math.Floor(width);
         if (cutText == whole && cutWidth.Equals(room) && cutFont == font)
             return cut;
@@ -105,6 +120,8 @@ public sealed class EllipsisText : Decorator {
     {
         if (room <= 0 || double.IsInfinity(room) || Measure(whole) <= room)
             return whole;
+        if (fromStart)
+            return Tail(whole, room);
         // The ends of the first 0, 1, 2 ... code points.
         var ends = new List<int> {
             0
@@ -122,6 +139,33 @@ public sealed class EllipsisText : Decorator {
         }
 
         return Start(whole, ends[low]);
+    }
+
+    // The longest end of the text that, with the dots in front, fits. The
+    // start of the kept part is trimmed of white space, as the end is above.
+    private string Tail(string whole, double room)
+    {
+        var starts = new List<int>();
+        var at = 0;
+        foreach (var rune in whole.EnumerateRunes()) {
+            starts.Add(at);
+            at += rune.Utf16SequenceLength;
+        }
+
+        starts.Add(whole.Length);
+        var count = starts.Count - 1;
+        var low = 0;
+        var high = count;
+        while (low < high) {
+            var middle = (low + high + 1) / 2;
+            if (Measure(Dots + whole[starts[count - middle]..].TrimStart()) <=
+                room)
+                low = middle;
+            else
+                high = middle - 1;
+        }
+
+        return Dots + whole[starts[count - low]..].TrimStart();
     }
 
     private static string Start(string whole, int length)

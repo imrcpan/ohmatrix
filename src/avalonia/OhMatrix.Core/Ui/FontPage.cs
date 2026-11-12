@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -14,8 +13,7 @@ public sealed class FontPage : Grid {
     private readonly SearchField search = new();
 
     private readonly StackPanel rows = new() {
-        Margin = new Thickness(0, 4, 0, 24),
-        Spacing = 2
+        Margin = new Thickness(0, 4, 0, 24)
     };
 
     private IReadOnlyList<string>? installed;
@@ -34,7 +32,8 @@ public sealed class FontPage : Grid {
         this.controller = controller;
         RowDefinitions = new RowDefinitions("Auto,Auto,*");
         Children.Add(bar);
-        search.Margin = new Thickness(16, 10, 16, 6);
+        search.Margin = new Thickness(SettingsShell.Side, 4,
+            SettingsShell.Side, 6);
         Grid.SetRow(search, 1);
         Children.Add(search);
         var scroller = new ScrollViewer {
@@ -56,8 +55,7 @@ public sealed class FontPage : Grid {
     {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, controller.T("font"), controller.T("settings"),
-            () => controller.OpenSidebarPage(SidebarPage.Settings));
+        PageBar.Title(bar, c, controller.T("font"));
         search.Placeholder = controller.T("font.search");
         installed ??= Fonts.Installed();
         var current = controller.Store.Value.Prefs.Font;
@@ -82,53 +80,19 @@ public sealed class FontPage : Grid {
         else
             rows.Children.Add(new TextBlock {
                 Text = controller.T("font.footer"),
-                FontSize = 13,
+                FontSize = SettingsShell.NoteFont,
                 FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(26, 12),
+                Margin = new Thickness(SettingsShell.Side, 12),
             });
     }
 
     private Control Row(ColorTokens c, string? name, bool active)
     {
-        var line = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto")
-        };
-        var label = new TextBlock {
-            Text = name ?? controller.T("font.system"),
-            FontSize = 16,
-            FontFamily = name == null ? Fonts.System : new FontFamily(name),
-            Foreground = new SolidColorBrush(c.Text),
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-        };
-        Fonts.Center(label);
-        line.Children.Add(label);
-        if (active) {
-            var check = new Icon {
-                Glyph = "check",
-                Size = 21,
-                Color = new SolidColorBrush(c.Accent),
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            };
-            Grid.SetColumn(check, 1);
-            line.Children.Add(check);
-        }
-
-        var row = new Border {
-            Height = 48,
-            Padding = new Thickness(26, 0),
-            Background = Brushes.Transparent,
-            Cursor = new Cursor(StandardCursorType.Hand),
-            Child = line,
-        };
-        ProfilePage.Hover(row, c);
-        row.PointerPressed += (_, e) => {
-            e.Handled = true;
-            controller.SetPreferences(p => p with {
+        return SettingsRows.Choice(c, name ?? controller.T("font.system"),
+            active, () => controller.SetPreferences(p => p with {
                 Font = name
-            });
-        };
-        return row;
+            }), name == null ? Fonts.System : new FontFamily(name));
     }
 }

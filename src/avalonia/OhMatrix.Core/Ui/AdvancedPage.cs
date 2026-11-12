@@ -45,13 +45,10 @@ public sealed class AdvancedPage : Grid {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, controller.T("advanced.options"),
-            controller.T("settings"),
-            () => controller.OpenSidebarPage(SidebarPage.Settings));
+        PageBar.Title(bar, c, controller.T("advanced"));
         content.Children.Clear();
-        content.Children.Add(ProfilePage.NavRow(c, "file",
+        content.Children.Add(SettingsRows.Option(c, "file",
             controller.T("logs.view"),
-            () => controller.OpenSidebarPage(SidebarPage.Logs), 0,
-            flat: true));
+            () => controller.OpenSidebarPage(SidebarPage.Logs)));
     }
 }

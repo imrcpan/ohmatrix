@@ -1165,29 +1165,87 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
-    public async Task The_settings_page_signs_out_after_asking()
+    public async Task The_settings_window_signs_out_after_asking()
     {
         var (window, controller, _, screen) = await Open("light", 1000);
         controller.OpenSidebarPage(SidebarPage.Profile);
         Dispatcher.UIThread.RunJobs();
-        Assert.Same(screen.Profile, ((Border)screen.Children[0]).Child);
+        // The profile is a dialog over the chats.
+        Assert.True(screen.Profile.IsAttachedToVisualTree());
         Save(window, "profile");
         controller.OpenSidebarPage(SidebarPage.Settings);
         Dispatcher.UIThread.RunJobs();
-        var page = screen.SettingsScreen;
-        Assert.Same(page, ((Border)screen.Children[0]).Child);
+        var shell = screen.SettingsWindowContent;
+        Assert.Same(screen.SettingsScreen, shell.Pane);
         Save(window, "settings");
-        page.AskSignOut();
-        Assert.True(page.Confirm.IsOpen);
+        // The row at the foot of the list asks first.
+        shell.SignOutRow.RaiseClick();
+        Assert.True(shell.Confirm.IsOpen);
         Save(window, "signout-dialog");
-        var yes = page.Confirm.Card.GetVisualDescendants()
+        var yes = shell.Confirm.Card.GetVisualDescendants()
             .OfType<PrimaryButton>().First();
         yes.RaiseClick();
         await Task.Delay(50);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(AuthStatus.SignedOut, controller.Store.Value.Auth);
         Assert.Equal(SidebarPage.Chats, controller.Store.Value.SidebarPage);
-        Assert.False(page.Confirm.IsOpen);
+        Assert.False(shell.Confirm.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task
+        The_settings_window_has_a_list_at_the_left_and_the_options_at_the_right()
+    {
+        var (window, controller, _, screen) = await Open("light", 1000);
+        controller.OpenSidebarPage(SidebarPage.Settings);
+        Dispatcher.UIThread.RunJobs();
+        var shell = screen.SettingsWindowContent;
+        var host = Assert.IsType<Avalonia.Controls.Window>(
+            TopLevel.GetTopLevel(shell));
+        host.UpdateLayout();
+        Assert.Equal([
+                "General", "Language", "Theme", "Fonts", "Sessions",
+                "Advanced", "About"
+            ],
+            shell.Entries.Select(e =>
+                Avalonia.Automation.AutomationProperties.GetName(e)));
+        Assert.Equal(SidebarPage.Settings, shell.Chosen);
+        // The heading of the pane has room above it, and the first entry of
+        // the list is level with it.
+        var heading = shell.Pane!.GetVisualDescendants().OfType<TextBlock>()
+            .First(t => t.FontSize == 22);
+        Assert.Equal("General", heading.Text);
+        var top = Avalonia.VisualExtensions.TranslatePoint(heading,
+            new Avalonia.Point(0, 0), shell)!.Value.Y;
+        Assert.True(top >= 18);
+        var first = shell.Entries[0];
+        var middle = Avalonia.VisualExtensions.TranslatePoint(first,
+            new Avalonia.Point(0, first.Bounds.Height / 2), shell)!.Value.Y;
+        Assert.InRange(middle - (top + heading.Bounds.Height / 2), -1.5, 1.5);
+        // The pane stands to the right of the list, at its full height.
+        var pane = Assert.IsAssignableFrom<Control>(shell.Pane);
+        Assert.True(Avalonia.VisualExtensions.TranslatePoint(pane,
+                        new Avalonia.Point(0, 0), shell)!.Value.X >=
+                    SettingsShell.ListWidth);
+        Assert.Equal(shell.Bounds.Height, pane.Bounds.Height);
+
+        // Choosing an entry shows its pane and keeps the list.
+        shell.Entries[1].RaiseClick();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(SidebarPage.Language, controller.Store.Value.SidebarPage);
+        Assert.Same(screen.LanguageScreen, shell.Pane);
+        Assert.Equal(SidebarPage.Language, shell.Chosen);
+        Assert.True(shell.IsAttachedToVisualTree());
+
+        // The log is reached from Advanced, which stays the chosen entry.
+        controller.OpenSidebarPage(SidebarPage.Logs);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(screen.LogScreen, shell.Pane);
+        Assert.Equal(SidebarPage.Advanced, shell.Chosen);
+        controller.OpenSidebarPage(SidebarPage.About);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(screen.AboutScreen, shell.Pane);
+        Save(window, "settings-about");
     }
 
     [AvaloniaFact]
@@ -3572,7 +3630,8 @@ public partial class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         var page = screen.SessionsScreen;
         Assert.Equal(["D1", "D2", "D3"], page.Devices.Select(d => d.Id));
-        var texts = screen.GetVisualDescendants().OfType<TextBlock>()
+        // The page is in the settings window, not under the main screen.
+        var texts = page.GetVisualDescendants().OfType<TextBlock>()
             .Select(t => t.Text).ToList();
         Assert.Contains("This device", texts);
         Assert.Contains("Other sessions", texts);

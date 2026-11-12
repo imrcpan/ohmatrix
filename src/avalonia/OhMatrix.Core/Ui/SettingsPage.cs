@@ -1,24 +1,21 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Controls;
 using Avalonia.Media;
-using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 
 namespace OhMatrix.Core.Ui;
 
 /// <summary>
-/// The settings page (<c>SettingsPage</c>), as far as it is ported: a bar with Back to the profile and the groups Appearance (language, zoom,
-/// theme, my messages in the accent colour), Account (sign out, which asks first) and About (the repository and the version).
+/// The general pane of the settings window (<c>SettingsPage</c>), as far as it is ported: the groups Notifications and Appearance (zoom, the
+/// download location, my messages in the accent colour). The other kinds of settings have their own panes, chosen in the list at the left.
 /// </summary>
 public sealed class SettingsPage : Grid {
-    public const string Repository = "https://github.com/imrcpan/ohmatrix";
-
     private readonly AppController controller;
-    private readonly Dialog confirm = new();
     private readonly ZoomPicker zoom;
     private Control zoomAnchor = new Border();
+    private readonly Border bar = new();
     private readonly StackPanel content = new();
 
     // Registered once for the type: a handler made in the constructor
@@ -34,20 +31,21 @@ public sealed class SettingsPage : Grid {
     {
         this.controller = controller;
         zoom = new ZoomPicker(controller, this, false);
+        // The lists open under their fields and line up with the right of them.
+        zoom.Menu.AlignRight = true;
         Lifetime.Own(this, zoom);
+        RowDefinitions = new RowDefinitions("Auto,*");
+        Children.Add(bar);
         var scroller = new ScrollViewer {
             Content = content,
             HorizontalScrollBarVisibility =
                 Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
         };
+        Grid.SetRow(scroller, 1);
         Children.Add(scroller);
-        Lifetime.OwnAll(this, confirm, DownloadMenu);
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
-
-    /// <summary>The row that signs out.</summary>
-    public Border SignOutRow { get; private set; } = new();
 
     /// <summary>The switch that puts my messages in the accent colour.</summary>
     public Toggle AccentToggle { get; } = new();
@@ -58,30 +56,16 @@ public sealed class SettingsPage : Grid {
     /// <summary>The switch for showing the text of a message in its notification.</summary>
     public Toggle PreviewToggle { get; } = new();
 
-    public Dialog Confirm => confirm;
     public ZoomPicker Zoom => zoom;
     public Control ZoomRow => zoomAnchor;
 
 
-    public Border? DownloadRow { get; private set; }
-    public Menu DownloadMenu { get; } = new();
-
-    /// <summary>The menu of the download location: the Downloads folder of the system, or a folder chosen.</summary>
-    public void OpenDownloadMenu()
+    /// <summary>Asks for a folder with the system's picker, and keeps the one chosen.</summary>
+    public void ChooseDownloadFolder()
     {
         var window = TopLevel.GetTopLevel(this);
-        if (window == null || DownloadRow == null)
-            return;
-        var folder = controller.Store.Value.Prefs.DownloadFolder;
-        DownloadMenu.Show(DownloadRow, window, [
-            new MenuItem(controller.T("downloadFolder.default"), () =>
-                controller.SetPreferences(p => p with {
-                    DownloadFolder = null
-                }), Checked: string.IsNullOrEmpty(folder)),
-            new MenuItem(controller.T("downloadFolder.choose"),
-                () => _ = ChooseFolder(window),
-                Checked: !string.IsNullOrEmpty(folder)),
-        ]);
+        if (window != null)
+            _ = ChooseFolder(window);
     }
 
     private async Task ChooseFolder(TopLevel window)
@@ -98,78 +82,23 @@ public sealed class SettingsPage : Grid {
             });
     }
 
-    /// <summary>Asks whether to sign out; the answer is in the buttons of the dialog.</summary>
-    public void AskSignOut()
-    {
-        var window = TopLevel.GetTopLevel(this);
-        if (window == null)
-            return;
-        var c = ThemeScope.GetColors(this);
-        var yes = new PrimaryButton {
-            Title = controller.T("signOut")
-        };
-        var no = new TextButton {
-            Title = controller.T("cancel")
-        };
-        yes.Click += (_, _) => {
-            confirm.Close();
-            _ = controller.Logout();
-        };
-        no.Click += (_, _) => confirm.Close();
-        ThemeScope.SetColors(yes, c);
-        ThemeScope.SetColors(no, c);
-        confirm.Show(window, c, controller.T("signOut.title"),
-            controller.T("signOut.body"), yes, no);
-    }
-
-    /// <summary>The small explanation under a setting.</summary>
-    private void Footer(ColorTokens c, string text)
-    {
-        content.Children.Add(new TextBlock {
-            Text = text,
-            FontSize = 13,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(26, 2, 20, 4),
-        });
-    }
-
-    private void Group(ColorTokens c, string title)
-    {
-        content.Children.Add(new TextBlock {
-            Text = title,
-            FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Accent),
-            Margin = new Thickness(26, 14, 12, 4),
-        });
-    }
-
-    private void OpenRepository()
-    {
-        var launcher = TopLevel.GetTopLevel(this)?.Launcher;
-        if (launcher != null)
-            _ = launcher.LaunchUriAsync(new Uri(Repository));
-    }
-
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
+        PageBar.Title(bar, c, controller.T("general"));
         content.Children.Clear();
 
-        Group(c, controller.T("notifications"));
-        content.Children.Add(ToggleRow(c, "bell",
-            controller.T("notif.messages"),
+        content.Children.Add(SettingsRows.Caption(c,
+            controller.T("notifications")));
+        content.Children.Add(Switch(c, "bell", controller.T("notif.messages"),
             NotificationsToggle,
             s.Prefs.Notifications, on => controller.SetPreferences(p => p with {
                 Notifications = on
             })));
         if (s.Prefs.Notifications) {
-            content.Children.Add(ToggleRow(c, "mailUnread",
+            content.Children.Add(Switch(c, "mailUnread",
                 controller.T("notif.preview"),
                 PreviewToggle,
                 s.Prefs.NotificationPreview, on =>
@@ -178,133 +107,63 @@ public sealed class SettingsPage : Grid {
                     })));
         }
 
-        content.Children.Add(new TextBlock {
-            Text = controller.T("notif.footer.default"),
-            FontSize = 13,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(26, 2, 20, 4),
-        });
+        content.Children.Add(SettingsRows.Note(c,
+            controller.T("notif.footer.default")));
 
-        Group(c, controller.T("appearance"));
-        var language = Strings.Languages.FirstOrDefault(l => l.Id == s.Locale)
-                       ?? Strings.Languages[0];
-        content.Children.Add(ProfilePage.NavRow(c, "globe",
-            controller.T("language"),
-            () => controller.OpenSidebarPage(SidebarPage.Language), 0,
-            language.Label, flat: true));
-        var zoomRow = ProfilePage.NavRow(c, "zoomIn", controller.T("zoom"),
-            () => zoom.Open(zoomAnchor), 0,
-            ZoomPicker.Percent(s.Prefs.UiScale), flat: true);
-        zoomAnchor = zoomRow;
+        content.Children.Add(SettingsRows.Caption(c,
+            controller.T("appearance")));
+        var zoomRow = SettingsRows.Dropdown(c, "zoomIn", controller.T("zoom"),
+            () => zoom.Open(zoomAnchor),
+            ZoomPicker.Percent(s.Prefs.UiScale), out var zoomField);
+        zoomAnchor = zoomField;
         content.Children.Add(zoomRow);
-        Footer(c, controller.T("zoom.footer"));
-        content.Children.Add(ProfilePage.NavRow(c, "font", controller.T("font"),
-            () => controller.OpenSidebarPage(SidebarPage.Font), 0,
-            s.Prefs.Font ?? controller.T("font.system"), flat: true));
-        DownloadRow = ProfilePage.NavRow(c, "download",
-            controller.T("downloadFolder"),
-            OpenDownloadMenu, 0,
-            s.Prefs.DownloadFolder is { Length: > 0 } dl
-                ? Path.GetFileName(dl.TrimEnd('/', '\\'))
-                : controller.T("downloadFolder.default"), flat: true);
-        content.Children.Add(DownloadRow);
-        var themeName = s.Prefs.Theme == Themes.System
-            ? controller.T("theme.system")
-            : Themes.Get(s.Prefs.Theme)?.LabelFor(s.Locale) ?? s.Prefs.Theme;
-        content.Children.Add(ProfilePage.NavRow(c, "palette",
-            controller.T("theme"),
-            () => controller.OpenSidebarPage(SidebarPage.Theme), 0,
-            themeName, flat: true));
-        content.Children.Add(ToggleRow(c, "palette", controller.T("ownAccent"),
+        content.Children.Add(SettingsRows.Note(c, controller.T("zoom.footer")));
+        // The location is a line of its own: its name, the address in a field
+        // across the pane, and the two things to do with it under that.
+        var folder = s.Prefs.DownloadFolder is { Length: > 0 } dl ? dl : null;
+        var shown = folder ?? controller.T("downloadFolder.default");
+        content.Children.Add(SettingsRows.Option(c, "download",
+            controller.T("downloadFolder"), null));
+        content.Children.Add(SettingsRows.PathField(c, shown, shown));
+        var buttons = new StackPanel {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin =
+                new Thickness(SettingsShell.Side, 8, SettingsShell.Side, 4),
+        };
+        buttons.Children.Add(SettingsRows.Action(c, "edit",
+            controller.T("downloadFolder.choose"), ChooseDownloadFolder));
+        buttons.Children.Add(SettingsRows.Action(c, "refresh",
+            controller.T("downloadFolder.reset"), () =>
+                controller.SetPreferences(p => p with {
+                    DownloadFolder = null
+                }), folder != null));
+        content.Children.Add(buttons);
+        content.Children.Add(Switch(c, "palette", controller.T("ownAccent"),
             AccentToggle,
             s.Prefs.OwnBubbleAccent,
             on => controller.SetPreferences(p => p with {
                 OwnBubbleAccent = on
             })));
-        Footer(c, controller.T("ownAccent.footer"));
-
-        Group(c, controller.T("advanced"));
-        content.Children.Add(ProfilePage.NavRow(c, "gear",
-            controller.T("advanced.options"),
-            () => controller.OpenSidebarPage(SidebarPage.Advanced), 0,
-            flat: true));
-
-        Group(c, controller.T("account"));
-        content.Children.Add(ProfilePage.NavRow(c, "device",
-            controller.T("sessions"),
-            () => controller.OpenSidebarPage(SidebarPage.Sessions), 0,
-            flat: true));
-        var row = ProfilePage.NavRow(c, "signOut", controller.T("signOut"),
-            AskSignOut, 0, chevron: false, danger: true, flat: true);
-        SignOutRow = row;
-        content.Children.Add(row);
-
-        Group(c, controller.T("about"));
-        content.Children.Add(ProfilePage.NavRow(c, "external", "GitHub",
-            OpenRepository, 0,
-            Repository.Replace("https://github.com/", ""), flat: true));
-        Footer(c, controller.T("about.feedback"));
-        content.Children.Add(ProfilePage.NavRow(c, "about", "OhMatrix", () => {
-            }, 0,
-            $"{controller.T("version")} {Version}", false, flat: true));
-        content.Children.Add(new TextBlock {
-            Text = "OhMatrix · GPL-3.0",
-            FontSize = 12,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 24, 0, 32),
+        content.Children.Add(SettingsRows.Note(c,
+            controller.T("ownAccent.footer")));
+        content.Children.Add(new Border {
+            Height = 24
         });
     }
 
-    /// <summary>The version of the app.</summary>
-    public static string Version =>
-        typeof(SettingsPage).Assembly.GetName().Version?.ToString(3) ?? "dev";
-
     private readonly Dictionary<Toggle, Action<bool>> toggled = [];
 
-    private Control ToggleRow(ColorTokens c, string glyph, string label,
+    // The switch keeps its handler for good, so what it does now is looked
+    // up when it is flipped.
+    private Border Switch(ColorTokens c, string glyph, string label,
         Toggle toggle, bool on, Action<bool> change)
     {
         toggle.IsOn = on;
-        toggle.VerticalAlignment = VerticalAlignment.Center;
         Avalonia.Automation.AutomationProperties.SetName(toggle, label);
         if (!toggled.ContainsKey(toggle))
             toggle.Changed += v => toggled[toggle](v);
         toggled[toggle] = change;
-        var grid = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
-        };
-        grid.Children.Add(new Icon {
-            Glyph = glyph,
-            Size = 21,
-            Color = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(0, 0, 14, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        var text = new TextBlock {
-            Text = label,
-            FontSize = 16,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Text),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        Fonts.Center(text);
-        Grid.SetColumn(text, 1);
-        grid.Children.Add(text);
-        Grid.SetColumn(toggle, 2);
-        if (toggle.Parent is Panel old)
-            old.Children.Remove(toggle);
-        grid.Children.Add(toggle);
-        var row = new Border {
-            Padding = new Thickness(26, 0),
-            Height = 48,
-            Background = Brushes.Transparent,
-            Child = grid,
-        };
-        ProfilePage.Hover(row, c);
-        return row;
+        return SettingsRows.Switch(c, glyph, label, toggle);
     }
 }

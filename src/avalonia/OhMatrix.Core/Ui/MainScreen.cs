@@ -39,6 +39,8 @@ public sealed class MainScreen : Grid {
     private readonly LanguagePage languagePage;
     private readonly ExplorePage explorePage;
     private readonly SettingsPage settingsPage;
+    private readonly AboutPage aboutPage;
+    private readonly SettingsShell settingsShell;
     private readonly SessionsPage sessionsPage;
     private readonly AccountsPage accountsPage;
     private readonly FontPage fontPage;
@@ -103,6 +105,8 @@ public sealed class MainScreen : Grid {
         languagePage = new LanguagePage(controller);
         explorePage = new ExplorePage(controller);
         settingsPage = new SettingsPage(controller);
+        aboutPage = new AboutPage(controller);
+        settingsShell = new SettingsShell(controller);
         sessionsPage = new SessionsPage(controller);
         accountsPage = new AccountsPage(controller);
         fontPage = new FontPage(controller);
@@ -117,9 +121,9 @@ public sealed class MainScreen : Grid {
         foreach (var owned in new object[] {
                      list, narrowChat, wideChat, profilePage, themePage,
                      infoDock, infoNarrow, languagePage, explorePage,
-                     settingsPage, sessionsPage, accountsPage, fontPage,
-                     advancedPage, logPage, encryptionPage, spacePage,
-                     verifyDialog, callScreen
+                     settingsPage, aboutPage, settingsShell, sessionsPage,
+                     accountsPage, fontPage, advancedPage, logPage,
+                     encryptionPage, spacePage, verifyDialog, callScreen
                  })
             Lifetime.Own(this, owned);
         listHost.Child = list;
@@ -207,6 +211,8 @@ public sealed class MainScreen : Grid {
     public LanguagePage LanguageScreen => languagePage;
     public ExplorePage ExploreScreen => explorePage;
     public SettingsPage SettingsScreen => settingsPage;
+    public AboutPage AboutScreen => aboutPage;
+    public SettingsShell SettingsWindowContent => settingsShell;
     public SessionsPage SessionsScreen => sessionsPage;
     public AdvancedPage AdvancedScreen => advancedPage;
     public LogPage LogScreen => logPage;
@@ -290,23 +296,25 @@ public sealed class MainScreen : Grid {
             SidebarPage.Advanced => advancedPage,
             SidebarPage.Sessions => sessionsPage,
             SidebarPage.Logs => logPage,
+            SidebarPage.About => aboutPage,
             _ => null,
         };
     }
 
-    // Settings and everything reached from it live in a window of their own.
-    private void ShowSettings(Control content)
+    // Settings and everything reached from it live in a window of their own:
+    // the list of the kinds at the left, the chosen one at the right.
+    private void ShowSettings(SidebarPage page, Control content)
     {
         if (settingsWindow == null) {
             var window = new Avalonia.Controls.Window {
                 Title = controller.T("settings"),
-                Width = 480,
-                Height = 640,
-                MinWidth = 360,
-                MinHeight = 320,
+                Width = 820,
+                Height = 600,
+                MinWidth = 640,
+                MinHeight = 420,
                 WindowStartupLocation = Avalonia.Controls.WindowStartupLocation
                     .CenterScreen,
-                Content = content,
+                Content = settingsShell,
             };
             ThemeScope.SetColors(window, ThemeScope.GetColors(this));
             window.Closed += (_, _) => {
@@ -324,8 +332,7 @@ public sealed class MainScreen : Grid {
             window.Show();
         }
 
-        if (!ReferenceEquals(settingsWindow.Content, content))
-            settingsWindow.Content = content;
+        settingsShell.Show(page, content);
     }
 
     // Brings the window to the front and gives it the focus, without keeping
@@ -400,7 +407,7 @@ public sealed class MainScreen : Grid {
         // settings window as it is; it closes on its own close button.
         if (inSettings != null) {
             var wasOpen = settingsWindow != null;
-            ShowSettings(inSettings);
+            ShowSettings(s.SidebarPage, inSettings);
             if (wasOpen && !settingsShown && settingsWindow != null)
                 Raise(settingsWindow);
         }

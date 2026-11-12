@@ -120,8 +120,7 @@ public sealed class SessionsPage : Grid {
 
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
-        PageBar.Fill(bar, c, controller.T("sessions"), controller.T("settings"),
-            () => controller.OpenSidebarPage(SidebarPage.Settings));
+        PageBar.Title(bar, c, controller.T("sessions"));
         content.Children.Clear();
         if (devices == null) {
             content.Children.Add(new Spinner {
@@ -135,65 +134,43 @@ public sealed class SessionsPage : Grid {
         var current = devices.FirstOrDefault(d => d.Current);
         var others = devices.Where(d => !d.Current).ToList();
         if (current != null) {
-            Caption(c, controller.T("sessions.thisDevice"));
+            content.Children.Add(SettingsRows.Caption(c,
+                controller.T("sessions.thisDevice")));
             content.Children.Add(Card(c, current, null));
             // Whether this session is verified by the keys of the account;
             // when it is not, it can be verified from another session.
             var security = controller.Store.Value.Security;
             if (controller.CanVerify && security == SecurityState.Ready)
-                content.Children.Add(ProfilePage.NavRow(c, "lock",
-                    controller.T("verify.state.yes"), () => {
-                    }, 0, chevron: false, flat: true));
+                content.Children.Add(SettingsRows.Option(c, "lock",
+                    controller.T("verify.state.yes"), null));
             else if (controller.CanVerify &&
                      security == SecurityState.NeedsRecovery)
-                content.Children.Add(ProfilePage.NavRow(c, "lock",
+                content.Children.Add(SettingsRows.Option(c, "lock",
                     controller.T("verify.session"),
-                    () => _ = controller.RequestVerification(), 0,
-                    controller.T("verify.state.no"), flat: true));
+                    () => _ = controller.RequestVerification(),
+                    controller.T("verify.state.no")));
         }
 
-        Caption(c, controller.T("sessions.others"));
+        content.Children.Add(SettingsRows.Caption(c,
+            controller.T("sessions.others")));
         if (others.Count == 0) {
-            content.Children.Add(new TextBlock {
-                Text = controller.T("sessions.empty"),
-                FontSize = 15,
-                FontFamily = Fonts.System,
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                Margin = new Thickness(26, 6, 12, 0),
-            });
+            content.Children.Add(SettingsRows.Note(c,
+                controller.T("sessions.empty")));
         }
 
         foreach (var d in others)
             content.Children.Add(Card(c, d, () => AskSignOut([d.Id], false)));
         // The note, then the way out of all the others, as on the React
         // Native page.
-        content.Children.Add(new TextBlock {
-            Text = controller.T("sessions.footer"),
-            FontSize = 13,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(26, 6, 20, 8),
-        });
+        content.Children.Add(SettingsRows.Note(c,
+            controller.T("sessions.footer")));
         if (others.Count > 0)
-            content.Children.Add(ProfilePage.NavRow(c, "signOut",
+            content.Children.Add(SettingsRows.Option(c, "signOut",
                 controller.T("sessions.signOutAll"),
-                () => AskSignOut([.. others.Select(d => d.Id)], true), 0,
-                chevron: false, danger: true, flat: true));
+                () => AskSignOut([.. others.Select(d => d.Id)], true),
+                arrow: false, danger: true));
         content.Children.Add(new Border {
             Height = 24
-        });
-    }
-
-    private void Caption(ColorTokens c, string text)
-    {
-        content.Children.Add(new TextBlock {
-            Text = text,
-            FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
-            Foreground = new SolidColorBrush(c.Accent),
-            Margin = new Thickness(26, 18, 12, 4),
         });
     }
 
@@ -204,9 +181,9 @@ public sealed class SessionsPage : Grid {
         };
         grid.Children.Add(new Icon {
             Glyph = "device",
-            Size = 21,
+            Size = SettingsShell.RowIcon,
             Color = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(0, 0, 14, 0),
+            Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
         var words = new StackPanel {
@@ -214,14 +191,14 @@ public sealed class SessionsPage : Grid {
         };
         words.Children.Add(new TextBlock {
             Text = d.Name,
-            FontSize = 16,
+            FontSize = SettingsShell.RowFont,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         words.Children.Add(new TextBlock {
             Text = LastActive(d),
-            FontSize = 13,
+            FontSize = SettingsShell.NoteFont,
             FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -229,8 +206,8 @@ public sealed class SessionsPage : Grid {
         Grid.SetColumn(words, 1);
         grid.Children.Add(words);
         var card = new Border {
-            Padding = new Thickness(26, 8),
-            MinHeight = 56,
+            Padding = new Thickness(SettingsShell.Side, 6),
+            MinHeight = 48,
             Background = Brushes.Transparent,
             Child = grid,
         };

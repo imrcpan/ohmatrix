@@ -264,7 +264,7 @@ public class AccountManagerTests {
         screen.Wide.GroupDialog.Show(window, colors, "t");
         screen.ExploreScreen.AddPrompt.Show(window, colors, "en", "t", "m", [],
             "ok", _ => Task.CompletedTask);
-        screen.SettingsScreen.DownloadMenu.Show(screen.SettingsScreen, window,
+        screen.SettingsScreen.Zoom.Menu.Show(screen.SettingsScreen, window,
         [
             new MenuItem("a", () => {
             })
@@ -278,7 +278,7 @@ public class AccountManagerTests {
 
         Assert.False(screen.Wide.GroupDialog.IsOpen);
         Assert.False(screen.ExploreScreen.AddPrompt.Dialog.IsOpen);
-        Assert.False(screen.SettingsScreen.DownloadMenu.IsOpen);
+        Assert.False(screen.SettingsScreen.Zoom.Menu.IsOpen);
         Assert.Equal(baseline, layer.Children.Count);
         return new WeakReference<MainScreen>(screen);
     }
@@ -332,7 +332,7 @@ public class AccountManagerTests {
             d.Show(window, colors, "late");
         screen.ExploreScreen.AddPrompt.Show(window, colors, "en", "t", "m", [],
             "ok", _ => Task.CompletedTask);
-        screen.SettingsScreen.DownloadMenu.Show(screen.SettingsScreen, window,
+        screen.SettingsScreen.Zoom.Menu.Show(screen.SettingsScreen, window,
         [
             new MenuItem("a", () => {
             })

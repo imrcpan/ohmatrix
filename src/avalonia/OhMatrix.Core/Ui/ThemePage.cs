@@ -11,7 +11,7 @@ namespace OhMatrix.Core.Ui;
 
 /// <summary>
 /// The theme picker (<c>ThemePage</c> and <c>ThemeGrid</c>): a small chat drawn with the real bubbles in the theme as it is now stays at the top, so
-/// that each theme can be tried and seen at once; under it the cards of System and every registered theme, at most four to a row.
+/// that each theme can be tried and seen at once; under it the cards of System and every registered theme, four to a row.
 /// </summary>
 public sealed class ThemePage : Grid {
     private const double CardW = 84;
@@ -43,7 +43,10 @@ public sealed class ThemePage : Grid {
         Children.Add(bar);
         Grid.SetRow(previewHost, 1);
         Children.Add(previewHost);
-        cards.MaxWidth = CardW * Columns + CardGap * (Columns - 1);
+        // A card takes its width and the gap around it; the panel is as wide
+        // as four of them, so there are four to a row whatever the width of
+        // the pane.
+        cards.Width = (CardW + CardGap) * Columns;
         var scroller = new ScrollViewer {
             Content = new Border {
                 Padding = new Thickness(0, 20, 0, 24),
@@ -86,8 +89,7 @@ public sealed class ThemePage : Grid {
         seenThemes = Themes.All();
         seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
-        PageBar.Fill(bar, c, controller.T("theme"), controller.T("settings"),
-            () => controller.OpenSidebarPage(SidebarPage.Settings));
+        PageBar.Title(bar, c, controller.T("theme"));
 
         previewHost.Child = Preview(c, s.Locale);
         cards.Children.Clear();
