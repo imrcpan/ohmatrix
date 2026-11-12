@@ -16,7 +16,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Composer;
 
 /// <summary>
 /// The stickers tab of the picker (<c>StickerPane</c>): a bar with the name of the group on show and its settings, the grid of stickers (a first tile

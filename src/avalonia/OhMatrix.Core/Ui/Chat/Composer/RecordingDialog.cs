@@ -8,7 +8,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Composer;
 
 /// <summary>
 /// Recording a voice message or a short clip (<c>useVoiceRecording</c> and <c>VideoRecorderDialog</c>): the microphone (and camera) opens and

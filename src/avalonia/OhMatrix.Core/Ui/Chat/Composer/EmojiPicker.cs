@@ -9,7 +9,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Composer;
 
 /// <summary>
 /// The emoji grid (<c>EmojiPicker</c>): a search field, the emoji of a group in rows of 36 px tiles, and a bar of group tabs below with the recent

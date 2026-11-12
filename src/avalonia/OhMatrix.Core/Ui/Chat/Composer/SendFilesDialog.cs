@@ -9,7 +9,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Composer;
 
 /// <summary>Asks before anything dropped on a chat is uploaded, listing what would be sent (<c>SendFilesDialog</c>): up to five files with their kind and size, and how many more.</summary>
 public sealed class SendFilesDialog : IOverlay {

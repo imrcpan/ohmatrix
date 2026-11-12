@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Composer;
 
 /// <summary>The emoji of the picker, grouped (<c>emojiData.ts</c>): a curated set that covers everyday chat, not the whole of Unicode.</summary>
 public static class EmojiData {
