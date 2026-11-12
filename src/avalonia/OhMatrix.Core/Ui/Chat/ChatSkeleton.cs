@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat;
 
 /// <summary>Grey bubbles where messages are still to come, pulsing together; all are other people's, and in a group each has a round avatar (<c>ChatSkeleton</c>).</summary>
 public sealed class ChatSkeleton : Pulse {

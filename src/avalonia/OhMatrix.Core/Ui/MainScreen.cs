@@ -8,6 +8,7 @@ using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Account;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Chat;
 using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Rooms;
 using OhMatrix.Core.Ui.Support;

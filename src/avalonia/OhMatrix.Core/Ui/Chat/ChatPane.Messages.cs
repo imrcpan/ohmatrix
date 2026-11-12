@@ -14,7 +14,7 @@ using OhMatrix.Core.Ui.Chat.Messages;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat;
 
 public sealed partial class ChatPane {
     private sealed class MessageEntry(TimelineItem item) {
