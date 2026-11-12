@@ -27,6 +27,12 @@ public static class AppStyles {
     private static void ThinScrollBars(Application app)
     {
         app.Resources["ScrollBarSize"] = 6.0;
+        // Fluent squeezes the thumb into a hairline until the pointer is on
+        // the bar; these are the scales it uses for that, left as none.
+        app.Resources["VerticalSmallScrollThumbScaleTransform"] =
+            new ScaleTransform(1, 1);
+        app.Resources["HorizontalSmallScrollThumbScaleTransform"] =
+            new ScaleTransform(1, 1);
         app.Resources["ScrollBarThumbBackgroundColor"] =
             Color.FromArgb(0x66, 0x80, 0x80, 0x80);
         app.Resources["ScrollBarPanningThumbBackgroundColor"] =
