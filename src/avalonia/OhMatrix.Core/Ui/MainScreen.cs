@@ -326,6 +326,21 @@ public sealed class MainScreen : Grid {
             settingsWindow.Content = content;
     }
 
+    // Brings the window to the front and gives it the focus, without keeping
+    // it on top: a window manager may leave Activate alone, so it is put on
+    // top for a moment.
+    private static void Raise(Avalonia.Controls.Window window)
+    {
+        if (window.WindowState == Avalonia.Controls.WindowState.Minimized)
+            window.WindowState = Avalonia.Controls.WindowState.Normal;
+        window.Topmost = true;
+        window.Activate();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+            window.Topmost = false;
+            window.Activate();
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
@@ -384,8 +399,8 @@ public sealed class MainScreen : Grid {
         if (inSettings != null) {
             var wasOpen = settingsWindow != null;
             ShowSettings(inSettings);
-            if (wasOpen && !settingsShown)
-                settingsWindow?.Activate();
+            if (wasOpen && !settingsShown && settingsWindow != null)
+                Raise(settingsWindow);
         }
 
         settingsShown = inSettings != null;
