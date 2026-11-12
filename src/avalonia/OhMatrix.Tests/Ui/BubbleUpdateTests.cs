@@ -79,8 +79,11 @@ public class BubbleUpdateTests {
             var root = bubble.Child;
             var body = Body(bubble);
             var inlines = body.Inlines!.ToArray();
-            var reserve = Assert.IsType<Border>(
-                inlines.OfType<InlineUIContainer>().Single().Child);
+            // The room for the time at the end of the text: spaces that do not
+            // part from the last word, and are not seen.
+            var reserve = inlines.OfType<Run>().Last();
+            Assert.NotEmpty(reserve.Text!);
+            Assert.All(reserve.Text!, c => Assert.Equal('\u00A0', c));
             var sender = Text(bubble, "Ann");
             var quote = bubble.Quote;
             var quoted = Text(bubble, "Quoted text");
@@ -112,15 +115,16 @@ public class BubbleUpdateTests {
             Assert.Same(quoted, Text(bubble, "Quoted text"));
             Assert.Equal(colors.TextSecondary, ColorOf(quoted.Foreground));
             Assert.Equal(Fonts.System, quoted.FontFamily);
-            Assert.Equal(colors.Accent,
+            // The name of the writer of the quote is in their colour.
+            Assert.Equal(Avatar.PeerColor("Bob"),
                 ColorOf(Text(bubble, "Bob").Foreground));
             var link = inlines.OfType<Run>().Single(r => r.Text == "link");
             Assert.Equal(colors.Accent, ColorOf(link.Foreground));
             var mention = inlines.OfType<Run>().Single(r => r.Text == "Ann");
             Assert.Equal(colors.MentionBg, ColorOf(mention.Background));
             Assert.Same(time, Text(bubble, "edited 13:45"));
-            Assert.Equal(Math.Ceiling("edited 13:45".Length * 7.4) + 8,
-                reserve.Width);
+            Assert.NotEmpty(reserve.Text!);
+            Assert.All(reserve.Text!, c => Assert.Equal('\u00A0', c));
         } finally {
             Fonts.Use(null);
             window.Close();
@@ -138,8 +142,7 @@ public class BubbleUpdateTests {
             var inlines = body.Inlines!.ToArray();
             var mark = bubble.GetVisualDescendants().OfType<Icon>().Single();
             var time = Text(bubble, "12:30");
-            var reserve = Assert.IsType<Border>(
-                inlines.OfType<InlineUIContainer>().Single().Child);
+            var reserve = inlines.OfType<Run>().Last();
             Assert.Equal("clock", mark.Glyph);
             var colors = Colors("dark");
             bubble.UpdatePresentation(colors, "12:31", true,
@@ -157,7 +160,7 @@ public class BubbleUpdateTests {
             Assert.Equal(new CornerRadius(Radius.Bubble, Radius.BubbleTight,
                 Radius.BubbleTight, Radius.Bubble), bubble.CornerRadius);
             Assert.Same(time, Text(bubble, "12:31"));
-            Assert.Equal(Math.Ceiling(5 * 7.4) + 24 + 8, reserve.Width);
+            var withState = reserve.Text!.Length;
             bubble.UpdatePresentation(colors, "12:32", true, failed: true,
                 read: true, readLabel: "Read by Bob");
             Assert.Equal("alert", mark.Glyph);
@@ -174,7 +177,8 @@ public class BubbleUpdateTests {
                 senderName: "Sender");
             Assert.False(mark.IsVisible);
             Assert.True(Text(bubble, "Sender").IsVisible);
-            Assert.Equal(Math.Ceiling(5 * 7.4) + 8, reserve.Width);
+            // Without the state of a sent message the time needs less room.
+            Assert.True(reserve.Text!.Length < withState);
             bubble.UpdatePresentation(colors, "12:36", true,
                 senderName: "Sender");
             Assert.False(Text(bubble, "Sender").IsVisible);
@@ -236,9 +240,11 @@ public class BubbleUpdateTests {
             using var bitmap = new RenderTargetBitmap(new PixelSize(8, 8));
             picture.Source = bitmap;
             var name = Text(bubble, "file.txt");
-            var card =
-                Assert.IsType<Grid>(name.GetVisualParent()!.GetVisualParent());
-            var icon = card.GetVisualDescendants().OfType<Icon>().Single();
+            // The name is in a box of two lines, in the grid of the card that
+            // has the tile of the file's kind beside it.
+            var card = Assert.IsType<Grid>(bubble.GetVisualDescendants()
+                .OfType<FileTile>().Single().GetVisualParent());
+            var tile = card.GetVisualDescendants().OfType<FileTile>().Single();
             var tree = card.GetVisualDescendants().ToArray();
             var colors = Colors("dark");
             Fonts.Use("monospace");
@@ -252,7 +258,8 @@ public class BubbleUpdateTests {
             Assert.Equal(tree, card.GetVisualDescendants().ToArray());
             Assert.Equal(Fonts.System, name.FontFamily);
             Assert.Equal(colors.BubbleOutText, ColorOf(name.Foreground));
-            Assert.Equal(colors.BubbleOut, ColorOf(icon.Color));
+            Assert.Same(tile,
+                card.GetVisualDescendants().OfType<FileTile>().Single());
             Press(picture);
             Press(card);
             Assert.Equal(new[] {

@@ -1841,7 +1841,9 @@ public partial class ChatPaneTests {
         }
 
         Assert.NotNull(picture.Source);
-        Assert.Equal(300, picture.Width);
+        // With words under it the picture runs to the edges of the bubble: 12
+        // more on each side.
+        Assert.Equal(300 + 24, picture.Width);
         Assert.Equal(169, picture.Height);
         Save(window, "image-loaded");
     }
@@ -3084,7 +3086,8 @@ public partial class ChatPaneTests {
         var icons = screen.GetVisualDescendants().OfType<Icon>()
             .Select(i => i.Glyph).ToList();
         Assert.Contains("play", icons);
-        Assert.Contains("video", icons);
+        // A video that is a file shows the tile of its kind.
+        Assert.NotEmpty(screen.GetVisualDescendants().OfType<FileTile>());
         Save(window, "audio-video");
         var path = await controller.DownloadFile(
             new FileAttachment("a.pdf", 1, "mxc://s/a", "application/pdf"));

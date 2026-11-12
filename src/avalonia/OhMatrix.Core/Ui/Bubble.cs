@@ -1,3 +1,4 @@
+using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -22,21 +23,24 @@ public sealed class Bubble : Border {
     private readonly SolidColorBrush secondary = new();
     private readonly SolidColorBrush linkForeground = new();
     private readonly SolidColorBrush mentionBackground = new();
-    private readonly SolidColorBrush fileInk = new();
     private readonly SolidColorBrush imageFill = new();
     private readonly SolidColorBrush previewFill = new();
     private readonly List<TextBlock> labels = new();
     private readonly SelectableTextBlock body;
     private readonly StackPanel stack;
+
     private readonly StackPanel metaRow;
+
+    // The picture of a picture-only bubble: the time sits on it, in a dark pill.
+    private readonly Border? picturePill;
     private readonly TextBlock metaLabel;
     private readonly IReadOnlyList<TextRun> cachedRuns;
 
-    private readonly Border timeSpace = new() {
-        Height = 1
+    // The room the time needs at the end of the last line: spaces that do not part from the last word (as in the web), as wide as the time row and the gap before it, and not seen.
+    private readonly Run timeRun = new() {
+        Foreground = Brushes.Transparent
     };
 
-    private readonly InlineUIContainer timeInline;
     private TextBlock? sender;
     private Icon? mark;
     private readonly AudioCard? audio;
@@ -78,27 +82,40 @@ public sealed class Bubble : Border {
     )
     {
         const double r = Radius.Bubble;
-        var mine = own && accent;
+        var hasText = text.Length > 0 || (image == null && file == null);
+        pictureOnly = image != null && text.Length == 0;
+        var audioCard = file is { Kind: Model.FileKind.Audio } &&
+                        fetch != null && openFile != null &&
+                        file.Source.Length > 0;
+        // A file on its own is a card: 232 wide, 64 high, the tile on the right.
+        fileCard = file != null && !audioCard && !hasText && reply == null;
+        plainFile = file != null && !audioCard;
+        var mine = own && accent && !fileCard;
         SetColors(colors, mine, failed);
         Background = fill;
-        Padding = new Thickness(12, 7, 12, 6);
+        Padding = pictureOnly ? new Thickness(0)
+            : fileCard ? new Thickness(14, 12, 14, 12)
+            : new Thickness(12, 7, 12, 6);
         var fg = foreground;
         var meta = metadata.Color;
 
-        var hasText = text.Length > 0 || (image == null && file == null);
         body = new SelectableTextBlock {
             FontSize = 16,
+            LineHeight = 21,
             FontFamily = Fonts.System,
             Foreground = fg,
             Background = Brushes.Transparent,
             TextWrapping = TextWrapping.Wrap,
+            // The text clips to its own box, and the foot of a letter such as g is below a line of 21: the box gets 3 more, taken back with the margin.
+            // The text sits 1 higher than its box (the last line's foot is then level with the foot of the time and 12 above the bubble's), and the foot gets 1 more.
+            Padding = new Thickness(0, 0, 0, 3),
+            Margin = new Thickness(0, -1, 0, -2),
         };
         cachedRuns = formatted == null
             ? RichText.PlainRuns(text)
             : RichText.ParseFormatted(formatted);
         var linkColor = linkForeground;
         var mentionBack = mentionBackground;
-        timeInline = new InlineUIContainer(timeSpace);
         var spans = new List<(int Start, int End, TextRun Run)>();
         var revealed = false;
 
@@ -154,10 +171,22 @@ public sealed class Bubble : Border {
                 at += shown.Length;
             }
 
-            body.Inlines.Add(timeInline);
+            body.Inlines.Add(timeRun);
         }
 
         Fill();
+        // A selection that is copied leaves out the spaces kept for the time.
+        body.AddHandler(Avalonia.Input.InputElement.KeyDownEvent, (_, e) => {
+            if (e.Key != Avalonia.Input.Key.C ||
+                (e.KeyModifiers & (Avalonia.Input.KeyModifiers.Control |
+                                   Avalonia.Input.KeyModifiers.Meta)) == 0)
+                return;
+            e.Handled = true;
+            var selected = (body.SelectedText ?? "").TrimEnd('\u00A0');
+            if (selected.Length > 0)
+                _ = TopLevel.GetTopLevel(body)?.Clipboard
+                    ?.SetTextAsync(selected);
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         var hasSpoiler = cachedRuns.Any(r => r.Spoiler);
         body.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent,
             (_, e) => {
@@ -189,36 +218,52 @@ public sealed class Bubble : Border {
 
         if (reply != null) {
             // The message this one answers: an accent bar, the name of its writer and the start of what was written.
+            // The bar and the name take the colour of the writer; on an accent
+            // bubble the bar is white and the name is the bubble's text.
+            var writer = Avatar.PeerColor(
+                reply.SenderId.Length > 0 ? reply.SenderId : reply.SenderName);
             var quote = new Grid {
                 ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-                Margin = new Thickness(0, 0, 0, 4),
+                // At the very top of a bubble the bar would sit in the rounded
+                // corner: it starts a little lower.
+                Margin = pictureOnly
+                    ? new Thickness(8, 8, 8, 4)
+                    : senderName != null && !own
+                        ? new Thickness(0, 0, 0, 4)
+                        : new Thickness(0, 4.5, 0, 4),
             };
             var bar = new Border {
-                Width = 2,
-                CornerRadius = new CornerRadius(1),
-                Background = linkForeground,
+                Width = 3,
+                CornerRadius = new CornerRadius(3, 0, 0, 3),
+                Background = mine
+                    ? new SolidColorBrush(Color.FromArgb(204, 255, 255, 255))
+                    : new SolidColorBrush(writer),
                 Margin = new Thickness(0, 0, 8, 0),
             };
             var lines = new StackPanel();
             if (reply.SenderName.Length > 0) {
-                lines.Children.Add(Label(new TextBlock {
+                lines.Children.Add(Label(Overflow(new TextBlock {
                     Text = reply.SenderName,
                     FontSize = 14,
+                    LineHeight = 18,
                     FontWeight = FontWeight.SemiBold,
                     FontFamily = Fonts.System,
-                    Foreground = linkForeground,
+                    Foreground = mine
+                        ? foreground
+                        : new SolidColorBrush(writer),
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                }));
+                })));
             }
 
-            lines.Children.Add(Label(new TextBlock {
+            lines.Children.Add(Label(Overflow(new TextBlock {
                 Text = reply.Preview,
                 FontSize = 14,
                 FontFamily = Fonts.System,
                 Foreground = secondary,
+                TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxLines = 2,
-            }));
+            })));
             Grid.SetColumn(lines, 1);
             quote.Children.Add(bar);
             quote.Children.Add(lines);
@@ -248,80 +293,118 @@ public sealed class Bubble : Border {
                 };
             }
 
-            stack.Children.Add(new Border {
-                Width = w,
+            // The picture bleeds to the edges of the bubble. Alone it is clipped
+            // to the bubble's corners; with text it is clipped to its top
+            // corners, and only when nothing is above it.
+            var width = pictureOnly ? w : w + 24;
+            picture.Width = width;
+            picture.Height = h;
+            var clip = pictureOnly
+                ? Corners(own, stuckAbove, stuckBelow)
+                : senderName == null && reply == null
+                    ? new CornerRadius(r, r, 0, 0)
+                    : new CornerRadius(0);
+            var frame = new Border {
+                Width = width,
                 Height = h,
-                CornerRadius = new CornerRadius(Math.Max(0, r - 6)),
+                CornerRadius = clip,
                 ClipToBounds = true,
                 Background = imageFill,
-                Margin = new Thickness(-6, -3, -6, hasText ? 4 : 14),
+                Margin = pictureOnly
+                    ? new Thickness(0)
+                    : new Thickness(-12, senderName == null ? -7 : 0, -12,
+                        hasText ? 6 : 14),
                 Child = picture,
-            });
+            };
+            Control shown = frame;
+            if (pictureOnly) {
+                picturePill = new Border {
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(9, 3),
+                    Margin = new Thickness(8),
+                    Background =
+                        new SolidColorBrush(Color.FromArgb(115, 0, 0, 0)),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                };
+                var layer = new Grid {
+                    Width = w,
+                    Height = h,
+                };
+                layer.Children.Add(frame);
+                layer.Children.Add(picturePill);
+                shown = layer;
+            }
+
+            stack.Children.Add(shown);
             Avalonia.Automation.AutomationProperties.SetName(picture,
                 image.FileName);
         }
 
-        if (file is { Kind: Model.FileKind.Audio } clip && fetch != null &&
-            openFile != null
-            && clip.Source.Length > 0) {
+        if (audioCard) {
+            var clip = file!;
+            var open = openFile!;
             // An audio message plays in the card itself.
-            audio = new AudioCard(clip, colors, mine, fg, meta, fetch,
-                () => openFile(clip));
+            audio = new AudioCard(clip, colors, mine, fg, meta, fetch!,
+                () => open(clip));
             audio.Margin = new Thickness(0, 2, 0, hasText ? 4 : 14);
             stack.Children.Add(audio);
         } else if (file != null) {
             // A file: its icon on the accent, the name and the size.
             var card = new Grid {
-                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-                Margin = new Thickness(0, 2, 0, hasText ? 4 : 14),
-                MinWidth = 200,
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                Margin = fileCard
+                    ? new Thickness(0)
+                    : new Thickness(0, 2, 0, hasText ? 4 : 14),
+                Width = fileCard ? 232 : double.NaN,
+                Height = fileCard ? 64 : double.NaN,
+                MinWidth = fileCard ? 0 : 220,
             };
-            var disc = new Border {
-                Width = 40,
-                Height = 40,
-                CornerRadius = new CornerRadius(20),
-                Background = linkForeground,
-                Margin = new Thickness(0, 0, 12, 0),
-                Child = new Icon {
-                    Glyph = file.Kind switch {
-                        Model.FileKind.Audio => "music",
-                        Model.FileKind.Video => "video",
-                        _ => "file",
-                    },
-                    Size = 22,
-                    Color = fileInk,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                },
-            };
-            var words = new StackPanel {
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            words.Children.Add(Label(new TextBlock {
+            // The name has two lines of room (cut with an ellipsis), the size
+            // sits at the foot, and the tile is at the right.
+            var name = Label(Overflow(new TextBlock {
                 Text = file.Name,
-                FontSize = 16,
+                FontSize = 15,
+                LineHeight = 20,
                 FontWeight = FontWeight.Medium,
                 FontFamily = Fonts.System,
                 Foreground = fg,
+                TextWrapping = TextWrapping.Wrap,
+                MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
             }));
+            // Not clipped: the name has two lines of room, and what overflows
+            // the box is still drawn.
+            var nameBox = new Border {
+                Height = 40,
+                Child = name,
+            };
             var size = Format.Bytes(file.Size);
             var length = file.Duration;
             if (length != null)
                 size = (size.Length > 0 ? size + " · " : "") +
                        Format.Duration(length.Value);
-            if (size.Length > 0) {
-                words.Children.Add(Label(new TextBlock {
-                    Text = size,
-                    FontSize = 14,
-                    FontFamily = Fonts.System,
-                    Foreground = metadata,
-                }));
-            }
-
-            Grid.SetColumn(words, 1);
-            card.Children.Add(disc);
+            var sizeLine = Label(Overflow(new TextBlock {
+                Text = size,
+                FontSize = 12,
+                LineHeight = 16,
+                FontFamily = Fonts.System,
+                Foreground = metadata,
+                VerticalAlignment = VerticalAlignment.Bottom,
+            }));
+            Grid.SetRow(sizeLine, 1);
+            var words = new Grid {
+                RowDefinitions = new RowDefinitions("40,*"),
+            };
+            words.Children.Add(nameBox);
+            words.Children.Add(sizeLine);
+            var tile = new FileTile(file.Name) {
+                Margin = new Thickness(14, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Grid.SetColumn(tile, 1);
             card.Children.Add(words);
+            card.Children.Add(tile);
             if (openFile != null && file.Source.Length > 0) {
                 card.Background = Brushes.Transparent;
                 card.Cursor =
@@ -352,12 +435,12 @@ public sealed class Bubble : Border {
             _ = FillPreview(slot, previewLink, preview, pictures, openLink);
         }
 
+        // The time and the state sit at the end of the last line of the text,
+        // as in the React Native app; with no text they sit on the picture, or
+        // under the card at the right.
         metaRow = new StackPanel {
             Orientation = Orientation.Horizontal,
             Spacing = 6,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, -2, -1),
         };
         metaLabel = Label(new TextBlock {
             FontSize = 14,
@@ -366,10 +449,22 @@ public sealed class Bubble : Border {
         });
         metaRow.Children.Add(metaLabel);
 
-        var root = new Grid();
-        root.Children.Add(stack);
-        root.Children.Add(metaRow);
-        Child = root;
+        // The time is drawn at the bottom right of the bubble, and the text
+        // keeps an empty box at the end of its last line where it falls.
+        if (pictureOnly) {
+            picturePill!.Child = metaRow;
+            Child = stack;
+        } else {
+            metaRow.HorizontalAlignment = HorizontalAlignment.Right;
+            metaRow.VerticalAlignment = VerticalAlignment.Bottom;
+            // Its foot is 6 above the bubble's, whatever the padding is.
+            metaRow.Margin = new Thickness(0, 0, 0, 6 - Padding.Bottom);
+            var root = new Grid();
+            root.Children.Add(stack);
+            root.Children.Add(metaRow);
+            Child = root;
+        }
+
         UpdatePresentation(colors, time, own, senderName, senderId, stuckAbove,
             stuckBelow, sending, failed, editedLabel, accent, read, readLabel);
     }
@@ -391,22 +486,21 @@ public sealed class Bubble : Border {
         string? readLabel = null
     )
     {
-        var mine = own && accent;
+        var mine = own && accent && !fileCard;
         SetColors(colors, mine, failed);
-        const double r = Radius.Bubble;
-        const double t = Radius.BubbleTight;
-        CornerRadius = own
-            ? new CornerRadius(r, stuckAbove ? t : r, stuckBelow ? t : r, r)
-            : new CornerRadius(stuckAbove ? t : r, r, r, stuckBelow ? t : r);
+        CornerRadius = Corners(own, stuckAbove, stuckBelow);
         body.FontFamily = Fonts.System;
         foreach (var label in labels)
             label.FontFamily = Fonts.System;
-        if (senderName != null && !own) {
+        if (senderName != null && !own && !plainFile) {
             if (sender == null) {
                 sender = Label(new TextBlock {
                     FontSize = 14,
                     FontWeight = FontWeight.SemiBold,
-                    Margin = new Thickness(0, 0, 0, 2),
+                    // On a picture alone the name has a band of its own above it.
+                    Margin = pictureOnly
+                        ? new Thickness(12, 7, 12, 2)
+                        : new Thickness(0, 0, 0, 2),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                 });
                 stack.Children.Insert(0, sender);
@@ -424,8 +518,6 @@ public sealed class Bubble : Border {
 
         var text = (editedLabel == null ? "" : editedLabel + " ") + time;
         metaLabel.Text = text;
-        // Reserve the same final-line space as when the bubble was made.
-        timeSpace.Width = Math.Ceiling(text.Length * 7.4) + (own ? 24 : 0) + 8;
         if (own && mark == null) {
             mark = new Icon {
                 StrokeWidth = 2,
@@ -447,7 +539,45 @@ public sealed class Bubble : Border {
             ToolTip.SetTip(mark, seen ? readLabel : null);
         }
 
+        // The box left for the time at the end of the text is as wide as the
+        // time row, and the gap before it.
+        MeasureTime();
         audio?.UpdatePresentation(colors, mine, foreground, metadata.Color);
+    }
+
+    private void MeasureTime()
+    {
+        metaRow.Measure(Size.Infinity);
+        // The gap before the time: 20, and 4 more beside the state of an own message.
+        var need = metaRow.DesiredSize.Width +
+                   (mark is { IsVisible: true } ? 24 : 20);
+        // Spaces alone have no width in a layout: measured after a letter.
+        var face = new Typeface(body.FontFamily);
+        var bare = new Avalonia.Media.TextFormatting.TextLayout("|", face,
+            body.FontSize, null);
+        var padded = new Avalonia.Media.TextFormatting.TextLayout(
+            "|" + new string('\u00A0', 20), face, body.FontSize, null);
+        var one = Math.Max(1, (padded.WidthIncludingTrailingWhitespace -
+                               bare.WidthIncludingTrailingWhitespace) / 20);
+        timeRun.Text = new string('\u00A0', (int)Math.Ceiling(need / one));
+    }
+
+    // A picture with no text: the bubble is the picture (no padding) and the time is on it.
+    private bool pictureOnly;
+
+    // A file on its own is a card of the neutral colour for both sides, with no name of the sender above it.
+    private bool fileCard;
+    private bool plainFile;
+
+    // The corners of a bubble: the side that touches a neighbour of the same
+    // run is tight.
+    private static CornerRadius Corners(bool own, bool above, bool below)
+    {
+        const double r = Radius.Bubble;
+        const double t = Radius.BubbleTight;
+        return own
+            ? new CornerRadius(r, above ? t : r, below ? t : r, r)
+            : new CornerRadius(above ? t : r, r, r, below ? t : r);
     }
 
     private void SetColors(ColorTokens colors, bool mine, bool failed)
@@ -455,15 +585,27 @@ public sealed class Bubble : Border {
         fill.Color = mine ? colors.BubbleOut : colors.BubbleIn;
         foreground.Color = mine ? colors.BubbleOutText : colors.BubbleInText;
         secondary.Color = mine ? colors.BubbleOutMeta : colors.TextSecondary;
-        metadata.Color = failed ? colors.Danger : secondary.Color;
+        metadata.Color = failed ? colors.Danger
+            : pictureOnly ? Colors.White
+            : secondary.Color;
         linkForeground.Color = mine ? colors.BubbleOutText : colors.Accent;
         mentionBackground.Color = colors.MentionBg;
-        fileInk.Color = mine ? colors.BubbleOut : colors.OnAccent;
         imageFill.Color =
             ThemeColor.Mix(colors.BubbleIn, colors.Separator, 0.5);
         previewFill.Color = mine
             ? Color.FromArgb(36, 255, 255, 255)
             : colors.BgSecondary;
+    }
+
+    // A line box that is shorter than the font's own cuts the foot of the
+    // letters (g, y, p): the box gets 3 more below, taken back with the margin,
+    // so the text may overflow it and the layout is not changed.
+    private static TextBlock Overflow(TextBlock label)
+    {
+        label.Padding = new Thickness(0, 0, 0, 3);
+        label.Margin = new Thickness(label.Margin.Left, label.Margin.Top,
+            label.Margin.Right, label.Margin.Bottom - 3);
+        return label;
     }
 
     private TextBlock Label(TextBlock label)

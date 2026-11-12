@@ -29,7 +29,7 @@ public sealed partial class ChatPane : Grid {
     };
 
     private readonly ItemsControl list = new() {
-        Margin = new Thickness(12, 8)
+        Margin = new Thickness(10, 8)
     };
 
     private readonly ScrollViewer scroller = new() {
@@ -2006,12 +2006,29 @@ public sealed partial class ChatPane : Grid {
         return grid;
     }
 
+    // The messages of one sender that are grouped: the same day, within five
+    // minutes, and neither of them a file (a file is a card of its own).
     private static bool SameRun(TimelineItem a, TimelineItem b)
     {
         return a.Kind == TimelineKind.Message &&
                b.Kind == TimelineKind.Message &&
+               a.File == null && b.File == null &&
                a.SenderId == b.SenderId && a.IsOwn == b.IsOwn &&
-               Math.Abs(b.Ts - a.Ts) < 5 * 60_000;
+               SameDay(a.Ts, b.Ts) &&
+               Math.Abs(b.Ts - a.Ts) <= 5 * 60_000;
+    }
+
+    // A text message: the kind that sticks to its neighbours.
+    private static bool Plain(TimelineItem item)
+    {
+        return item.Kind == TimelineKind.Message && item.Image == null &&
+               item.File == null;
+    }
+
+    private static bool SameDay(long a, long b)
+    {
+        return DateTimeOffset.FromUnixTimeMilliseconds(a).ToLocalTime().Date ==
+               DateTimeOffset.FromUnixTimeMilliseconds(b).ToLocalTime().Date;
     }
 
     private static Control DateChip(ColorTokens c, string label)
@@ -2020,7 +2037,7 @@ public sealed partial class ChatPane : Grid {
             Background = new SolidColorBrush(c.ServiceChip),
             CornerRadius = new CornerRadius(999),
             Padding = new Thickness(12, 4),
-            Margin = new Thickness(0, 10, 0, 4),
+            Margin = new Thickness(0, 6),
             HorizontalAlignment = HorizontalAlignment.Center,
             Child = new TextBlock {
                 Text = label,

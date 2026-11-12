@@ -529,6 +529,11 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
                 ? n
                 : ServiceText.PersonName(null, e.Sender);
+            var avatar = e.SenderProfile is ProfileDetails.Ready {
+                AvatarUrl: { } picture
+            }
+                ? picture
+                : null;
             if (e.Content is TimelineItemContent.MsgLike {
                     Content: { Kind: MsgLikeKind.Message m } msg
                 }) {
@@ -583,6 +588,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                         : null,
                     SenderId = e.Sender,
                     SenderName = name,
+                    SenderAvatar = avatar,
                     // Only my own messages show who has read them.
                     ReadBy = e.IsOwn
                         ? [.. e.ReadReceipts.Keys.Where(u => u != e.Sender)]
@@ -660,7 +666,13 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 }
                     ? m.Content.Body
                     : "";
-            return new ReplyQuote(name, text, reply.EventId());
+            var picture = ready.Content is TimelineItemContent.MsgLike {
+                Content.Kind: MsgLikeKind.Message {
+                    Content.MsgType: MessageType.Image
+                }
+            };
+            return new ReplyQuote(name, text, reply.EventId(), ready.Sender,
+                picture);
         }
 
         private sealed class TypingListener(Session session)

@@ -18,6 +18,9 @@ public sealed partial class ChatPane {
         public int Index;
         public bool Above;
         public bool Below;
+        public bool StickAbove;
+        public bool StickBelow;
+        public bool NewSender;
         public MessageView? View;
         public Control? Container;
     }
@@ -32,6 +35,10 @@ public sealed partial class ChatPane {
         public TimelineItem? Shown;
         public bool Above;
         public bool Below;
+        public bool StickAbove;
+        public bool StickBelow;
+        public Border? AvatarSlot;
+        public (string Id, string? Picture) AvatarOf;
         public int Presentation = -1;
         public bool Selecting;
         public bool Chosen;
@@ -270,6 +277,17 @@ public sealed partial class ChatPane {
             entry.Index = wanted.Count;
             entry.Above = i > 0 && SameRun(items[i - 1], item);
             entry.Below = i + 1 < items.Count && SameRun(item, items[i + 1]);
+            // Only plain text bubbles stick to their neighbours by the corners.
+            entry.StickAbove =
+                entry.Above && Plain(items[i - 1]) && Plain(item);
+            entry.StickBelow =
+                entry.Below && Plain(item) && Plain(items[i + 1]);
+            // Under a bubble of someone else the gap is tripled.
+            entry.NewSender =
+                i > 0 && items[i - 1].Kind == TimelineKind.Message &&
+                item.Kind == TimelineKind.Message &&
+                items[i - 1].SenderId != item.SenderId &&
+                SameDay(items[i - 1].Ts, item.Ts);
             wanted.Add(entry);
         }
 
@@ -335,18 +353,29 @@ public sealed partial class ChatPane {
             view.SelectionMark = null;
             if (item.Kind == TimelineKind.Message) {
                 view.Column = new StackPanel();
+                // The frame's border of 2 is for the mark of a found message; the
+                // margin takes it back, so the bubble sits where the row puts it.
                 view.Frame = new Border {
                     Child = view.Column,
                     CornerRadius = new CornerRadius(Radius.Bubble + 2),
                     BorderThickness = new Thickness(2),
                     BorderBrush = Brushes.Transparent,
+                    Margin = new Thickness(-2),
                 };
                 view.SelectionMark = (Border)SelectMark(colors, false);
-                var grid = new Grid {
-                    ColumnDefinitions = new ColumnDefinitions("Auto,*")
+                // The columns: the choosing mark, the avatar of a group's
+                // message (or the room kept for it), and the bubble.
+                view.AvatarSlot = new Border {
+                    Width = 0,
+                    VerticalAlignment = VerticalAlignment.Bottom,
                 };
-                Grid.SetColumn(view.Frame, 1);
+                var grid = new Grid {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*")
+                };
+                Grid.SetColumn(view.AvatarSlot, 1);
+                Grid.SetColumn(view.Frame, 2);
                 grid.Children.Add(view.SelectionMark);
+                grid.Children.Add(view.AvatarSlot);
                 grid.Children.Add(view.Frame);
                 view.Root.Child = grid;
             } else {
@@ -380,6 +409,8 @@ public sealed partial class ChatPane {
         var contentChanged = old == null || !SameContent(old, item);
         var appearance = contentChanged || presentation || old == null ||
                          !SameMetadata(old, item) ||
+                         view.StickAbove != entry.StickAbove ||
+                         view.StickBelow != entry.StickBelow ||
                          view.Above != entry.Above ||
                          view.Below != entry.Below;
         var reactionsChanged = old == null || old.Kind != item.Kind ||
@@ -401,8 +432,9 @@ public sealed partial class ChatPane {
         } else if (appearance) {
             view.Bubble.UpdatePresentation(colors,
                 Format.Clock(item.Ts, messageLocale!), item.IsOwn,
-                messageGroup ? item.SenderName : null, item.SenderId,
-                entry.Above, entry.Below, item.Sending, item.Failed,
+                messageGroup && !entry.Above ? item.SenderName : null,
+                item.SenderId, entry.StickAbove, entry.StickBelow,
+                item.Sending, item.Failed,
                 item.Edited ? controller.T("edited") : null, messageAccent,
                 item.Read, ReadLabel(item));
         }
@@ -412,7 +444,8 @@ public sealed partial class ChatPane {
         column.HorizontalAlignment = item.IsOwn
             ? HorizontalAlignment.Right
             : HorizontalAlignment.Left;
-        column.Margin = new Thickness(0, entry.Above ? 2 : 6, 0, 0);
+        column.Margin = new Thickness(0, entry.NewSender ? 6 : 2, 0, 0);
+        UpdateAvatar(view, item, entry);
         view.Frame!.HorizontalAlignment = column.HorizontalAlignment;
         if (reactionsChanged) {
             if (view.Reactions != null)
@@ -430,6 +463,8 @@ public sealed partial class ChatPane {
         view.Shown = item;
         view.Above = entry.Above;
         view.Below = entry.Below;
+        view.StickAbove = entry.StickAbove;
+        view.StickBelow = entry.StickBelow;
         view.Presentation = presentationVersion;
     }
 
@@ -441,15 +476,20 @@ public sealed partial class ChatPane {
             Text = item.Body,
             Time = Format.Clock(item.Ts, messageLocale!),
             Own = item.IsOwn,
-            SenderName = messageGroup ? item.SenderName : null,
+            SenderName = messageGroup && !entry.Above ? item.SenderName : null,
             SenderId = item.SenderId,
-            StuckAbove = entry.Above,
-            StuckBelow = entry.Below,
+            StuckAbove = entry.StickAbove,
+            StuckBelow = entry.StickBelow,
             Sending = item.Sending,
             Failed = item.Failed,
             EditedLabel = item.Edited ? controller.T("edited") : null,
             Accent = messageAccent,
-            Reply = item.Reply,
+            // A photo that is quoted is called "Photo", as in the React Native app.
+            Reply = item.Reply is { IsImage: true } quoted
+                ? quoted with {
+                    Preview = controller.T("photo")
+                }
+                : item.Reply,
             Image = item.Image,
             Pictures = controller.Pictures,
             File = item.File,
@@ -509,6 +549,7 @@ public sealed partial class ChatPane {
 
     private static bool SameMetadata(TimelineItem a, TimelineItem b) =>
         a.Ts == b.Ts && a.IsOwn == b.IsOwn && a.SenderName == b.SenderName &&
+        a.SenderAvatar == b.SenderAvatar &&
         a.SenderId == b.SenderId && a.Sending == b.Sending &&
         a.Failed == b.Failed && a.Edited == b.Edited && a.Read == b.Read &&
         a.ReadBy.SequenceEqual(b.ReadBy);
@@ -579,10 +620,37 @@ public sealed partial class ChatPane {
                 : Brushes.Transparent;
     }
 
+    // A bubble is at most 78% of the row (less the avatar's room) and never
+    // wider than 520.
     private double MessageWidth()
     {
         var available = Bounds.Width > 0 ? Bounds.Width : 800;
-        return Math.Max(0, Math.Min(560, (available - 24) * 0.8));
+        return Math.Max(0, Math.Min(520, (available - 20 - 38) * 0.78));
+    }
+
+    // The last message of someone else's run has their avatar at its foot,
+    // in a group and in a chat of two alike (the React Native app leaves it
+    // out of a chat of two; here it is always there); the others keep the
+    // room, so the bubbles line up.
+    private void UpdateAvatar(MessageView view, TimelineItem item,
+        MessageEntry entry)
+    {
+        var slot = view.AvatarSlot!;
+        var shown = !item.IsOwn;
+        slot.Width = shown ? 32 : 0;
+        slot.Margin = new Thickness(0, 0, shown ? 6 : 0, 0);
+        if (shown && !entry.Below) {
+            if (slot.Child is not Avatar ||
+                view.AvatarOf != (item.SenderId, item.SenderAvatar)) {
+                var avatar = new Avatar(item.SenderId, item.SenderName, 32);
+                controller.Pictures.Attach(avatar, item.SenderAvatar, 32);
+                slot.Child = avatar;
+                view.AvatarOf = (item.SenderId, item.SenderAvatar);
+            }
+        } else {
+            slot.Child = null;
+            view.AvatarOf = default;
+        }
     }
 
     private void ResizeMessages()

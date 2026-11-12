@@ -27,6 +27,10 @@ public sealed record TimelineItem {
 
     public string SenderId { get; init; } = "";
     public string SenderName { get; init; } = "";
+
+    /// <summary>The picture of the sender (an mxc address), when the profile has one.</summary>
+    public string? SenderAvatar { get; init; }
+
     public bool IsOwn { get; init; }
 
     /// <summary>Milliseconds since the epoch.</summary>
@@ -96,4 +100,6 @@ public sealed record ReactionCount(string Key, int Count, bool Mine);
 public sealed record ReplyQuote(
     string SenderName,
     string Preview,
-    string? EventId);
+    string? EventId,
+    string SenderId = "",
+    bool IsImage = false);
