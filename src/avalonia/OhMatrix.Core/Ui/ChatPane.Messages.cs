@@ -474,13 +474,21 @@ public sealed partial class ChatPane {
             };
         }
 
-        bubble.PointerPressed += (_, e) => {
-            if (!e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed)
-                return;
-            e.Handled = true;
-            OpenActions(bubble, entry.Item,
-                e.GetPosition(TopLevel.GetTopLevel(bubble)));
-        };
+        // A right press opens the message's menu wherever it lands, the text
+        // included: the text takes the press for its own selection, so it is
+        // taken on the way down. Its own menu, the white one of the theme, is
+        // asked for by the context request, which is stopped here as well.
+        bubble.AddHandler(InputElement.PointerPressedEvent,
+            (object? _, PointerPressedEventArgs e) => {
+                if (!e.GetCurrentPoint(bubble).Properties.IsRightButtonPressed)
+                    return;
+                e.Handled = true;
+                OpenActions(bubble, entry.Item,
+                    e.GetPosition(TopLevel.GetTopLevel(bubble)));
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        bubble.AddHandler(InputElement.ContextRequestedEvent,
+            (object? _, ContextRequestedEventArgs e) => e.Handled = true,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
         return bubble;
     }
 
