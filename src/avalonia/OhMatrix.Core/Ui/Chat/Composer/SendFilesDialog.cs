@@ -78,15 +78,13 @@ public sealed class SendFilesDialog : IOverlay {
             text.Children.Add(new TextBlock {
                 Text = Path.GetFileName(paths[i]),
                 FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = new SolidColorBrush(c.Text),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
             text.Children.Add(new TextBlock {
                 Text = $"{controller.T(kind)} · {Format.Bytes(sizes[i])}",
                 FontSize = 13,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
             });
             Grid.SetColumn(text, 1);
@@ -99,7 +97,6 @@ public sealed class SendFilesDialog : IOverlay {
                 Text = controller.T("send.files.more",
                     ("n", paths.Count - MaxRows)),
                 FontSize = 13,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 HorizontalAlignment = HorizontalAlignment.Center,
             });

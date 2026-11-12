@@ -35,8 +35,7 @@ public sealed class CallScreen : Grid {
 
     private readonly TextBlock name = new() {
         FontSize = 26,
-        FontWeight = FontWeight.Bold,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Bold,
         Foreground = Brushes.White,
         HorizontalAlignment = HorizontalAlignment.Center,
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -44,7 +43,6 @@ public sealed class CallScreen : Grid {
 
     private readonly TextBlock status = new() {
         FontSize = 17,
-        FontFamily = Fonts.System,
         Foreground = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
         HorizontalAlignment = HorizontalAlignment.Center,
     };
@@ -106,8 +104,7 @@ public sealed class CallScreen : Grid {
 
     private readonly TextBlock miniName = new() {
         FontSize = 15,
-        FontWeight = FontWeight.SemiBold,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Bold,
         Foreground = Brushes.White,
         MaxWidth = 160,
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -115,7 +112,6 @@ public sealed class CallScreen : Grid {
 
     private readonly TextBlock miniStatus = new() {
         FontSize = 13,
-        FontFamily = Fonts.System,
         Foreground = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
     };
 
@@ -402,7 +398,6 @@ public sealed class CallScreen : Grid {
         cell.Children.Add(new TextBlock {
             Text = controller.T(key),
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground =
                 new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
             HorizontalAlignment = HorizontalAlignment.Center,

@@ -155,8 +155,7 @@ public sealed class ProfilePage : Grid {
         var title = new TextBlock {
             Text = controller.T("profile"),
             FontSize = 18,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(26, 0, 0, 0),
@@ -190,8 +189,7 @@ public sealed class ProfilePage : Grid {
             Child = new TextBlock {
                 Text = label,
                 FontSize = 13,
-                FontWeight = FontWeight.Medium,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Normal,
                 Foreground = new SolidColorBrush(c.Text),
             },
         };
@@ -245,8 +243,7 @@ public sealed class ProfilePage : Grid {
         head.Children.Add(new SelectableTextBlock {
             Text = shown,
             FontSize = 22,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 8, 0, 0),
@@ -254,7 +251,6 @@ public sealed class ProfilePage : Grid {
         head.Children.Add(new SelectableTextBlock {
             Text = id,
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             HorizontalAlignment = HorizontalAlignment.Center,
         });
@@ -265,8 +261,7 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(new TextBlock {
             Text = controller.T("account"),
             FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });
@@ -294,8 +289,7 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
             FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });

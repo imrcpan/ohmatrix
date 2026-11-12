@@ -24,8 +24,7 @@ public static class SettingsRows {
         return new TextBlock {
             Text = text,
             FontSize = SettingsShell.CaptionFont,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(SettingsShell.Side, 16, 12, 4),
         };
@@ -37,7 +36,6 @@ public static class SettingsRows {
         return new TextBlock {
             Text = text,
             FontSize = SettingsShell.NoteFont,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(SettingsShell.Side, 2, 20, 6),
@@ -186,7 +184,6 @@ public static class SettingsRows {
             Text = shown,
             FromStart = true,
             FontSize = SettingsShell.ValueFont,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -225,8 +222,7 @@ public static class SettingsRows {
                 new TextBlock {
                     Text = label,
                     FontSize = SettingsShell.ValueFont,
-                    FontWeight = FontWeight.Medium,
-                    FontFamily = Fonts.System,
+                    FontWeight = Fonts.Normal,
                     Foreground = new SolidColorBrush(c.Text),
                     VerticalAlignment = VerticalAlignment.Center,
                 },
@@ -272,7 +268,6 @@ public static class SettingsRows {
         var block = new TextBlock {
             Text = text,
             FontSize = size,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(color),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,

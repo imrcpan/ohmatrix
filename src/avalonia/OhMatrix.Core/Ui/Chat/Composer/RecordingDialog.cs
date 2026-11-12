@@ -20,7 +20,6 @@ public sealed class RecordingDialog {
 
     private readonly TextBlock clock = new() {
         FontSize = 28,
-        FontFamily = Fonts.System,
         HorizontalAlignment = HorizontalAlignment.Center,
     };
 
@@ -60,7 +59,6 @@ public sealed class RecordingDialog {
         var rec = new MediaRecorder(video);
         var notice = new TextBlock {
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Danger),
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,

@@ -53,12 +53,11 @@ public sealed class AudioCard : Grid {
 
     private readonly TextBlock time = new() {
         FontSize = 14,
-        FontFamily = Fonts.System,
     };
 
     private readonly TextBlock name = new() {
         FontSize = 16,
-        FontWeight = FontWeight.Medium,
+        FontWeight = Fonts.Normal,
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
 
@@ -148,8 +147,6 @@ public sealed class AudioCard : Grid {
         trackFill.Color = Color.FromArgb(70, meta.R, meta.G, meta.B);
         metaFill.Color = meta;
         name.Foreground = fg;
-        name.FontFamily = Fonts.System;
-        time.FontFamily = Fonts.System;
         fill.Background = fg;
     }
 

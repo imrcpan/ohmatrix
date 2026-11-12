@@ -152,7 +152,6 @@ public sealed class VerifyDialog : IOverlay {
             cell.Children.Add(new TextBlock {
                 Text = e.Description,
                 FontSize = 11,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextAlignment = TextAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,

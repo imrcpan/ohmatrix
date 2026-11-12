@@ -48,8 +48,7 @@ public sealed class ImageViewer : IOverlay {
 
     private readonly TextBlock title = new() {
         FontSize = 16,
-        FontWeight = FontWeight.Medium,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Normal,
         Foreground = Brushes.White,
         TextTrimming = TextTrimming.CharacterEllipsis,
         VerticalAlignment = VerticalAlignment.Center,

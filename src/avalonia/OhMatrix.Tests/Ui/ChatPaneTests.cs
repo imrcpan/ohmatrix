@@ -1066,7 +1066,7 @@ public partial class ChatPaneTests {
         var titles = window.GetVisualDescendants().OfType<RoomRow>()
             .Where(r => !r.Selected)
             .SelectMany(r => r.GetVisualDescendants().OfType<TextBlock>())
-            .Where(t => t.FontWeight == FontWeight.SemiBold && t.FontSize == 16)
+            .Where(t => t.FontWeight == Fonts.Bold && t.FontSize == 16)
             .ToList();
         Assert.NotEmpty(titles);
         Assert.All(titles,
@@ -2109,6 +2109,55 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task
+        The_log_lines_follow_the_mono_font_without_being_made_again()
+    {
+        var (_, controller, _, _) = await Open("light", 1000);
+        var (one, two) = ScriptFontTests.Installed() is var (wide, narrow)
+            ? (wide.Concat(narrow).First(), wide.Concat(narrow).Skip(1).First())
+            : default;
+        logger.ClearLog();
+        var page = new LogPage(controller);
+        var host = new Window {
+            Content = page,
+            Width = 500,
+            Height = 300
+        };
+        host.Show();
+        logger.Info("hello world");
+        logger.Error("it broke");
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        try {
+            var rows = page.GetVisualDescendants()
+                .OfType<SelectableTextBlock>().ToList();
+            Assert.Equal(2, rows.Count);
+            foreach (var font in new[] {
+                         one, two, one
+                     }) {
+                controller.SetPreferences(p => p with {
+                    MonoFont = font
+                });
+                host.UpdateLayout();
+                foreach (var row in rows)
+                    Assert.All(ScriptFontTests.Letters(row.TextLayout)
+                            .Where(l => char.IsLetter(l.Letter)),
+                        l => Assert.Equal(ScriptFontTests.Drawn(font), l.Font));
+                // The page was not made again: the lines are the same ones.
+                Assert.Equal(rows, page.GetVisualDescendants()
+                    .OfType<SelectableTextBlock>().ToList());
+            }
+        } finally {
+            controller.SetPreferences(p => p with {
+                MonoFont = null
+            });
+            Fonts.Use(new Preferences());
+            logger.ClearLog();
+            host.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task The_pinned_list_opens_from_the_bar()
     {
         var (_, controller, _, screen) = await Open("light", 1000);
@@ -2408,7 +2457,7 @@ public partial class ChatPaneTests {
             hidden.Showing = true;
             Assert.True(Uses(hidden, Fonts.System));
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
         }
     }
 
@@ -2431,7 +2480,7 @@ public partial class ChatPaneTests {
             Assert.NotEqual(old, Fonts.System);
             Assert.True(Uses(pane.Stickers!, Fonts.System));
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
         }
     }
 

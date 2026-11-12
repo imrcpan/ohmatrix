@@ -70,18 +70,16 @@ public sealed class ThemePage : Grid {
 
     public WrapPanel Cards => cards;
 
-    // The page shows the language, the chosen theme, the themes there are
-    // and the font; the store changes for many other reasons.
+    // The page shows the language, the chosen theme and the themes there are;
+    // the store changes for many other reasons.
     private string? seenLocale;
     private string? seenTheme;
     private IReadOnlyList<ThemeDefinition>? seenThemes;
-    private FontFamily? seenFont;
 
     private bool Differs(AppState state)
     {
         return seenLocale != state.Locale || seenTheme != state.Prefs.Theme ||
-               !ReferenceEquals(seenThemes, Themes.All()) ||
-               !Equals(seenFont, Fonts.System);
+               !ReferenceEquals(seenThemes, Themes.All());
     }
 
     private void Apply()
@@ -91,7 +89,6 @@ public sealed class ThemePage : Grid {
         seenLocale = s.Locale;
         seenTheme = s.Prefs.Theme;
         seenThemes = Themes.All();
-        seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
         PageBar.Title(bar, c, controller.T("theme"));
 
@@ -121,8 +118,7 @@ public sealed class ThemePage : Grid {
             Child = new TextBlock {
                 Text = Strings.T(locale, "today"),
                 FontSize = 13,
-                FontWeight = FontWeight.Medium,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Normal,
                 Foreground = new SolidColorBrush(c.ServiceChipText),
             },
         });
@@ -269,8 +265,7 @@ public sealed class ThemePage : Grid {
         stack.Children.Add(new TextBlock {
             Text = label,
             FontSize = 13,
-            FontFamily = Fonts.System,
-            FontWeight = active ? FontWeight.SemiBold : FontWeight.Normal,
+            FontWeight = active ? Fonts.Bold : Fonts.Normal,
             Foreground = new SolidColorBrush(active ? c.Accent : c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             HorizontalAlignment = HorizontalAlignment.Center,

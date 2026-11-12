@@ -68,7 +68,6 @@ public sealed class Banner : Border {
         var c = ThemeScope.GetColors(this);
         Background = new SolidColorBrush(c.BgSecondary);
         text.Foreground = new SolidColorBrush(c.Text);
-        text.FontFamily = Fonts.System;
         action.Paint();
     }
 
@@ -76,7 +75,7 @@ public sealed class Banner : Border {
     private sealed class ActionPill : PressableButton {
         private readonly TextBlock label = new() {
             FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
+            FontWeight = Fonts.Bold,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
@@ -106,7 +105,6 @@ public sealed class Banner : Border {
             var c = Colors;
             Background = new SolidColorBrush(c.Accent);
             label.Foreground = new SolidColorBrush(c.OnAccent);
-            label.FontFamily = Fonts.System;
             Opacity = Pressed ? 0.8 : 1;
         }
     }

@@ -93,7 +93,9 @@ public class BubbleUpdateTests {
             var time = Text(bubble, "12:30");
             body.SelectionStart = 0;
             body.SelectionEnd = 4;
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             var colors = Colors("dark");
             bubble.MaxWidth = 220;
             bubble.UpdatePresentation(colors, "13:45", false,
@@ -129,7 +131,7 @@ public class BubbleUpdateTests {
             Assert.NotEmpty(reserve.Text!);
             Assert.All(reserve.Text!, c => Assert.Equal('\u00A0', c));
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }
@@ -209,7 +211,9 @@ public class BubbleUpdateTests {
             var inlines = body.Inlines!.ToArray();
             body.SelectionStart = 2;
             body.SelectionEnd = 8;
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             bubble.MaxWidth = 180;
             bubble.UpdatePresentation(Colors("dark"), "13:00", false,
                 editedLabel: "edited");
@@ -221,7 +225,7 @@ public class BubbleUpdateTests {
             Assert.Equal(8, body.SelectionEnd);
             Assert.Equal(Fonts.System, body.FontFamily);
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }
@@ -250,7 +254,9 @@ public class BubbleUpdateTests {
             var tile = card.GetVisualDescendants().OfType<FileTile>().Single();
             var tree = card.GetVisualDescendants().ToArray();
             var colors = Colors("dark");
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             bubble.MaxWidth = 280;
             bubble.UpdatePresentation(colors, "12:31", true);
             window.UpdateLayout();
@@ -272,7 +278,7 @@ public class BubbleUpdateTests {
                 file
             }, openedFiles);
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }
@@ -297,7 +303,9 @@ public class BubbleUpdateTests {
             var name = Text(audio, "note.wav");
             var glyph = audio.GetVisualDescendants().OfType<Icon>().Single();
             var colors = Colors("dark");
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             bubble.MaxWidth = 280;
             bubble.UpdatePresentation(colors, "13:00", false);
             window.UpdateLayout();
@@ -316,7 +324,7 @@ public class BubbleUpdateTests {
             Assert.All(audio.GetVisualDescendants().OfType<TextBlock>(),
                 text => Assert.Equal(Fonts.System, text.FontFamily));
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }
@@ -349,7 +357,9 @@ public class BubbleUpdateTests {
             using var bitmap = new RenderTargetBitmap(new PixelSize(8, 8));
             picture.Source = bitmap;
             var tree = card.GetVisualDescendants().ToArray();
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             var light = Colors();
             bubble.MaxWidth = 280;
             bubble.UpdatePresentation(light, "12:32", false);
@@ -363,7 +373,7 @@ public class BubbleUpdateTests {
                 text => Assert.Equal(Fonts.System, text.FontFamily));
             Assert.Equal(1, requested);
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }

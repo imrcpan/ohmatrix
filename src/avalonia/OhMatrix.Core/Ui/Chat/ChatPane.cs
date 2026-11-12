@@ -60,7 +60,6 @@ public sealed partial class ChatPane : Grid {
 
     private readonly TextBlock selectedCount = new() {
         FontSize = 18,
-        FontFamily = Fonts.System,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
     };
@@ -252,7 +251,6 @@ public sealed partial class ChatPane : Grid {
 
     private readonly TextBox searchInput = new() {
         FontSize = 16,
-        FontFamily = Fonts.System,
         BorderThickness = new Thickness(0),
         Padding = new Thickness(0),
         Background = Brushes.Transparent,
@@ -263,7 +261,6 @@ public sealed partial class ChatPane : Grid {
 
     private readonly TextBlock searchCount = new() {
         FontSize = 14,
-        FontFamily = Fonts.System,
         VerticalAlignment = VerticalAlignment.Center,
         Margin = new Thickness(8, 0),
     };
@@ -297,7 +294,6 @@ public sealed partial class ChatPane : Grid {
         AcceptsReturn = true,
         TextWrapping = TextWrapping.Wrap,
         FontSize = 16,
-        FontFamily = Fonts.System,
         BorderThickness = new Thickness(0),
         Padding = new Thickness(0),
         Background = Brushes.Transparent,
@@ -665,8 +661,7 @@ public sealed partial class ChatPane : Grid {
         BorderThickness = new Thickness(2),
         Child = new TextBlock {
             FontSize = 18,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         },
@@ -692,15 +687,13 @@ public sealed partial class ChatPane : Grid {
         stack.Children.Add(new TextBlock {
             Text = controller.T("chatNotFound"),
             FontSize = 20,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextAlignment = TextAlignment.Center,
         });
         stack.Children.Add(new TextBlock {
             Text = controller.T("chatNotFound.body"),
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
@@ -1107,8 +1100,7 @@ public sealed partial class ChatPane : Grid {
         var cancel = new TextBlock {
             Text = controller.T("cancel"),
             FontSize = 17,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
             Cursor = new Cursor(StandardCursorType.Hand),
             VerticalAlignment = VerticalAlignment.Center,
@@ -1178,8 +1170,7 @@ public sealed partial class ChatPane : Grid {
             words.Children.Add(new TextBlock {
                 Text = room.Name,
                 FontSize = 17,
-                FontWeight = FontWeight.SemiBold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = new SolidColorBrush(c.Text),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
@@ -1190,7 +1181,6 @@ public sealed partial class ChatPane : Grid {
                     : room.MemberCount == 1 ? controller.T("member.one")
                     : controller.T("members", ("n", room.MemberCount)),
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground =
                     new SolidColorBrush(typing.Count > 0
                         ? c.Accent
@@ -1410,8 +1400,7 @@ public sealed partial class ChatPane : Grid {
                 ? $"{controller.T("pinned.title")} {pinnedAt + 1}/{ids.Count}"
                 : controller.T("pinned.title"),
             FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
         });
         words.Children.Add(new TextBlock {
@@ -1419,7 +1408,6 @@ public sealed partial class ChatPane : Grid {
                 item.Body.Length > 0 ? item.Body :
                 item.File?.Name ?? item.Image?.FileName ?? "",
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -1463,14 +1451,12 @@ public sealed partial class ChatPane : Grid {
                 line.Children.Add(new TextBlock {
                     Text = item.SenderName,
                     FontSize = 13,
-                    FontWeight = FontWeight.SemiBold,
-                    FontFamily = Fonts.System,
+                    FontWeight = Fonts.Bold,
                     Foreground = new SolidColorBrush(c.Accent),
                 });
             line.Children.Add(new TextBlock {
                 Text = text,
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
                 MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -1919,7 +1905,6 @@ public sealed partial class ChatPane : Grid {
             row.Children.Add(new TextBlock {
                 Text = r.Key,
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(ink),
                 VerticalAlignment = VerticalAlignment.Center,
             });
@@ -1927,8 +1912,7 @@ public sealed partial class ChatPane : Grid {
                 row.Children.Add(new TextBlock {
                     Text = r.Count.ToString(),
                     FontSize = 13,
-                    FontWeight = r.Mine ? FontWeight.Bold : FontWeight.SemiBold,
-                    FontFamily = Fonts.System,
+                    FontWeight = r.Mine ? Fonts.Bold : Fonts.Bold,
                     Foreground = new SolidColorBrush(ink),
                     VerticalAlignment = VerticalAlignment.Center,
                 });
@@ -1985,15 +1969,13 @@ public sealed partial class ChatPane : Grid {
             Text = editing != null ? controller.T("edit.title") :
                 to.IsOwn ? controller.T("you") : to.SenderName,
             FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         words.Children.Add(new TextBlock {
             Text = to.Body,
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -2052,8 +2034,7 @@ public sealed partial class ChatPane : Grid {
             Child = new TextBlock {
                 Text = label,
                 FontSize = 13,
-                FontWeight = FontWeight.Medium,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Normal,
                 Foreground = new SolidColorBrush(c.ServiceChipText),
             },
         };

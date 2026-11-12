@@ -28,7 +28,6 @@ public sealed class PeoplePicker : IOverlay {
 
     private readonly TextBlock error = new() {
         FontSize = 14,
-        FontFamily = Fonts.System,
         TextAlignment = TextAlignment.Center,
         TextWrapping = TextWrapping.Wrap,
         IsVisible = false,
@@ -142,7 +141,6 @@ public sealed class PeoplePicker : IOverlay {
             list.Children.Add(new TextBlock {
                 Text = Strings.T(locale, "search.empty"),
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(colors.TextSecondary),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 12),
@@ -174,7 +172,6 @@ public sealed class PeoplePicker : IOverlay {
         line.Children.Add(new TextBlock {
             Text = p.Name,
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(colors.Text),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -221,14 +218,12 @@ public sealed class PeoplePicker : IOverlay {
         words.Children.Add(new TextBlock {
             Text = p.Name,
             FontSize = 16,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(colors.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         words.Children.Add(new TextBlock {
             Text = p.UserId,
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(colors.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });

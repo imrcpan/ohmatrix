@@ -55,7 +55,7 @@ public sealed partial class ChatPane {
     private readonly Dictionary<string, string> memberNames = [];
     private IReadOnlyList<RoomMemberInfo>? indexedMembers;
     private ColorTokens? messageColors;
-    private FontFamily? messageFont;
+    private int messageFont = -1;
     private string? messageLocale;
     private bool messageAccent;
     private bool messageGroup;
@@ -152,7 +152,7 @@ public sealed partial class ChatPane {
     {
         return shownRoom != state.SelectedRoomId || messageColors != colors ||
                messageLocale != state.Locale ||
-               !Equals(messageFont, Fonts.System) ||
+               messageFont != Fonts.Version ||
                messageAccent != state.Prefs.OwnBubbleAccent ||
                messageGroup != IsGroup(state) ||
                !ReferenceEquals(indexedMembers, state.Details?.Members) ||
@@ -220,7 +220,7 @@ public sealed partial class ChatPane {
             shownItems = state.Timeline;
             messageColors = colors;
             messageLocale = state.Locale;
-            messageFont = Fonts.System;
+            messageFont = Fonts.Version;
             messageAccent = state.Prefs.OwnBubbleAccent;
             messageGroup = IsGroup(state);
             messageDay = time.GetUtcNow().LocalDateTime.Date;
@@ -399,7 +399,6 @@ public sealed partial class ChatPane {
                         ? controller.T("undecryptable")
                         : item.Body;
                 text.Foreground = new SolidColorBrush(colors.ServiceChipText);
-                text.FontFamily = Fonts.System;
                 view.Frame.Background = new SolidColorBrush(colors.ServiceChip);
             }
 

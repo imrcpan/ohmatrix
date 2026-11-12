@@ -16,7 +16,6 @@ public sealed class SearchField : Border {
 
     private readonly TextBox box = new() {
         FontSize = 16,
-        FontFamily = Fonts.System,
         BorderThickness = new Thickness(0),
         Padding = new Thickness(0),
         Background = Brushes.Transparent,

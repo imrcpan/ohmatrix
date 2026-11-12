@@ -41,8 +41,7 @@ public sealed class TopNotice : Border {
             Color = Color.FromArgb(90, 0, 0, 0)
         });
         Lifetime.Watch(this, controller, state => {
-            if (!ReferenceEquals(state.Notice, shownNotice) ||
-                !Equals(shownFont, Fonts.System))
+            if (!ReferenceEquals(state.Notice, shownNotice))
                 Apply();
         });
         Apply();
@@ -64,7 +63,6 @@ public sealed class TopNotice : Border {
     // made again would start from the top, and the store changes for many
     // reasons that are not a notice.
     private Notice? shownNotice;
-    private FontFamily? shownFont;
     private Control? mark;
 
     private readonly StackPanel row = new() {
@@ -74,7 +72,7 @@ public sealed class TopNotice : Border {
 
     private readonly TextBlock label = new() {
         FontSize = 16,
-        FontWeight = FontWeight.SemiBold,
+        FontWeight = Fonts.Bold,
         TextWrapping = TextWrapping.Wrap,
         MaxLines = 3,
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -85,7 +83,6 @@ public sealed class TopNotice : Border {
     {
         var notice = controller.Store.Value.Notice;
         shownNotice = notice;
-        shownFont = Fonts.System;
         IsVisible = notice != null;
         if (notice == null)
             return;
@@ -95,7 +92,6 @@ public sealed class TopNotice : Border {
         BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128));
         SetMark(notice.Kind);
         label.Text = notice.Message;
-        label.FontFamily = Fonts.System;
         label.Foreground = new SolidColorBrush(c.Text);
         if (row.Children.Count == 1)
             row.Children.Add(label);

@@ -117,7 +117,6 @@ public sealed class MessageResultsView : StackPanel {
     private string? builtTerm;
     private ColorTokens? builtColors;
     private string? builtLocale;
-    private FontFamily? builtFont;
 
     private void Render()
     {
@@ -133,7 +132,7 @@ public sealed class MessageResultsView : StackPanel {
         var shown = results ?? [];
         var locale = controller.Store.Value.Locale;
         var keep = builtTerm == term && Equals(builtColors, c) &&
-                   builtLocale == locale && Equals(builtFont, Fonts.System) &&
+                   builtLocale == locale &&
                    shown.Count >= builtHits.Count;
         for (var i = 0; keep && i < builtHits.Count; i++)
             keep = ReferenceEquals(shown[i], builtHits[i]);
@@ -149,7 +148,6 @@ public sealed class MessageResultsView : StackPanel {
         builtTerm = term;
         builtColors = c;
         builtLocale = locale;
-        builtFont = Fonts.System;
         for (var i = builtHits.Count; i < shown.Count; i++) {
             Children.Add(Hit(c, shown[i]));
             builtHits.Add(shown[i]);
@@ -181,7 +179,6 @@ public sealed class MessageResultsView : StackPanel {
         return new TextBlock {
             Text = text,
             FontSize = size,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
@@ -222,15 +219,13 @@ public sealed class MessageResultsView : StackPanel {
         head.Children.Add(new TextBlock {
             Text = showRoom ? r.RoomName : r.SenderName,
             FontSize = 15,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         var time = new TextBlock {
             Text = Format.ListTime(r.Ts, DateTimeOffset.UtcNow, s.Locale),
             FontSize = 12,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(8, 0, 0, 0),
         };
@@ -239,7 +234,6 @@ public sealed class MessageResultsView : StackPanel {
         text.Children.Add(head);
         var body = new TextBlock {
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
             MaxLines = 2,
@@ -249,7 +243,7 @@ public sealed class MessageResultsView : StackPanel {
                                   snip.Before));
         body.Inlines.Add(new Run(snip.Match) {
             Foreground = new SolidColorBrush(c.Accent),
-            FontWeight = FontWeight.Bold
+            FontWeight = Fonts.Bold
         });
         body.Inlines.Add(new Run(snip.After));
         text.Children.Add(body);

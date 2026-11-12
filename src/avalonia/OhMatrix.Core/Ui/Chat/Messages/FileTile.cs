@@ -33,8 +33,7 @@ public sealed class FileTile : Grid {
             Children.Add(new TextBlock {
                 Text = label.ToUpperInvariant(),
                 FontSize = label.Length > 3 ? 9 : 11,
-                FontWeight = FontWeight.Bold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = Brushes.White,
                 TextAlignment = TextAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch,

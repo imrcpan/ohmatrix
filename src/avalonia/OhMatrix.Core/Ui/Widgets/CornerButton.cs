@@ -18,7 +18,6 @@ public sealed class CornerButton : PressableButton {
 
     private readonly TextBlock label = new() {
         FontSize = 15,
-        FontFamily = Fonts.System,
         VerticalAlignment = VerticalAlignment.Center,
     };
 

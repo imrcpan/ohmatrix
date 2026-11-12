@@ -174,7 +174,6 @@ public sealed class ForwardDialog : IOverlay {
         var name = new TextBlock {
             Text = room.Name,
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             Margin = new Thickness(10, 0),
@@ -231,7 +230,6 @@ public sealed class ForwardDialog : IOverlay {
             list.Children.Add(new TextBlock {
                 Text = controller.T("forward.empty"),
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextAlignment = TextAlignment.Center,
                 Margin = new Thickness(0, 12),
@@ -262,7 +260,6 @@ public sealed class ForwardDialog : IOverlay {
                 content.Add(new TextBlock {
                     Text = controller.T("forward.failed", ("n", failed)),
                     FontSize = 14,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.Danger),
                     TextAlignment = TextAlignment.Center,
                     TextWrapping = TextWrapping.Wrap,

@@ -197,14 +197,12 @@ public sealed class SessionsPage : Grid {
         words.Children.Add(new TextBlock {
             Text = d.Name,
             FontSize = SettingsShell.RowFont,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         words.Children.Add(new TextBlock {
             Text = LastActive(d),
             FontSize = SettingsShell.NoteFont,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });

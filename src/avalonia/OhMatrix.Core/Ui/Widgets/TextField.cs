@@ -15,7 +15,6 @@ namespace OhMatrix.Core.Ui.Widgets;
 public sealed class TextField : Border {
     private readonly TextBox box = new() {
         FontSize = 16,
-        FontFamily = Fonts.System,
         BorderThickness = new Thickness(0),
         Padding = new Thickness(0),
         Background = Brushes.Transparent,

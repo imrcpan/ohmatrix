@@ -65,7 +65,6 @@ public sealed class SharePage : Grid {
 
     private readonly TextBlock describe = new() {
         FontSize = 14,
-        FontFamily = Fonts.System,
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
 
@@ -149,7 +148,6 @@ public sealed class SharePage : Grid {
                 Text = controller.T("forward.failed", ("n", failed)),
                 Foreground = new SolidColorBrush(c.Danger),
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 TextAlignment = TextAlignment.Center,
             });
         content.Add(send);
@@ -213,7 +211,6 @@ public sealed class SharePage : Grid {
         var name = new TextBlock {
             Text = r.Name,
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
@@ -277,8 +274,7 @@ public sealed class SharePage : Grid {
         var title = new TextBlock {
             Text = controller.T("share.title"),
             FontSize = 20,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(8, 0),

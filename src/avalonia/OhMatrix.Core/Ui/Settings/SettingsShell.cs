@@ -51,7 +51,6 @@ public sealed class SettingsShell : Grid {
     private readonly List<ListItem> items = [];
     private readonly ListItem signOut = new("signOut", true);
     private string? seenLocale;
-    private FontFamily? seenFont;
 
     // Registered once for the type: a handler made in the constructor
     // stays in the property's observers for good and runs once for each
@@ -168,19 +167,17 @@ public sealed class SettingsShell : Grid {
             controller.T("signOut.body"), yes, no);
     }
 
-    // The list shows the language, the colours and the font; the store
+    // The list shows the language and the colours; the store
     // changes for many other reasons.
     private bool Differs()
     {
-        return seenLocale != controller.Store.Value.Locale ||
-               !Equals(seenFont, Fonts.System);
+        return seenLocale != controller.Store.Value.Locale;
     }
 
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
         seenLocale = controller.Store.Value.Locale;
-        seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
         list.BorderBrush = new SolidColorBrush(c.Separator);
         foreach (var item in items)
@@ -234,7 +231,6 @@ public sealed class SettingsShell : Grid {
         public string Text {
             set {
                 label.Text = value;
-                label.FontFamily = Fonts.System;
                 Avalonia.Automation.AutomationProperties.SetName(this, value);
             }
         }

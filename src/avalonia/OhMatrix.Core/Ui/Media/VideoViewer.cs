@@ -49,8 +49,7 @@ public sealed class VideoViewer : IOverlay {
 
     private readonly TextBlock title = new() {
         FontSize = 16,
-        FontWeight = FontWeight.Medium,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Normal,
         Foreground = Brushes.White,
         TextTrimming = TextTrimming.CharacterEllipsis,
         VerticalAlignment = VerticalAlignment.Top,
@@ -60,7 +59,6 @@ public sealed class VideoViewer : IOverlay {
 
     private readonly TextBlock status = new() {
         FontSize = 15,
-        FontFamily = Fonts.System,
         Foreground = Brushes.White,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
@@ -87,7 +85,6 @@ public sealed class VideoViewer : IOverlay {
 
     private readonly TextBlock time = new() {
         FontSize = 14,
-        FontFamily = Fonts.System,
         Foreground = Brushes.White,
         VerticalAlignment = VerticalAlignment.Center,
         Margin = new Thickness(12, 0, 0, 0),

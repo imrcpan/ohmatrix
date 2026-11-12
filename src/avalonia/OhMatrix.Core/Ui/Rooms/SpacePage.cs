@@ -189,7 +189,6 @@ public sealed class SpacePage : Grid {
             rows.Children.Add(new TextBlock {
                 Text = controller.T("space.empty"),
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 24),
@@ -207,7 +206,6 @@ public sealed class SpacePage : Grid {
             rows.Children.Add(new TextBlock {
                 Text = controller.T("noResults"),
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 24),
@@ -302,7 +300,6 @@ public sealed class SpacePage : Grid {
         if (candidates.Count == 0)
             list.Children.Add(new TextBlock {
                 Text = controller.T("space.noCandidates"),
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextAlignment = TextAlignment.Center,
                 Margin = new Thickness(12),
@@ -363,7 +360,6 @@ public sealed class SpacePage : Grid {
         if (listed.Count == 0)
             list.Children.Add(new TextBlock {
                 Text = controller.T("space.empty"),
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextAlignment = TextAlignment.Center,
                 Margin = new Thickness(12),
@@ -402,7 +398,6 @@ public sealed class SpacePage : Grid {
         var text = new TextBlock {
             Text = name,
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
@@ -492,7 +487,6 @@ public sealed class SpacePage : Grid {
                 Child = new SelectableTextBlock {
                     Text = link,
                     FontSize = 14,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.Text),
                     TextAlignment = TextAlignment.Center,
                     TextWrapping = TextWrapping.Wrap,
@@ -583,8 +577,7 @@ public sealed class SpacePage : Grid {
         words.Children.Add(new TextBlock {
             Text = child.Name,
             FontSize = 16,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -593,7 +586,6 @@ public sealed class SpacePage : Grid {
                 ? controller.T("member.one")
                 : controller.T("explore.members", ("count", child.Members)),
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
         });
         var topic = child.Topic;
@@ -601,7 +593,6 @@ public sealed class SpacePage : Grid {
             words.Children.Add(new TextBlock {
                 Text = topic,
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
@@ -613,7 +604,6 @@ public sealed class SpacePage : Grid {
             var tag = new TextBlock {
                 Text = controller.T("space.joinToView"),
                 FontSize = 13,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Accent),
                 Margin = new Thickness(8, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,

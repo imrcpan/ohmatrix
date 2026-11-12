@@ -159,8 +159,7 @@ public sealed class AccountsPage : Grid {
         var text = new TextBlock {
             Text = controller.T("addAccount"),
             FontSize = 16,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -222,15 +221,13 @@ public sealed class AccountsPage : Grid {
         text.Children.Add(new TextBlock {
             Text = name,
             FontSize = 16,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
         text.Children.Add(new TextBlock {
             Text = account.UserId,
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -247,7 +244,6 @@ public sealed class AccountsPage : Grid {
             trailing = new TextBlock {
                 Text = controller.T("account.current"),
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Accent),
             };
         else if (account.Unread > 0)
@@ -262,8 +258,7 @@ public sealed class AccountsPage : Grid {
                         ? "99+"
                         : account.Unread.ToString(),
                     FontSize = 13,
-                    FontWeight = FontWeight.SemiBold,
-                    FontFamily = Fonts.System,
+                    FontWeight = Fonts.Bold,
                     Foreground = Brushes.White,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -398,7 +393,6 @@ public sealed class AccountsPage : Grid {
         content.Children.Add(new TextBlock {
             Text = controller.T("accounts.reorder.hint"),
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(20, 8),

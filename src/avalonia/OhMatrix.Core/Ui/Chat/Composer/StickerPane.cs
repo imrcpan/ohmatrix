@@ -403,14 +403,13 @@ public sealed class StickerPane : Grid {
         var text = new TextBlock {
             FontSize = 15,
             LineHeight = 21,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(colors.TextSecondary),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
         };
         text.Inlines!.Add(new Avalonia.Controls.Documents.Run(a));
         text.Inlines.Add(new Avalonia.Controls.Documents.Run(b) {
-            FontWeight = FontWeight.Bold,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(colors.Danger)
         });
         text.Inlines.Add(new Avalonia.Controls.Documents.Run(c));
@@ -659,8 +658,7 @@ public sealed class StickerPane : Grid {
         var text = new TextBlock {
             Text = label,
             FontSize = 15,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = new SolidColorBrush(!enabled ? c.TextTertiary
                 : danger ? c.Danger
@@ -697,15 +695,13 @@ public sealed class StickerPane : Grid {
     private IReadOnlyList<StickerGroup>? seenGroups;
     private string? seenGroup;
     private string? seenLocale;
-    private FontFamily? seenFont;
 
     private bool Differs(AppState state)
     {
         return !ReferenceEquals(seenStickers, state.Stickers) ||
                !ReferenceEquals(seenGroups, state.StickerGroups) ||
                seenGroup != state.Prefs.StickerGroup ||
-               seenLocale != state.Locale ||
-               !Equals(seenFont, Fonts.System);
+               seenLocale != state.Locale;
     }
 
     private void Apply()
@@ -716,7 +712,6 @@ public sealed class StickerPane : Grid {
         seenGroups = s.StickerGroups;
         seenGroup = s.Prefs.StickerGroup;
         seenLocale = s.Locale;
-        seenFont = Fonts.System;
         Background = new SolidColorBrush(c.Bg);
         tabs.BorderBrush = new SolidColorBrush(c.Separator);
         var (groups, group, index) = Current();
@@ -733,8 +728,7 @@ public sealed class StickerPane : Grid {
             row.Children.Add(new TextBlock {
                 Text = Label(group, index),
                 FontSize = 16,
-                FontWeight = FontWeight.Bold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = new SolidColorBrush(c.Text),
                 Margin = new Thickness(8, 0, 0, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -781,8 +775,7 @@ public sealed class StickerPane : Grid {
                 var hint = new TextBlock {
                     Text = controller.T("sticker.reorder.hint"),
                     FontSize = 15,
-                    FontWeight = FontWeight.Bold,
-                    FontFamily = Fonts.System,
+                    FontWeight = Fonts.Bold,
                     Foreground = new SolidColorBrush(c.Text),
                     Margin = new Thickness(0, 0, 8, 0),
                     VerticalAlignment = VerticalAlignment.Center,
@@ -912,7 +905,6 @@ public sealed class StickerPane : Grid {
                         : controller.T("sticker.group.empty"),
                 FontSize = 13,
                 LineHeight = 18,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
                 Width = WidthOf(MaxCols) - 2 * Pad,
@@ -1049,7 +1041,6 @@ public sealed class StickerPane : Grid {
                         new TextBlock {
                             Text = name,
                             FontSize = 13,
-                            FontFamily = Fonts.System,
                             Foreground = new SolidColorBrush(c.Text),
                             MaxWidth = 76,
                             TextAlignment = TextAlignment.Center,

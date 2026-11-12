@@ -67,8 +67,7 @@ public sealed class MainScreen : Grid {
 
     private readonly TextBlock chipText = new() {
         FontSize = 14,
-        FontWeight = FontWeight.Medium,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Normal,
         VerticalAlignment = VerticalAlignment.Center,
     };
 
@@ -276,7 +275,6 @@ public sealed class MainScreen : Grid {
     private SidebarPage seenPage;
     private string? seenLocale;
     private double? seenWidth;
-    private FontFamily? seenFont;
     private ColorTokens? seenColors;
 
     private bool Differs(AppState state)
@@ -285,8 +283,7 @@ public sealed class MainScreen : Grid {
                seenRoom != state.SelectedRoomId ||
                seenInfo != state.RoomInfoOpen ||
                seenPage != state.SidebarPage || seenLocale != state.Locale ||
-               seenWidth != state.Prefs.SidebarWidth ||
-               !Equals(seenFont, Fonts.System);
+               seenWidth != state.Prefs.SidebarWidth;
     }
 
     private Avalonia.Controls.Window? settingsWindow;
@@ -367,7 +364,6 @@ public sealed class MainScreen : Grid {
         seenPage = s.SidebarPage;
         seenLocale = s.Locale;
         seenWidth = s.Prefs.SidebarWidth;
-        seenFont = Fonts.System;
         var split = Bounds.Width >= SplitBreakpoint;
         verifyDialog.Update(s.Verification);
         Paint(c);
@@ -429,7 +425,6 @@ public sealed class MainScreen : Grid {
         };
         detail.Child = split && open ? wideChat : chip;
         wideChat.Showing = split && open;
-        chipText.FontFamily = Fonts.System;
         chipText.Text = Strings.T(s.Locale, "selectChat");
     }
 

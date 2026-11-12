@@ -29,7 +29,6 @@ public sealed class Bubble : Border {
     private readonly SolidColorBrush mentionBackground = new();
     private readonly SolidColorBrush imageFill = new();
     private readonly SolidColorBrush previewFill = new();
-    private readonly List<TextBlock> labels = new();
     private readonly SelectableTextBlock body;
     private readonly StackPanel stack;
 
@@ -106,7 +105,6 @@ public sealed class Bubble : Border {
         body = new SelectableTextBlock {
             FontSize = 16,
             LineHeight = 21,
-            FontFamily = Fonts.System,
             Foreground = fg,
             Background = Brushes.Transparent,
             TextWrapping = TextWrapping.Wrap,
@@ -141,20 +139,17 @@ public sealed class Bubble : Border {
                                 : run.Text);
                 if (shown.Length == 0)
                     continue;
+                // The letters are drawn in the font of their script by the
+                // formatter of the text; only code has a font of its own.
                 var piece = new Run(shown);
+                if (run.Code)
+                    Fonts.Code(piece);
                 if (run.Bold || run.UserId != null)
-                    piece.FontWeight = run.UserId != null && !run.Bold
-                        ? FontWeight.SemiBold
-                        : FontWeight.Bold;
+                    piece.FontWeight = Fonts.Bold;
                 if (run.Italic)
                     piece.FontStyle = FontStyle.Italic;
-                if (run.Code)
-                    piece.FontFamily =
-                        new FontFamily(
-                            "Cascadia Mono, DejaVu Sans Mono, monospace");
                 var lines = new TextDecorationCollection();
-                if (run.Underline ||
-                    (run.Href != null && run.UserId == null))
+                if (run.Underline || (run.Href != null && run.UserId == null))
                     lines.Add(new TextDecoration {
                         Location = TextDecorationLocation.Underline
                     });
@@ -246,28 +241,26 @@ public sealed class Bubble : Border {
             };
             var lines = new StackPanel();
             if (reply.SenderName.Length > 0) {
-                lines.Children.Add(Label(Overflow(new TextBlock {
+                lines.Children.Add(Overflow(new TextBlock {
                     Text = reply.SenderName,
                     FontSize = 14,
                     LineHeight = 18,
-                    FontWeight = FontWeight.SemiBold,
-                    FontFamily = Fonts.System,
+                    FontWeight = Fonts.Bold,
                     Foreground = mine
                         ? foreground
                         : new SolidColorBrush(writer),
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                })));
+                }));
             }
 
-            lines.Children.Add(Label(Overflow(new TextBlock {
+            lines.Children.Add(Overflow(new TextBlock {
                 Text = reply.Preview,
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = secondary,
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxLines = 2,
-            })));
+            }));
             Grid.SetColumn(lines, 1);
             quote.Children.Add(bar);
             quote.Children.Add(lines);
@@ -366,17 +359,16 @@ public sealed class Bubble : Border {
             };
             // The name has two lines of room (cut with an ellipsis), the size
             // sits at the foot, and the tile is at the right.
-            var name = Label(Overflow(new TextBlock {
+            var name = Overflow(new TextBlock {
                 Text = file.Name,
                 FontSize = 15,
                 LineHeight = 20,
-                FontWeight = FontWeight.Medium,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Normal,
                 Foreground = fg,
                 TextWrapping = TextWrapping.Wrap,
                 MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-            }));
+            });
             // Not clipped: the name has two lines of room, and what overflows
             // the box is still drawn.
             var nameBox = new Border {
@@ -388,14 +380,13 @@ public sealed class Bubble : Border {
             if (length != null)
                 size = (size.Length > 0 ? size + " · " : "") +
                        Format.Duration(length.Value);
-            var sizeLine = Label(Overflow(new TextBlock {
+            var sizeLine = Overflow(new TextBlock {
                 Text = size,
                 FontSize = 12,
                 LineHeight = 16,
-                FontFamily = Fonts.System,
                 Foreground = metadata,
                 VerticalAlignment = VerticalAlignment.Bottom,
-            }));
+            });
             Grid.SetRow(sizeLine, 1);
             var words = new Grid {
                 RowDefinitions = new RowDefinitions("40,*"),
@@ -446,11 +437,11 @@ public sealed class Bubble : Border {
             Orientation = Orientation.Horizontal,
             Spacing = 6,
         };
-        metaLabel = Label(new TextBlock {
+        metaLabel = new TextBlock {
             FontSize = 14,
             Foreground = this.metadata,
             VerticalAlignment = VerticalAlignment.Center,
-        });
+        };
         metaRow.Children.Add(metaLabel);
 
         // The time is drawn at the bottom right of the bubble, and the text
@@ -493,20 +484,17 @@ public sealed class Bubble : Border {
         var mine = own && accent && !fileCard;
         SetColors(colors, mine, failed);
         CornerRadius = Corners(own, stuckAbove, stuckBelow);
-        body.FontFamily = Fonts.System;
-        foreach (var label in labels)
-            label.FontFamily = Fonts.System;
         if (senderName != null && !own && !plainFile) {
             if (sender == null) {
-                sender = Label(new TextBlock {
+                sender = new TextBlock {
                     FontSize = 14,
-                    FontWeight = FontWeight.SemiBold,
+                    FontWeight = Fonts.Bold,
                     // On a picture alone the name has a band of its own above it.
                     Margin = pictureOnly
                         ? new Thickness(12, 7, 12, 2)
                         : new Thickness(0, 0, 0, 2),
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                });
+                };
                 stack.Children.Insert(0, sender);
             }
 
@@ -556,7 +544,7 @@ public sealed class Bubble : Border {
         var need = metaRow.DesiredSize.Width +
                    (mark is { IsVisible: true } ? 24 : 20);
         // Spaces alone have no width in a layout: measured after a letter.
-        var face = new Typeface(body.FontFamily);
+        var face = new Typeface(Fonts.System);
         var bare = new Avalonia.Media.TextFormatting.TextLayout("|", face,
             body.FontSize, null);
         var padded = new Avalonia.Media.TextFormatting.TextLayout(
@@ -612,13 +600,6 @@ public sealed class Bubble : Border {
         return label;
     }
 
-    private TextBlock Label(TextBlock label)
-    {
-        label.FontFamily = Fonts.System;
-        labels.Add(label);
-        return label;
-    }
-
     private static string Hidden(string text)
     {
         return new string(text.Select(c => c == '\n' ? c : '•').ToArray());
@@ -655,38 +636,35 @@ public sealed class Bubble : Border {
             Margin = new Thickness(wide ? 10 : 10, 8, 10, 8),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        words.Children.Add(Label(new TextBlock {
+        words.Children.Add(new TextBlock {
             Text = found.SiteName ?? host,
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = secondary,
             TextTrimming = TextTrimming.CharacterEllipsis,
-        }));
+        });
         var title = found.Title;
         if (title != null) {
-            words.Children.Add(Label(new TextBlock {
+            words.Children.Add(new TextBlock {
                 Text = title,
                 FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = foreground,
                 TextWrapping = TextWrapping.Wrap,
                 MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-            }));
+            });
         }
 
         var description = found.Description;
         if (description != null) {
-            words.Children.Add(Label(new TextBlock {
+            words.Children.Add(new TextBlock {
                 Text = description,
                 FontSize = 13,
-                FontFamily = Fonts.System,
                 Foreground = secondary,
                 TextWrapping = TextWrapping.Wrap,
                 MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-            }));
+            });
         }
 
         var card = new StackPanel();

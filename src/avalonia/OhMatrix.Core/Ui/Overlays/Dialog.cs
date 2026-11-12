@@ -47,7 +47,6 @@ public sealed class Dialog : IOverlay {
     private readonly TextBlock messageText = new() {
         FontSize = 15,
         LineHeight = 20,
-        FontFamily = Fonts.System,
         TextAlignment = TextAlignment.Center,
         TextWrapping = TextWrapping.Wrap,
     };
@@ -113,8 +112,7 @@ public sealed class Dialog : IOverlay {
             stack.Children.Add(new TextBlock {
                 Text = title,
                 FontSize = 19,
-                FontWeight = FontWeight.Bold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = new SolidColorBrush(colors.Text),
                 TextAlignment = TextAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,

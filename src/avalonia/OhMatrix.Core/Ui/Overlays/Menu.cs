@@ -194,7 +194,6 @@ public sealed class Menu : IOverlay {
             Text = item.Label,
             FontSize = 15,
             LineHeight = 20,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(ink),
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,

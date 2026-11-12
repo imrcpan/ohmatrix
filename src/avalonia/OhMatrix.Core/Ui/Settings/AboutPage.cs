@@ -68,7 +68,6 @@ public sealed class AboutPage : Grid {
         content.Children.Add(new TextBlock {
             Text = "OhMatrix · GPL-3.0",
             FontSize = 12,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 24, 0, 32),

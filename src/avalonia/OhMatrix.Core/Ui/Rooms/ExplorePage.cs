@@ -239,7 +239,6 @@ public sealed class ExplorePage : Grid {
             rows.Children.Add(new TextBlock {
                 Text = controller.T("explore.empty"),
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 24),
@@ -282,7 +281,6 @@ public sealed class ExplorePage : Grid {
             Child = new TextBlock {
                 Text = text,
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(on ? c.OnAccent : c.Text),
             },
         };
@@ -359,8 +357,7 @@ public sealed class ExplorePage : Grid {
         words.Children.Add(new TextBlock {
             Text = room.Name,
             FontSize = 17,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextWrapping = TextWrapping.Wrap,
             MaxLines = 2,
@@ -371,7 +368,6 @@ public sealed class ExplorePage : Grid {
                 ? controller.T("member.one")
                 : controller.T("explore.members", ("count", room.Members)),
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -382,7 +378,6 @@ public sealed class ExplorePage : Grid {
         var topic = new TextBlock {
             FontSize = 14,
             LineHeight = 19,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
         };
@@ -443,8 +438,7 @@ public sealed class ExplorePage : Grid {
             Child = new TextBlock {
                 Text = text,
                 FontSize = 14,
-                FontWeight = FontWeight.SemiBold,
-                FontFamily = Fonts.System,
+                FontWeight = Fonts.Bold,
                 Foreground = new SolidColorBrush(foreground),
             },
         };

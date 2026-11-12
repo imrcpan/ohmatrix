@@ -108,8 +108,7 @@ public abstract class PressableButton : Border {
 public sealed class PrimaryButton : PressableButton {
     private readonly TextBlock label = new() {
         FontSize = 17,
-        FontWeight = FontWeight.SemiBold,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Bold,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
     };
@@ -161,8 +160,7 @@ public sealed class PrimaryButton : PressableButton {
 public sealed class TextButton : PressableButton {
     private readonly TextBlock label = new() {
         FontSize = 16,
-        FontWeight = FontWeight.Medium,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Normal,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
     };

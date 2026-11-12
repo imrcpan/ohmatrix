@@ -130,8 +130,7 @@ public sealed class SharedMediaView : StackPanel {
                 Content = new TextBlock {
                     Text = t(label),
                     FontSize = 13,
-                    FontWeight = FontWeight.SemiBold,
-                    FontFamily = Fonts.System,
+                    FontWeight = Fonts.Bold,
                     Foreground =
                         new SolidColorBrush(on ? c.OnAccent : c.TextSecondary),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -190,7 +189,6 @@ public sealed class SharedMediaView : StackPanel {
         return new TextBlock {
             Text = text,
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(20, 12),
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -276,7 +274,6 @@ public sealed class SharedMediaView : StackPanel {
         text.Children.Add(new TextBlock {
             Text = file.Name,
             FontSize = 16,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -284,7 +281,6 @@ public sealed class SharedMediaView : StackPanel {
         text.Children.Add(new TextBlock {
             Text = item.SenderName + size,
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });

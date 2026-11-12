@@ -56,7 +56,7 @@ public class RichBubbleTests {
         var body = bubble.GetVisualDescendants().OfType<SelectableTextBlock>()
             .Single();
         var runs = body.Inlines!.OfType<Run>().ToList();
-        Assert.Equal(FontWeight.Bold,
+        Assert.Equal(Fonts.Bold,
             runs.First(r => r.Text == "bold").FontWeight);
         Assert.Equal(FontStyle.Italic,
             runs.First(r => r.Text == "it").FontStyle);

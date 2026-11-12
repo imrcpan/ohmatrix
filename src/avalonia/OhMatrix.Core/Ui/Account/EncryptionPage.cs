@@ -98,7 +98,6 @@ public sealed class EncryptionPage : Grid {
         var warning = new TextBlock {
             Text = controller.T("keys.reset.warning"),
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Danger),
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,
@@ -167,7 +166,6 @@ public sealed class EncryptionPage : Grid {
             Child = new SelectableTextBlock {
                 Text = key,
                 FontSize = 16,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
                 TextAlignment = TextAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
@@ -234,8 +232,7 @@ public sealed class EncryptionPage : Grid {
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
             FontSize = 14,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Accent),
             Margin = new Thickness(26, 14, 12, 4),
         });
@@ -280,7 +277,6 @@ public sealed class EncryptionPage : Grid {
             content.Children.Add(new TextBlock {
                 Text = controller.T("verify.session.footer"),
                 FontSize = 13,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(26, 8, 26, 0),

@@ -32,7 +32,6 @@ public static class NavRows {
         var text = new TextBlock {
             Text = label,
             FontSize = 16,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(danger ? c.Danger : c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
@@ -46,7 +45,6 @@ public static class NavRows {
                 selectable ? new SelectableTextBlock() : new TextBlock();
             shown.Text = value;
             shown.FontSize = 15;
-            shown.FontFamily = Fonts.System;
             shown.Foreground = new SolidColorBrush(c.TextSecondary);
             shown.Margin = new Thickness(12, 0, 6, 0);
             shown.TextAlignment = TextAlignment.Right;

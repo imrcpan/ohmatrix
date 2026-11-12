@@ -47,8 +47,7 @@ public sealed class RoomCardDialog : IOverlay {
         head.Children.Add(new TextBlock {
             Text = room.Name,
             FontSize = 20,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
@@ -59,7 +58,6 @@ public sealed class RoomCardDialog : IOverlay {
                 ? controller.T("member.one")
                 : controller.T("explore.members", ("count", room.Members)),
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextAlignment = TextAlignment.Center,
         });
@@ -72,7 +70,6 @@ public sealed class RoomCardDialog : IOverlay {
                 Content = new SelectableTextBlock {
                     Text = topic,
                     FontSize = 14,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.TextSecondary),
                     TextWrapping = TextWrapping.Wrap,
                 },

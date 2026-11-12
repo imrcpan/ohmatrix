@@ -286,7 +286,7 @@ public partial class ChatPaneTests {
             pane.CancelSelect();
             Assert.Same(body, ParsedBody(TimelineBubble(pane, 3)));
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }

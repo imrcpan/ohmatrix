@@ -26,8 +26,7 @@ public static class PageBar {
         var heading = new TextBlock {
             Text = title,
             FontSize = titleSize,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(colors.Text),
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -62,8 +61,7 @@ public static class PageBar {
         var heading = new TextBlock {
             Text = title,
             FontSize = titleSize,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(colors.Text),
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(Side, TitleTop, Side, 0),

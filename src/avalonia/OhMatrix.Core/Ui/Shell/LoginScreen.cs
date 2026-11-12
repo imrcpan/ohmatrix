@@ -29,14 +29,12 @@ public sealed class LoginScreen : Grid {
 
     private readonly TextBlock title = new() {
         FontSize = 28,
-        FontWeight = FontWeight.Bold,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Bold,
     };
 
     private readonly TextBlock subtitle = new() {
         FontSize = 18,
-        FontWeight = FontWeight.SemiBold,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Bold,
     };
 
     private readonly TextField homeserver = new() {
@@ -151,7 +149,6 @@ public sealed class LoginScreen : Grid {
     {
         return new TextBlock {
             FontSize = 14,
-            FontFamily = Fonts.System,
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
             IsVisible = false,

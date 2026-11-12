@@ -59,7 +59,7 @@ public sealed class AppController(
             if (preferences != null) {
                 var saved = await Quietly(preferences.Load);
                 if (saved != null) {
-                    Ui.Appearance.Fonts.Use(saved.Font);
+                    Ui.Appearance.Fonts.Use(saved);
                     Store.Update(s => s with {
                         Prefs = saved
                     });
@@ -1182,9 +1182,12 @@ public sealed class AppController(
     /// <summary>Changes the preferences and keeps them.</summary>
     public void SetPreferences(Func<Preferences, Preferences> change)
     {
-        var font = change(Store.Value.Prefs).Font;
-        if (font != Store.Value.Prefs.Font)
-            Ui.Appearance.Fonts.Use(font);
+        var before = Store.Value.Prefs;
+        var after = change(before);
+        // The fonts are set before the store changes, so that the pages it
+        // wakes up draw with them.
+        if (Ui.Appearance.Fonts.Differs(before, after))
+            Ui.Appearance.Fonts.Use(after);
         Store.Update(s => s with {
             Prefs = change(s.Prefs)
         });

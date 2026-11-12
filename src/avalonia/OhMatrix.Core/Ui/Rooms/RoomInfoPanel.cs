@@ -176,8 +176,7 @@ public sealed class RoomInfoPanel : Grid {
         head.Children.Add(new TextBlock {
             Text = m.Name,
             FontSize = 22,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
@@ -186,7 +185,6 @@ public sealed class RoomInfoPanel : Grid {
         head.Children.Add(new SelectableTextBlock {
             Text = m.UserId,
             FontSize = 14,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
@@ -436,7 +434,6 @@ public sealed class RoomInfoPanel : Grid {
             line.Children.Add(new TextBlock {
                 Text = b.Name,
                 FontSize = 16,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
             });
             var sub = string.Join(" · ", new[] {
@@ -446,7 +443,6 @@ public sealed class RoomInfoPanel : Grid {
                 line.Children.Add(new TextBlock {
                     Text = sub,
                     FontSize = 13,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.TextSecondary),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                 });
@@ -578,7 +574,6 @@ public sealed class RoomInfoPanel : Grid {
     private IReadOnlyList<TimelineItem>? seenTimeline;
     private string? seenLocale;
     private string? seenUser;
-    private FontFamily? seenFont;
 
     private bool Differs(AppState state)
     {
@@ -593,8 +588,7 @@ public sealed class RoomInfoPanel : Grid {
         }
 
         return !ReferenceEquals(seenDetails, state.Details) ||
-               seenLocale != state.Locale || seenUser != state.UserId ||
-               !Equals(seenFont, Fonts.System);
+               seenLocale != state.Locale || seenUser != state.UserId;
     }
 
     // The timeline changes with every message and every receipt, and the
@@ -686,7 +680,6 @@ public sealed class RoomInfoPanel : Grid {
         seenTimeline = s.Timeline;
         seenLocale = s.Locale;
         seenUser = s.UserId;
-        seenFont = Fonts.System;
         if (!showing) {
             stale = true;
             return;
@@ -705,8 +698,7 @@ public sealed class RoomInfoPanel : Grid {
         barRow.Children.Add(new TextBlock {
             Text = controller.T("chatInfo"),
             FontSize = 17,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -756,8 +748,7 @@ public sealed class RoomInfoPanel : Grid {
         head.Children.Add(new TextBlock {
             Text = room.Name,
             FontSize = 22,
-            FontWeight = FontWeight.Bold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.Text),
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
@@ -768,7 +759,6 @@ public sealed class RoomInfoPanel : Grid {
                 : room.MemberCount == 1 ? controller.T("member.one")
                 : controller.T("members", ("n", room.MemberCount)),
             FontSize = 15,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             HorizontalAlignment = HorizontalAlignment.Center,
         });
@@ -812,7 +802,6 @@ public sealed class RoomInfoPanel : Grid {
             content.Children.Add(new TextBlock {
                 Text = details.Topic ?? controller.T("room.noTopic"),
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.Text),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(20, 0, 20, 8),
@@ -1084,7 +1073,6 @@ public sealed class RoomInfoPanel : Grid {
         return new TextBlock {
             Text = text,
             FontSize = 13,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(20, 6, 20, 4),
@@ -1278,7 +1266,6 @@ public sealed class RoomInfoPanel : Grid {
         words.Children.Add(new TextBlock {
             Text = label,
             FontSize = 16,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -1286,7 +1273,6 @@ public sealed class RoomInfoPanel : Grid {
             words.Children.Add(new TextBlock {
                 Text = value,
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
@@ -1347,7 +1333,6 @@ public sealed class RoomInfoPanel : Grid {
             sharedHost.Children.Add(new TextBlock {
                 Text = controller.T("media.none"),
                 FontSize = 15,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 Margin = new Thickness(20, 0, 20, 8),
             });
@@ -1412,7 +1397,6 @@ public sealed class RoomInfoPanel : Grid {
                 var name = new TextBlock {
                     Text = item.File!.Name,
                     FontSize = 15,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.Text),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -1422,7 +1406,6 @@ public sealed class RoomInfoPanel : Grid {
                 var size = new TextBlock {
                     Text = Format.Bytes(item.File.Size),
                     FontSize = 13,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(c.TextSecondary),
                     Margin = new Thickness(8, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
@@ -1439,8 +1422,7 @@ public sealed class RoomInfoPanel : Grid {
         return new TextBlock {
             Text = title,
             FontSize = 13,
-            FontWeight = FontWeight.SemiBold,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Bold,
             Foreground = new SolidColorBrush(c.TextSecondary),
             Margin = new Thickness(20, 12, 20, 6),
         };
@@ -1462,7 +1444,6 @@ public sealed class RoomInfoPanel : Grid {
         var name = new TextBlock {
             Text = m.Name,
             FontSize = 16,
-            FontFamily = Fonts.System,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
@@ -1475,7 +1456,6 @@ public sealed class RoomInfoPanel : Grid {
                     ? "role.admin"
                     : "role.moderator"),
                 FontSize = 13,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 Margin = new Thickness(8, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,

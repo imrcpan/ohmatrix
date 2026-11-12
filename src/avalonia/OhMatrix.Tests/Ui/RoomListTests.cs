@@ -710,16 +710,20 @@ public class RoomListTests {
             view.RefreshPresentation();
             Assert.Same(shown[0], view.Children[0]);
 
-            // Another language, another font or another term: other hits.
+            // Another language or another term: other hits. Another font:
+            // the same hits, which take it from the window.
             controller.SetPreferences(p => p with {
                 Locale = "de"
             });
             view.RefreshPresentation();
             Assert.NotSame(shown[0], view.Children[0]);
             var german = view.Children[0];
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             view.RefreshPresentation();
-            Assert.NotSame(german, view.Children[0]);
+            window.UpdateLayout();
+            Assert.Same(german, view.Children[0]);
             Assert.Equal(Fonts.System, view.Children[0]
                 .GetVisualDescendants().OfType<TextBlock>().First().FontFamily);
             var mono = view.Children[0];
@@ -727,7 +731,7 @@ public class RoomListTests {
             Assert.True(view.Children.Count <= 1 ||
                         !ReferenceEquals(mono, view.Children[0]));
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }
@@ -759,7 +763,7 @@ public class RoomListTests {
                 .OfType<MessageResultsView>().Single());
         } finally {
             list.Search.Text = "";
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }

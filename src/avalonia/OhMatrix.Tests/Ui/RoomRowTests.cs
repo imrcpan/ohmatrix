@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
+using OhMatrix.Core.Model;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Media;
@@ -230,7 +231,8 @@ public class RoomRowTests {
     }
 
     [AvaloniaFact]
-    public void A_font_change_updates_cached_labels_and_avatar_initials()
+    public void
+        A_font_change_reaches_the_labels_and_the_initials_of_the_avatar()
     {
         var row = Row();
         row.Invite = ("Accept", "Decline", () => {
@@ -240,21 +242,19 @@ public class RoomRowTests {
         var window = Open(row);
         try {
             var avatar = Picture(row);
-            var labels = row.GetVisualDescendants().OfType<TextBlock>()
-                .Where(t => t != avatar.Child).ToArray();
-            Fonts.Use("monospace");
+            Fonts.Use(new Preferences {
+                Font = "monospace"
+            });
             row.Update();
-            Assert.NotSame(avatar, Picture(row));
+            window.UpdateLayout();
+            // The texts take the font from the window: none was told, and
+            // none is made again.
+            Assert.Same(avatar, Picture(row));
             Assert.All(row.GetVisualDescendants().OfType<TextBlock>(),
                 label => Assert.Equal(Fonts.System, label.FontFamily));
-            Assert.All(labels,
-                label => Assert.Contains(label, row.GetVisualDescendants()));
-            avatar = Picture(row);
-            Fonts.Use("monospace");
-            row.Update();
-            Assert.Same(avatar, Picture(row));
+            Assert.Contains(avatar.Child!, row.GetVisualDescendants());
         } finally {
-            Fonts.Use(null);
+            Fonts.Use(new Preferences());
             window.Close();
         }
     }
@@ -363,7 +363,7 @@ public class RoomRowTests {
             Assert.Equal(20, badge.MinWidth);
             Assert.Equal(20, badge.Height);
             Assert.Equal(11, count.FontSize);
-            Assert.Equal(FontWeight.Bold, count.FontWeight);
+            Assert.Equal(Fonts.Bold, count.FontWeight);
             Assert.Equal(new Thickness(0, -4, -6, 0), badge.Margin);
             Assert.Equal(new Thickness(2), badge.BorderThickness);
             Assert.Equal(colors.BadgeMuted, ColorOf(badge.Background));
@@ -400,7 +400,7 @@ public class RoomRowTests {
             Assert.Equal(22, badge.MinWidth);
             Assert.Equal(22, badge.Height);
             Assert.Equal(13, count.FontSize);
-            Assert.Equal(FontWeight.SemiBold, count.FontWeight);
+            Assert.Equal(Fonts.Bold, count.FontWeight);
             Assert.Equal(new Thickness(8, 0, 0, 0), badge.Margin);
             Assert.Equal(default, badge.BorderThickness);
             Assert.Null(badge.BorderBrush);

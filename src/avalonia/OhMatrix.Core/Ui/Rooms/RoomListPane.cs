@@ -27,8 +27,7 @@ public sealed class RoomListPane : Grid {
     private readonly TextBlock name = new() {
         FontSize = 17,
         LineHeight = 22,
-        FontWeight = FontWeight.Bold,
-        FontFamily = Fonts.System,
+        FontWeight = Fonts.Bold,
         TextTrimming = TextTrimming.CharacterEllipsis,
         VerticalAlignment = VerticalAlignment.Center,
     };
@@ -77,7 +76,6 @@ public sealed class RoomListPane : Grid {
 
     private readonly TextBlock empty = new() {
         FontSize = 15,
-        FontFamily = Fonts.System,
         TextAlignment = TextAlignment.Center,
         Margin = new Thickness(0, 48, 0, 0),
     };
@@ -311,7 +309,7 @@ public sealed class RoomListPane : Grid {
         var now = time.GetUtcNow();
         var query = Rail ? "" : search.Text.Trim();
         var language = before?.Locale != s.Locale;
-        var font = before?.Prefs.Font != s.Prefs.Font;
+        var font = before != null && Fonts.Differs(before.Prefs, s.Prefs);
         var dates = day != now.LocalDateTime.Date;
         var theme = colors != c;
         var roomsChanged = !ReferenceEquals(before?.Rooms, s.Rooms);
@@ -411,10 +409,8 @@ public sealed class RoomListPane : Grid {
             empty.Text =
                 controller.T(query.Length > 0 ? "noResults" : "noChats");
             empty.Foreground = new SolidColorBrush(c.TextSecondary);
-            empty.FontFamily = Fonts.System;
             if (joinFailure != null) {
                 joinFailure.Foreground = new SolidColorBrush(c.Danger);
-                joinFailure.FontFamily = Fonts.System;
             }
         }
     }
@@ -428,7 +424,6 @@ public sealed class RoomListPane : Grid {
         search.Placeholder = controller.T("search");
         search.IsVisible = !Rail;
         name.Foreground = new SolidColorBrush(c.Text);
-        name.FontFamily = Fonts.System;
         var me = s.UserId ?? "";
         var shown = s.Profile?.DisplayName is { Length: > 0 } dn
             ? dn
@@ -518,7 +513,7 @@ public sealed class RoomListPane : Grid {
             Lifetime.Own(this, hits);
             messagesLabel = new TextBlock {
                 FontSize = 13,
-                FontWeight = FontWeight.SemiBold,
+                FontWeight = Fonts.Bold,
                 Margin = new Thickness(20, 12, 20, 4),
             };
             messageHits.Children.Add(messagesLabel);
@@ -532,7 +527,6 @@ public sealed class RoomListPane : Grid {
         if (messagesLabel != null) {
             messagesLabel.Text = controller.T("search.messages");
             messagesLabel.Foreground = new SolidColorBrush(c.TextSecondary);
-            messagesLabel.FontFamily = Fonts.System;
         }
     }
 
@@ -565,7 +559,6 @@ public sealed class RoomListPane : Grid {
         if (joinFailure == null) {
             joinFailure = new TextBlock {
                 FontSize = 14,
-                FontFamily = Fonts.System,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(18, 6),
             };

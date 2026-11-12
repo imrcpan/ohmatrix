@@ -63,8 +63,8 @@ public sealed class RoomRow : PressableButton {
         ColumnDefinitions = new ColumnDefinitions("*,Auto")
     };
 
-    private readonly EllipsisText title = Ellipsis(16, FontWeight.SemiBold);
-    private readonly EllipsisText preview = Ellipsis(15, FontWeight.Normal);
+    private readonly EllipsisText title = Ellipsis(16, Fonts.Bold);
+    private readonly EllipsisText preview = Ellipsis(15, Fonts.Normal);
 
     private readonly TextBlock time = new() {
         FontSize = 13,
@@ -91,7 +91,6 @@ public sealed class RoomRow : PressableButton {
     private string? avatarUrl;
     private Pictures? avatarPictures;
     private bool avatarSpace;
-    private FontFamily? avatarFont;
     private Theming.ColorTokens? drawn;
 
     public RoomRow()
@@ -182,7 +181,7 @@ public sealed class RoomRow : PressableButton {
     {
         if (avatar != null && avatarTitle == Title &&
             avatarUrl == AvatarUrl && avatarPictures == Pictures &&
-            avatarSpace == IsSpace && Equals(avatarFont, Fonts.System))
+            avatarSpace == IsSpace)
             return;
         if (avatar != null)
             avatarHolder.Children.Remove(avatar);
@@ -194,7 +193,6 @@ public sealed class RoomRow : PressableButton {
         avatarUrl = AvatarUrl;
         avatarPictures = Pictures;
         avatarSpace = IsSpace;
-        avatarFont = Fonts.System;
         avatarHolder.Children.Insert(0, avatar);
         Pictures?.Attach(avatar, AvatarUrl, 44);
     }
@@ -225,7 +223,6 @@ public sealed class RoomRow : PressableButton {
         var numbered = Unread > 0;
         badge.IsVisible = numbered || MarkedUnread && (Compact || Unread == 0);
         count.IsVisible = numbered;
-        count.FontFamily = Fonts.System;
         if (numbered && counted != Unread) {
             count.Text = Unread > 99 ? "99+" : Unread.ToString();
             counted = Unread;
@@ -252,7 +249,7 @@ public sealed class RoomRow : PressableButton {
             ? VerticalAlignment.Top
             : VerticalAlignment.Stretch;
         count.FontSize = Compact ? 11 : 13;
-        count.FontWeight = Compact ? FontWeight.Bold : FontWeight.SemiBold;
+        count.FontWeight = Fonts.Bold;
     }
 
     private void UpdateIcons()
@@ -294,8 +291,8 @@ public sealed class RoomRow : PressableButton {
         if (buttons == null) {
             // Resolve the actions when pressed: the invitation can change
             // while its controls are kept.
-            accept = Pill(FontWeight.SemiBold, () => Invite?.OnAccept());
-            decline = Pill(FontWeight.Medium, () => Invite?.OnDecline());
+            accept = Pill(Fonts.Bold, () => Invite?.OnAccept());
+            decline = Pill(Fonts.Normal, () => Invite?.OnDecline());
             buttons = new StackPanel {
                 Orientation = Orientation.Horizontal,
                 Spacing = 8,
@@ -323,14 +320,12 @@ public sealed class RoomRow : PressableButton {
     private static void Text(EllipsisText label, string value)
     {
         label.Text = value;
-        label.FontFamily = Fonts.System;
     }
 
     private static void Text(TextBlock label, string value)
     {
         if (label.Text != value)
             label.Text = value;
-        label.FontFamily = Fonts.System;
     }
 
     private static Border Pill(FontWeight weight, Action press)

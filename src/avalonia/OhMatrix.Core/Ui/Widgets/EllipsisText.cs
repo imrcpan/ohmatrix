@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using OhMatrix.Core.Ui.Appearance;
 
 namespace OhMatrix.Core.Ui.Widgets;
 
@@ -37,7 +38,7 @@ public sealed class EllipsisText : Decorator {
                 return;
             text = value;
             // Whole until the next layout pass cuts it to the width.
-            label.Text = value;
+            Show(value);
             InvalidateMeasure();
         }
     }
@@ -57,7 +58,7 @@ public sealed class EllipsisText : Decorator {
     }
 
     /// <summary>What is drawn now: the text, or its start with the dots.</summary>
-    public string Shown => label.Text ?? "";
+    public string Shown => shown;
 
     public double FontSize {
         get => label.FontSize;
@@ -75,8 +76,11 @@ public sealed class EllipsisText : Decorator {
         }
     }
 
+    /// <summary>The font of the text: the interface's unless one is given.</summary>
     public FontFamily FontFamily {
-        get => label.FontFamily;
+        get => label.IsSet(TextBlock.FontFamilyProperty)
+            ? label.FontFamily
+            : Fonts.System;
         set {
             label.FontFamily = value;
             InvalidateMeasure();
@@ -95,10 +99,16 @@ public sealed class EllipsisText : Decorator {
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        var shown = Fit(text, availableSize.Width);
-        if (label.Text != shown)
-            label.Text = shown;
+        Show(Fit(text, availableSize.Width));
         return base.MeasureOverride(availableSize);
+    }
+
+    private string shown = "";
+
+    private void Show(string value)
+    {
+        shown = value;
+        label.Text = value;
     }
 
     private string Fit(string whole, double width)

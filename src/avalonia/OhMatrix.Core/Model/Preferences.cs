@@ -32,6 +32,24 @@ public sealed record Preferences {
     /// <summary>The name of an installed font for the interface; null is the system's own.</summary>
     public string? Font { get; init; }
 
+    /// <summary>
+    /// The font of the English texts: null follows the general font, an empty name is the system's own, and any other is that installed font.
+    /// </summary>
+    public string? EnglishFont { get; init; }
+
+    /// <summary>The font of the texts in the other languages, chosen the same way as <see cref="EnglishFont"/>.</summary>
+    public string? OtherFont { get; init; }
+
+    /// <summary>The font of the monospaced texts (the log); null is the system's monospace font.</summary>
+    public string? MonoFont { get; init; }
+
+    /// <summary>The weights of Light, Normal and Bold texts, as the CSS numbers (100 to 900).</summary>
+    public int LightWeight { get; init; } = 300;
+
+    public int NormalWeight { get; init; } = 400;
+
+    public int BoldWeight { get; init; } = 700;
+
     /// <summary>The folder files are kept in when saved; null asks each time.</summary>
     public string? DownloadFolder { get; init; }
 

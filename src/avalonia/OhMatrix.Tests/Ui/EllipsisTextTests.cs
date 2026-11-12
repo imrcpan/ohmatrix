@@ -16,7 +16,6 @@ public class EllipsisTextTests {
         var label = new EllipsisText {
             Text = text,
             FontSize = 16,
-            FontFamily = Fonts.System,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
         };
         var window = new Window {
@@ -37,7 +36,7 @@ public class EllipsisTextTests {
     private static double Width(string text)
     {
         return new TextLayout(text,
-            new Typeface(Fonts.System, FontStyle.Normal, FontWeight.Normal),
+            new Typeface(Fonts.System, FontStyle.Normal, Fonts.Normal),
             16, null).WidthIncludingTrailingWhitespace;
     }
 

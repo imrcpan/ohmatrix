@@ -9,6 +9,7 @@ using Avalonia.Themes.Fluent;
 
 namespace OhMatrix.Core;
 
+using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Widgets;
 
 public static class AppStyles {
@@ -23,6 +24,10 @@ public static class AppStyles {
         app.RequestedThemeVariant = ThemeVariant.Light;
         ThinScrollBars(app);
         FullPlaceholders();
+        // Every text is drawn by letters, in the font of its script, and
+        // the font the windows hand down is the interface's.
+        ScriptTextFormatter.Install();
+        Fonts.Defaults(app);
     }
 
     private static bool placeholders;

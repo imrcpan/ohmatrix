@@ -76,7 +76,6 @@ public sealed class FontPage : Grid {
             rows.Children.Add(new TextBlock {
                 Text = controller.T("font.empty"),
                 Foreground = new SolidColorBrush(c.TextSecondary),
-                FontFamily = Fonts.System,
                 Margin = new Thickness(8, 16),
                 TextAlignment = TextAlignment.Center,
             });
@@ -84,7 +83,6 @@ public sealed class FontPage : Grid {
             rows.Children.Add(new TextBlock {
                 Text = controller.T("font.footer"),
                 FontSize = SettingsShell.NoteFont,
-                FontFamily = Fonts.System,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(SettingsShell.Side, 12),

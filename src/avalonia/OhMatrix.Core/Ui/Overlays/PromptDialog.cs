@@ -28,7 +28,6 @@ public sealed class PromptDialog : IOverlay {
 
     private readonly TextBlock error = new() {
         FontSize = 14,
-        FontFamily = Fonts.System,
         TextAlignment = TextAlignment.Center,
         TextWrapping = TextWrapping.Wrap,
         IsVisible = false,

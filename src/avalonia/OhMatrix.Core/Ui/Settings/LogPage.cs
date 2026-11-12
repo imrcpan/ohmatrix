@@ -20,7 +20,11 @@ namespace OhMatrix.Core.Ui.Settings;
 /// </summary>
 public sealed class LogPage : Grid {
     private readonly AppController controller;
+
     private static readonly Logger logger = Logger.GetDefault();
+
+    // The lines are monospaced: the panel says so once, and the lines take
+    // it from it, as thousands of lines are not each told to follow the font.
     private readonly StackPanel lines = new();
     private readonly ScrollViewer scroller = new();
     private readonly TextBlock empty = new();
@@ -66,8 +70,7 @@ public sealed class LogPage : Grid {
         };
         bar.Children.Add(back);
         heading.FontSize = 15;
-        heading.FontWeight = FontWeight.SemiBold;
-        heading.FontFamily = Fonts.System;
+        heading.FontWeight = Fonts.Bold;
         heading.VerticalAlignment = VerticalAlignment.Center;
         heading.Margin = new Thickness(6, 0, 0, 0);
         Grid.SetColumn(heading, 1);
@@ -81,6 +84,7 @@ public sealed class LogPage : Grid {
         toolbar.Child = bar;
         RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(toolbar);
+        Fonts.Code(lines);
         var body = new StackPanel();
         body.Children.Add(empty);
         body.Children.Add(lines);
@@ -146,7 +150,6 @@ public sealed class LogPage : Grid {
         empty.Text = controller.T("logs.empty");
         empty.IsVisible = all.Count == 0;
         empty.Foreground = new SolidColorBrush(c.TextSecondary);
-        empty.FontFamily = Fonts.System;
         empty.TextAlignment = TextAlignment.Center;
         empty.Margin = new Thickness(0, 24);
         var grew = SyncLines(all, c);
@@ -200,8 +203,7 @@ public sealed class LogPage : Grid {
 
         private readonly TextBlock text = new() {
             FontSize = 14,
-            FontWeight = FontWeight.Medium,
-            FontFamily = Fonts.System,
+            FontWeight = Fonts.Normal,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
@@ -259,7 +261,6 @@ public sealed class LogPage : Grid {
         };
         return new SelectableTextBlock {
             Text = $"{line.Stamp} {line.Text}",
-            FontFamily = new FontFamily("monospace"),
             FontSize = 12,
             LineHeight = 17,
             Foreground = new SolidColorBrush(color),

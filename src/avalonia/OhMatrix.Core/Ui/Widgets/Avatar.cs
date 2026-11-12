@@ -19,8 +19,7 @@ public sealed class Avatar : Border {
 
     private readonly TextBlock initials = new() {
         Foreground = Brushes.White,
-        FontFamily = Fonts.System,
-        FontWeight = FontWeight.SemiBold,
+        FontWeight = Fonts.Bold,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
     };

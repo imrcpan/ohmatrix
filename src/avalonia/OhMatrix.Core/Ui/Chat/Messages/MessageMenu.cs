@@ -204,7 +204,6 @@ public sealed class MessageMenu : IOverlay {
                 line.Children.Add(new TextBlock {
                     Text = item.Label,
                     FontSize = 15,
-                    FontFamily = Fonts.System,
                     Foreground = new SolidColorBrush(color),
                     VerticalAlignment = VerticalAlignment.Center,
                 });
