@@ -28,7 +28,6 @@ public sealed class TopNotice : Border {
         HorizontalAlignment = HorizontalAlignment.Center;
         VerticalAlignment = VerticalAlignment.Top;
         Margin = new Thickness(0, 12, 0, 0);
-        MaxWidth = 560;
         CornerRadius = new CornerRadius(24);
         BorderThickness = new Thickness(1);
         Padding = new Thickness(12, 10, 18, 10);
@@ -44,6 +43,13 @@ public sealed class TopNotice : Border {
                 Apply();
         });
         Apply();
+    }
+
+    // At most 92% of the width, as in the app of React Native.
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        return base.MeasureOverride(
+            new Size(availableSize.Width * 0.92, availableSize.Height));
     }
 
     /// <summary>The text shown, or null when no message is on.</summary>
@@ -120,6 +126,7 @@ public sealed class TopNotice : Border {
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = new Icon {
                     Size = 16,
+                    StrokeWidth = 3,
                     Color = Brushes.White,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
