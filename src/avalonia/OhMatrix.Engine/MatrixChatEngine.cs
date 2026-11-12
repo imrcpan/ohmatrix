@@ -413,8 +413,35 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        // A reply comes without the message it answers until it is asked for:
+        // the SDK sends the reply again with the quote filled in. Each one is
+        // asked for once.
+        private readonly HashSet<string> askedQuotes = [];
+
+        private void AskForQuote(SdkTimelineItem item)
+        {
+            if (item.AsEvent() is not { } e)
+                return;
+            if (e.Content is not TimelineItemContent.MsgLike {
+                    Content:
+                    { Kind: MsgLikeKind.Message m, InReplyTo: { } reply }
+                })
+                return;
+            if (reply.Event() is EmbeddedEventDetails.Ready)
+                return;
+            if (e.EventOrTransactionId is not EventOrTransactionId.EventId ev)
+                return;
+            if (!askedQuotes.Add(ev.EventIdValue))
+                return;
+            _ = Quietly(async () => {
+                await timeline.FetchDetailsForEvent(ev.EventIdValue);
+                return true;
+            });
+        }
+
         private Slot Make(SdkTimelineItem item)
         {
+            AskForQuote(item);
             var slot = new Slot(item, item.UniqueId().Id, Convert(item, me));
             byId[slot.Id] = item;
             return slot;
