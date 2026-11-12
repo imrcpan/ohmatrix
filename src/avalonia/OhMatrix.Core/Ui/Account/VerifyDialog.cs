@@ -10,7 +10,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Account;
 
 /// <summary>
 /// The verification with another session, as a dialog over whatever page is open (<c>VerifyDialog</c> of the React Native app): a request that came in

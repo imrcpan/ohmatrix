@@ -12,7 +12,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Account;
 
 /// <summary>
 /// The accounts page (<c>AccountsPage</c>), opened from Switch Account on the profile: every account (all of them keep syncing), a way to add
