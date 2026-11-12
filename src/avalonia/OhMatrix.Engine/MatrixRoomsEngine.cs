@@ -875,7 +875,7 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                     DisplayName: { } name
                 }
                     ? name
-                    : remote.Sender;
+                    : ServiceText.PersonName(null, remote.Sender);
             }
         }
 

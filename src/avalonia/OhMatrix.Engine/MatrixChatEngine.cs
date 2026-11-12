@@ -495,11 +495,13 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             var e = item.AsEvent();
             if (e == null)
                 return null;
+            // Without a display name the person is named by their id's part
+            // before the colon, not by the whole id.
             var name = e.SenderProfile is ProfileDetails.Ready {
                 DisplayName: { } n
             }
                 ? n
-                : e.Sender;
+                : ServiceText.PersonName(null, e.Sender);
             if (e.Content is TimelineItemContent.MsgLike {
                     Content: { Kind: MsgLikeKind.Message m } msg
                 }) {
@@ -624,7 +626,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 DisplayName: { } n
             }
                 ? n
-                : ready.Sender;
+                : ServiceText.PersonName(null, ready.Sender);
             var text =
                 ready.Content is TimelineItemContent.MsgLike {
                     Content.Kind: MsgLikeKind.Message m
