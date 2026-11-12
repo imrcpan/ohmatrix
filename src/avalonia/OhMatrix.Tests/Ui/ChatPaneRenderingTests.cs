@@ -10,6 +10,7 @@ using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Chat.Messages;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

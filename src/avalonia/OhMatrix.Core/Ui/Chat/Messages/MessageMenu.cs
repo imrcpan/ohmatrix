@@ -10,7 +10,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Messages;
 
 /// <summary>
 /// The context menu of a message (<c>MessageMenu</c>): a pill of quick reactions and a list of actions that pop up at the pointer, in the colours of

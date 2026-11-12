@@ -4,7 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Ui.Appearance;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Messages;
 
 /// <summary>
 /// The sheet of paper a file shows as its kind (<c>FileTile</c>): a 36 by 44 page with a folded corner, coloured by the extension, and the

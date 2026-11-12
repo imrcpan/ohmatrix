@@ -3,7 +3,7 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Media;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Messages;
 
 /// <summary>Parameters for constructing a <see cref="Bubble"/>.</summary>
 public sealed record BubbleParams {

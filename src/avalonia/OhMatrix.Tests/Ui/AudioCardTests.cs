@@ -3,7 +3,7 @@ using Avalonia.Media;
 using OhMatrix.Core.Audio;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Chat.Messages;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

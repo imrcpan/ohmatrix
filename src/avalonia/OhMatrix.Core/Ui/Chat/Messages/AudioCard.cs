@@ -10,7 +10,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Chat.Messages;
 
 /// <summary>
 /// An audio message with playback controls, progress and time. Players are
