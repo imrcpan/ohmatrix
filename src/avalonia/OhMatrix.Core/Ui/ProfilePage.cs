@@ -134,10 +134,15 @@ public sealed class ProfilePage : Grid {
 
     public ImageViewer Viewer { get; } = new();
 
+    // The rows of the options of this page are closer than the 48 of the
+    // rows of the other pages.
+    private const double OptionHeight = 40;
+
     internal static Border NavRow(Theming.ColorTokens c, string glyph,
         string label, Action open,
         double top, string? value = null, bool chevron = true,
-        bool danger = false, bool flat = false, bool selectable = false)
+        bool danger = false, bool flat = false, bool selectable = false,
+        double height = 48)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
@@ -196,7 +201,7 @@ public sealed class ProfilePage : Grid {
         var row = new Border {
             Margin = flat ? new Thickness(0) : new Thickness(12, top, 12, 0),
             Padding = new Thickness(flat ? 26 : 14, 0),
-            Height = 48,
+            Height = height,
             CornerRadius = flat
                 ? new CornerRadius(0)
                 : new CornerRadius(Radius.Control),
@@ -352,19 +357,21 @@ public sealed class ProfilePage : Grid {
             Margin = new Thickness(26, 14, 12, 4),
         });
         content.Children.Add(NavRow(c, "camera", controller.T("changePhoto"),
-            ChangePhoto, 0, flat: true));
+            ChangePhoto, 0, flat: true, height: OptionHeight));
         NameRow = NavRow(c, "user", controller.T("name"), AskName, 0, shown,
-            flat: true);
+            flat: true, height: OptionHeight);
         content.Children.Add(NameRow);
         StatusRow = NavRow(c, "smile", controller.T("status"), AskStatus, 0,
-            s.Profile?.Status ?? controller.T("status.empty"), flat: true);
+            s.Profile?.Status ?? controller.T("status.empty"), flat: true,
+            height: OptionHeight);
         content.Children.Add(StatusRow);
         content.Children.Add(NavRow(c, "hash", controller.T("userId"), () => {
-        }, 0, id, false, flat: true, selectable: true));
+        }, 0, id, false, flat: true, height: OptionHeight, selectable: true));
         content.Children.Add(NavRow(c, "info", controller.T("homeserver"),
             () => {
             }, 0,
-            s.Homeserver ?? "", false, flat: true, selectable: true));
+            s.Homeserver ?? "", false, flat: true, height: OptionHeight,
+            selectable: true));
         content.Children.Add(new TextBlock {
             Text = controller.T("security"),
             FontSize = 14,
@@ -376,10 +383,10 @@ public sealed class ProfilePage : Grid {
         content.Children.Add(NavRow(c, "lock", controller.T("encryption"),
             () => controller.OpenSidebarPage(SidebarPage.Encryption), 0,
             EncryptionPage.Words(s.Security, k => controller.T(k)),
-            flat: true));
+            flat: true, height: OptionHeight));
         content.Children.Add(NavRow(c, "gear", controller.T("settings"),
             () => controller.OpenSidebarPage(SidebarPage.Settings), 0,
-            flat: true));
+            flat: true, height: OptionHeight));
         content.Children.Add(new Border {
             Height = 16
         });
