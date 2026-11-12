@@ -9,32 +9,33 @@ public static class ServiceLines {
     /// <summary>The line for an event that is not a message, or null when the chat does not show it.</summary>
     public static string? For(TimelineItemContent content, string by)
     {
-        switch (content) {
-            case TimelineItemContent.RoomMembership m:
-                return ServiceText.ForMembership(
+        return content switch {
+            TimelineItemContent.RoomMembership m =>
+                ServiceText.ForMembership(
                     m.Change switch {
                         MembershipChange.Joined
                             or MembershipChange.InvitationAccepted =>
                             MembershipKind.Joined,
-                        MembershipChange.Left => MembershipKind.Left,
+                        MembershipChange.Left =>
+                            MembershipKind.Left,
                         MembershipChange.Kicked
                             or MembershipChange.KickedAndBanned =>
                             MembershipKind.Kicked,
-                        MembershipChange.Invited => MembershipKind.Invited,
+                        MembershipChange.Invited =>
+                            MembershipKind.Invited,
                         _ => MembershipKind.None,
                     },
                     ServiceText.PersonName(m.UserDisplayName, m.UserId),
                     by
-                );
-            case TimelineItemContent.State { Content: OtherState.RoomCreate }:
-                return ServiceText.ForState("RoomCreate", null, by);
-            case TimelineItemContent.State { Content: OtherState.RoomName n }:
-                return ServiceText.ForState("RoomName", n.Name, by);
-            case TimelineItemContent.State { Content: OtherState.RoomTopic }:
-                return ServiceText.ForState("RoomTopic", null, by);
-            default:
-                return null;
-        }
+                ),
+            TimelineItemContent.State { Content: OtherState.RoomCreate } =>
+                ServiceText.ForState("RoomCreate", null, by),
+            TimelineItemContent.State { Content: OtherState.RoomName n } =>
+                ServiceText.ForState("RoomName", n.Name, by),
+            TimelineItemContent.State { Content: OtherState.RoomTopic } =>
+                ServiceText.ForState("RoomTopic", null, by),
+            _ => null,
+        };
     }
 }
 #endif
