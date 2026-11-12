@@ -15,7 +15,7 @@ using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// A space (<c>SpaceScreen</c>), as far as it is ported: a bar with Back to the chats and the name of the space, and the rooms it lists with their

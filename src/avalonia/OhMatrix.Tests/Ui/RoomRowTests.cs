@@ -8,9 +8,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Media;
+using OhMatrix.Core.Ui.Rooms;
 using OhMatrix.Core.Ui.Widgets;
 using Xunit;
 

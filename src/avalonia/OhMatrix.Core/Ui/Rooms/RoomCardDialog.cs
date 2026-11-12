@@ -10,7 +10,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// A room that is not joined, as the large card of the explore page shows it (<c>RoomCardDialog</c>): its picture, name, number of people and what it

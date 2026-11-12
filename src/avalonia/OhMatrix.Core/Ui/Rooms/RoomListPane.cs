@@ -13,7 +13,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// The chat list (<c>RoomListPane</c>): a bar with my picture and name (or "Connecting…" while there is no connection) and the plus button, the

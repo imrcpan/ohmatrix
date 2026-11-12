@@ -11,7 +11,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// The page that asks which chats what another app shared is for (<c>SharePage</c>): a layer over the app with the chats to tick, a search, and a

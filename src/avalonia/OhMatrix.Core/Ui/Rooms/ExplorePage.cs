@@ -13,7 +13,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// The public rooms of the homeserver (<c>ExploreScreen</c>), as far as it is ported: a bar with Back, a search field, and the rooms found with

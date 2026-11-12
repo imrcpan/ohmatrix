@@ -5,6 +5,7 @@ using OhMatrix.Core.Storage;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Rooms;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Xunit;

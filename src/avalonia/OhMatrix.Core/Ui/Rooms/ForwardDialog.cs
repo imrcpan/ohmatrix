@@ -11,7 +11,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// Forwarding messages, in two steps (<c>ForwardDialog</c>). First the chats to send them to are ticked (any number, with a filter box). Forward

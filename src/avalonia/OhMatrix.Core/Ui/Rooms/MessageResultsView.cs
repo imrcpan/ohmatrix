@@ -12,7 +12,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// The results of a message search (<c>MessageResults</c>): a debounced search of two characters or more, with show more, and the chat name

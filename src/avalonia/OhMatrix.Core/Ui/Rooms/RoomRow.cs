@@ -7,7 +7,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// A row of the chat list (<c>RoomRow</c>): 62 high, a 44 picture, the bold title with the time, the preview with the unread count; selected is

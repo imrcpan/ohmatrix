@@ -13,6 +13,7 @@ using OhMatrix.Core.Ui;
 using OhMatrix.Core.Ui.Account;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Media;
+using OhMatrix.Core.Ui.Rooms;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using OhMatrix.Infra.Logging;

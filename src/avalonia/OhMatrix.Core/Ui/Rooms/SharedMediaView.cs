@@ -12,7 +12,7 @@ using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
 /// The whole gallery of a room (<c>SharedMediaPage</c>), a page of the info panel: tabs by kind. Each tab reaches back through the room's

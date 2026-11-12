@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using OhMatrix.Core.Ui.Widgets;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>A row that stands where a chat will be while the list is arriving: as big as <see cref="RoomRow"/>, so nothing moves when the real ones come (<c>RoomRowSkeleton</c>).</summary>
 public sealed class RoomRowSkeleton : Pulse {
