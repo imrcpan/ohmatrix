@@ -5,14 +5,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-dotnet tool restore >/dev/null
+dotnet tool restore
 
 format() {
     # A namespace becomes file-scoped, and the usings nothing uses are removed (Directory.Build.props lets the analyzer see them).
-    dotnet format style OhMatrix.slnx --diagnostics IDE0161 IDE0005 --severity error >/dev/null
+    dotnet format style OhMatrix.slnx --diagnostics IDE0161 IDE0005 --severity error
     # Then braces and statements are split, then ReSharper lays the rest out.
-    dotnet format whitespace OhMatrix.slnx >/dev/null
-    dotnet jb cleanupcode OhMatrix.slnx --profile='Built-in: Reformat Code' --no-build >/dev/null
+    dotnet format whitespace OhMatrix.slnx
+    dotnet jb cleanupcode OhMatrix.slnx --profile='Built-in: Reformat Code' --no-build \
+        --properties:DefineConstants=OHMATRIX_NATIVE_SDK
 }
 
 if [ "${1:-}" != "--check" ]; then
