@@ -156,6 +156,9 @@ public sealed class EmojiPicker : IOverlay {
         ColorTokens tokens, StickerPane pane)
     {
         colors = tokens;
+        // The overlay layer is not under the screen that holds the colours:
+        // the pane is given them, or it is drawn in the light ones.
+        ThemeScope.SetColors(pane, tokens);
         clip.Child = pane;
         Style();
         var width =
