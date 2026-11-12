@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Appearance;
 
 /// <summary>
 /// The app's logo, drawn from the shapes of its SVG (<c>logo/colorful/1.svg</c>): the rounded blue body with its rim, shade, glow and gloss, and the two

@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Appearance;
 
 /// <summary>An icon of <see cref="IconData"/>, drawn as the React Native <c>Icon</c> draws it: a path of a 24 grid, round caps and joins.</summary>
 public sealed class Icon : Control {

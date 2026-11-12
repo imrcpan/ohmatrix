@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using OhMatrix.Core.Theming;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Appearance;
 
 /// <summary>
 /// Where a control gets the colours from: <see cref="Colors"/>, an inherited property, so that setting it on the window gives every control below

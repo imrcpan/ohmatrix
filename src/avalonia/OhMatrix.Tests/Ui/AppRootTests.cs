@@ -1,3 +1,4 @@
+using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Infra.Logging;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;

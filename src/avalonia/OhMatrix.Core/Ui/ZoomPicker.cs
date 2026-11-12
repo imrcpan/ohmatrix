@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
 using OhMatrix.Core.State;
+using OhMatrix.Core.Ui.Appearance;
 
 namespace OhMatrix.Core.Ui;
 

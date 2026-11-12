@@ -5,7 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using OhMatrix.Core.Theming;
-using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Appearance;
 using Xunit;
 using Menu = OhMatrix.Core.Ui.Menu;
 using MenuItem = OhMatrix.Core.Ui.MenuItem;

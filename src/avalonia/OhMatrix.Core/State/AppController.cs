@@ -59,7 +59,7 @@ public sealed class AppController(
             if (preferences != null) {
                 var saved = await Quietly(preferences.Load);
                 if (saved != null) {
-                    Ui.Fonts.Use(saved.Font);
+                    Ui.Appearance.Fonts.Use(saved.Font);
                     Store.Update(s => s with {
                         Prefs = saved
                     });
@@ -1184,7 +1184,7 @@ public sealed class AppController(
     {
         var font = change(Store.Value.Prefs).Font;
         if (font != Store.Value.Prefs.Font)
-            Ui.Fonts.Use(font);
+            Ui.Appearance.Fonts.Use(font);
         Store.Update(s => s with {
             Prefs = change(s.Prefs)
         });

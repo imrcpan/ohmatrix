@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Appearance;
 
 namespace OhMatrix.Core.Ui;
 

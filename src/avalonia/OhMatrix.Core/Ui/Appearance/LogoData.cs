@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Appearance;
 
 /// <summary>The path data of the app's logo (<c>logo/colorful/1.svg</c>), in the 1025 x 1045 box starting at (115, 105); generated from the SVG.</summary>
 internal static class LogoData {

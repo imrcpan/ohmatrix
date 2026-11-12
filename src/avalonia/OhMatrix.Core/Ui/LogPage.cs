@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui;

@@ -6,6 +6,7 @@ using Avalonia.Media;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Appearance;
 
 namespace OhMatrix.Core.Ui;
 

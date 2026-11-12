@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using OhMatrix.Core.Ui;
+using OhMatrix.Core.Ui.Appearance;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

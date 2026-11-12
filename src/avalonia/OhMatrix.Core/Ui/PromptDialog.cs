@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Appearance;
 
 namespace OhMatrix.Core.Ui;
 

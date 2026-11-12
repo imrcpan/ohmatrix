@@ -1,4 +1,4 @@
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Appearance;
 
 /// <summary>The corner radii of the React Native theme (<c>radius</c> of theme.tsx).</summary>
 public static class Radius {

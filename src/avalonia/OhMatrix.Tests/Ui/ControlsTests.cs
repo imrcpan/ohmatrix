@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui;
 using Spinner = OhMatrix.Core.Ui.Spinner;
+using OhMatrix.Core.Ui.Appearance;
 using Xunit;
 
 namespace OhMatrix.Tests.Ui;

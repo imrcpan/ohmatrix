@@ -2,7 +2,7 @@ using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Controls;
 
-namespace OhMatrix.Core.Ui;
+namespace OhMatrix.Core.Ui.Appearance;
 
 /// <summary>The fonts of the interface: the system UI fonts (SF on Apple, Segoe UI on Windows, the platform default elsewhere; the stack of theme.tsx) unless the person chose an installed one.</summary>
 public static class Fonts {
