@@ -17,7 +17,7 @@ namespace OhMatrix.Core.Ui;
 /// their date dividers, and the input to write in. The view stays at the bottom while new messages come, unless the person has scrolled up.
 /// </summary>
 public sealed partial class ChatPane : Grid {
-    public const double HeaderHeight = 64;
+    public const double HeaderHeight = PageBar.HeaderHeight;
 
     private readonly AppController controller;
     private readonly TimeProvider time;

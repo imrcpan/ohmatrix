@@ -705,7 +705,7 @@ public sealed class RoomInfoPanel : Grid {
         Grid.SetColumn(close, 1);
         barRow.Children.Add(close);
         bar.Child = barRow;
-        bar.Height = ChatPane.HeaderHeight;
+        bar.Height = PageBar.HeaderHeight;
         bar.BorderThickness = new Thickness(0, 0, 0, 1);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
 

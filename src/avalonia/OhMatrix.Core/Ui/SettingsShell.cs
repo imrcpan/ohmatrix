@@ -26,7 +26,7 @@ public sealed class SettingsShell : Grid {
     public const double RowIcon = 18;
 
     /// <summary>The room at the left and the right of the rows, the headings and the notes of a pane.</summary>
-    public const double Side = 24;
+    public const double Side = PageBar.Side;
 
     private sealed record Entry(SidebarPage Page, string Glyph, string Key);
 
