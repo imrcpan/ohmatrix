@@ -733,13 +733,14 @@ public class RoomListTests {
     }
 
     [AvaloniaFact]
-    public async Task Lists_rooms_pinned_first_then_by_activity()
+    public async Task
+        Lists_invitations_first_then_pinned_rooms_then_by_activity()
     {
         var (window, controller, engine, screen) = Open("light", 1000);
         await SignedIn(controller, engine);
         var ids = screen.List.Rows.Children.Cast<RoomRow>()
             .Select(r => r.RoomId).ToArray();
-        Assert.Equal(["!c", "!a", "!b", "!d", "!e"], ids);
+        Assert.Equal(["!e", "!c", "!a", "!b", "!d"], ids);
         Save(window, "light");
     }
 

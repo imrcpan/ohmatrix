@@ -322,6 +322,17 @@ public class EngineWorkTests {
             .Order(sorted).Select(r => r.Id));
     }
 
+    [Fact]
+    public void An_invitation_comes_before_the_pinned_chats()
+    {
+        IReadOnlyList<RoomSummary> mixed = [
+            Row("a", 9), Row("p", 1, true), Row("i", 0, false, true),
+        ];
+        var sorted = OhMatrix.Core.State.AppController.Order(mixed);
+        Assert.Equal(["i", "p", "a"], sorted.Select(r => r.Id));
+        Assert.Same(sorted, OhMatrix.Core.State.AppController.Order(sorted));
+    }
+
     private static bool Write(RoomBook<string> book, int gen, string id,
         RoomSummary? summary) => book.Write(gen, id, book.Entry(id), summary);
 
@@ -332,12 +343,14 @@ public class EngineWorkTests {
         new(ListOpKind.Remove, Index: index);
 
     private static RoomSummary
-        Row(string id, long ts = 0, bool pinned = false) =>
+        Row(string id, long ts = 0, bool pinned = false,
+            bool invite = false) =>
         new() {
             Id = id,
             Name = id,
             LastActivityTs = ts,
-            Pinned = pinned
+            Pinned = pinned,
+            Inviter = invite ? "alice" : null
         };
 
     [Fact]

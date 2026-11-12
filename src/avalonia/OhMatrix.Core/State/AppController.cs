@@ -1485,7 +1485,7 @@ public sealed class AppController(
             context.Post(_ => change(), null);
     }
 
-    /// <summary>Pinned chats first, then the latest activity first.</summary>
+    /// <summary>Invitations first, then the pinned chats, then the latest activity first (<c>compareRooms</c>).</summary>
     public static IReadOnlyList<RoomSummary> Order(
         IEnumerable<RoomSummary> list)
     {
@@ -1493,7 +1493,8 @@ public sealed class AppController(
         // what a sort would give back, and is not sorted or copied again.
         if (list is IReadOnlyList<RoomSummary> ready && InOrder(ready))
             return ready;
-        return list.OrderByDescending(r => r.Pinned)
+        return list.OrderByDescending(r => r.Invite)
+            .ThenByDescending(r => r.Pinned)
             .ThenByDescending(r => r.LastActivityTs)
             .ToList();
     }
@@ -1503,6 +1504,10 @@ public sealed class AppController(
         for (var i = 1; i < list.Count; i++) {
             var before = list[i - 1];
             var room = list[i];
+            if (room.Invite && !before.Invite)
+                return false;
+            if (room.Invite != before.Invite)
+                continue;
             if (room.Pinned && !before.Pinned)
                 return false;
             if (room.Pinned == before.Pinned &&
