@@ -62,8 +62,11 @@ public static class AppStyles {
         var bars = new Style(x => x.OfType<ScrollBar>());
         bars.Setters.Add(new Setter(Layoutable.WidthProperty, ThumbWidth));
         bars.Setters.Add(new Setter(Layoutable.MinWidthProperty, ThumbWidth));
+        // The bar floats over the content and takes no room of its own: its
+        // column is 4 wide less a margin of -6, which is nothing, and the
+        // bar is drawn 6 in from the edge, with 2 left beyond it.
         bars.Setters.Add(new Setter(Layoutable.MarginProperty,
-            new Thickness(4, 0, 2, 0)));
+            new Thickness(-6, 0, 0, 0)));
         app.Styles.Add(bars);
         // The thumb is hidden at rest; ScrollStrip shows it while the pointer
         // is over the viewer or a press from the strip is held.
