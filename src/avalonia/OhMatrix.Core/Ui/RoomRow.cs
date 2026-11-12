@@ -334,11 +334,15 @@ public sealed class RoomRow : PressableButton {
     {
         var pill = new Border {
             CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(16, 6),
+            // As high as in the React Native app (31), whatever the line
+            // of the font: there it is 19, with 6 above and below.
+            Height = 31,
+            Padding = new Thickness(16, 0),
             Cursor = new Cursor(StandardCursorType.Hand),
             Child = new TextBlock {
                 FontSize = 14,
                 FontWeight = weight,
+                VerticalAlignment = VerticalAlignment.Center,
             },
         };
         pill.PointerPressed += (_, e) => {
