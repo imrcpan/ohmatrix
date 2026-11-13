@@ -82,9 +82,7 @@ public sealed class RoomListPane : Grid {
 
     private readonly IconButton plus;
 
-    private readonly Menu addMenu = new() {
-        AlignRight = true
-    };
+    private readonly Menu addMenu = new();
 
     private readonly PromptDialog prompt = new();
     private bool connectedOnce;
@@ -232,7 +230,6 @@ public sealed class RoomListPane : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
-        addMenu.AlignRight = !Rail;
         addMenu.Show(
             plus,
             window,
