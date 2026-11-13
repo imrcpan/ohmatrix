@@ -163,8 +163,9 @@ public sealed class PeoplePicker : IOverlay {
         }
 
         confirm.Title = confirmLabel?.Invoke(chosen.Count) ?? "";
+        // The button is never grey: pressed with no one chosen it tries what
+        // is typed (see Confirm).
         confirm.Loading = busy;
-        confirm.Disabled = chosen.Count == 0;
     }
 
     // The people chosen, as chips that take the choice back when pressed.
@@ -288,8 +289,15 @@ public sealed class PeoplePicker : IOverlay {
 
     private async Task Confirm()
     {
-        if (busy || chosen.Count == 0 || onConfirm == null)
+        if (busy || onConfirm == null)
             return;
+        if (chosen.Count == 0 && !TryTyped()) {
+            // Nothing to try: what can be typed is said.
+            error.Text = Strings.T(locale, "searchHint");
+            error.IsVisible = true;
+            return;
+        }
+
         busy = true;
         error.IsVisible = false;
         Render();
@@ -303,6 +311,26 @@ public sealed class PeoplePicker : IOverlay {
             busy = false;
             Render();
         }
+    }
+
+    // With no one chosen, the person who was typed is the one: a full user id,
+    // or the only one the search found.
+    private bool TryTyped()
+    {
+        var term = search.Text.Trim();
+        if (term.StartsWith('@') && term.Contains(':')) {
+            chosen[term] = found.FirstOrDefault(p => p.UserId == term)
+                           ?? new PersonInfo(term,
+                               term.TrimStart('@').Split(':')[0], null);
+            return true;
+        }
+
+        if (found.Count == 1) {
+            chosen[found[0].UserId] = found[0];
+            return true;
+        }
+
+        return false;
     }
 
     public void Close()
