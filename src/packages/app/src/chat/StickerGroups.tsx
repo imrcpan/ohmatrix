@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import {
   checkSticker,
@@ -17,6 +17,7 @@ import { useController, useServices, useT } from "../context.js";
 import { useMediaUrl } from "../useMedia.js";
 import { useNotice } from "../useNotice.js";
 import { BUILTIN_COVER, BUILTIN_GROUP, openEmojiUri } from "./builtinGroup.js";
+import { useWheelToSide } from "./horizontalWheel.js";
 import { OPEN_EMOJI } from "./openEmoji.js";
 
 /** The size of a group's icon (its tab is a little larger); a sticker in the grid is 72. */
@@ -167,6 +168,9 @@ export function GroupTabs(props: {
   const tabs = 1 + props.groups.length + (props.groups.length - 1 < props.max ? 1 : 0);
   const seen = Math.min(tabs, TABS_SEEN);
   const offset = labelOffset(props.groups);
+  // The wheel of a mouse moves the row sideways (the scroll bar is there for the pointer, and a wheel turns up and down).
+  const row = useRef<ScrollView>(null);
+  useWheelToSide(row);
   const tab = (index: number, key: string, label: string, selected: boolean, onPress: () => void, child: React.ReactNode) => (
     <PopPiece key={key} index={index} cols={seen} rows={1}>
       {(hover) => (
@@ -193,7 +197,14 @@ export function GroupTabs(props: {
   );
   return (
     <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.separator, paddingVertical: 4, paddingHorizontal: 4 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: "center", gap: 2 }}>
+      <ScrollView
+        ref={row}
+        horizontal
+        showsHorizontalScrollIndicator
+        // In a row the scroll view is as wide as its content unless it may shrink (min-width 0), and then the groups ran out of the pane.
+        style={{ flex: 1, minWidth: 0 }}
+        contentContainerStyle={{ alignItems: "center", gap: 2 }}
+      >
         {tab(
           0,
           BUILTIN_GROUP,
