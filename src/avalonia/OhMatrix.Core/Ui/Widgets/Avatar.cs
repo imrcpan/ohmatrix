@@ -24,6 +24,10 @@ public sealed class Avatar : Border {
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    // The colour behind the initials. A picture has none behind it, as in the
+    // React Native app: where the picture is transparent the page shows.
+    private readonly IBrush tint;
+
     private readonly Image picture = new() {
         Stretch = Stretch.UniformToFill
     };
@@ -35,7 +39,8 @@ public sealed class Avatar : Border {
         CornerRadius =
             new CornerRadius(square ? Math.Round(size * 0.28) : size / 2);
         ClipToBounds = true;
-        Background = new SolidColorBrush(PeerColor(id));
+        tint = new SolidColorBrush(PeerColor(id));
+        Background = tint;
         initials.FontSize = size * 0.38;
         initials.Text = Initials(name);
         Child = initials;
@@ -47,6 +52,7 @@ public sealed class Avatar : Border {
         set {
             picture.Source = value;
             Child = value == null ? initials : picture;
+            Background = value == null ? tint : Brushes.Transparent;
         }
     }
 
