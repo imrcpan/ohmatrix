@@ -25,13 +25,27 @@ public sealed class ForwardDialog : IOverlay {
         Glyph = "forward"
     };
 
-    private readonly SearchField filter = new();
+    private readonly SearchField filter = new() {
+        OnCard = true
+    };
+
     private readonly StackPanel list = new();
+
+    // The list stays in one scroller: a scroller that is made again would
+    // find the list still in the one before.
+    private ScrollViewer? scroller;
+
+    private ScrollViewer Scroller() => scroller ??= new ScrollViewer {
+        MaxHeight = 300,
+        Content = list
+    };
+
     private HashSet<string> picked = [];
     private HashSet<string> keep = [];
     private IReadOnlyList<TimelineItem> items = [];
     private Action? sent;
     private TopLevel? window;
+    private Control? themed;
     private bool confirming;
     private bool sending;
     private int failed;
@@ -56,9 +70,12 @@ public sealed class ForwardDialog : IOverlay {
 
     /// <summary>Opens for <paramref name="messages"/> of the open chat; <paramref name="onSent"/> runs when all went through.</summary>
     public void Show(TopLevel top, IReadOnlyList<TimelineItem> messages,
-        Action? onSent = null)
+        Action? onSent = null, Control? scope = null)
     {
         window = top;
+        // The theme is set on the page, not on the window: its colours are the
+        // page's.
+        themed = scope ?? top;
         items = messages;
         sent = onSent;
         picked = [];
@@ -215,7 +232,7 @@ public sealed class ForwardDialog : IOverlay {
     {
         if (window == null || confirming || !dialog.IsOpen)
             return;
-        var c = ThemeScope.GetColors(window);
+        var c = ThemeScope.GetColors(themed ?? window);
         FillPicks(c, Postable());
     }
 
@@ -244,7 +261,7 @@ public sealed class ForwardDialog : IOverlay {
     {
         if (window == null)
             return;
-        var c = ThemeScope.GetColors(window);
+        var c = ThemeScope.GetColors(themed ?? window);
         var postable = Postable();
         list.Children.Clear();
         var content = new List<Control>();
@@ -256,10 +273,7 @@ public sealed class ForwardDialog : IOverlay {
             foreach (var room in postable.Where(r => picked.Contains(r.Id)))
                 list.Children.Add(Row(c, room, keep.Contains(room.Id),
                     sending));
-            content.Add(new ScrollViewer {
-                MaxHeight = 300,
-                Content = list
-            });
+            content.Add(Scroller());
             if (failed > 0)
                 content.Add(new TextBlock {
                     Text = controller.T("forward.failed", ("n", failed)),
@@ -279,10 +293,7 @@ public sealed class ForwardDialog : IOverlay {
             ThemeScope.SetColors(filter, c);
             FillPicks(c, postable);
             content.Add(filter);
-            content.Add(new ScrollViewer {
-                MaxHeight = 300,
-                Content = list
-            });
+            content.Add(Scroller());
             primary.Title = picked.Count > 0
                 ? $"{controller.T("forward")} ({picked.Count})"
                 : controller.T("forward");

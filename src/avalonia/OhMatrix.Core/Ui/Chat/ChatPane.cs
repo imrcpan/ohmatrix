@@ -143,7 +143,7 @@ public sealed partial class ChatPane : Grid {
             return;
         var items = ChosenItems().Where(i => Forward.Content(i) != null)
             .ToList();
-        Forwarding.Show(window, items, CancelSelect);
+        Forwarding.Show(window, items, CancelSelect, this);
     }
 
     private readonly Dialog groupDialog = new() {
@@ -1289,7 +1289,7 @@ public sealed partial class ChatPane : Grid {
 
         if (Forward.Content(item) != null)
             items.Add(new MenuItem(controller.T("forward"), () => {
-                Forwarding.Show(window, [item]);
+                Forwarding.Show(window, [item], null, this);
             }, Icon: "forward"));
         var picture = item.Image;
         if (picture != null && controller.CanStickers

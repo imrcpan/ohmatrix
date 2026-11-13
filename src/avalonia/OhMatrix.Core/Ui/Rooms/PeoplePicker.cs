@@ -21,8 +21,16 @@ namespace OhMatrix.Core.Ui.Rooms;
 public sealed class PeoplePicker : IOverlay {
     private readonly AppController controller;
     private readonly Dialog dialog = new();
-    private readonly SearchField search = new();
+
+    private readonly SearchField search = new() {
+        OnCard = true
+    };
+
     private readonly StackPanel list = new();
+
+    // The list stays in one scroller: a scroller that is made again would
+    // find the list still in the one before.
+    private readonly ScrollViewer scroller;
     private readonly PrimaryButton confirm = new();
     private readonly TextButton cancel = new();
 
@@ -46,6 +54,12 @@ public sealed class PeoplePicker : IOverlay {
     public PeoplePicker(AppController controller)
     {
         this.controller = controller;
+        scroller = new ScrollViewer {
+            Content = list,
+            MaxHeight = 280,
+            HorizontalScrollBarVisibility =
+                Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        };
         search.TextChanged += (_, _) => _ = Search();
         confirm.Click += (_, _) => _ = Confirm();
         cancel.Click += (_, _) => dialog.Close();
@@ -98,12 +112,6 @@ public sealed class PeoplePicker : IOverlay {
         ThemeScope.SetColors(confirm, colors);
         ThemeScope.SetColors(cancel, colors);
         cancel.Title = Strings.T(locale, "cancel");
-        var scroller = new ScrollViewer {
-            Content = list,
-            MaxHeight = 280,
-            HorizontalScrollBarVisibility =
-                Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-        };
         Render();
         dialog.Show(window, colors, title, message, chips, search, scroller,
             error, confirm, cancel);

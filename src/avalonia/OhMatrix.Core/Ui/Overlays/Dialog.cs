@@ -61,6 +61,14 @@ public sealed class Dialog : IOverlay {
         Spacing = 14
     };
 
+    // The buttons of the dialog, in a row at the right.
+    private readonly StackPanel actions = new() {
+        Orientation = Orientation.Horizontal,
+        Spacing = 8,
+        HorizontalAlignment = HorizontalAlignment.Right,
+        Margin = new Thickness(0, 6, 0, 4),
+    };
+
     // The card grows from the middle, as the dialogs of the reference page do,
     // and the window dims behind it.
     private readonly DialogMotion motion;
@@ -114,13 +122,23 @@ public sealed class Dialog : IOverlay {
         params Control[] content
     )
     {
-        Detach();
-        layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
+        // Shown again while it is open (a list in it was picked from): its
+        // content is made again where it stands, with no motion and no new
+        // backdrop, and the focus stays where it is.
+        var refresh = IsOpen && layer != null && !retired;
+        if (!refresh) {
+            Detach();
+            layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
+        }
+
         if (layer == null)
             return;
-        var dim = new SolidColorBrush(colors.Overlay);
-        shade.Background = dim;
-        motion.Backdrop = dim;
+        if (!refresh) {
+            var dim = new SolidColorBrush(colors.Overlay);
+            shade.Background = dim;
+            motion.Backdrop = dim;
+        }
+
         shade.Margin = new Thickness(0);
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
@@ -175,8 +193,23 @@ public sealed class Dialog : IOverlay {
         if (!string.IsNullOrEmpty(message))
             stack.Children.Add(messageText);
 
-        foreach (var c in content)
-            stack.Children.Add(c);
+        // The buttons at the end of the content are one row at the right, in
+        // the order they are given (the confirmation first, Cancel last).
+        var firstButton = content.Length;
+        while (firstButton > 0 && content[firstButton - 1] is PressableButton)
+            firstButton--;
+        actions.Children.Clear();
+        for (var i = 0; i < content.Length; i++) {
+            if (i < firstButton)
+                stack.Children.Add(content[i]);
+            else
+                actions.Children.Add(content[i]);
+        }
+
+        if (actions.Children.Count > 0)
+            stack.Children.Add(actions);
+        if (refresh)
+            return;
         shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
         motion.Open();

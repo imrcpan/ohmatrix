@@ -403,11 +403,13 @@ public sealed class StickerPane : Grid {
     {
         var colors = ThemeScope.GetColors(this);
         var text = new TextBlock {
-            FontSize = 15,
+            // The format of the message of a dialog, in the full text colour.
+            FontSize = 16,
             LineHeight = 21,
-            Foreground = new SolidColorBrush(colors.TextSecondary),
-            TextAlignment = TextAlignment.Center,
+            Foreground = new SolidColorBrush(colors.Text),
+            TextAlignment = TextAlignment.Left,
             TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(8, 0, 0, 0),
         };
         text.Inlines!.Add(new Avalonia.Controls.Documents.Run(a));
         text.Inlines.Add(new Avalonia.Controls.Documents.Run(b) {
@@ -447,7 +449,7 @@ public sealed class StickerPane : Grid {
         var title = Label(group, index);
         dialog.Warning = true;
         dialog.Show(window, colors, controller.T("sticker.group.delete.title"),
-            controller.T("sticker.group.delete.body"),
+            null,
             Warning(controller.T("sticker.group.delete.a"),
                 controller.T("sticker.group.delete.b",
                     ("n", group.Stickers.Count)),
@@ -458,7 +460,7 @@ public sealed class StickerPane : Grid {
                 dialog.Warning = true;
                 dialog.Show(window, colors,
                     controller.T("sticker.group.delete.title2"),
-                    controller.T("sticker.group.delete.2body"),
+                    null,
                     Warning(controller.T("sticker.group.delete.2a"),
                         controller.T("sticker.group.delete.2b", ("name", title),
                             ("n", group.Stickers.Count)),

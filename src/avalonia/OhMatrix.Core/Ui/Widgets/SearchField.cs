@@ -74,10 +74,19 @@ public sealed class SearchField : Border {
         Apply();
     }
 
+    /// <summary>On the card of a dialog the box takes the hover tint, so that it is not the colour of the card it is on.</summary>
+    public bool OnCard {
+        get;
+        set {
+            field = value;
+            Apply();
+        }
+    }
+
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
-        Background = new SolidColorBrush(c.BgSecondary);
+        Background = new SolidColorBrush(OnCard ? c.Hover : c.BgSecondary);
         magnifier.Color = new SolidColorBrush(c.TextSecondary);
         box.Foreground = new SolidColorBrush(c.Text);
         box.CaretBrush = new SolidColorBrush(c.Text);
