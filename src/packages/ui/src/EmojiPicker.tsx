@@ -3,9 +3,14 @@ import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon } from "./Icon.js";
 import { GROUPS } from "./emojiData.js";
 import { stickerColumns, stickerWidth } from "./stickerColumns.js";
+import { PopPiece } from "./panelMotion.js";
 import { fontFamily, useTheme } from "./theme.js";
 
 const RECENT_KEY = "ohmatrix.emoji.recent";
+
+/** The grid as it is drawn: 8 columns of 36px with 2px between in the 304px the picker leaves, and the 7 rows (the last one cut) that its height shows. The emoji come up in rings from the middle of these. */
+const COLS = 8;
+const ROWS_SEEN = 7;
 
 function loadRecent(): string[] {
   const ls = (globalThis as { localStorage?: { getItem(k: string): string | null } }).localStorage;
@@ -91,22 +96,27 @@ export function EmojiPicker(props: {
       </View>
       <ScrollView contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", padding: 8, gap: 2 }}>
         {shown.map((e, i) => (
-          <Pressable
-            key={`${e}-${i}`}
-            accessibilityRole="button"
-            accessibilityLabel={`Emoji ${e}`}
-            onPress={() => props.onPick(e)}
-            style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-            })}
-          >
-            <Text style={{ fontSize: 22 }}>{e}</Text>
-          </Pressable>
+          <PopPiece key={`${e}-${i}`} index={i} cols={COLS} rows={ROWS_SEEN}>
+            {(hover) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Emoji ${e}`}
+                onPress={() => props.onPick(e)}
+                onHoverIn={hover.onHoverIn}
+                onHoverOut={hover.onHoverOut}
+                style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
+                })}
+              >
+                <Text style={{ fontSize: 22 }}>{e}</Text>
+              </Pressable>
+            )}
+          </PopPiece>
         ))}
       </ScrollView>
       <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.separator, paddingVertical: 4 }}>

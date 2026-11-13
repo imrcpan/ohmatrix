@@ -4,9 +4,9 @@ import { Animated, Image, Keyboard, Modal, Platform, Pressable, ScrollView, Text
 import { Icon, type IconName } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
 import { Pulse, SkeletonBlock } from "./Skeleton.js";
-import { useQuickFade } from "./quickFade.js";
 import { MENU_PAD, MENU_ROW, rowStyle, useMenuLook } from "./menuKit.js";
 import { useMenuMotion } from "./menuMotion.js";
+import { PopProvider, usePanelMotion } from "./panelMotion.js";
 import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
@@ -615,7 +615,18 @@ export function Composer(props: {
   const attachOpen = !!props.attach?.open;
   const setAttachOpen = (open: boolean) => props.attach?.onOpenChange(open);
   const attachMotion = useMenuMotion(attachOpen, { rows: props.attach?.items.length ?? 0 });
-  const emojiPop = useQuickFade(emojiOpen);
+  // The panel of emoji grows from the top left corner of the button that opened it, so it must know where that is in its own box; it waits
+  // for that, unseen. Where the panel is in the bar (the web, and the desktop) the layout event of the panel says where it is, and the
+  // button's place in the bar was measured beforehand, so it starts at once. On Android the panel is in a window of its own, and both are
+  // measured when it is drawn.
+  const emojiButton = useRef<ComponentRef<typeof View>>(null);
+  const emojiPanel = useRef<ComponentRef<typeof View>>(null);
+  const [emojiOrigin, setEmojiOrigin] = useState<[number, number, number] | null>(null);
+  const [emojiButtonInBar, setEmojiButtonInBar] = useState<[number, number] | null>(null);
+  const emojiPop = usePanelMotion(emojiOpen, emojiOrigin !== null);
+  useEffect(() => {
+    if (!emojiPop.mounted) setEmojiOrigin(null);
+  }, [emojiPop.mounted]);
   // The menu is keyboard-driven while the caret stays in the field: `active` is a highlight, -1 = none.
   const [active, setActive] = useState(-1);
   const [box, setBox] = useState({ width: 0, y: 0 });
@@ -624,6 +635,23 @@ export function Composer(props: {
   const [popBottom, setPopBottom] = useState(62);
   const win = useViewport();
   const un = useUnzoom();
+  const measureEmojiOrigin = () => {
+    const panel = emojiPanel.current;
+    const button = emojiButton.current;
+    if (!panel || !button) return;
+    panel.measureInWindow((px, py) => button.measureInWindow((bx, by) => setEmojiOrigin([un(bx - px), un(by - py), 0])));
+  };
+  const measureEmojiButton = () => {
+    const button = emojiButton.current;
+    const bar = barRef.current;
+    if (button && bar)
+      button.measureLayout(
+        bar,
+        (x, y) => setEmojiButtonInBar([x, y]),
+        () => {},
+      );
+  };
+  useEffect(measureEmojiButton, [win.width, win.height]);
   const [field, setField] = useState({ x: 0 });
   const listRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const scrollY = useRef(0);
@@ -831,25 +859,37 @@ export function Composer(props: {
                 style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }}
               />
               <Animated.View
+                ref={emojiPanel}
+                onLayout={measureEmojiOrigin}
                 style={[
                   { position: "absolute", bottom: popBottom, left: 8, borderRadius: 14, overflow: "hidden", backgroundColor: colors.bg } as object,
-                  { opacity: emojiPop.opacity },
+                  emojiPop.panel,
+                  { transformOrigin: emojiOrigin ?? "bottom left" },
                   dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
                 ]}
               >
-                <EmojiPicker
-                  onPick={insertEmoji}
-                  recent={props.recentEmoji ?? []}
-                  searchLabel={props.emojiSearchLabel ?? "Search emoji"}
-                  stickers={props.stickers}
-                  available={box.width - 16}
-                  close={() => setEmojiOpen(false)}
-                />
+                <PopProvider value={emojiPop.pop}>
+                  <EmojiPicker
+                    onPick={insertEmoji}
+                    recent={props.recentEmoji ?? []}
+                    searchLabel={props.emojiSearchLabel ?? "Search emoji"}
+                    stickers={props.stickers}
+                    available={box.width - 16}
+                    close={() => setEmojiOpen(false)}
+                  />
+                </PopProvider>
               </Animated.View>
             </View>
           </Modal>
         ) : (
           <Animated.View
+            ref={emojiPanel}
+            onLayout={(e) => {
+              const l = e.nativeEvent.layout;
+              // The button's top left corner in the panel's own box (about 8px right of its left edge and 19px under its bottom edge if the
+              // button has not been measured yet).
+              setEmojiOrigin(emojiButtonInBar ? [emojiButtonInBar[0] - l.x, emojiButtonInBar[1] - l.y, 0] : [8, l.height + 19, 0]);
+            }}
             style={[
               {
                 position: "absolute",
@@ -860,19 +900,22 @@ export function Composer(props: {
                 overflow: "hidden",
                 backgroundColor: colors.bg,
               } as object,
-              { opacity: emojiPop.opacity },
+              emojiPop.panel,
+              { transformOrigin: emojiOrigin ?? "bottom left" },
               // On a dark theme the edge is drawn, as the attach bubble's is: a shadow does not show on a dark page.
               dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {},
             ]}
           >
-            <EmojiPicker
-              onPick={insertEmoji}
-              recent={props.recentEmoji ?? []}
-              searchLabel={props.emojiSearchLabel ?? "Search emoji"}
-              stickers={props.stickers}
-              available={box.width - 16}
-              close={() => setEmojiOpen(false)}
-            />
+            <PopProvider value={emojiPop.pop}>
+              <EmojiPicker
+                onPick={insertEmoji}
+                recent={props.recentEmoji ?? []}
+                searchLabel={props.emojiSearchLabel ?? "Search emoji"}
+                stickers={props.stickers}
+                available={box.width - 16}
+                close={() => setEmojiOpen(false)}
+              />
+            </PopProvider>
           </Animated.View>
         ))}
       {props.recording ? (
@@ -940,7 +983,7 @@ export function Composer(props: {
             // The buttons touch (their icons sit 12 px apart inside the 38 px boxes), and a little closer to the field than the row's gap.
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 0, marginRight: -2 }}>
               {props.onEmoji && (
-                <View>
+                <View ref={emojiButton} onLayout={measureEmojiButton}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={props.emojiLabel ?? "Emoji"}

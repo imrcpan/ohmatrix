@@ -11,7 +11,7 @@ import {
   type StickerGroupIcon,
   withDefault,
 } from "@ohmatrix/core";
-import { Dialog, fontFamily, Icon, Menu, PrimaryButton, TextButton, useTheme, type Anchor } from "@ohmatrix/ui";
+import { Dialog, fontFamily, Icon, Menu, PopFade, PopPiece, PrimaryButton, TextButton, useTheme, type Anchor } from "@ohmatrix/ui";
 import { failureReason } from "../avatarFailure.js";
 import { useAppState, useController, useServices, useT } from "../context.js";
 import { useNotice } from "../useNotice.js";
@@ -59,6 +59,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const [menu, setMenu] = useState<Anchor | null>(null);
   const [width, setWidth] = useState(320);
+  const [height, setHeight] = useState(300);
   const [dialog, setDialog] = useState<"delete" | "name" | "cover" | "deleteGroup" | "deleteGroup2" | "newGroup" | null>(null);
   const gear = useRef<View>(null);
   useEffect(() => controller.subscribeStickers(setStickers), [controller]);
@@ -127,6 +128,10 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
       return next;
     });
   const canAct = mode === "choose" && chosen.size > 0;
+  // The grid as it is drawn: the columns that fit, and the rows the pane shows (the last one cut). The stickers come up in rings from the middle of these.
+  const hasAdd = !!(services.pickPhoto || services.pickFiles) && mode === "browse";
+  const cols = Math.max(1, Math.floor((width - 2 * STICKER_PAD + STICKER_GAP) / (STICKER_TILE + STICKER_GAP)));
+  const rowsSeen = Math.max(1, Math.ceil((height - STICKER_PAD) / (STICKER_TILE + STICKER_GAP)));
   const setCover = (icon: StickerGroupIcon) => {
     setDialog(null);
     void change({ icon });
@@ -178,9 +183,11 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 6, paddingTop: 6, minHeight: 36 }}>
         {mode === "browse" ? (
           <>
-            <Text numberOfLines={1} style={{ flex: 1, paddingLeft: 8, fontSize: 16, fontWeight: "700", fontFamily, color: colors.text }}>
-              {title}
-            </Text>
+            <PopFade style={{ flex: 1 }}>
+              <Text numberOfLines={1} style={{ paddingLeft: 8, fontSize: 16, fontWeight: "700", fontFamily, color: colors.text }}>
+                {title}
+              </Text>
+            </PopFade>
             {items.length > 0 && (
               <Pressable
                 ref={gear}
@@ -218,44 +225,57 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
         style={{ flex: 1, minHeight: 0 }}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        onLayout={(e) => {
+          setWidth(e.nativeEvent.layout.width);
+          setHeight(e.nativeEvent.layout.height);
+        }}
         contentContainerStyle={mode === "reorder" ? undefined : { flexDirection: "row", flexWrap: "wrap", padding: STICKER_PAD, gap: STICKER_GAP }}
       >
         {mode === "reorder" && (
           <StickerReorder stickers={shown} width={width} onMove={(from, to) => void change({ stickers: moveItem(current.stickers, from, to) })} />
         )}
-        {(services.pickPhoto || services.pickFiles) && mode === "browse" && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("sticker.new")}
-            onPress={() => void add()}
-            style={({ hovered, pressed: down }: { hovered?: boolean; pressed: boolean }) => ({
-              width: STICKER_TILE,
-              height: STICKER_TILE,
-              borderRadius: 10,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: down ? colors.separator : hovered ? colors.hover : colors.bgSecondary,
-            })}
-          >
-            <Icon name="plus" size={28} color={colors.textSecondary} />
-          </Pressable>
+        {hasAdd && (
+          <PopPiece index={0} cols={cols} rows={rowsSeen}>
+            {(hover) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("sticker.new")}
+                onPress={() => void add()}
+                onHoverIn={hover.onHoverIn}
+                onHoverOut={hover.onHoverOut}
+                style={({ hovered, pressed: down }: { hovered?: boolean; pressed: boolean }) => ({
+                  width: STICKER_TILE,
+                  height: STICKER_TILE,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: down ? colors.separator : hovered ? colors.hover : colors.bgSecondary,
+                })}
+              >
+                <Icon name="plus" size={28} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </PopPiece>
         )}
         {mode !== "reorder" &&
-          shown.map((s) => (
-            <StickerTile
-              key={s.shortcode}
-              sticker={s}
-              choosing={mode === "choose"}
-              chosen={chosen.has(s.shortcode)}
-              onPress={() => {
-                if (mode !== "browse") return toggle(s.shortcode);
-                props.close();
-                controller
-                  .sendSticker(props.roomId, s.shortcode)
-                  .catch((e: unknown) => notice.show(t("sticker.send.failed", { reason: failureReason(e, t) }), "error"));
-              }}
-            />
+          shown.map((s, i) => (
+            <PopPiece key={s.shortcode} index={i + (hasAdd ? 1 : 0)} cols={cols} rows={rowsSeen}>
+              {(hover) => (
+                <StickerTile
+                  sticker={s}
+                  choosing={mode === "choose"}
+                  chosen={chosen.has(s.shortcode)}
+                  hover={hover}
+                  onPress={() => {
+                    if (mode !== "browse") return toggle(s.shortcode);
+                    props.close();
+                    controller
+                      .sendSticker(props.roomId, s.shortcode)
+                      .catch((e: unknown) => notice.show(t("sticker.send.failed", { reason: failureReason(e, t) }), "error"));
+                  }}
+                />
+              )}
+            </PopPiece>
           ))}
         {shown.length === 0 && (
           <Text style={{ width: "100%", paddingTop: 12, paddingHorizontal: 8, fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary }}>

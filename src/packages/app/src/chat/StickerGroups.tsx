@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { checkSticker, coverOf, STICKER_DEFAULT_GROUP, withDefault, type Sticker, type StickerGroup, type StickerGroupIcon } from "@ohmatrix/core";
-import { ALL_EMOJI_GROUPS, Dialog, fontFamily, Icon, TextButton, useTheme } from "@ohmatrix/ui";
+import { ALL_EMOJI_GROUPS, Dialog, fontFamily, Icon, PopPiece, TextButton, useTheme } from "@ohmatrix/ui";
 import { failureReason } from "../avatarFailure.js";
 import { useController, useServices, useT } from "../context.js";
 import { useMediaUrl } from "../useMedia.js";
@@ -128,6 +128,9 @@ export function GroupCoverDialog(props: { visible: boolean; stickers: readonly S
   );
 }
 
+/** How many covers the row of groups shows at once (the pane is about this many tabs wide). */
+const TABS_SEEN = 6;
+
 /** The groups as icon tabs along the bottom of the sticker pane: all of them first, then each group, then a plus that makes a new one. */
 export function GroupTabs(props: {
   groups: readonly StickerGroup[];
@@ -139,30 +142,39 @@ export function GroupTabs(props: {
 }) {
   const { colors } = useTheme();
   const t = useT();
-  const tab = (key: string, label: string, selected: boolean, onPress: () => void, child: React.ReactNode) => (
-    <Pressable
-      key={key}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-        width: 62,
-        height: 58,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: selected ? colors.bgSecondary : pressed ? colors.separator : hovered ? colors.hover : "transparent",
-      })}
-    >
-      {child}
-    </Pressable>
+  // The covers come up with the stickers, in one row, from the middle of it out; the pane shows about this many of them at once.
+  const tabs = props.groups.length + (props.groups.length - 1 < props.max ? 1 : 0);
+  const seen = Math.min(tabs, TABS_SEEN);
+  const tab = (index: number, key: string, label: string, selected: boolean, onPress: () => void, child: React.ReactNode) => (
+    <PopPiece key={key} index={index} cols={seen} rows={1}>
+      {(hover) => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityState={{ selected }}
+          onPress={onPress}
+          onHoverIn={hover.onHoverIn}
+          onHoverOut={hover.onHoverOut}
+          style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+            width: 62,
+            height: 58,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: selected ? colors.bgSecondary : pressed ? colors.separator : hovered ? colors.hover : "transparent",
+          })}
+        >
+          {child}
+        </Pressable>
+      )}
+    </PopPiece>
   );
   return (
     <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.separator, paddingVertical: 4, paddingHorizontal: 4 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: "center", gap: 2 }}>
         {props.groups.map((g, i) =>
           tab(
+            i,
             g.id,
             groupLabel(g, i, t),
             props.view === g.id,
@@ -175,7 +187,7 @@ export function GroupTabs(props: {
           ),
         )}
         {props.groups.length - 1 < props.max &&
-          tab("new", t("sticker.group.new"), false, props.onNew, <Icon name="plus" size={GROUP_ICON - 14} color={colors.textSecondary} />)}
+          tab(props.groups.length, "new", t("sticker.group.new"), false, props.onNew, <Icon name="plus" size={GROUP_ICON - 14} color={colors.textSecondary} />)}
       </ScrollView>
     </View>
   );

@@ -1,13 +1,13 @@
 import { Image, Pressable, View } from "react-native";
 import type { Sticker } from "@ohmatrix/core";
-import { Icon, mix, useTheme } from "@ohmatrix/ui";
+import { Icon, mix, useTheme, type Hover } from "@ohmatrix/ui";
 import { useMediaUrl } from "../useMedia.js";
 import { STICKER_TILE } from "./stickerGrid.js";
 
 const TILE = STICKER_TILE;
 
 /** One sticker of the pack: its picture whole (an animation plays). Pressed, it is sent, or, while choosing, chosen or let go. */
-export function StickerTile(props: { sticker: Sticker; choosing: boolean; chosen: boolean; onPress: () => void }) {
+export function StickerTile(props: { sticker: Sticker; choosing: boolean; chosen: boolean; onPress: () => void; hover?: Hover }) {
   const { colors } = useTheme();
   const animated = props.sticker.mimeType === "image/gif" || props.sticker.mimeType === "image/webp";
   const uri = useMediaUrl(props.sticker.url, animated ? {} : { width: TILE * 2, height: TILE * 2, fit: "scale" });
@@ -17,6 +17,8 @@ export function StickerTile(props: { sticker: Sticker; choosing: boolean; chosen
       accessibilityLabel={props.sticker.shortcode}
       accessibilityState={{ selected: props.chosen }}
       onPress={props.onPress}
+      onHoverIn={props.hover?.onHoverIn}
+      onHoverOut={props.hover?.onHoverOut}
       style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
         width: TILE,
         height: TILE,
