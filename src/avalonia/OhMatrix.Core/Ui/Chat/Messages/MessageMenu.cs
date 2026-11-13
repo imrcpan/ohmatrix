@@ -181,8 +181,10 @@ public sealed class MessageMenu : IOverlay {
         }
 
         if (actions.Count > 0) {
+            // The rows are inset as those of a menu are, so that the pill of the
+            // one under the pointer does not touch the edge.
             var list = new StackPanel {
-                Margin = new Thickness(0, 2)
+                Margin = new Thickness(2)
             };
             foreach (var item in actions) {
                 var color = MenuStyle.Ink(colors, item.Danger);
@@ -207,6 +209,7 @@ public sealed class MessageMenu : IOverlay {
                 });
                 var row = new Border {
                     Height = MenuStyle.Row,
+                    CornerRadius = new CornerRadius(MenuStyle.Corner),
                     Background = Brushes.Transparent,
                     Cursor = new Cursor(StandardCursorType.Hand),
                     Child = line,
