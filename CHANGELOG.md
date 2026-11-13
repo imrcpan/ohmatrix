@@ -6,7 +6,7 @@ A version lists what changed since the version before it.
 
 ## [1.2.3] - 2026-11-14
 
-- Better and smoother animation effects.
+Better and smoother animation effects.
 
 ## [1.2.2] - 2026-11-13
 
