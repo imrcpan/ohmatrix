@@ -1961,7 +1961,7 @@ test('top bar: fixed height; "Connecting..." replaces the name instead of adding
   expect((await page.getByPlaceholder("Search").boundingBox())!.y).toBe(searchTop); // nothing below moved
 });
 
-test("message menu: opens at the pointer in the incoming-bubble colours, borderless with a shadow, and fades out in place", async ({ page }) => {
+test("message menu: opens at the pointer in the incoming-bubble colours, borderless with a shadow, and closes in place", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await login(page);
   await openRoom(page, "Notes to self");
@@ -1997,7 +1997,8 @@ test("message menu: opens at the pointer in the incoming-bubble colours, borderl
   // Colours of the other person's bubble (white in the light theme), no border, a soft shadow.
   const item = page.getByRole("menuitem", { name: "Reply", exact: true });
   const panel = await item.evaluate((el) => {
-    const p = getComputedStyle(el.parentElement!);
+    // The row is in a view of its own (it moves in with the motion of the menu), and that is in the panel.
+    const p = getComputedStyle(el.parentElement!.parentElement!);
     return { bg: p.backgroundColor, border: p.borderTopWidth, shadow: p.boxShadow };
   });
   expect(panel.bg).toBe("rgb(255, 255, 255)");
@@ -2006,7 +2007,7 @@ test("message menu: opens at the pointer in the incoming-bubble colours, borderl
   await shot(page, "44-message-menu");
   await page.getByRole("button", { name: "React 👍" }).waitFor();
 
-  // Clicking elsewhere closes it, and while it fades out it stays where it was (it must not jump to the corner).
+  // Clicking elsewhere closes it, and while it closes it stays where it was (it must not jump to the corner): it shrinks towards the pointer.
   const watch = page.evaluate(
     () =>
       new Promise<{ x: number; y: number }[]>((resolve) => {
@@ -2031,6 +2032,108 @@ test("message menu: opens at the pointer in the incoming-bubble colours, borderl
   await expect(menu).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
+});
+
+test("menu motion: a menu grows from the pointer with a bounce and its rows come in one after the other; it closes smaller, at the pointer", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page);
+  await openRoom(page, "Notes to self");
+  const text = `motion probe ${Date.now()}`;
+  await page.getByPlaceholder("Message").fill(text);
+  await page.getByPlaceholder("Message").press("Enter");
+  const bubble = page.getByText(text, { exact: true }).last();
+  await expect(bubble).toBeVisible();
+  await page.waitForTimeout(1000);
+  const b = (await bubble.boundingBox())!;
+  const click = { x: b.x + 12, y: b.y + 6 };
+
+  type Frame = { t: number; x: number; y: number; w: number; h: number; scale: number; opacity: number; rows: { opacity: number; shift: number }[] };
+  // Every frame from the first press for `ms`: where the menu is, its scale and opacity, and the opacity and shift of each row (the view round it).
+  const watch = (ms: number) =>
+    page.evaluate(
+      (ms) =>
+        new Promise<Frame[]>((resolve) => {
+          const frames: Frame[] = [];
+          let t0: number | null = null;
+          const start = () => (t0 ??= performance.now());
+          addEventListener("pointerdown", start, true);
+          addEventListener("contextmenu", start, true);
+          const tick = () => {
+            const now = performance.now();
+            if (t0 !== null) {
+              const el = document.querySelector('[role="menu"]');
+              if (el) {
+                const r = el.getBoundingClientRect();
+                const cs = getComputedStyle(el);
+                const rows = [...el.querySelectorAll('[role="menuitem"]')].map((row) => {
+                  const v = getComputedStyle(row.parentElement!);
+                  return { opacity: Number(v.opacity), shift: new DOMMatrix(v.transform === "none" ? undefined : v.transform).f };
+                });
+                frames.push({
+                  t: now - t0,
+                  x: r.x,
+                  y: r.y,
+                  w: r.width,
+                  h: r.height,
+                  scale: new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).a,
+                  opacity: Number(cs.opacity),
+                  rows,
+                });
+              }
+              if (now - t0 > ms) {
+                removeEventListener("pointerdown", start, true);
+                removeEventListener("contextmenu", start, true);
+                resolve(frames);
+                return;
+              }
+            }
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }),
+      ms,
+    );
+
+  const opening = watch(900);
+  await bubble.click({ button: "right", position: { x: 12, y: 6 } });
+  const opened = await opening;
+  const last = opened[opened.length - 1]!;
+  // It ends full size and opaque, and the rows are in their places.
+  expect(last.scale).toBeCloseTo(1, 3);
+  expect(last.opacity).toBeCloseTo(1, 3);
+  for (const r of last.rows) expect(r.shift).toBeCloseTo(0, 3);
+  // It starts at half its size, and goes past full size before it settles (the bounce).
+  expect(Math.min(...opened.map((f) => f.scale))).toBeLessThan(0.7);
+  expect(Math.max(...opened.map((f) => f.scale))).toBeGreaterThan(1.02);
+  // It grows from the pointer: the corner of the menu that is at the click never moves.
+  const right = Math.abs(last.x + last.w - click.x) < Math.abs(last.x - click.x);
+  const below = Math.abs(last.y - click.y) < Math.abs(last.y + last.h - click.y);
+  for (const f of opened) {
+    expect(Math.abs((right ? f.x + f.w : f.x) - (right ? last.x + last.w : last.x))).toBeLessThan(1.5);
+    expect(Math.abs((below ? f.y : f.y + f.h) - (below ? last.y : last.y + last.h))).toBeLessThan(1.5);
+  }
+  // The rows come in one after the other, from above their places (the first is `Copy`, and it comes first).
+  expect(last.rows.length).toBeGreaterThanOrEqual(4);
+  const startOf = (i: number) => opened.find((f) => (f.rows[i]?.opacity ?? 0) > 0.1)!.t;
+  expect(startOf(0)).toBeLessThan(startOf(1));
+  expect(startOf(1)).toBeLessThan(startOf(2));
+  expect(startOf(2)).toBeLessThan(startOf(3));
+  expect(Math.min(...opened.map((f) => f.rows[0]?.shift ?? 0))).toBeLessThan(-3);
+
+  // Closing: shorter (it is gone in well under half a second), it shrinks, and the corner stays where it was.
+  const closing = watch(600);
+  await page.mouse.click(700, 150);
+  const closed = await closing;
+  await expect(page.getByRole("menu")).toBeHidden();
+  expect(closed.length).toBeGreaterThan(2);
+  expect(closed[closed.length - 1]!.t).toBeLessThan(400);
+  expect(Math.min(...closed.map((f) => f.scale))).toBeLessThan(0.8);
+  for (const f of closed) {
+    expect(Math.abs((right ? f.x + f.w : f.x) - (right ? last.x + last.w : last.x))).toBeLessThan(1.5);
+    expect(Math.abs((below ? f.y : f.y + f.h) - (below ? last.y : last.y + last.h))).toBeLessThan(1.5);
+  }
 });
 
 test("sessions: a very long list is virtualised (only nearby rows exist) and still scrolls and acts", async ({ page }) => {

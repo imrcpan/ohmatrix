@@ -5,7 +5,8 @@ const IN_MS = 90;
 const OUT_MS = 70;
 
 /**
- * The fade of a menu. A `Modal`'s own fade is the system's (about 300 ms), which makes a menu feel slow to open; this one is short.
+ * The fade of a panel that opens over the page (the emoji picker). The menus have a motion of their own (`useMenuMotion`).
+ * A `Modal`'s own fade is the system's (about 300 ms), which makes a panel feel slow to open; this one is short.
  * `mounted` is what the modal's `visible` is (it stays up while the fade-out runs), `opacity` goes on a view inside it.
  * With `enabled` false there is no fade at all.
  */

@@ -3,10 +3,12 @@ import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { ScaleRoot } from "./Scale.js";
 import { useScale } from "./viewport.js";
 import { useUnzoom, useViewport } from "./viewport.js";
-import { fontFamily, popoverShadow, radius, useTheme } from "./theme.js";
+import { fontFamily, radius, useTheme } from "./theme.js";
 import { Icon, type IconName } from "./Icon.js";
 import { mix } from "./themes.js";
-import { useQuickFade } from "./quickFade.js";
+import { MENU_PAD, MENU_ROW, rowFill, rowStyle, useMenuLook } from "./menuKit.js";
+import { useMenuMotion } from "./menuMotion.js";
+import { originAt } from "./menuTimeline.js";
 
 export interface SheetAction {
   label: string;
@@ -22,13 +24,13 @@ export interface MenuPoint {
 
 const MENU_WIDTH = 240;
 const EMOJI = 36;
-const ROW = 36;
 const GAP = 4;
 
 /**
  * Context menu of a message (long-press / right-click): a quick-reaction bar and an action list that pop up
  * at the pointer, in the colours and corner shape of the other person's bubble (so it
- * follows the theme, the same for every message), without borders. No full-screen dimming: a transparent layer
+ * follows the theme, the same for every message), without borders. This is the look every menu has (see `useMenuLook`),
+ * and it grows from the pointer like every menu (see `useMenuMotion`). No full-screen dimming: a transparent layer
  * only catches the click-away.
  */
 export function MessageMenu(props: {
@@ -40,12 +42,14 @@ export function MessageMenu(props: {
   onEmoji: (emoji: string) => void;
   actions: SheetAction[];
 }) {
-  const { colors, dark } = useTheme();
+  const look = useMenuLook();
   const win = useViewport();
   const scale = useScale();
   const un = useUnzoom();
-  const fade = useQuickFade(props.visible);
-  // Closing clears the anchor while the fade-out is still running: keep the last position so the menu fades in place.
+  // The bar of reactions comes in as the first row, and the actions after it.
+  const bar = props.emojis.length > 0 ? 1 : 0;
+  const motion = useMenuMotion(props.visible, { rows: bar + props.actions.length });
+  // Closing clears the anchor while the menu is still closing: keep the last position so it closes in place.
   const last = useRef<MenuPoint | null>(props.anchor);
   if (props.anchor) last.current = props.anchor;
   const raw = props.anchor ?? last.current ?? { x: 0, y: 0 };
@@ -72,14 +76,11 @@ export function MessageMenu(props: {
     return () => doc.removeEventListener("keydown", onKey);
   }, [props.visible, props.onClose]);
 
-  const surface = colors.bubbleIn;
-  const fg = colors.bubbleInText;
-  const hover = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.06)";
-  const danger = colors.danger;
+  const { fg, hover, danger } = look;
 
   const barW = props.emojis.length * EMOJI + 8;
   const width = Math.max(MENU_WIDTH, barW);
-  const height = (props.emojis.length ? EMOJI + 8 + GAP : 0) + props.actions.length * ROW + 8;
+  const height = (props.emojis.length ? EMOJI + 8 + GAP : 0) + props.actions.length * MENU_ROW + 2 * MENU_PAD;
   // Opens at the pointer, towards the free side: right/down by default, left/up when it would not fit.
   const toLeft = a.x + width > win.width - 8;
   const above = a.y + height > win.height - 8 && a.y - height >= 8;
@@ -88,31 +89,44 @@ export function MessageMenu(props: {
   // The corner at the pointer stays tight, like a bubble's tail corner.
   const tight = above
     ? toLeft
-      ? { borderBottomRightRadius: 5 }
-      : { borderBottomLeftRadius: 5 }
+      ? { borderBottomRightRadius: radius.bubbleTight }
+      : { borderBottomLeftRadius: radius.bubbleTight }
     : toLeft
-      ? { borderTopRightRadius: 5 }
-      : { borderTopLeftRadius: 5 };
-  const panel = [{ backgroundColor: surface }, popoverShadow(dark)];
+      ? { borderTopRightRadius: radius.bubbleTight }
+      : { borderTopLeftRadius: radius.bubbleTight };
 
   return (
-    <Modal transparent visible={fade.mounted} animationType="none" onRequestClose={props.onClose}>
+    <Modal transparent visible={motion.mounted} animationType="none" onRequestClose={props.onClose}>
       <ScaleRoot scale={scale}>
-        <Animated.View style={{ flex: 1, opacity: fade.opacity }}>
-          <Pressable
-            accessibilityLabel="Close menu"
-            onPress={props.onClose}
-            style={{ flex: 1 }}
-            {...({
-              onContextMenu: (e: { preventDefault(): void }) => {
-                e.preventDefault();
-                props.onClose();
+        <Pressable
+          accessibilityLabel="Close menu"
+          onPress={props.onClose}
+          style={{ flex: 1 }}
+          {...({
+            onContextMenu: (e: { preventDefault(): void }) => {
+              e.preventDefault();
+              props.onClose();
+            },
+          } as object)}
+        >
+          <Animated.View
+            accessibilityRole="menu"
+            style={[
+              {
+                position: "absolute",
+                left,
+                top,
+                width,
+                gap: GAP,
+                alignItems: toLeft ? "flex-end" : "flex-start",
+                transformOrigin: originAt(a.x - left, a.y - top, width, height),
               },
-            } as object)}
+              motion.panel,
+            ]}
           >
-            <View accessibilityRole="menu" style={{ position: "absolute", left, top, width, gap: GAP, alignItems: toLeft ? "flex-end" : "flex-start" }}>
-              {props.emojis.length > 0 && (
-                <View style={[...panel, { flexDirection: "row", padding: 4, borderRadius: radius.pill }, !props.actions.length ? tight : {}]}>
+            {props.emojis.length > 0 && (
+              <Animated.View style={motion.row(0)}>
+                <View style={[look.panel, { flexDirection: "row", padding: 4, borderRadius: radius.pill }, !props.actions.length ? tight : {}]}>
                   {props.emojis.map((e) => (
                     <Pressable
                       key={e}
@@ -125,40 +139,40 @@ export function MessageMenu(props: {
                         borderRadius: EMOJI / 2,
                         alignItems: "center",
                         justifyContent: "center",
-                        backgroundColor: props.activeEmojis?.includes(e) ? hover : pressed ? hover : hovered ? hover : "transparent",
+                        backgroundColor: props.activeEmojis?.includes(e) ? hover : rowFill(look, { pressed, hovered }),
                       })}
                     >
                       <Text style={{ fontSize: 22 }}>{e}</Text>
                     </Pressable>
                   ))}
                 </View>
-              )}
-              {props.actions.length > 0 && (
-                <View style={[...panel, { width: MENU_WIDTH, borderRadius: radius.bubble, paddingVertical: 2, overflow: "hidden" }, tight]}>
-                  {props.actions.map((act) => (
+              </Animated.View>
+            )}
+            {props.actions.length > 0 && (
+              <View style={[look.panel, { width: MENU_WIDTH, paddingVertical: MENU_PAD }, tight]}>
+                {props.actions.map((act, i) => (
+                  <Animated.View key={act.label} style={motion.row(bar + i)}>
                     <Pressable
-                      key={act.label}
                       accessibilityRole="menuitem"
                       accessibilityLabel={act.label}
                       onPress={done(act.onPress)}
                       style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                        height: ROW,
+                        height: MENU_ROW,
                         flexDirection: "row",
                         alignItems: "center",
                         gap: 12,
-                        paddingHorizontal: 14,
-                        backgroundColor: pressed || hovered ? hover : "transparent",
+                        ...rowStyle(look, { pressed, hovered }),
                       })}
                     >
                       {act.icon && <Icon name={act.icon} size={18} color={act.danger ? danger : fg} />}
                       <Text style={{ fontSize: 15, fontFamily, color: act.danger ? danger : fg }}>{act.label}</Text>
                     </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-          </Pressable>
-        </Animated.View>
+                  </Animated.View>
+                ))}
+              </View>
+            )}
+          </Animated.View>
+        </Pressable>
       </ScaleRoot>
     </Modal>
   );

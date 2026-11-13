@@ -5,12 +5,13 @@ import { Icon, type IconName } from "./Icon.js";
 import { EmojiPicker } from "./EmojiPicker.js";
 import { Pulse, SkeletonBlock } from "./Skeleton.js";
 import { useQuickFade } from "./quickFade.js";
+import { MENU_PAD, MENU_ROW, rowStyle, useMenuLook } from "./menuKit.js";
+import { useMenuMotion } from "./menuMotion.js";
 import { useNavBottom, useUnzoom, useViewport } from "./viewport.js";
 import { AudioRow, FileTile, LinkPreviewCard, ProgressRing } from "./media.js";
 import { RichText, type Run } from "./richtext.js";
-import { mix } from "./themes.js";
 import type { ViewRect } from "./ImageViewer.js";
-import { canvasFontFamily, fontFamily, peerColor, popoverShadow, radius, useTheme } from "./theme.js";
+import { canvasFontFamily, fontFamily, peerColor, radius, useTheme } from "./theme.js";
 
 /** Message bubble: large continuous radii, joined corners inside a run of plain text, time + state inside. */
 /** Which corners of a bubble touch a neighbour: they are tight there (only plain text bubbles do). */
@@ -613,7 +614,7 @@ export function Composer(props: {
   // Whether the panel is open is the screen's to know (a tap on the chat closes it), so it is kept there.
   const attachOpen = !!props.attach?.open;
   const setAttachOpen = (open: boolean) => props.attach?.onOpenChange(open);
-  const attachPop = useQuickFade(attachOpen);
+  const attachMotion = useMenuMotion(attachOpen, { rows: props.attach?.items.length ?? 0 });
   const emojiPop = useQuickFade(emojiOpen);
   // The menu is keyboard-driven while the caret stays in the field: `active` is a highlight, -1 = none.
   const [active, setActive] = useState(-1);
@@ -657,6 +658,13 @@ export function Composer(props: {
   };
   const suggestions = props.suggestions ?? [];
   const menuOpen = suggestions.length > 0;
+  // The menu of mentions looks and moves like every menu. When the last name is typed away the list is empty, but it stays as it was
+  // while the menu closes.
+  const menuLook = useMenuLook();
+  const keptSuggestions = useRef(suggestions);
+  if (menuOpen) keptSuggestions.current = suggestions;
+  const listed = menuOpen ? suggestions : keptSuggestions.current;
+  const mentionMotion = useMenuMotion(menuOpen, { rows: listed.length });
   // onLayout only fires on size changes, not when the bar moves (window resized, banner shown): measure when it matters.
   useEffect(() => {
     if (menuOpen) barRef.current?.measureInWindow((_x, y, width) => setBox({ width: un(width), y: un(y) }));
@@ -744,12 +752,14 @@ export function Composer(props: {
           </Pressable>
         </View>
       )}
-      {menuOpen && (
-        // A floating menu like the context menus (same surface, radius and shadow), placed at the "@" and capped so it
-        // stops short of the top bar; longer lists scroll under the fixed heading.
-        <View
+      {mentionMotion.mounted && (
+        // A floating menu like the context menus (the same look and motion), placed at the "@" and capped so it
+        // stops short of the top bar; longer lists scroll under the fixed heading. It grows from the "@".
+        <Animated.View
+          accessibilityRole="menu"
           accessibilityLabel={props.mentionLabel ?? "Mention suggestions"}
           style={[
+            menuLook.panel,
             {
               position: "absolute",
               left: menuLeft,
@@ -757,12 +767,11 @@ export function Composer(props: {
               marginBottom: 6,
               width: MENU_W,
               maxHeight: maxMenu,
-              padding: 2,
-              borderRadius: 12,
-              backgroundColor: colors.bg,
+              paddingVertical: MENU_PAD,
               zIndex: 6,
+              transformOrigin: "bottom left",
             },
-            popoverShadow(dark),
+            mentionMotion.panel,
           ]}
         >
           <View style={{ height: HEAD_H, justifyContent: "center", paddingHorizontal: 14 }}>
@@ -777,26 +786,25 @@ export function Composer(props: {
             scrollEventThrottle={16}
             onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
           >
-            {suggestions.map((s, i) => (
-              <Pressable
-                key={s.userId}
-                accessibilityRole="menuitem"
-                accessibilityLabel={`Mention ${s.name}`}
-                aria-selected={i === active}
-                onPress={() => props.onPickSuggestion?.(s)}
-                style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
-                  height: ROW_H,
-                  justifyContent: "center",
-                  paddingHorizontal: 14,
-                  borderRadius: 10,
-                  backgroundColor: pressed || i === active ? colors.separator : hovered ? colors.hover : "transparent",
-                })}
-              >
-                <Text style={{ fontSize: 15, fontFamily, color: colors.text }}>{s.name}</Text>
-              </Pressable>
+            {listed.map((s, i) => (
+              <Animated.View key={s.userId} style={mentionMotion.row(i)}>
+                <Pressable
+                  accessibilityRole="menuitem"
+                  accessibilityLabel={`Mention ${s.name}`}
+                  aria-selected={i === active}
+                  onPress={() => props.onPickSuggestion?.(s)}
+                  style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                    height: ROW_H,
+                    justifyContent: "center",
+                    ...rowStyle(menuLook, { pressed, hovered, active: i === active }),
+                  })}
+                >
+                  <Text style={{ fontSize: 15, fontFamily, color: menuLook.fg }}>{s.name}</Text>
+                </Pressable>
+              </Animated.View>
             ))}
           </ScrollView>
-        </View>
+        </Animated.View>
       )}
       {!!props.notice && (
         <Text accessibilityRole="alert" style={{ paddingHorizontal: 14, paddingTop: 8, fontSize: 13, fontFamily, color: colors.danger }}>
@@ -958,11 +966,13 @@ export function Composer(props: {
               )}
               {props.attach && (
                 <View>
-                  {attachPop.mounted && (
-                    // A bubble above the plus button, opening upward: the rows have large icons, unlike the context menus.
+                  {attachMotion.mounted && (
+                    // A menu above the plus button, opening upward, growing from the button: rows like those of every other menu.
                     <Animated.View
+                      accessibilityRole="menu"
                       accessibilityLabel={props.attach.label}
                       style={[
+                        menuLook.panel,
                         {
                           position: "absolute",
                           left: -4,
@@ -970,53 +980,36 @@ export function Composer(props: {
                           // The same height above the bottom edge as the emoji bubble's (62): the bar's own padding for the gesture bar is taken off.
                           marginBottom: 16 - Math.max(navBottom - 4, 0),
                           minWidth: ATTACH_W,
-                          paddingVertical: 8,
-                          paddingHorizontal: 4,
-                          gap: 0,
-                          borderRadius: 18,
-                          ...(dark ? { borderWidth: 1, borderColor: colors.textTertiary } : {}),
-                          backgroundColor: colors.bg,
+                          paddingVertical: MENU_PAD,
                           zIndex: 7,
-                          opacity: attachPop.opacity,
-                        } as object,
+                          transformOrigin: "bottom left",
+                        },
+                        attachMotion.panel,
                       ]}
                     >
-                      {props.attach.items.map((it) => (
-                        <Pressable
-                          key={it.key}
-                          accessibilityRole="menuitem"
-                          accessibilityLabel={it.label}
-                          onPress={() => {
-                            setAttachOpen(false);
-                            it.onPress();
-                          }}
-                          style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                            height: 65,
-                            paddingLeft: 6,
-                            paddingRight: 14,
-                            borderRadius: 14,
-                            backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
-                          })}
-                        >
-                          <View
-                            style={{
-                              width: 52,
-                              height: 52,
-                              borderRadius: 26,
-                              backgroundColor: colors.bgSecondary,
-                              alignItems: "center",
-                              justifyContent: "center",
+                      {props.attach.items.map((it, i) => (
+                        <Animated.View key={it.key} style={attachMotion.row(i)}>
+                          <Pressable
+                            accessibilityRole="menuitem"
+                            accessibilityLabel={it.label}
+                            onPress={() => {
+                              setAttachOpen(false);
+                              it.onPress();
                             }}
+                            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => ({
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 12,
+                              height: MENU_ROW,
+                              ...rowStyle(menuLook, { pressed, hovered }),
+                            })}
                           >
-                            <Icon name={it.icon} size={28} color={mix(colors.textSecondary, colors.text, dark ? 1 - ATTACH_ICON_DEPTH : ATTACH_ICON_DEPTH)} />
-                          </View>
-                          <Text numberOfLines={1} style={{ fontSize: 15, fontFamily, color: colors.text }}>
-                            {it.label}
-                          </Text>
-                        </Pressable>
+                            <Icon name={it.icon} size={18} color={menuLook.fg} />
+                            <Text numberOfLines={1} style={{ fontSize: 15, fontFamily, color: menuLook.fg }}>
+                              {it.label}
+                            </Text>
+                          </Pressable>
+                        </Animated.View>
                       ))}
                     </Animated.View>
                   )}
@@ -1169,7 +1162,5 @@ export function Composer(props: {
   );
 }
 
-/** How far from the grey of secondary text towards the full text colour the panel's icons are drawn in the light theme (0 = grey, 1 = text); the dark theme uses the mirror, so both look lighter than before. */
-const ATTACH_ICON_DEPTH = 0.25;
-/** The least width of the attach bubble; longer names make it wider. */
+/** The least width of the attach menu; longer names make it wider. */
 const ATTACH_W = 172;
