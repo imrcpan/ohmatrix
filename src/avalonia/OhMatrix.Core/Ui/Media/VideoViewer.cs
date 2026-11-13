@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using OhMatrix.Core.Audio;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
@@ -29,7 +30,8 @@ public sealed class VideoViewer : IOverlay {
     public void Retire()
     {
         retired = true;
-        Close();
+        Stop();
+        Detach();
     }
 
     private OverlayLayer? layer;
@@ -96,8 +98,12 @@ public sealed class VideoViewer : IOverlay {
 
     private int session;
 
+    // The backdrop and what is on it fade as a whole.
+    private readonly Presence presence;
+
     public VideoViewer()
     {
+        presence = new Presence(shade);
         shade.Children.Add(picture);
         shade.Children.Add(status);
         shade.Children.Add(title);
@@ -161,7 +167,8 @@ public sealed class VideoViewer : IOverlay {
         timer.Tick += (_, _) => Tick();
     }
 
-    public bool IsOpen => shade.Parent != null;
+    /// <summary>It is shown and not on its way out: a viewer that is fading away has been closed.</summary>
+    public bool IsOpen => shade.Parent != null && !presence.Leaving;
 
     /// <summary>What the play button shows now: "play" or "pause".</summary>
     public string Glyph => toggle.Glyph;
@@ -174,7 +181,8 @@ public sealed class VideoViewer : IOverlay {
     public async Task Show(TopLevel window, FileAttachment file,
         Func<FileAttachment, Task<string?>> fetch)
     {
-        Close();
+        Stop();
+        Detach();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer == null)
             return;
@@ -185,7 +193,9 @@ public sealed class VideoViewer : IOverlay {
         status.Text = "…";
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
+        shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
+        presence.Enter();
         shade.Focus();
         string? path = null;
         try {
@@ -257,12 +267,35 @@ public sealed class VideoViewer : IOverlay {
                     + Format.Duration(TimeSpan.FromMilliseconds(length));
     }
 
+    /// <summary>Closes it: the video stops at once, the picture fades away, and what is under it can be pressed.</summary>
     public void Close()
+    {
+        Stop();
+        if (shade.Parent == null || presence.Leaving)
+            return;
+        shade.IsHitTestVisible = false;
+        presence.Leave(Remove);
+    }
+
+    // Ends what is playing, and what is waited for.
+    private void Stop()
     {
         session++;
         timer.Stop();
-        layer?.Children.Remove(shade);
         player?.Dispose();
         player = null;
+    }
+
+    // Takes it away without a motion: for a video that is shown again at
+    // once and for a page that is thrown away.
+    private void Detach()
+    {
+        presence.Cancel();
+        Remove();
+    }
+
+    private void Remove()
+    {
+        layer?.Children.Remove(shade);
     }
 }

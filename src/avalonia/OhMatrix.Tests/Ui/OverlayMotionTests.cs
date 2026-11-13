@@ -460,4 +460,19 @@ public class OverlayMotionTests {
         Assert.NotNull(shade.Parent);
         Assert.True(viewer.IsOpen);
     }
+
+    [AvaloniaFact]
+    public async Task A_video_that_cannot_be_fetched_takes_the_viewer_away()
+    {
+        using var clock = new FrameClock();
+        var window = Open();
+        var viewer = new VideoViewer();
+        await viewer.Show(window, new FileAttachment("x.mp4", 1, "mxc://s/x",
+            "video/mp4", FileKind.Video), _ => Task.FromResult<string?>(null));
+        Assert.False(viewer.IsOpen);
+        // Nothing of it was drawn, so nothing is faded: it is gone at once.
+        Assert.Null(((Control)viewer.Picture.Parent!).Parent);
+        clock.Finish();
+        Assert.Null(((Control)viewer.Picture.Parent!).Parent);
+    }
 }
