@@ -45,6 +45,8 @@ export function Waveform(props: {
   progress: number;
   played: string;
   rest: string;
+  /** How much of its colour the bars not yet played keep. */
+  restOpacity?: number | undefined;
   width: number;
   height?: number;
 }) {
@@ -66,6 +68,7 @@ export function Waveform(props: {
             borderRadius: 1.5,
             height: Math.max(3, Math.round(v * h)),
             backgroundColor: i / count < props.progress ? props.played : props.rest,
+            opacity: i / count < props.progress ? 1 : (props.restOpacity ?? 1),
           }}
         />
       ))}
@@ -110,29 +113,17 @@ export function AudioRow(props: {
       )}
       <View style={{ width: BAR }}>
         {props.voice ? (
-          <Waveform
-            samples={props.samples}
-            seed={props.name}
-            progress={props.progress}
-            played={props.own ? "#FFFFFF" : colors.accent}
-            rest={props.own ? "rgba(255,255,255,0.45)" : colors.textTertiary}
-            width={BAR}
-          />
+          <Waveform samples={props.samples} seed={props.name} progress={props.progress} played={fg} rest={fg} restOpacity={0.5} width={BAR} />
         ) : (
           <>
             <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "500", fontFamily, color: fg }}>
               {props.name}
             </Text>
             <View style={{ height: 10, justifyContent: "center", width: BAR }}>
-              <View style={{ height: 3, borderRadius: 1.5, backgroundColor: props.own ? "rgba(255,255,255,0.35)" : colors.textTertiary }}>
-                <View
-                  style={{
-                    width: `${Math.round(props.progress * 100)}%`,
-                    height: 3,
-                    borderRadius: 1.5,
-                    backgroundColor: props.own ? "#FFFFFF" : colors.accent,
-                  }}
-                />
+              <View style={{ height: 3 }}>
+                {/* The bar and what is played are the colour of the text; what is not played is half of it. */}
+                <View style={{ position: "absolute", left: 0, right: 0, height: 3, borderRadius: 1.5, backgroundColor: fg, opacity: 0.5 }} />
+                <View style={{ width: `${Math.round(props.progress * 100)}%`, height: 3, borderRadius: 1.5, backgroundColor: fg }} />
               </View>
             </View>
           </>
