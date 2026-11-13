@@ -24,20 +24,38 @@ This project does not use AXAML. All UI is created entirely in C# code.
 `OhMatrix.Core/Ui/` has no files of its own: every file is in a folder, and the namespace of a file is the namespace of its folder
 (`OhMatrix.Core.Ui.Chat.Messages` for `Ui/Chat/Messages/`). A folder uses only the folders below it, so there are no cycles:
 
-| Folder                                               | What is in it                                                     | May use                                           |
-| ---------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------- |
-| `Appearance`                                         | colours (`ThemeScope`), fonts, radii, icons and the logo          | nothing                                           |
-| `Support`                                            | what pages hang onto (`Lifetime`, `IOverlay`), error texts, times | nothing                                           |
-| `Widgets`                                            | buttons, fields, rows, text and skeleton parts that any page uses | `Appearance`                                      |
-| `Overlays`                                           | dialogs, menus and notices over the window                        | `Widgets` and the above                           |
-| `Media`                                              | pictures, viewers and the file picker                             | `Overlays` and the above                          |
-| `Account`, `Rooms`, `Chat/Messages`, `Chat/Composer` | the parts of a feature                                            | `Media` and the above                             |
-| `Chat`                                               | the open chat                                                     | the parts of a feature, `Rooms`                   |
-| `Settings`                                           | the panes of the settings window                                  | `Chat/Messages` (the theme preview) and the above |
-| `Shell`                                              | the root, the screens and the frame of the app                    | everything                                        |
+| Folder                                               | What is in it                                                        | May use                                           |
+| ---------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
+| `Appearance`                                         | colours (`ThemeScope`), fonts, radii, icons and the logo             | nothing                                           |
+| `Support`                                            | what pages hang onto (`Lifetime`, `IOverlay`), error texts, times    | nothing                                           |
+| `Animations`                                         | the switch, times and curves of motion, how a surface comes and goes | nothing                                           |
+| `Widgets`                                            | buttons, fields, rows, text and skeleton parts that any page uses    | `Appearance`, `Animations`                        |
+| `Overlays`                                           | dialogs, menus and notices over the window                           | `Widgets` and the above                           |
+| `Media`                                              | pictures, viewers and the file picker                                | `Overlays` and the above                          |
+| `Account`, `Rooms`, `Chat/Messages`, `Chat/Composer` | the parts of a feature                                               | `Media` and the above                             |
+| `Chat`                                               | the open chat                                                        | the parts of a feature, `Rooms`                   |
+| `Settings`                                           | the panes of the settings window                                     | `Chat/Messages` (the theme preview) and the above |
+| `Shell`                                              | the root, the screens and the frame of the app                       | everything                                        |
 
 A widget that knows a page is in the wrong place: it takes the page's numbers as parameters, or goes next to the page. The rule is kept by
 `UiStructureTests`. Code outside `Ui/` uses it as little as it can (`AppController` holds the pictures and sets the fonts).
+
+## Motion
+
+What moves in answer to the person, or to a change of the screen, is made with `Ui/Animations`, so that the whole app moves in one way and
+one setting can turn it off. The ring (`Spinner`) and the pulse of the skeletons are the exception: they are loops that say that something is
+going on, and they go on when motion is off.
+
+- A time is one of `Durations` and a curve is one of `Curves`: `Curves.Enter` for what comes and `Curves.Exit` for what goes. What goes takes
+  one step less time than what comes, and nothing takes more than a third of a second.
+- Every time goes through `Motion.Time`, which is nothing when `Motion.Enabled` is false: for people who want less motion, and for the tests,
+  which look at where a change ends. `TestApp` turns motion off; a test of motion turns it on with `FrameClock`, which also steps the frames by
+  hand.
+- Only `Opacity` and render transforms are animated. A property that lays out again (size, margin, position) is not, because it lays out
+  every control around it at every frame.
+- A surface that comes and goes (a dialog, a menu, a viewer, the notice) uses a `Presence`. Closing it is closing it at once: `IsOpen` is false and
+  a press goes through to what is under it while it fades; it is taken out of the tree when its exit is over. A surface that is shown again
+  or thrown away does not wait for its exit (`Cancel`).
 
 ## Project File Structure
 

@@ -26,6 +26,7 @@ The views in `OhMatrix.Core/Ui/` are in folders, and a folder uses only the fold
 
 - `Appearance/` — Colours (`ThemeScope`), fonts, radii, icons and the logo
 - `Support/` — What pages hang onto (`Lifetime`, `IOverlay`), error texts, times
+- `Animations/` — The switch, the times and the curves of motion, and how a dialog, a menu or a notice comes and goes (`Presence`)
 - `Widgets/` — Buttons, fields, rows, bars and skeleton parts that any page uses
 - `Overlays/` — Dialogs, menus and notices over the window
 - `Media/` — Pictures, viewers and the file picker

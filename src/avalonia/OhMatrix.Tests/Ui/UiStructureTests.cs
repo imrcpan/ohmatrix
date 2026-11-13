@@ -15,28 +15,40 @@ public class UiStructureTests {
     private static readonly Dictionary<string, string[]> Allowed = new() {
         ["Appearance"] = [],
         ["Support"] = [],
-        ["Widgets"] = ["Appearance"],
-        ["Overlays"] = ["Appearance", "Support", "Widgets"],
-        ["Media"] = ["Appearance", "Support", "Widgets", "Overlays"],
-        ["Account"] = ["Appearance", "Support", "Widgets", "Overlays", "Media"],
-        ["Rooms"] = ["Appearance", "Support", "Widgets", "Overlays", "Media"],
+        ["Animations"] = [],
+        ["Widgets"] = ["Appearance", "Animations"],
+        ["Overlays"] = ["Appearance", "Animations", "Support", "Widgets"],
+        ["Media"] = [
+            "Appearance", "Animations", "Support", "Widgets", "Overlays"
+        ],
+        ["Account"] = [
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media"
+        ],
+        ["Rooms"] = [
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media"
+        ],
         ["Chat.Messages"] = [
-            "Appearance", "Support", "Widgets", "Overlays", "Media"
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media"
         ],
         ["Chat.Composer"] = [
-            "Appearance", "Support", "Widgets", "Overlays", "Media"
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media"
         ],
         ["Chat"] = [
-            "Appearance", "Support", "Widgets", "Overlays", "Media", "Rooms",
-            "Chat.Messages", "Chat.Composer"
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media", "Rooms", "Chat.Messages", "Chat.Composer"
         ],
         ["Settings"] = [
-            "Appearance", "Support", "Widgets", "Overlays", "Media",
-            "Chat.Messages"
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media", "Chat.Messages"
         ],
         ["Shell"] = [
-            "Appearance", "Support", "Widgets", "Overlays", "Media", "Account",
-            "Rooms", "Chat", "Chat.Messages", "Chat.Composer", "Settings"
+            "Appearance", "Animations", "Support", "Widgets", "Overlays",
+            "Media", "Account", "Rooms", "Chat", "Chat.Messages",
+            "Chat.Composer", "Settings"
         ],
     };
 
