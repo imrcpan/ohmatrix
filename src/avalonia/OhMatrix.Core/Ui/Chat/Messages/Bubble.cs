@@ -120,6 +120,7 @@ public sealed class Bubble : Border {
         var mentionBack = mentionBackground;
         var spans = new List<(int Start, int End, TextRun Run)>();
         var revealed = false;
+        var shownLength = 0;
 
         void Fill()
         {
@@ -170,10 +171,22 @@ public sealed class Bubble : Border {
                 at += shown.Length;
             }
 
+            shownLength = at;
             body.Inlines.Add(timeRun);
         }
 
         Fill();
+        // The spaces kept for the time are not part of the text: a selection
+        // dragged past the end of it stops at the end.
+        body.PropertyChanged += (_, e) => {
+            if (e.Property != SelectableTextBlock.SelectionStartProperty &&
+                e.Property != SelectableTextBlock.SelectionEndProperty)
+                return;
+            if (body.SelectionStart > shownLength)
+                body.SelectionStart = shownLength;
+            if (body.SelectionEnd > shownLength)
+                body.SelectionEnd = shownLength;
+        };
         // A selection that is copied leaves out the spaces kept for the time.
         body.AddHandler(Avalonia.Input.InputElement.KeyDownEvent, (_, e) => {
             if (e.Key != Avalonia.Input.Key.C ||
