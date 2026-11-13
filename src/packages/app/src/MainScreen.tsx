@@ -6,7 +6,7 @@ import { RoomInfoPanel } from "./RoomInfoPanel.js";
 import { SlidePanel } from "./SlidePanel.js";
 import { useAppState, useController, useT } from "./context.js";
 import { autoSidebar, clampSidebar, floatingSidebar, INFO_FLOAT, infoFloats, isRail } from "./layout.js";
-import { RailContext } from "./railContext.js";
+import { RailContext, SplitContext } from "./railContext.js";
 import { FloatingSidebar } from "./FloatingSidebar.js";
 import { RoomListPane } from "./RoomListPane.js";
 import { SidebarNav } from "./SidebarNav.js";
@@ -99,9 +99,11 @@ export function MainScreen() {
           {/* Clipped to the pane, as the stack of pages it used to be in was: what slides in over the list (the contents of a space) comes
               out from the divider, not from beside the chat. */}
           <View style={{ flex: 1, overflow: "hidden", backgroundColor: colors.bg }}>
-            <RailContext.Provider value={rail}>
-              <RoomListPane />
-            </RailContext.Provider>
+            <SplitContext.Provider value>
+              <RailContext.Provider value={rail}>
+                <RoomListPane />
+              </RailContext.Provider>
+            </SplitContext.Provider>
           </View>
           <SidebarResizer
             width={sidebar}

@@ -28,7 +28,7 @@ import { useMediaUrl } from "./useMedia.js";
 import { useAppState, useController, useLocale, useT } from "./context.js";
 import { PullToRefresh } from "./PullToRefresh.js";
 import { autoHideScrollbar } from "./autoHideScrollbar.js";
-import { useRail } from "./railContext.js";
+import { useRail, useSplit } from "./railContext.js";
 import { formatListTime, typingLabel } from "./format.js";
 
 const NONE: RoomSummary[] = [];
@@ -110,6 +110,7 @@ export const RoomListItem = memo(function RoomListItem(props: {
 
 export function RoomListPane() {
   const rail = useRail();
+  const split = useSplit();
   const { colors } = useTheme();
   const nav = useNavBottom();
   const t = useT();
@@ -258,7 +259,9 @@ export function RoomListPane() {
       <Menu
         visible={addMenu}
         anchor={anchor}
-        alignRight={!rail}
+        // Beside the chat (landscape) the menu opens towards the bottom right, over the chat; where the list is the whole window, the plus
+        // button is at its right edge and the menu opens to the left of it.
+        alignRight={!split}
         onClose={() => setAddMenu(false)}
         items={[
           { label: t("newChat"), icon: "user", onPress: () => setDialog("chat") },
