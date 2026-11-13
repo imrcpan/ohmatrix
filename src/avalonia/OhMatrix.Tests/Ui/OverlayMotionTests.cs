@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -6,6 +7,8 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Overlays;
 using Xunit;
+using Menu = OhMatrix.Core.Ui.Overlays.Menu;
+using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 
 namespace OhMatrix.Tests.Ui;
 
@@ -152,5 +155,107 @@ public class OverlayMotionTests {
         Assert.False(dialog.IsOpen);
         clock.Finish();
         Assert.Null(shade.Parent);
+    }
+
+    // ------------------------------------------------------------------ Menu
+
+    private static (Window Window, Border Anchor) Anchored(double top)
+    {
+        var anchor = new Border {
+            Width = 120,
+            Height = 36,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Margin = new Thickness(40, top, 0, 0),
+        };
+        var root = new Grid();
+        root.Children.Add(anchor);
+        return (Open(root), anchor);
+    }
+
+    private static List<MenuItem> Items(int n)
+    {
+        return Enumerable.Range(0, n)
+            .Select(i => new MenuItem($"Item {i}", () => {
+            }))
+            .ToList();
+    }
+
+    [AvaloniaFact]
+    public void A_menu_grows_from_the_corner_at_its_anchor()
+    {
+        using var clock = new FrameClock();
+        var (window, anchor) = Anchored(40);
+        var menu = new Menu();
+
+        // Below its anchor, from the left: from the top left.
+        menu.Show(anchor, window, Items(3));
+        Assert.Equal(new RelativePoint(0, 0, RelativeUnit.Relative),
+            menu.Surface.RenderTransformOrigin);
+        Assert.Equal(0, menu.Surface.Opacity);
+        clock.Finish();
+        Assert.Equal(1, menu.Surface.Opacity);
+        Assert.Null(menu.Surface.RenderTransform);
+
+        // From the right edge of its anchor: from the top right.
+        menu.AlignRight = true;
+        menu.Show(anchor, window, Items(3));
+        Assert.Equal(new RelativePoint(1, 0, RelativeUnit.Relative),
+            menu.Surface.RenderTransformOrigin);
+        clock.Finish();
+        menu.Close();
+        clock.Finish();
+    }
+
+    [AvaloniaFact]
+    public void A_menu_that_flips_above_its_anchor_grows_from_the_bottom()
+    {
+        using var clock = new FrameClock();
+        var (window, anchor) = Anchored(340);
+        var menu = new Menu();
+        menu.Show(anchor, window, Items(4));
+        Assert.True(menu.Top < 340);
+        Assert.Equal(new RelativePoint(0, 1, RelativeUnit.Relative),
+            menu.Surface.RenderTransformOrigin);
+        clock.Finish();
+    }
+
+    [AvaloniaFact]
+    public void A_closed_menu_is_closed_at_once_and_goes_when_it_has_faded()
+    {
+        using var clock = new FrameClock();
+        var (window, anchor) = Anchored(40);
+        var menu = new Menu();
+        menu.Show(anchor, window, Items(3));
+        var shade = (Control)menu.Surface.Parent!;
+        clock.Finish();
+
+        menu.Close();
+        Assert.False(menu.IsOpen);
+        Assert.NotNull(shade.Parent);
+        Assert.False(shade.IsHitTestVisible);
+        // A menu is gone sooner than a dialog.
+        var took = clock.Finish();
+        Assert.InRange(took, 0, 116);
+        Assert.Null(shade.Parent);
+    }
+
+    [AvaloniaFact]
+    public void A_menu_shown_again_while_it_goes_stays()
+    {
+        using var clock = new FrameClock();
+        var (window, anchor) = Anchored(40);
+        var menu = new Menu();
+        menu.Show(anchor, window, Items(3));
+        var shade = (Control)menu.Surface.Parent!;
+        clock.Finish();
+        menu.Close();
+        clock.Frame();
+        clock.Frame(32);
+        menu.Show(anchor, window, Items(3));
+        Assert.True(menu.IsOpen);
+        clock.Finish();
+        Assert.NotNull(shade.Parent);
+        Assert.True(menu.IsOpen);
     }
 }

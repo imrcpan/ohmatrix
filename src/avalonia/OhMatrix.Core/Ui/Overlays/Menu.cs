@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 
@@ -38,7 +39,7 @@ public sealed class Menu : IOverlay {
     public void Retire()
     {
         retired = true;
-        Close();
+        Detach();
     }
 
     private OverlayLayer? layer;
@@ -69,8 +70,17 @@ public sealed class Menu : IOverlay {
         Margin = new Thickness(2)
     };
 
+    // The menu fades in while it grows a little from the corner it opens
+    // from, and is gone quickly: it is only asked a question of.
+    private readonly Presence presence;
+
     public Menu()
     {
+        presence = new Presence(surface, surface) {
+            FromScale = 0.95,
+            EnterTime = Durations.Normal,
+            LeaveTime = Durations.Fast,
+        };
         scroller.Content = rows;
         clip.Child = scroller;
         surface.Child = clip;
@@ -95,7 +105,8 @@ public sealed class Menu : IOverlay {
 
     public double Width { get; set; } = DefaultWidth;
 
-    public bool IsOpen => shade.Parent != null;
+    /// <summary>It is shown and not on its way out: a menu that is fading away has been closed.</summary>
+    public bool IsOpen => shade.Parent != null && !presence.Leaving;
 
     /// <summary>The menu itself.</summary>
     public Control Surface => surface;
@@ -140,7 +151,7 @@ public sealed class Menu : IOverlay {
             ? Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
             : Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
 
-        Close();
+        Detach();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer == null)
             return;
@@ -148,11 +159,34 @@ public sealed class Menu : IOverlay {
         Canvas.SetTop(surface, place.Top);
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
+        // It grows from the corner at the anchor: the left or the right one,
+        // the top one when it opens below and the bottom one when above.
+        presence.Origin = new RelativePoint(AlignRight ? 1 : 0,
+            place.Top < origin.Y ? 1 : 0, RelativeUnit.Relative);
+        shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
+        presence.Enter();
         shade.Focus();
     }
 
+    /// <summary>Closes it: it fades away at once, and what is under it can be pressed.</summary>
     public void Close()
+    {
+        if (shade.Parent == null || presence.Leaving)
+            return;
+        shade.IsHitTestVisible = false;
+        presence.Leave(Remove);
+    }
+
+    // Takes it away without a motion: for a menu that is shown again at once
+    // and for a page that is thrown away.
+    private void Detach()
+    {
+        presence.Cancel();
+        Remove();
+    }
+
+    private void Remove()
     {
         layer?.Children.Remove(shade);
     }
