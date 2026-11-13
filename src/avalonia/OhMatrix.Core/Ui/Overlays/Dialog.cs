@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 
@@ -27,7 +28,7 @@ public sealed class Dialog : IOverlay {
     public void Retire()
     {
         retired = true;
-        Close();
+        Detach();
     }
 
     private OverlayLayer? layer;
@@ -55,12 +56,19 @@ public sealed class Dialog : IOverlay {
         Spacing = 14
     };
 
+    // The backdrop fades and the card, as a part of it, grows a little as it
+    // comes; it fades out the same way, faster.
+    private readonly Presence presence;
+
     public Dialog()
     {
+        presence = new Presence(shade, card) {
+            FromScale = 0.95
+        };
         card.Child = stack;
         shade.Children.Add(card);
         shade.PointerPressed += (_, e) => {
-            if (Modal)
+            if (Modal || presence.Leaving)
                 return;
             if (e.Source is Visual v && !card.IsVisualAncestorOf(v) &&
                 !ReferenceEquals(v, card)) {
@@ -69,7 +77,7 @@ public sealed class Dialog : IOverlay {
             }
         };
         shade.KeyDown += (_, e) => {
-            if (e.Key != Key.Escape)
+            if (e.Key != Key.Escape || presence.Leaving)
                 return;
             Close();
             OnClose?.Invoke();
@@ -82,7 +90,8 @@ public sealed class Dialog : IOverlay {
     /// <summary>Called when it is closed by Esc or by a press outside; not when <see cref="Close"/> is called by the code.</summary>
     public Action? OnClose { get; set; }
 
-    public bool IsOpen => shade.Parent != null;
+    /// <summary>It is shown and not on its way out: a dialog that is fading away has been closed.</summary>
+    public bool IsOpen => shade.Parent != null && !presence.Leaving;
 
     public Control Card => card;
 
@@ -95,7 +104,7 @@ public sealed class Dialog : IOverlay {
         params Control[] content
     )
     {
-        Close();
+        Detach();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer == null)
             return;
@@ -124,7 +133,9 @@ public sealed class Dialog : IOverlay {
 
         foreach (var c in content)
             stack.Children.Add(c);
+        shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
+        presence.Enter();
         shade.Focus();
     }
 
@@ -134,7 +145,24 @@ public sealed class Dialog : IOverlay {
         messageText.Text = message;
     }
 
+    /// <summary>Closes it: it fades away, and what is under it can be pressed at once.</summary>
     public void Close()
+    {
+        if (shade.Parent == null || presence.Leaving)
+            return;
+        shade.IsHitTestVisible = false;
+        presence.Leave(Remove);
+    }
+
+    // Takes it away without a motion: for what is shown again at once and
+    // for a page that is thrown away.
+    private void Detach()
+    {
+        presence.Cancel();
+        Remove();
+    }
+
+    private void Remove()
     {
         layer?.Children.Remove(shade);
     }
