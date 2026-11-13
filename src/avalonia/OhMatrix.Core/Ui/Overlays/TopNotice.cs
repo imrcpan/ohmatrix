@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.State;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
@@ -25,9 +26,17 @@ public sealed class TopNotice : Border {
             n.Apply());
     }
 
+    // The pill comes down a little from above as it fades in, and goes up
+    // again as it fades out.
+    private readonly Presence presence;
+
     public TopNotice(AppController controller)
     {
         this.controller = controller;
+        presence = new Presence(this, this) {
+            FromScale = 0.94,
+            FromShift = -12,
+        };
         HorizontalAlignment = HorizontalAlignment.Center;
         VerticalAlignment = VerticalAlignment.Top;
         Margin = new Thickness(0, 12, 0, 0);
@@ -54,8 +63,8 @@ public sealed class TopNotice : Border {
             new Size(availableSize.Width * 0.92, availableSize.Height));
     }
 
-    /// <summary>The text shown, or null when no message is on.</summary>
-    public string? Text => IsVisible ? text : null;
+    /// <summary>The text shown, or null when no message is on (a message that is fading away is not on).</summary>
+    public string? Text => IsVisible && !presence.Leaving ? text : null;
 
     private string? text;
 
@@ -82,10 +91,23 @@ public sealed class TopNotice : Border {
     private void Apply()
     {
         var notice = controller.Store.Value.Notice;
+        var before = shownNotice;
         shownNotice = notice;
-        IsVisible = notice != null;
-        if (notice == null)
+        if (notice == null) {
+            // It goes with a motion when it was shown, and is just not
+            // there when it was not (one that is going already is left to
+            // go: the theme can change while it does).
+            if (before != null)
+                presence.Leave(() => IsVisible = false);
+            else if (!presence.Leaving)
+                IsVisible = false;
             return;
+        }
+
+        // A message that comes in the place of another is changed in place;
+        // one that comes when there was none, or while one is going, comes in.
+        var enters = before == null || presence.Leaving;
+        IsVisible = true;
         var c = ThemeScope.GetColors(this);
         text = notice.Message;
         Background = new SolidColorBrush(c.Bg);
@@ -98,6 +120,8 @@ public sealed class TopNotice : Border {
         if (!ReferenceEquals(Child, row))
             Child = row;
         Avalonia.Automation.AutomationProperties.SetName(this, notice.Message);
+        if (enters)
+            presence.Enter();
     }
 
     // The ring while something goes on, a check or a cross otherwise; the

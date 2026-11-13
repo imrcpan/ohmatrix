@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using OhMatrix.Core.Model;
+using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Overlays;
@@ -257,5 +259,143 @@ public class OverlayMotionTests {
         clock.Finish();
         Assert.NotNull(shade.Parent);
         Assert.True(menu.IsOpen);
+    }
+
+    // ------------------------------------------------------------- TopNotice
+
+    private sealed class NoEngine : IAuthEngine {
+        public Task<Session> LoginWithPassword(string homeserver,
+            string username, string password)
+        {
+            return Task.FromResult(new Session(homeserver, "@" + username, "D",
+                "T"));
+        }
+
+        public Task<Session> Register(string homeserver, string username,
+            string password, string? token)
+        {
+            return LoginWithPassword(homeserver, username, password);
+        }
+
+        public Task Restore(Session session)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task Logout()
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class NoSessions : ISessionStore {
+        public Task<Session?> Load()
+        {
+            return Task.FromResult<Session?>(null);
+        }
+
+        public Task Save(Session session)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task Clear()
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private static (TopNotice Notice, AppController Controller) Noticed()
+    {
+        var controller = new AppController(new NoEngine(), new NoSessions());
+        controller.SetPreferences(p => p with {
+            Locale = "en"
+        });
+        var notice = new TopNotice(controller);
+        Open(new Grid {
+            Children = {
+                notice
+            }
+        });
+        return (notice, controller);
+    }
+
+    private static void Clear(AppController controller)
+    {
+        controller.Store.Update(s => s with {
+            Notice = null
+        });
+    }
+
+    [AvaloniaFact]
+    public void A_notice_comes_down_from_above_and_goes_up_again()
+    {
+        using var clock = new FrameClock();
+        var (notice, controller) = Noticed();
+        Assert.False(notice.IsVisible);
+
+        controller.ShowNotice("Joining", NoticeKind.Progress);
+        Assert.True(notice.IsVisible);
+        Assert.Equal("Joining", notice.Text);
+        Assert.Equal(0, notice.Opacity);
+        Assert.NotNull(notice.RenderTransform);
+        clock.Finish();
+        Assert.Equal(1, notice.Opacity);
+        Assert.Null(notice.RenderTransform);
+
+        Clear(controller);
+        // It says nothing at once, and is seen until it has gone.
+        Assert.Null(notice.Text);
+        Assert.True(notice.IsVisible);
+        clock.Finish();
+        Assert.False(notice.IsVisible);
+        Assert.Null(notice.Text);
+    }
+
+    [AvaloniaFact]
+    public void A_message_in_the_place_of_another_does_not_come_in_again()
+    {
+        using var clock = new FrameClock();
+        var (notice, controller) = Noticed();
+        controller.ShowNotice("Joining", NoticeKind.Progress);
+        clock.Finish();
+
+        controller.ShowNotice("Still joining", NoticeKind.Progress);
+        Assert.Equal("Still joining", notice.Text);
+        Assert.Equal(1, notice.Opacity);
+        Assert.Null(notice.RenderTransform);
+        Assert.False(clock.Waiting);
+    }
+
+    [AvaloniaFact]
+    public void A_message_that_comes_while_one_goes_brings_the_notice_back()
+    {
+        using var clock = new FrameClock();
+        var (notice, controller) = Noticed();
+        controller.ShowNotice("Joining", NoticeKind.Progress);
+        clock.Finish();
+        Clear(controller);
+        clock.Frame();
+        clock.Frame(48);
+
+        controller.ShowNotice("Again", NoticeKind.Progress);
+        Assert.Equal("Again", notice.Text);
+        clock.Finish();
+        // What was going is not hidden when its time is over.
+        Assert.True(notice.IsVisible);
+        Assert.Equal(1, notice.Opacity);
+        Assert.Equal("Again", notice.Text);
+    }
+
+    [AvaloniaFact]
+    public void A_notice_that_was_never_shown_is_not_made_to_go()
+    {
+        using var clock = new FrameClock();
+        var (notice, controller) = Noticed();
+        controller.SetPreferences(p => p with {
+            Theme = "dark"
+        });
+        Assert.False(notice.IsVisible);
+        Assert.False(clock.Waiting);
     }
 }
