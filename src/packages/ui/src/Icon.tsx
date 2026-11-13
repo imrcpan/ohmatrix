@@ -1,4 +1,4 @@
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 const PATHS = {
   back: "M15 5l-7 7 7 7",
@@ -26,6 +26,8 @@ const PATHS = {
   grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
   sort: "M8 4v16M8 4L4 8M8 4l4 4M16 20V4M16 20l-4-4M16 20l4-4",
   sticker: "M20 12V7a3 3 0 00-3-3H7a3 3 0 00-3 3v10a3 3 0 003 3h6l7-7zM20 12h-4a3 3 0 00-3 3v5M9 9.5h.01M15 9.5h.01M8.5 14a4 4 0 003 1",
+  // The face of the emoji button: its eyes are the solid dots of DOTS, heavier than the line.
+  stickerFace: "M20 12V7a3 3 0 00-3-3H7a3 3 0 00-3 3v10a3 3 0 003 3h6l7-7zM20 12h-4a3 3 0 00-3 3v5M8.5 14a4 4 0 003 1",
   gear: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z",
   user: "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
   users: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8",
@@ -88,6 +90,14 @@ export type IconName = keyof typeof PATHS;
 /** Line weight per icon. The three dots of "more" are drawn as round-capped points, so their stroke is their diameter: 2 reads as specks next to outlined icons. */
 const WEIGHT: Partial<Record<IconName, number>> = { more: 4.2, grip: 3.6 };
 
+/** Solid dots drawn over a glyph, each as [x, y, radius] on the grid of 24: for a dot that is to be heavier than the line. */
+const DOTS: Partial<Record<IconName, readonly (readonly [number, number, number])[]>> = {
+  stickerFace: [
+    [9, 9.5, 0.95],
+    [15, 9.5, 0.95],
+  ],
+};
+
 /** Solid glyphs (playback controls), as in Telegram and Apple's players: filled, with softened corners, not outlines. */
 const SOLID: ReadonlySet<IconName> = new Set<IconName>(["play", "pause", "stop"]);
 
@@ -125,6 +135,9 @@ export function Icon(props: { name: IconName; size?: number; color: string; stro
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {DOTS[props.name]?.map(([cx, cy, r]) => (
+        <Circle key={`${cx},${cy}`} cx={cx} cy={cy} r={r} fill={props.color} />
+      ))}
     </Svg>
   );
 }

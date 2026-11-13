@@ -952,7 +952,7 @@ export function Composer(props: {
                       backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                     })}
                   >
-                    <Icon name="sticker" size={32} strokeWidth={1.6} color={emojiOpen ? colors.accent : colors.textSecondary} />
+                    <Icon name="stickerFace" size={32} strokeWidth={1.4} color={emojiOpen ? colors.accent : colors.textSecondary} />
                   </Pressable>
                 </View>
               )}
@@ -1039,7 +1039,7 @@ export function Composer(props: {
                       backgroundColor: pressed ? colors.separator : hovered ? colors.hover : "transparent",
                     })}
                   >
-                    <Icon name="plusCircle" size={30} strokeWidth={1.6} color={attachOpen ? colors.accent : colors.textSecondary} />
+                    <Icon name="plusCircle" size={30} strokeWidth={1.4} color={attachOpen ? colors.accent : colors.textSecondary} />
                   </Pressable>
                 </View>
               )}
