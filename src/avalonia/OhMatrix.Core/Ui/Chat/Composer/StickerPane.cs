@@ -1050,11 +1050,9 @@ public sealed class StickerPane : Grid {
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 }));
-        tabs.Child = new ScrollViewer {
-            Content = row,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-        };
+        // The bar scrolls sideways when there are more groups than it holds: the
+        // scroll bar is always shown, and the wheel turns it.
+        tabs.Child = SideScroller.Make(row);
     }
 
     /// <summary>My sticker groups as tiles to choose one from (the default group first), each with its cover and its name.</summary>
