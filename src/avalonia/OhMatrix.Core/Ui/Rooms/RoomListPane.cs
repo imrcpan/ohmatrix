@@ -165,8 +165,18 @@ public sealed class RoomListPane : Grid {
         Children.Add(bar);
         Grid.SetRow(banner, 1);
         banner.IsVisible = false;
-        banner.Pressed += (_, _) =>
-            controller.OpenSidebarPage(SidebarPage.Encryption);
+        // The notice asks for its step in a prompt over the chats; with no one
+        // to ask, the page of the encryption is opened.
+        banner.Pressed += (_, _) => {
+            // Having been opened, the notice is not asked again.
+            RemindNoMore();
+            if (AskSecurity != null)
+                AskSecurity(controller.Store.Value.Security);
+            else
+                controller.OpenSidebarPage(SidebarPage.Encryption);
+        };
+        // Dismissed for good, until the advanced settings turn it on again.
+        banner.Dismissed += (_, _) => RemindNoMore();
         Children.Add(banner);
 
         var list = new StackPanel();
@@ -225,6 +235,18 @@ public sealed class RoomListPane : Grid {
     public PeoplePicker People { get; }
 
     /// <summary>The plus menu: a new chat, a new group, or joining a room.</summary>
+    // The notice is turned off in the settings; the advanced ones turn it on.
+    private void RemindNoMore()
+    {
+        if (!controller.Store.Value.Prefs.EncryptionReminderOff)
+            controller.SetPreferences(p => p with {
+                EncryptionReminderOff = true
+            });
+    }
+
+    /// <summary>Asks for the step of the encryption the notice stands for (a prompt of the window); null opens the page of the encryption.</summary>
+    public Action<SecurityState>? AskSecurity { get; set; }
+
     public void OpenAddMenu()
     {
         var window = TopLevel.GetTopLevel(this);
@@ -335,7 +357,9 @@ public sealed class RoomListPane : Grid {
 
         if (before == null || theme || language || font ||
             before.Profile != s.Profile || before.UserId != s.UserId ||
-            before.SyncState != s.SyncState || before.Security != s.Security)
+            before.SyncState != s.SyncState || before.Security != s.Security ||
+            before.Prefs.EncryptionReminderOff !=
+            s.Prefs.EncryptionReminderOff)
             ApplyHeader(s, before, c, font);
 
         // A timeline, typing or notice update does not walk the room list.
@@ -470,7 +494,7 @@ public sealed class RoomListPane : Grid {
         // not in the strip.
         var needs = s.Security is SecurityState.NeedsSetup
             or SecurityState.NeedsRecovery;
-        banner.IsVisible = needs && !Rail;
+        banner.IsVisible = needs && !Rail && !s.Prefs.EncryptionReminderOff;
         if (needs)
             banner.Set(
                 controller.T(s.Security == SecurityState.NeedsSetup
@@ -478,7 +502,8 @@ public sealed class RoomListPane : Grid {
                     : "sec.banner.recovery"),
                 controller.T(s.Security == SecurityState.NeedsSetup
                     ? "sec.action.setup"
-                    : "sec.action.verify"));
+                    : "sec.action.verify"),
+                controller.T("banner.dismiss"));
         bar.Padding = Rail
             ? new Thickness(0, 10, 0, 0)
             : new Thickness(12, 10, 12, 8);

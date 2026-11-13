@@ -121,6 +121,8 @@ public sealed class MainScreen : Grid {
         advancedPage = new AdvancedPage(controller);
         logPage = new LogPage(controller);
         encryptionPage = new EncryptionPage(controller);
+        // The notice over the chats asks in a prompt, not on the page.
+        list.AskSecurity = state => encryptionPage.Ask(state, this);
         spacePage = new SpacePage(controller);
         verifyDialog = new VerifyDialog(controller, this);
         callScreen = new CallScreen(controller);

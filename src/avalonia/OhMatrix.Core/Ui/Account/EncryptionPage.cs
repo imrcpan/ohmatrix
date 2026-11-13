@@ -66,6 +66,19 @@ public sealed class EncryptionPage : Grid {
         Modal = true
     };
 
+    // The page that asked for a prompt from outside, whose theme the prompts
+    // take; null when the page is in the window itself.
+    private Control? themed;
+
+    /// <summary>The prompt for the step the security is at: the password to set up, or the recovery key.</summary>
+    public void Ask(SecurityState state, Control scope)
+    {
+        if (state == SecurityState.NeedsSetup)
+            AskSetup(scope);
+        else
+            AskRecoveryKey(scope);
+    }
+
     /// <summary>The recovery key being shown, or null.</summary>
     public string? ShownKey { get; private set; }
 
@@ -89,7 +102,7 @@ public sealed class EncryptionPage : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
-        var c = ThemeScope.GetColors(this);
+        var c = ThemeScope.GetColors(themed ?? this);
         // The confirmation is a red capsule, the cancel a tinted one, both in a
         // row at the right, as the other dialogs.
         var go = new PrimaryButton {
@@ -148,12 +161,15 @@ public sealed class EncryptionPage : Grid {
     }
 
     /// <summary>Asks for the password to set the encryption up, then shows the recovery key to keep.</summary>
-    public void AskSetup()
+    public void AskSetup(Control? scope = null)
     {
-        var window = TopLevel.GetTopLevel(this);
+        // Asked from outside (the notice over the chats), where this page is not
+        // in the window: the asker gives the window and the theme.
+        themed = scope;
+        var window = TopLevel.GetTopLevel(scope ?? this);
         if (window == null)
             return;
-        SetupPrompt.Show(window, ThemeScope.GetColors(this),
+        SetupPrompt.Show(window, ThemeScope.GetColors(themed ?? this),
             controller.Store.Value.Locale,
             controller.T("sec.setup.title"), controller.T("sec.setup.body"),
             [new PromptField(controller.T("password"), "lock", false, true)],
@@ -167,7 +183,7 @@ public sealed class EncryptionPage : Grid {
     private void ShowKey(TopLevel window, string key)
     {
         ShownKey = key;
-        var c = ThemeScope.GetColors(this);
+        var c = ThemeScope.GetColors(themed ?? this);
         var copy = new PrimaryButton {
             Title = controller.T("sec.copy")
         };
@@ -203,7 +219,7 @@ public sealed class EncryptionPage : Grid {
 
     private void AskSaved(TopLevel window)
     {
-        var c = ThemeScope.GetColors(this);
+        var c = ThemeScope.GetColors(themed ?? this);
         var yes = new PrimaryButton {
             Title = controller.T("sec.confirm.yes")
         };
@@ -227,12 +243,13 @@ public sealed class EncryptionPage : Grid {
     }
 
     /// <summary>Asks for the recovery key to unlock the history of this device.</summary>
-    public void AskRecoveryKey()
+    public void AskRecoveryKey(Control? scope = null)
     {
-        var window = TopLevel.GetTopLevel(this);
+        themed = scope;
+        var window = TopLevel.GetTopLevel(scope ?? this);
         if (window == null)
             return;
-        RecoveryPrompt.Show(window, ThemeScope.GetColors(this),
+        RecoveryPrompt.Show(window, ThemeScope.GetColors(themed ?? this),
             controller.Store.Value.Locale,
             controller.T("sec.recovery.title"),
             controller.T("sec.recovery.body"),
@@ -246,7 +263,7 @@ public sealed class EncryptionPage : Grid {
 
     private void Apply()
     {
-        var c = ThemeScope.GetColors(this);
+        var c = ThemeScope.GetColors(themed ?? this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
         bar.BorderBrush = new SolidColorBrush(c.Separator);
@@ -273,7 +290,7 @@ public sealed class EncryptionPage : Grid {
         if (s.Security == SecurityState.NeedsSetup) {
             SetupRow = NavRows.Make(c, "key",
                 controller.T("sec.setup.title"),
-                AskSetup, 0, flat: true);
+                () => AskSetup(), 0, flat: true);
             content.Children.Add(SetupRow);
         }
 
@@ -288,7 +305,7 @@ public sealed class EncryptionPage : Grid {
         if (s.Security == SecurityState.NeedsRecovery) {
             RecoveryRow = NavRows.Make(c, "key",
                 controller.T("sec.recovery.title"),
-                AskRecoveryKey, 0, flat: true);
+                () => AskRecoveryKey(), 0, flat: true);
             content.Children.Add(RecoveryRow);
             VerifyRow = NavRows.Make(
                 c,

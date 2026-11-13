@@ -14,6 +14,7 @@ namespace OhMatrix.Core.Ui.Settings;
 public sealed class AdvancedPage : Grid {
     private readonly AppController controller;
     private readonly StackPanel content = new();
+    private readonly Toggle reminder = new();
 
     private readonly Border bar = new() {
         Height = 56,
@@ -39,6 +40,9 @@ public sealed class AdvancedPage : Grid {
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
+        reminder.Changed += on => controller.SetPreferences(p => p with {
+            EncryptionReminderOff = on
+        });
         Lifetime.Watch(this, controller, _ => Apply());
         Apply();
     }
@@ -53,5 +57,14 @@ public sealed class AdvancedPage : Grid {
         content.Children.Add(SettingsRows.Option(c, "file",
             controller.T("logs.view"),
             () => controller.OpenSidebarPage(SidebarPage.Logs)));
+        // The notice that asks to set up the encryption: while this is on it
+        // is not shown, and it asks again when this is turned off.
+        reminder.IsOn = controller.Store.Value.Prefs.EncryptionReminderOff;
+        Avalonia.Automation.AutomationProperties.SetName(reminder,
+            controller.T("encReminder.off"));
+        content.Children.Add(SettingsRows.Switch(c, "lock",
+            controller.T("encReminder.off"), reminder));
+        content.Children.Add(SettingsRows.Note(c,
+            controller.T("encReminder.footer")));
     }
 }

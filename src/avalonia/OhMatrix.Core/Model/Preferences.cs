@@ -21,6 +21,10 @@ public sealed record Preferences {
     public bool OwnBubbleAccent { get; init; } = true;
 
     public bool PushEnabled { get; init; } = true;
+
+    /// <summary>The notice over the chats that asks to set up or verify the encryption is not shown; pressing its buttons turns it on, and the advanced settings turn it off.</summary>
+    public bool EncryptionReminderOff { get; init; }
+
     public bool PullToRefresh { get; init; }
 
     /// <summary>The server last signed in to, offered again on the sign-in screen.</summary>
