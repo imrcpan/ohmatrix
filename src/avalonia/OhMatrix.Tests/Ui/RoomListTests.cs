@@ -932,7 +932,7 @@ public class RoomListTests {
         var room = controller.Store.Value.Rooms.First(r => r.Id == "!a");
         var row = screen.List.Rows.Children.Cast<RoomRow>()
             .First(r => r.RoomId == "!a");
-        screen.List.OpenRowMenu(row, room);
+        screen.List.OpenRowMenu(row, new Point(20, 12), room);
         Assert.Equal(3, screen.List.RowMenu.Rows.Count);
         Save(window, "row-menu");
         await controller.SetPinned("!a", true);

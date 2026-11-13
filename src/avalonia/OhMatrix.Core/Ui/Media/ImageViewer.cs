@@ -32,11 +32,19 @@ public sealed class ImageViewer : IOverlay {
 
     private OverlayLayer? layer;
 
+    private readonly SolidColorBrush backdrop =
+        new(Color.FromArgb(250, 0, 0, 0));
+
     private readonly Grid shade = new() {
-        Background = new SolidColorBrush(Color.FromArgb(250, 0, 0, 0)),
         Focusable = true,
         ClipToBounds = true,
     };
+
+    // The picture is on a stage that fills the window, and the stage is what
+    // comes from the thumbnail; the buttons and the title are on a layer of
+    // their own, which comes after the picture.
+    private readonly Grid stage = new();
+    private readonly Grid chrome = new();
 
     private readonly Image picture = new() {
         Stretch = Stretch.Uniform,
@@ -61,17 +69,30 @@ public sealed class ImageViewer : IOverlay {
     private Point? dragFrom;
     private Point dragStartOffset;
 
-    // The picture is moved by the person, so the viewer only fades.
+    // The window dims, and the picture comes from the thumbnail it was
+    // pressed on, as the picture of a chat is opened in Telegram; it goes
+    // back to it. The picture is zoomed and moved by the person, inside the
+    // stage.
     private readonly Presence presence;
+    private readonly Presence controls;
+
+    // The picture of the chat that is opened, while its place is taken by
+    // the one that flies: it is shown again when that has landed on it.
+    private Visual? lifted;
 
     public ImageViewer()
     {
-        presence = new Presence(shade);
+        shade.Background = backdrop;
+        presence = Presences.Cover(stage);
+        presence.Backdrop = backdrop;
+        controls = Presences.Controls(chrome);
         picture.RenderTransform = new TransformGroup {
             Children = [scale, move]
         };
         picture.RenderTransformOrigin = RelativePoint.Center;
-        shade.Children.Add(picture);
+        stage.Children.Add(picture);
+        shade.Children.Add(stage);
+        shade.Children.Add(chrome);
         var close = new IconButton("close", "Close", 26) {
             Tint = Colors.White,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -92,7 +113,7 @@ public sealed class ImageViewer : IOverlay {
                 _ = onSave();
         };
         ThemeScope.SetColors(saveButton, Themes.Resolve("dark", null).Colors);
-        shade.Children.Add(saveButton);
+        chrome.Children.Add(saveButton);
         var tools = new StackPanel {
             Orientation = Orientation.Horizontal,
             Spacing = 4,
@@ -114,12 +135,12 @@ public sealed class ImageViewer : IOverlay {
             tools.Children.Add(button);
         }
 
-        shade.Children.Add(tools);
+        chrome.Children.Add(tools);
         title.Margin = new Thickness(20, 12, 110, 0);
         title.VerticalAlignment = VerticalAlignment.Top;
         title.Height = 36;
-        shade.Children.Add(title);
-        shade.Children.Add(close);
+        chrome.Children.Add(title);
+        chrome.Children.Add(close);
 
         shade.PointerWheelChanged += (_, e) => {
             ZoomBy(e.Delta.Y > 0 ? 1.15 : 1 / 1.15, e.GetPosition(shade));
@@ -174,7 +195,7 @@ public sealed class ImageViewer : IOverlay {
 
     public void Show(TopLevel window, Pictures pictures, string source,
         string name,
-        IImage? preview, Func<Task>? save = null)
+        IImage? preview, Func<Task>? save = null, Visual? from = null)
     {
         Detach();
         onSave = save;
@@ -187,9 +208,20 @@ public sealed class ImageViewer : IOverlay {
         Reset();
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
+        stage.Width = shade.Width;
+        stage.Height = shade.Height;
+        Aim(window, from, preview);
         shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
         presence.Enter();
+        controls.Enter();
+        // What is pressed is taken out of the chat as the picture comes out
+        // of it.
+        if (from != null && presence.Solid) {
+            lifted = from;
+            from.Opacity = 0;
+        }
+
         shade.Focus();
         var size = (int)Math.Min(2048,
             Math.Max(window.ClientSize.Width, window.ClientSize.Height));
@@ -203,6 +235,15 @@ public sealed class ImageViewer : IOverlay {
         if (shade.Parent == null || presence.Leaving)
             return;
         shade.IsHitTestVisible = false;
+        // It goes back to where the picture is now, which is not where it
+        // was if the chat has moved.
+        if (lifted is Visual { } thumbnail && TopLevel.GetTopLevel(thumbnail) is
+                { } window)
+            Aim(window, thumbnail, picture.Source);
+        else
+            Aim(null, null, null);
+        controls.Leave(() => {
+        });
         presence.Leave(Remove);
     }
 
@@ -212,12 +253,52 @@ public sealed class ImageViewer : IOverlay {
     {
         dragFrom = null;
         presence.Cancel();
+        controls.Cancel();
         Remove();
     }
 
     private void Remove()
     {
+        if (lifted != null) {
+            lifted.Opacity = 1;
+            lifted = null;
+        }
+
         layer?.Children.Remove(shade);
+    }
+
+    private const double DefaultScale = 0.94;
+
+    // Where the picture comes from, and goes back to: the place of the
+    // thumbnail it was opened from, as a scale and a shift of the stage
+    // (the picture is in the middle of the window, as big as it can be).
+    // With no thumbnail it comes from a little less than its size.
+    private void Aim(TopLevel? window, Visual? from, IImage? preview)
+    {
+        presence.FromScale = DefaultScale;
+        presence.FromX = 0;
+        presence.FromY = 0;
+        presence.Solid = false;
+        if (window == null || from == null ||
+            from.TranslatePoint(new Point(0, 0), window) is not { } at)
+            return;
+        var size = from.Bounds.Size;
+        var whole = window.ClientSize;
+        if (size.Width < 1 || size.Height < 1 || whole.Width < 1 ||
+            whole.Height < 1)
+            return;
+        // The picture is as wide as the window, or as high.
+        var shape = preview is { Size: { Width: > 0, Height: > 0 } }
+            ? preview.Size.Width / preview.Size.Height
+            : size.Width / size.Height;
+        var fitted = shape >= whole.Width / whole.Height
+            ? new Size(whole.Width, whole.Width / shape)
+            : new Size(whole.Height * shape, whole.Height);
+        presence.FromScale = Math.Max(size.Width / fitted.Width,
+            size.Height / fitted.Height);
+        presence.FromX = at.X + size.Width / 2 - whole.Width / 2;
+        presence.FromY = at.Y + size.Height / 2 - whole.Height / 2;
+        presence.Solid = true;
     }
 
     /// <summary>Zooms by <paramref name="factor"/> keeping the point under <paramref name="at"/> where it is.</summary>

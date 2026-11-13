@@ -38,11 +38,17 @@ public sealed class VideoViewer : IOverlay {
     private MediaPlayer? player;
     private WriteableBitmap? bitmap;
 
+    private readonly SolidColorBrush backdrop =
+        new(Color.FromArgb(250, 0, 0, 0));
+
     private readonly Grid shade = new() {
-        Background = new SolidColorBrush(Color.FromArgb(250, 0, 0, 0)),
         Focusable = true,
         ClipToBounds = true,
     };
+
+    // What is on the backdrop: it comes from a little less than its size as
+    // the window dims.
+    private readonly Grid content = new();
 
     private readonly Image picture = new() {
         Stretch = Stretch.Uniform,
@@ -98,15 +104,17 @@ public sealed class VideoViewer : IOverlay {
 
     private int session;
 
-    // The backdrop and what is on it fade as a whole.
     private readonly Presence presence;
 
     public VideoViewer()
     {
-        presence = new Presence(shade);
-        shade.Children.Add(picture);
-        shade.Children.Add(status);
-        shade.Children.Add(title);
+        shade.Background = backdrop;
+        presence = Presences.Cover(content);
+        presence.Backdrop = backdrop;
+        shade.Children.Add(content);
+        content.Children.Add(picture);
+        content.Children.Add(status);
+        content.Children.Add(title);
         var close = new IconButton("close", "Close", 26) {
             Tint = Colors.White,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -116,7 +124,7 @@ public sealed class VideoViewer : IOverlay {
         close.Click += (_, _) => Close();
         ThemeScope.SetColors(close, Themes.Resolve("dark", null).Colors);
         ThemeScope.SetColors(toggle, Themes.Resolve("dark", null).Colors);
-        shade.Children.Add(close);
+        content.Children.Add(close);
 
         var bar = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
@@ -141,7 +149,7 @@ public sealed class VideoViewer : IOverlay {
         bar.Children.Add(toggle);
         bar.Children.Add(line);
         bar.Children.Add(time);
-        shade.Children.Add(bar);
+        content.Children.Add(bar);
 
         toggle.Click += (_, _) => Toggle();
         picture.PointerPressed += (_, e) => {
@@ -193,6 +201,8 @@ public sealed class VideoViewer : IOverlay {
         status.Text = "…";
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
+        content.Width = shade.Width;
+        content.Height = shade.Height;
         shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
         presence.Enter();

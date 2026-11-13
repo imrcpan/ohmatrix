@@ -6,6 +6,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
+using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
@@ -18,9 +20,7 @@ namespace OhMatrix.Core.Ui.Chat.Messages;
 /// not fit; the corner at the pointer stays tight, like a bubble's tail.
 /// </summary>
 public sealed class MessageMenu : IOverlay {
-    private const double MenuWidth = 240;
     private const double EmojiSize = 36;
-    private const double Row = 36;
     private const double Gap = 4;
     private const double Margin = 8;
 
@@ -32,7 +32,7 @@ public sealed class MessageMenu : IOverlay {
     public void Retire()
     {
         retired = true;
-        Close();
+        Detach();
     }
 
     private OverlayLayer? layer;
@@ -48,6 +48,13 @@ public sealed class MessageMenu : IOverlay {
     private readonly List<Control> rows = [];
     private readonly List<Control> emojiButtons = [];
 
+    // The bar of reactions and the list of actions each pop as the reference
+    // page's menu does (MenuPop), from the corner at the pointer. The reactions
+    // in the bar pop one after the other on their own springs.
+    private readonly List<MenuPop> pops = [];
+    private readonly List<Presence> popping = [];
+    private bool closing;
+
     public MessageMenu()
     {
         shade.Children.Add(column);
@@ -61,7 +68,8 @@ public sealed class MessageMenu : IOverlay {
         };
     }
 
-    public bool IsOpen => shade.Parent != null;
+    /// <summary>It is shown and not on its way out: a menu that is fading away has been closed.</summary>
+    public bool IsOpen => shade.Parent != null && !closing;
 
     /// <summary>The action rows as laid out now.</summary>
     public IReadOnlyList<Control> Rows => rows;
@@ -75,35 +83,24 @@ public sealed class MessageMenu : IOverlay {
         IReadOnlyCollection<string> active, Action<string> onEmoji,
         IReadOnlyList<MenuItem> actions)
     {
-        Close();
+        Detach();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer == null)
             return;
-        var dark = colors.Bg.R < 128;
-        var hover = dark
-            ? Color.FromArgb(26, 255, 255, 255)
-            : Color.FromArgb(15, 0, 0, 0);
-        var shadow = dark
-            ? new BoxShadows(new BoxShadow {
-                OffsetY = 6,
-                Blur = 22,
-                Color = Color.FromArgb(140, 0, 0, 0)
-            })
-            : new BoxShadows(new BoxShadow {
-                OffsetY = 4,
-                Blur = 18,
-                Color = Color.FromArgb(60, 0, 0, 0)
-            });
-        var surface = new SolidColorBrush(colors.BubbleIn);
-        var ink = new SolidColorBrush(colors.BubbleInText);
+        var hover = MenuStyle.Hover(colors);
+        var shadow = MenuStyle.Shadow(colors);
+        var surface = new SolidColorBrush(MenuStyle.Surface(colors));
+        var ink = new SolidColorBrush(MenuStyle.Ink(colors, false));
         column.Children.Clear();
         rows.Clear();
         emojiButtons.Clear();
+        var surfaces =
+            new List<(Control Surface, IReadOnlyList<Control> Items)>();
 
         var barWidth = emojis.Count * EmojiSize + 8;
-        var width = Math.Max(MenuWidth, barWidth);
+        var width = Math.Max(MenuStyle.Width, barWidth);
         var height = (emojis.Count > 0 ? EmojiSize + 8 + Gap : 0) +
-                     actions.Count * Row + 8;
+                     actions.Count * MenuStyle.Row + 8;
         var size = window.ClientSize;
         // Opens at the pointer, towards the free side: right/down by default, left/up when it would not fit.
         var toLeft = at.X + width > size.Width - Margin;
@@ -180,6 +177,7 @@ public sealed class MessageMenu : IOverlay {
                 Child = bar,
             };
             column.Children.Add(pill);
+            surfaces.Add((pill, []));
         }
 
         if (actions.Count > 0) {
@@ -187,7 +185,7 @@ public sealed class MessageMenu : IOverlay {
                 Margin = new Thickness(0, 2)
             };
             foreach (var item in actions) {
-                var color = item.Danger ? colors.Danger : colors.BubbleInText;
+                var color = MenuStyle.Ink(colors, item.Danger);
                 var line = new StackPanel {
                     Orientation = Orientation.Horizontal,
                     Spacing = 12,
@@ -208,7 +206,7 @@ public sealed class MessageMenu : IOverlay {
                     VerticalAlignment = VerticalAlignment.Center,
                 });
                 var row = new Border {
-                    Height = Row,
+                    Height = MenuStyle.Row,
                     Background = Brushes.Transparent,
                     Cursor = new Cursor(StandardCursorType.Hand),
                     Child = line,
@@ -233,8 +231,8 @@ public sealed class MessageMenu : IOverlay {
             // inner one clips the rows to the rounded corners. Clipping the
             // one that has the shadow would cut the shadow off.
             var corners = Tight(new CornerRadius(18));
-            column.Children.Add(new Border {
-                Width = MenuWidth,
+            var listSurface = new Border {
+                Width = MenuStyle.Width,
                 CornerRadius = corners,
                 Background = surface,
                 BoxShadow = shadow,
@@ -247,18 +245,73 @@ public sealed class MessageMenu : IOverlay {
                     ClipToBounds = true,
                     Child = list,
                 },
-            });
+            };
+            column.Children.Add(listSurface);
+            surfaces.Add((listSurface, rows));
         }
 
         Canvas.SetLeft(column, left);
         Canvas.SetTop(column, top);
         shade.Width = size.Width;
         shade.Height = size.Height;
+        shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
+        // Each surface grows from the corner at the pointer, the one that
+        // stays tight.
+        var corner = new RelativePoint(toLeft ? 1 : 0, above ? 1 : 0,
+            RelativeUnit.Relative);
+        foreach (var (control, items) in surfaces) {
+            var pop = new MenuPop(control);
+            pops.Add(pop);
+            pop.Open(items, corner);
+        }
+
+        for (var i = 0; i < emojiButtons.Count; i++) {
+            var pop = Presences.Pop(emojiButtons[i]);
+            popping.Add(pop);
+            pop.Enter(TimeSpan.FromMilliseconds(60 + 24 * Math.Min(i, 6)));
+        }
+
         shade.Focus();
     }
 
+    /// <summary>Closes it: the bar and the list shrink back and fade, and what is under it can be pressed at once.</summary>
     public void Close()
+    {
+        if (shade.Parent == null || closing)
+            return;
+        shade.IsHitTestVisible = false;
+        if (pops.Count == 0) {
+            Remove();
+            return;
+        }
+
+        closing = true;
+        var waiting = pops.Count;
+        foreach (var pop in pops)
+            pop.Close(() => {
+                if (--waiting > 0)
+                    return;
+                closing = false;
+                Remove();
+            });
+    }
+
+    // Takes it away without a motion: for a menu that is shown again at once
+    // and for a page that is thrown away.
+    private void Detach()
+    {
+        foreach (var pop in pops)
+            pop.Stop();
+        pops.Clear();
+        foreach (var pop in popping)
+            pop.Cancel();
+        popping.Clear();
+        closing = false;
+        Remove();
+    }
+
+    private void Remove()
     {
         layer?.Children.Remove(shade);
     }

@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 
@@ -29,7 +30,7 @@ public sealed class EmojiPicker : IOverlay {
     public void Retire()
     {
         retired = true;
-        Close();
+        Detach();
     }
 
     private OverlayLayer? layer;
@@ -82,8 +83,14 @@ public sealed class EmojiPicker : IOverlay {
         Padding = new Thickness(0, 4),
     };
 
+    // The picker grows from its bottom left corner, the one at the button it
+    // opens from.
+    private readonly Presence presence;
+
     public EmojiPicker()
     {
+        presence = Presences.Popup(surface);
+        presence.Origin = new RelativePoint(0, 1, RelativeUnit.Relative);
         var root = emojiRoot;
         root.RowDefinitions = new RowDefinitions("Auto,*,Auto");
         var top = new Border {
@@ -119,7 +126,8 @@ public sealed class EmojiPicker : IOverlay {
         };
     }
 
-    public bool IsOpen => shade.Parent != null;
+    /// <summary>It is shown and not on its way out: a picker that is fading away has been closed.</summary>
+    public bool IsOpen => shade.Parent != null && !presence.Leaving;
 
     /// <summary>The field that filters the emoji.</summary>
     public TextBox Search => search;
@@ -206,7 +214,7 @@ public sealed class EmojiPicker : IOverlay {
     private void Place(Control anchor, TopLevel window, double wanted,
         double tall)
     {
-        Close();
+        Detach();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer == null)
             return;
@@ -223,10 +231,29 @@ public sealed class EmojiPicker : IOverlay {
         Canvas.SetTop(surface, Math.Max(Margin, origin.Y - height - Margin));
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
+        shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
+        presence.Enter();
     }
 
+    /// <summary>Closes it: it fades away at once, and what is under it can be pressed.</summary>
     public void Close()
+    {
+        if (shade.Parent == null || presence.Leaving)
+            return;
+        shade.IsHitTestVisible = false;
+        presence.Leave(Remove);
+    }
+
+    // Takes it away without a motion: for a picker that is shown again at
+    // once and for a page that is thrown away.
+    private void Detach()
+    {
+        presence.Cancel();
+        Remove();
+    }
+
+    private void Remove()
     {
         layer?.Children.Remove(shade);
     }

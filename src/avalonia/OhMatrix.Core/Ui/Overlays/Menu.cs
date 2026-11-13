@@ -27,8 +27,6 @@ public sealed record MenuItem(
 /// (more when a long name goes on a second line), the checked one has a check mark, and the one under the pointer is tinted.
 /// </summary>
 public sealed class Menu : IOverlay {
-    private const double Row = 36;
-    private const double DefaultWidth = 220;
     private const double Margin = 8;
 
     // Set when the page that owns it is thrown away: an answer that comes
@@ -51,11 +49,11 @@ public sealed class Menu : IOverlay {
     // The outer border draws the shadow, which falls outside it; the inner one clips the rows to the rounded corners. Clipping the one that has the
     // shadow would cut the shadow off.
     private readonly Border surface = new() {
-        CornerRadius = new CornerRadius(12)
+        CornerRadius = new CornerRadius(MenuStyle.Corner)
     };
 
     private readonly Border clip = new() {
-        CornerRadius = new CornerRadius(12),
+        CornerRadius = new CornerRadius(MenuStyle.Corner),
         ClipToBounds = true
     };
 
@@ -70,17 +68,13 @@ public sealed class Menu : IOverlay {
         Margin = new Thickness(2)
     };
 
-    // The menu fades in while it grows a little from the corner it opens
-    // from, and is gone quickly: it is only asked a question of.
-    private readonly Presence presence;
+    // The menu pops as the reference page's button 1 does: it grows from the
+    // corner it opens from, and its rows come down one after the other.
+    private readonly MenuPop pop;
 
     public Menu()
     {
-        presence = new Presence(surface, surface) {
-            FromScale = 0.95,
-            EnterTime = Durations.Normal,
-            LeaveTime = Durations.Fast,
-        };
+        pop = new MenuPop(surface);
         scroller.Content = rows;
         clip.Child = scroller;
         surface.Child = clip;
@@ -103,10 +97,10 @@ public sealed class Menu : IOverlay {
     /// <summary>The right edge of the menu is the right edge of the anchor, not the left.</summary>
     public bool AlignRight { get; set; }
 
-    public double Width { get; set; } = DefaultWidth;
+    public double Width { get; set; } = MenuStyle.Width;
 
     /// <summary>It is shown and not on its way out: a menu that is fading away has been closed.</summary>
-    public bool IsOpen => shade.Parent != null && !presence.Leaving;
+    public bool IsOpen => shade.Parent != null && !pop.Closing;
 
     /// <summary>The menu itself.</summary>
     public Control Surface => surface;
@@ -124,25 +118,43 @@ public sealed class Menu : IOverlay {
     public void Show(Control anchor, TopLevel window,
         IReadOnlyList<MenuItem> items)
     {
-        var colors = ThemeScope.GetColors(anchor);
-        Build(anchor, items, colors);
-        surface.Width = Width;
-        clip.Background = new SolidColorBrush(colors.Bg);
-        surface.BoxShadow = Shadow(colors);
-
         var origin = anchor.TranslatePoint(new Point(0, 0), window) ??
                      new Point();
+        OpenAt(anchor, window, origin, anchor.Bounds.Width,
+            anchor.Bounds.Height, AlignRight, items);
+    }
+
+    /// <summary>
+    /// Opens the menu at a point of <paramref name="window"/>, the pointer of a right click: below the point, or above it when there is no
+    /// room, from its left edge. <paramref name="scope"/> is the control whose colours it takes.
+    /// </summary>
+    public void Show(Control scope, TopLevel window, Point at,
+        IReadOnlyList<MenuItem> items)
+    {
+        OpenAt(scope, window, at, 0, 0, false, items);
+    }
+
+    private void OpenAt(Control scope, TopLevel window, Point origin,
+        double anchorWidth, double anchorHeight, bool right,
+        IReadOnlyList<MenuItem> items)
+    {
+        var colors = ThemeScope.GetColors(scope);
+        Build(scope, items, colors);
+        surface.Width = Width;
+        clip.Background = new SolidColorBrush(MenuStyle.Surface(colors));
+        surface.BoxShadow = MenuStyle.Shadow(colors);
+
         var content = Measure(items.Count);
         var place = MenuPlacement.Place(
             origin.Y,
-            anchor.Bounds.Height,
+            anchorHeight,
             content,
             Up,
             Margin,
             window.ClientSize.Height - Margin
         );
-        var rawLeft = AlignRight
-            ? origin.X + anchor.Bounds.Width - Width
+        var rawLeft = right
+            ? origin.X + anchorWidth - Width
             : origin.X;
         var left = Math.Max(Margin,
             Math.Min(rawLeft, window.ClientSize.Width - Width - Margin));
@@ -151,38 +163,42 @@ public sealed class Menu : IOverlay {
             ? Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
             : Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
 
-        Detach();
+        // A menu that is shown again takes its place in the layer again, and
+        // keeps the motion it is in.
+        Remove();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
-        if (layer == null)
+        if (layer == null) {
+            pop.Stop();
             return;
+        }
+
         Canvas.SetLeft(surface, left);
         Canvas.SetTop(surface, place.Top);
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
-        // It grows from the corner at the anchor: the left or the right one,
-        // the top one when it opens below and the bottom one when above.
-        presence.Origin = new RelativePoint(AlignRight ? 1 : 0,
-            place.Top < origin.Y ? 1 : 0, RelativeUnit.Relative);
         shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
-        presence.Enter();
+        // It grows from the corner at the anchor or the pointer: the left or
+        // the right one, the top one when it opens below and the bottom one
+        // when above.
+        pop.Open(rows.Children, new RelativePoint(right ? 1 : 0,
+            place.Top < origin.Y ? 1 : 0, RelativeUnit.Relative));
         shade.Focus();
     }
 
-    /// <summary>Closes it: it fades away at once, and what is under it can be pressed.</summary>
+    /// <summary>Closes it: it shrinks back and fades, and what is under it can be pressed at once.</summary>
     public void Close()
     {
-        if (shade.Parent == null || presence.Leaving)
+        if (shade.Parent == null || pop.Closing)
             return;
         shade.IsHitTestVisible = false;
-        presence.Leave(Remove);
+        pop.Close(Remove);
     }
 
-    // Takes it away without a motion: for a menu that is shown again at once
-    // and for a page that is thrown away.
+    // Takes it away without a motion: for a page that is thrown away.
     private void Detach()
     {
-        presence.Cancel();
+        pop.Stop();
         Remove();
     }
 
@@ -194,7 +210,7 @@ public sealed class Menu : IOverlay {
     private double Measure(int count)
     {
         rows.Measure(new Size(Width, double.PositiveInfinity));
-        return Math.Max(rows.DesiredSize.Height + 4, count * Row + 4);
+        return Math.Max(rows.DesiredSize.Height + 4, count * MenuStyle.Row + 4);
     }
 
     private void Build(Control anchor, IReadOnlyList<MenuItem> items,
@@ -210,14 +226,12 @@ public sealed class Menu : IOverlay {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
-        var ink = item.Danger ? colors.Danger : colors.Text;
+        var ink = MenuStyle.Ink(colors, item.Danger);
         if (item.Icon != null) {
             var icon = new Icon {
                 Glyph = item.Icon,
                 Size = 18,
-                Color = new SolidColorBrush(item.Danger
-                    ? colors.Danger
-                    : colors.TextSecondary),
+                Color = new SolidColorBrush(ink),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0),
             };
@@ -247,19 +261,17 @@ public sealed class Menu : IOverlay {
         }
 
         var row = new Border {
-            MinHeight = Row,
+            MinHeight = MenuStyle.Row,
             Padding = new Thickness(14, 7),
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = new CornerRadius(MenuStyle.Corner),
             Background = Brushes.Transparent,
             Cursor = new Cursor(StandardCursorType.Hand),
             Child = grid,
         };
         Avalonia.Automation.AutomationProperties.SetName(row, item.Label);
         row.PointerEntered += (_, _) =>
-            row.Background = new SolidColorBrush(colors.Hover);
+            row.Background = new SolidColorBrush(MenuStyle.Hover(colors));
         row.PointerExited += (_, _) => row.Background = Brushes.Transparent;
-        row.PointerPressed += (_, _) =>
-            row.Background = new SolidColorBrush(colors.Separator);
         row.PointerReleased += (_, e) => {
             if (!new Rect(row.Bounds.Size).Contains(e.GetPosition(row)))
                 return;
@@ -268,30 +280,5 @@ public sealed class Menu : IOverlay {
             item.OnPress();
         };
         return row;
-    }
-
-    // "0 4px 18px rgba(0,0,0,0.16), 0 0 1px rgba(0,0,0,0.12)" in light, "0 6px 22px rgba(0,0,0,0.55)" in dark (popoverShadow of theme.tsx).
-    private static BoxShadows Shadow(ColorTokens colors)
-    {
-        var dark = colors.Bg.R < 128;
-        return dark
-            ? new BoxShadows(new BoxShadow {
-                OffsetY = 6,
-                Blur = 22,
-                Color = Color.FromArgb(140, 0, 0, 0)
-            })
-            : new BoxShadows(
-                new BoxShadow {
-                    OffsetY = 4,
-                    Blur = 18,
-                    Color = Color.FromArgb(41, 0, 0, 0)
-                },
-                [
-                    new BoxShadow {
-                        Blur = 1,
-                        Color = Color.FromArgb(31, 0, 0, 0)
-                    }
-                ]
-            );
     }
 }

@@ -1696,7 +1696,8 @@ public sealed partial class ChatPane : Grid {
             return;
         viewer.Show(window, controller.Pictures, image.Source, image.FileName,
             shown.Source,
-            () => controller.SavePicture(window, image.Source, image.FileName));
+            () => controller.SavePicture(window, image.Source, image.FileName),
+            shown);
     }
 
     private SendFilesDialog? sendFiles;

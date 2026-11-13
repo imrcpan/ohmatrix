@@ -3,10 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.VisualTree;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Chat.Composer;
+using OhMatrix.Core.Ui.Chat.Messages;
 using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Overlays;
 using Xunit;
@@ -34,9 +38,9 @@ public class OverlayMotionTests {
 
     // ---------------------------------------------------------------- Dialog
 
-    private static Control ShadeOf(Dialog dialog)
+    private static Grid ShadeOf(Dialog dialog)
     {
-        return (Control)dialog.Card.Parent!;
+        return (Grid)dialog.Card.Parent!;
     }
 
     private static void Show(Dialog dialog, Window window)
@@ -45,21 +49,27 @@ public class OverlayMotionTests {
     }
 
     [AvaloniaFact]
-    public void A_dialog_fades_in_and_its_card_grows()
+    public void A_dialog_dims_the_window_and_brings_its_card_down()
     {
         using var clock = new FrameClock();
         var dialog = new Dialog();
         Show(dialog, Open());
         var shade = ShadeOf(dialog);
+        var dim = (Brush)shade.Background!;
         Assert.True(dialog.IsOpen);
-        Assert.Equal(0, shade.Opacity);
+        // The window dims by itself and the card comes by itself: the shade
+        // that holds them is not faded.
+        Assert.Equal(1, shade.Opacity);
+        Assert.Equal(0, dim.Opacity);
+        Assert.Equal(0, dialog.Card.Opacity);
         Assert.NotNull(dialog.Card.RenderTransform);
-        Assert.Equal(1, dialog.Card.Opacity);
 
         clock.Finish();
         Assert.True(dialog.IsOpen);
-        Assert.Equal(1, shade.Opacity);
+        Assert.Equal(1, dim.Opacity);
+        Assert.Equal(1, dialog.Card.Opacity);
         Assert.Null(dialog.Card.RenderTransform);
+        Assert.Null(dialog.Card.CacheMode);
     }
 
     [AvaloniaFact]
@@ -137,11 +147,12 @@ public class OverlayMotionTests {
         Show(dialog, window);
         Assert.True(dialog.IsOpen);
         Assert.True(shade.IsHitTestVisible);
-        Assert.Equal(0, shade.Opacity);
+        Assert.Equal(0, dialog.Card.Opacity);
+        Assert.Equal(0, ((Brush)shade.Background!).Opacity);
         clock.Finish();
         // What was going is not taken away when its time is over.
         Assert.NotNull(shade.Parent);
-        Assert.Equal(1, shade.Opacity);
+        Assert.Equal(1, dialog.Card.Opacity);
         Assert.True(dialog.IsOpen);
     }
 
@@ -196,6 +207,8 @@ public class OverlayMotionTests {
         Assert.Equal(new RelativePoint(0, 0, RelativeUnit.Relative),
             menu.Surface.RenderTransformOrigin);
         Assert.Equal(0, menu.Surface.Opacity);
+        Assert.Equal(0.55, ((ScaleTransform)((TransformGroup)menu.Surface
+            .RenderTransform!).Children[0]).ScaleX);
         clock.Finish();
         Assert.Equal(1, menu.Surface.Opacity);
         Assert.Null(menu.Surface.RenderTransform);
@@ -237,9 +250,9 @@ public class OverlayMotionTests {
         Assert.False(menu.IsOpen);
         Assert.NotNull(shade.Parent);
         Assert.False(shade.IsHitTestVisible);
-        // A menu is gone sooner than a dialog.
+        // A menu is gone in about a seventh of a second.
         var took = clock.Finish();
-        Assert.InRange(took, 0, 116);
+        Assert.InRange(took, 90, 250);
         Assert.Null(shade.Parent);
     }
 
@@ -260,6 +273,159 @@ public class OverlayMotionTests {
         clock.Finish();
         Assert.NotNull(shade.Parent);
         Assert.True(menu.IsOpen);
+    }
+
+    // ----------------------------------------------------------- MessageMenu
+
+    private static (MessageMenu Menu, Control Column, Control Shade) Reacting(
+        Window window, Point at, MessageMenu? shown = null)
+    {
+        var menu = shown ?? new MessageMenu();
+        menu.Show(window, Themes.Get("light")!.Colors, at,
+            ["\U0001F44D", "\U0001F602", "\U0001F64F"],
+            new HashSet<string>(), _ => {
+            }, [
+                new MenuItem("Copy", () => {
+                }, "copy"),
+            ]);
+        var shade = menu.Emojis[0].GetVisualAncestors().OfType<Canvas>()
+            .First();
+        return (menu, (Control)shade.Children[0], shade);
+    }
+
+    private static double ScaleOf(Control control)
+    {
+        return ((ScaleTransform)((TransformGroup)control.RenderTransform!)
+            .Children[0]).ScaleX;
+    }
+
+    [AvaloniaFact]
+    public void
+        A_message_menu_grows_from_the_pointer_and_its_reactions_pop_one_after_the_other()
+    {
+        using var clock = new FrameClock();
+        var window = Open();
+        var (menu, column, shade) = Reacting(window, new Point(100, 60));
+        // Opening right and down, the corner at the pointer is the top left.
+        Assert.Equal(new RelativePoint(0, 0, RelativeUnit.Relative),
+            column.RenderTransformOrigin);
+        Assert.Equal(0, column.Opacity);
+        Assert.All(menu.Emojis, e => {
+            Assert.Equal(0, e.Opacity);
+            Assert.Equal(0.15, ScaleOf(e));
+        });
+
+        clock.Frame();
+        for (var i = 0; i < 6; i++)
+            clock.Frame();
+        // 96 ms on: the first has been coming for 36 ms, the second for 12,
+        // and the third has not started.
+        var (first, second, third) = (menu.Emojis[0].Opacity,
+            menu.Emojis[1].Opacity, menu.Emojis[2].Opacity);
+        Assert.True(first > second && second > third && third == 0,
+            $"{first} {second} {third}");
+
+        var biggest = 0.0;
+        clock.Finish(() => {
+            if (menu.Emojis[0].RenderTransform != null)
+                biggest = Math.Max(biggest, ScaleOf(menu.Emojis[0]));
+        });
+        // A reaction goes past its size and settles.
+        Assert.InRange(biggest, 1.03, 1.2);
+        Assert.All(menu.Emojis, e => {
+            Assert.Equal(1, e.Opacity);
+            Assert.Null(e.RenderTransform);
+            Assert.Null(e.CacheMode);
+        });
+        Assert.Equal(1, column.Opacity);
+        Assert.Null(column.RenderTransform);
+
+        menu.Close();
+        Assert.False(menu.IsOpen);
+        Assert.NotNull(shade.Parent);
+        Assert.False(shade.IsHitTestVisible);
+        clock.Finish();
+        Assert.Null(shade.Parent);
+    }
+
+    [AvaloniaFact]
+    public void
+        A_message_menu_near_the_corner_of_the_window_grows_from_that_corner()
+    {
+        using var clock = new FrameClock();
+        var (menu, column, _) = Reacting(Open(), new Point(450, 380));
+        // It opens left and up, so the corner at the pointer is the bottom right.
+        Assert.Equal(new RelativePoint(1, 1, RelativeUnit.Relative),
+            column.RenderTransformOrigin);
+        clock.Finish();
+        menu.Close();
+        clock.Finish();
+    }
+
+    [AvaloniaFact]
+    public void
+        A_message_menu_shown_again_while_it_goes_stays_and_starts_afresh()
+    {
+        using var clock = new FrameClock();
+        var window = Open();
+        var (menu, _, shade) = Reacting(window, new Point(100, 60));
+        clock.Finish();
+        menu.Close();
+        clock.Frame();
+        clock.Frame(32);
+
+        var (_, column, next) = Reacting(window, new Point(100, 60), menu);
+        Assert.Same(shade, next);
+        Assert.True(menu.IsOpen);
+        Assert.Equal(0, column.Opacity);
+        Assert.All(menu.Emojis, e => Assert.Equal(0, e.Opacity));
+        clock.Finish();
+        // What was going is not taken away when its time is over.
+        Assert.True(menu.IsOpen);
+        Assert.NotNull(next.Parent);
+        Assert.Equal(1, column.Opacity);
+    }
+
+    // ---------------------------------------------------------- EmojiPicker
+
+    [AvaloniaFact]
+    public void
+        The_emoji_picker_grows_from_its_bottom_left_corner_and_goes_when_it_has_faded()
+    {
+        using var clock = new FrameClock();
+        var anchor = new Border {
+            Width = 40,
+            Height = 40,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
+            Margin = new Thickness(20, 0, 0, 20),
+        };
+        var window = Open(new Grid {
+            Children = {
+                anchor
+            }
+        });
+        window.UpdateLayout();
+        var picker = new EmojiPicker();
+        picker.Show(anchor, window, Themes.Get("light")!.Colors, [], "Search",
+            _ => {
+            });
+        var shade = picker.Search.GetVisualAncestors().OfType<Canvas>().First();
+        var surface = (Control)shade.Children[0];
+        Assert.True(picker.IsOpen);
+        Assert.Equal(new RelativePoint(0, 1, RelativeUnit.Relative),
+            surface.RenderTransformOrigin);
+        Assert.Equal(0, surface.Opacity);
+        clock.Finish();
+        Assert.Equal(1, surface.Opacity);
+        Assert.Null(surface.RenderTransform);
+
+        picker.Close();
+        Assert.False(picker.IsOpen);
+        Assert.NotNull(shade.Parent);
+        Assert.False(shade.IsHitTestVisible);
+        clock.Finish();
+        Assert.Null(shade.Parent);
     }
 
     // ------------------------------------------------------------- TopNotice
@@ -340,7 +506,17 @@ public class OverlayMotionTests {
         Assert.Equal("Joining", notice.Text);
         Assert.Equal(0, notice.Opacity);
         Assert.NotNull(notice.RenderTransform);
-        clock.Finish();
+        // It starts above the edge of the window, and comes past its place
+        // a little before it settles.
+        var group = (TransformGroup)notice.RenderTransform!;
+        Assert.Equal(-56, ((TranslateTransform)group.Children[1]).Y);
+        var lowest = double.MinValue;
+        clock.Finish(() => {
+            if (notice.RenderTransform is TransformGroup { } g)
+                lowest = Math.Max(lowest,
+                    ((TranslateTransform)g.Children[1]).Y);
+        });
+        Assert.InRange(lowest, 1, 4);
         Assert.Equal(1, notice.Opacity);
         Assert.Null(notice.RenderTransform);
 
@@ -415,6 +591,13 @@ public class OverlayMotionTests {
         }
     }
 
+    // The stage that holds the picture, and the shade that holds the stage.
+    private static (Control Stage, Control Shade) Layers(ImageViewer viewer)
+    {
+        var stage = (Control)viewer.Picture.Parent!;
+        return (stage, (Control)stage.Parent!);
+    }
+
     [AvaloniaFact]
     public void The_image_viewer_fades_in_and_goes_when_it_has_faded()
     {
@@ -423,14 +606,16 @@ public class OverlayMotionTests {
         var viewer = new ImageViewer();
         viewer.Show(window, new Pictures(new NoMedia()), "mxc://x", "a.png",
             null);
-        var shade = (Control)viewer.Picture.Parent!;
+        var (stage, shade) = Layers(viewer);
         Assert.True(viewer.IsOpen);
-        Assert.Equal(0, shade.Opacity);
-        // The picture is moved by the person: no transform of the viewer is
-        // put on it.
+        // With no thumbnail to come from the picture grows a little as it
+        // fades in.
+        Assert.Equal(0, stage.Opacity);
+        Assert.NotNull(stage.RenderTransform);
         Assert.Equal(1, viewer.Zoom);
         clock.Finish();
-        Assert.Equal(1, shade.Opacity);
+        Assert.Equal(1, stage.Opacity);
+        Assert.Null(stage.RenderTransform);
 
         viewer.Close();
         Assert.False(viewer.IsOpen);
@@ -448,7 +633,7 @@ public class OverlayMotionTests {
         var pictures = new Pictures(new NoMedia());
         var viewer = new ImageViewer();
         viewer.Show(window, pictures, "mxc://x", "a.png", null);
-        var shade = (Control)viewer.Picture.Parent!;
+        var (_, shade) = Layers(viewer);
         clock.Finish();
         viewer.Close();
         clock.Frame();
@@ -461,6 +646,109 @@ public class OverlayMotionTests {
         Assert.True(viewer.IsOpen);
     }
 
+    private static (Window Window, Border Thumbnail, Grid Root) Chat()
+    {
+        var thumbnail = new Border {
+            Width = 100,
+            Height = 60,
+            Margin = new Thickness(40),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Background = Brushes.Gray,
+        };
+        var root = new Grid {
+            Children = {
+                thumbnail
+            }
+        };
+        var window = Open(root);
+        window.UpdateLayout();
+        return (window, thumbnail, root);
+    }
+
+    [AvaloniaFact]
+    public void An_image_flies_out_of_its_thumbnail_and_back_into_it()
+    {
+        using var clock = new FrameClock();
+        var (window, thumbnail, _) = Chat();
+        var viewer = new ImageViewer();
+        viewer.Show(window, new Pictures(new NoMedia()), "mxc://x", "a.png",
+            null, null, thumbnail);
+        var (stage, shade) = Layers(viewer);
+
+        // The thumbnail is taken out of the chat as the picture, which is
+        // whole from the first frame, comes out of it: it starts as big as
+        // the thumbnail is, where the thumbnail is.
+        Assert.Equal(0, thumbnail.Opacity);
+        Assert.Equal(1, stage.Opacity);
+        var group = (TransformGroup)stage.RenderTransform!;
+        // 100 x 60 against a 480 x 400 window: the picture is 480 wide.
+        Assert.Equal(100 / 480.0, ((ScaleTransform)group.Children[0]).ScaleX,
+            6);
+        Assert.Equal(40 + 50 - 240,
+            ((TranslateTransform)group.Children[1]).X, 6);
+        Assert.Equal(40 + 30 - 200,
+            ((TranslateTransform)group.Children[1]).Y, 6);
+
+        clock.Finish(() => Assert.Equal(1, stage.Opacity));
+        Assert.Null(stage.RenderTransform);
+        Assert.Equal(0, thumbnail.Opacity);
+        Assert.True(viewer.IsOpen);
+
+        viewer.Close();
+        Assert.False(viewer.IsOpen);
+        // It goes back whole, and the thumbnail is shown again only when it
+        // has landed on it.
+        clock.Finish(() => {
+            if (shade.Parent != null) {
+                Assert.Equal(1, stage.Opacity);
+                Assert.Equal(0, thumbnail.Opacity);
+            }
+        });
+        Assert.Null(shade.Parent);
+        Assert.Equal(1, thumbnail.Opacity);
+    }
+
+    [AvaloniaFact]
+    public void An_image_whose_thumbnail_is_gone_goes_the_usual_way()
+    {
+        using var clock = new FrameClock();
+        var (window, thumbnail, root) = Chat();
+        var viewer = new ImageViewer();
+        viewer.Show(window, new Pictures(new NoMedia()), "mxc://x", "a.png",
+            null, null, thumbnail);
+        var (stage, shade) = Layers(viewer);
+        clock.Finish();
+        Assert.Equal(0, thumbnail.Opacity);
+
+        // The chat was rebuilt while the picture was open.
+        root.Children.Remove(thumbnail);
+        viewer.Close();
+        clock.Frame();
+        clock.Frame(32);
+        // It fades, as a picture with no thumbnail does.
+        Assert.InRange(stage.Opacity, 0.01, 0.99);
+        clock.Finish();
+        Assert.Null(shade.Parent);
+        Assert.Equal(1, thumbnail.Opacity);
+    }
+
+    [AvaloniaFact]
+    public void A_thumbnail_is_given_back_when_another_picture_is_shown()
+    {
+        using var clock = new FrameClock();
+        var (window, thumbnail, _) = Chat();
+        var pictures = new Pictures(new NoMedia());
+        var viewer = new ImageViewer();
+        viewer.Show(window, pictures, "mxc://x", "a.png", null, null,
+            thumbnail);
+        Assert.Equal(0, thumbnail.Opacity);
+        viewer.Show(window, pictures, "mxc://y", "b.png", null);
+        Assert.Equal(1, thumbnail.Opacity);
+        clock.Finish();
+        viewer.Retire();
+    }
+
     [AvaloniaFact]
     public async Task A_video_that_cannot_be_fetched_takes_the_viewer_away()
     {
@@ -470,9 +758,12 @@ public class OverlayMotionTests {
         await viewer.Show(window, new FileAttachment("x.mp4", 1, "mxc://s/x",
             "video/mp4", FileKind.Video), _ => Task.FromResult<string?>(null));
         Assert.False(viewer.IsOpen);
-        // Nothing of it was drawn, so nothing is faded: it is gone at once.
-        Assert.Null(((Control)viewer.Picture.Parent!).Parent);
-        clock.Finish();
-        Assert.Null(((Control)viewer.Picture.Parent!).Parent);
+        // Nothing of it was drawn, so there is nothing to fade: it is gone
+        // at its first frame.
+        var shade = viewer.Picture.Parent!.Parent!;
+        Assert.NotNull(shade.Parent);
+        clock.Frame();
+        Assert.Null(shade.Parent);
+        Assert.False(clock.Waiting);
     }
 }

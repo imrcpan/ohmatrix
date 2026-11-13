@@ -26,17 +26,14 @@ public sealed class TopNotice : Border {
             n.Apply());
     }
 
-    // The pill comes down a little from above as it fades in, and goes up
-    // again as it fades out.
+    // The pill comes down from above the edge of the window, with a small
+    // bounce, and goes up again.
     private readonly Presence presence;
 
     public TopNotice(AppController controller)
     {
         this.controller = controller;
-        presence = new Presence(this, this) {
-            FromScale = 0.94,
-            FromShift = -12,
-        };
+        presence = Presences.Banner(this);
         HorizontalAlignment = HorizontalAlignment.Center;
         VerticalAlignment = VerticalAlignment.Top;
         Margin = new Thickness(0, 12, 0, 0);

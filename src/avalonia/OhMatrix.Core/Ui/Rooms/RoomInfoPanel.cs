@@ -1372,7 +1372,8 @@ public sealed class RoomInfoPanel : Grid {
                             shown.FileName,
                             image.Source,
                             () => controller.SavePicture(window, shown.Source,
-                                shown.FileName));
+                                shown.FileName),
+                            image);
                 };
                 grid.Children.Add(cell);
             }

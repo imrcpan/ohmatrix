@@ -573,16 +573,17 @@ public sealed class RoomListPane : Grid {
 
     public Menu RowMenu { get; } = new();
 
-    /// <summary>The menu of a chat: pin, mute, and the unread mark.</summary>
-    public void OpenRowMenu(Control anchor, RoomSummary room)
+    /// <summary>The menu of a chat: pin, mute, and the unread mark. It opens at the pointer of the right click, <paramref name="at"/> in the row.</summary>
+    public void OpenRowMenu(Control row, Point at, RoomSummary room)
     {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
         var unread = room.MarkedUnread || room.UnreadCount > 0;
         RowMenu.Show(
-            anchor,
+            row,
             window,
+            row.TranslatePoint(at, window) ?? at,
             [
                 new MenuItem(controller.T(room.Pinned ? "unpin" : "pin"),
                     () => _ = controller.SetPinned(room.Id, !room.Pinned),
@@ -610,9 +611,9 @@ public sealed class RoomListPane : Grid {
         };
         var entry = new RoomEntry(room, row);
         // A reused row must act on the latest summary, not the one that made it.
-        row.MenuRequested += (_, _) => {
+        row.MenuRequested += (_, at) => {
             if (!entry.Room.Invite)
-                OpenRowMenu(row, entry.Room);
+                OpenRowMenu(row, at, entry.Room);
         };
         row.Click += (_, _) => {
             var current = entry.Room;

@@ -223,7 +223,8 @@ public sealed class SharedMediaView : StackPanel {
                         picture.FileName,
                         image.Source,
                         () => controller.SavePicture(window, picture.Source,
-                            picture.FileName));
+                            picture.FileName),
+                        image);
             };
         } else {
             cell.Child = new Icon {

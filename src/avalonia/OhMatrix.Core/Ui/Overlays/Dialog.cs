@@ -56,15 +56,13 @@ public sealed class Dialog : IOverlay {
         Spacing = 14
     };
 
-    // The backdrop fades and the card, as a part of it, grows a little as it
-    // comes; it fades out the same way, faster.
+    // The window dims, and a moment after it the card comes down a little
+    // from above; it goes the same way, faster.
     private readonly Presence presence;
 
     public Dialog()
     {
-        presence = new Presence(shade, card) {
-            FromScale = 0.95
-        };
+        presence = Presences.Dialog(card);
         card.Child = stack;
         shade.Children.Add(card);
         shade.PointerPressed += (_, e) => {
@@ -108,7 +106,9 @@ public sealed class Dialog : IOverlay {
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
         if (layer == null)
             return;
-        shade.Background = new SolidColorBrush(colors.Overlay);
+        var dim = new SolidColorBrush(colors.Overlay);
+        shade.Background = dim;
+        presence.Backdrop = dim;
         shade.Margin = new Thickness(0);
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
