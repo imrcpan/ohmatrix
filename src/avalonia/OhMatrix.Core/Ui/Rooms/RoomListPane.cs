@@ -201,6 +201,13 @@ public sealed class RoomListPane : Grid {
         DetachedFromVisualTree += (_, _) => ticker.Stop();
         Lifetime.Stop(this, ticker);
         plus.Click += (_, _) => OpenAddMenu();
+        // The right button opens it too.
+        plus.PointerPressed += (_, e) => {
+            if (!e.GetCurrentPoint(plus).Properties.IsRightButtonPressed)
+                return;
+            e.Handled = true;
+            OpenAddMenu();
+        };
         search.TextChanged += (_, _) => Apply();
         Lifetime.OwnAll(this, addMenu, prompt, People, RowMenu);
         Lifetime.Watch(this, controller, _ => Apply());
