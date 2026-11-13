@@ -24,6 +24,14 @@ public interface IChatSession : IDisposable {
     /// </summary>
     Task SendAttachment(string path, string mimeType, int? width, int? height);
 
+    /// <summary>
+    /// Sends a recording as a voice message, with the loudness of it (0 to 1) for drawing its waveform. An engine with no voice messages
+    /// sends it as a file.
+    /// </summary>
+    Task SendVoice(string path, string mimeType, TimeSpan duration,
+        IReadOnlyList<float> waveform) =>
+        SendAttachment(path, mimeType, null, null);
+
     /// <summary>Pins or unpins a message of the chat.</summary>
     Task SetPinned(string itemId, bool pinned);
 

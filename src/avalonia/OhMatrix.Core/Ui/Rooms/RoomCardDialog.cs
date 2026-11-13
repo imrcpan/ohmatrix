@@ -32,9 +32,11 @@ public sealed class RoomCardDialog : IOverlay {
 
 
     /// <summary>Opens the card of <paramref name="room"/>; Join closes it and calls <paramref name="join"/>.</summary>
-    public void Show(TopLevel window, PublicRoom room, Action join)
+    public void Show(TopLevel window, PublicRoom room, Action join,
+        Control? scope = null)
     {
-        var c = ThemeScope.GetColors(window);
+        // The theme is set on the page, not on the window.
+        var c = ThemeScope.GetColors(scope ?? window);
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
             Spacing = 2

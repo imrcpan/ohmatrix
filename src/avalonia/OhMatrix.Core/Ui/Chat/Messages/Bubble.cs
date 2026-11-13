@@ -357,7 +357,9 @@ public sealed class Bubble : Border {
             // An audio message plays in the card itself.
             audio = new AudioCard(clip, colors, mine, fg, meta, fetch!,
                 () => open(clip));
-            audio.Margin = new Thickness(0, 2, 0, hasText ? 4 : 14);
+            // The time of the message is drawn over the end of the card's own
+            // time line, so no room is left under it.
+            audio.Margin = new Thickness(0, 2, 0, hasText ? 4 : 0);
             stack.Children.Add(audio);
         } else if (file != null) {
             // A file: its icon on the accent, the name and the size.

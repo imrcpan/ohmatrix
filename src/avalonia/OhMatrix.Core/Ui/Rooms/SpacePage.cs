@@ -101,7 +101,7 @@ public sealed class SpacePage : Grid {
         var public_ = new PublicRoom(room.RoomId, room.Name, room.Topic, null,
             room.AvatarUrl,
             room.Members);
-        Card.Show(window, public_, () => _ = JoinChild(room));
+        Card.Show(window, public_, () => _ = JoinChild(room), this);
     }
 
     private RoomCardDialog? card;

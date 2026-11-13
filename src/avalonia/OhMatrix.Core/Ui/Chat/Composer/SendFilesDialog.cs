@@ -43,11 +43,13 @@ public sealed class SendFilesDialog : IOverlay {
                     : "send.files.file";
     }
 
-    public void Show(TopLevel window, IReadOnlyList<string> paths, Action send)
+    public void Show(TopLevel window, IReadOnlyList<string> paths, Action send,
+        Control? scope = null)
     {
         if (paths.Count == 0)
             return;
-        var c = ThemeScope.GetColors(window);
+        // The theme is set on the page, not on the window.
+        var c = ThemeScope.GetColors(scope ?? window);
         var sizes = paths
             .Select(p => File.Exists(p) ? new FileInfo(p).Length : 0).ToList();
         var list = new StackPanel {

@@ -277,6 +277,23 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        public async Task SendVoice(string path, string mimeType,
+            TimeSpan duration, IReadOnlyList<float> waveform)
+        {
+            try {
+                var size = (ulong)new System.IO.FileInfo(path).Length;
+                var upload =
+                    new UploadParameters(new UploadSource.File(path), null,
+                        null, null, null);
+                using var handle = timeline.SendVoiceMessage(upload,
+                    new AudioInfo(duration, size, mimeType),
+                    [.. waveform]);
+                await handle.Join();
+            } catch (Exception ex) when (ex is not EngineException) {
+                throw MatrixAuthEngine.Translate(ex);
+            }
+        }
+
         public async Task SetPinned(string itemId, bool pinned)
         {
             if (Event(itemId)?.EventOrTransactionId is not
@@ -567,6 +584,11 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                             audio.Content.Info?.Mimetype ?? "audio/mpeg",
                             FileKind.Audio,
                             audio.Content.Info?.Duration
+                            ?? audio.Content.Audio?.Duration,
+                            audio.Content.Voice != null,
+                            // The samples come as 0 to 1024.
+                            audio.Content.Audio?.Waveform
+                                .Select(w => w / 1024f).ToArray()
                         ),
                         MessageType.Video video => new FileAttachment(
                             video.Content.Filename,

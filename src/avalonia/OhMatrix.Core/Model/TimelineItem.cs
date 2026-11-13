@@ -80,7 +80,9 @@ public sealed record FileAttachment(
     string Source = "",
     string Mime = "",
     FileKind Kind = FileKind.File,
-    TimeSpan? Duration = null
+    TimeSpan? Duration = null,
+    bool Voice = false,
+    IReadOnlyList<float>? Waveform = null
 );
 
 /// <summary>

@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Shape = Avalonia.Controls.Shapes.Path;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Audio;
@@ -23,8 +25,12 @@ public sealed class RecordingDialog {
         HorizontalAlignment = HorizontalAlignment.Center,
     };
 
+    private readonly LevelMeter meter = new() {
+        HorizontalAlignment = HorizontalAlignment.Center
+    };
+
     private readonly Avalonia.Threading.DispatcherTimer ticker = new() {
-        Interval = TimeSpan.FromMilliseconds(200)
+        Interval = TimeSpan.FromMilliseconds(100)
     };
 
     private MediaRecorder? recorder;
@@ -35,8 +41,10 @@ public sealed class RecordingDialog {
         this.controller = controller;
         Lifetime.OnRelease(this, Dispose);
         ticker.Tick += (_, _) => {
-            if (recorder != null)
-                clock.Text = Format.Duration(recorder.Elapsed);
+            if (recorder == null)
+                return;
+            clock.Text = Format.Duration(recorder.Elapsed);
+            meter.Add(recorder.Level());
         };
         dialog.OnClose = Discard;
     }
@@ -49,13 +57,14 @@ public sealed class RecordingDialog {
     public static bool Available(bool video) => MediaRecorder.Available(video);
 
     /// <summary>Opens the dialog and starts recording; why it could not start is shown in the dialog.</summary>
-    public void Open(TopLevel window, bool video)
+    public void Open(TopLevel window, bool video, Control? scope = null)
     {
         // Thrown away with its page: the microphone is not opened for nobody.
         if (retired)
             return;
         Discard();
-        var c = ThemeScope.GetColors(window);
+        // The theme is set on the page, not on the window.
+        var c = ThemeScope.GetColors(scope ?? window);
         var rec = new MediaRecorder(video);
         var notice = new TextBlock {
             FontSize = 14,
@@ -64,8 +73,10 @@ public sealed class RecordingDialog {
             TextAlignment = TextAlignment.Center,
             IsVisible = false,
         };
-        clock.Foreground = new SolidColorBrush(c.Danger);
-        clock.Text = "● 0:00";
+        clock.Foreground = new SolidColorBrush(video ? c.Danger : c.Text);
+        clock.Text = video ? "● 0:00" : Format.Duration(TimeSpan.Zero);
+        meter.Color = new SolidColorBrush(c.Accent);
+        meter.Clear();
         sendButton = new PrimaryButton {
             Title = controller.T("record.send")
         };
@@ -91,11 +102,66 @@ public sealed class RecordingDialog {
         }
 
         dialog.Glyph = video ? "video" : "mic";
-        dialog.Show(window, c,
-            controller.T(video ? "record.video" : "record.voice"),
+        if (video) {
+            dialog.Modal = false;
+            dialog.Show(window, c, controller.T("record.video"),
+                controller.T("record.body"),
+                clock, notice,
+                sendButton, cancel);
+            return;
+        }
+
+        // A voice message: a large microphone with the loudness and the time
+        // under it, and the two buttons as wide as the dialog, half each. A
+        // press outside does not close it, as a recording is not to be lost
+        // by one.
+        var mic = Microphone(new SolidColorBrush(c.Accent));
+        var buttons = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            ColumnSpacing = 8,
+            Margin = new Thickness(0, 6, 0, 4),
+        };
+        buttons.Children.Add(sendButton);
+        Grid.SetColumn(cancel, 1);
+        buttons.Children.Add(cancel);
+        dialog.Modal = true;
+        dialog.Show(window, c, controller.T("record.voice"),
             controller.T("record.body"),
-            clock, notice,
-            sendButton, cancel);
+            mic, clock, meter, notice, buttons);
+    }
+
+    // The large microphone: a capsule, the arc round it and its stand, drawn
+    // on a 512 grid with a line of 32, round at the ends.
+    private static Control Microphone(IBrush color)
+    {
+        Shape Line(string data) => new() {
+            Data = Geometry.Parse(data),
+            Stroke = color,
+            StrokeThickness = 32,
+            StrokeLineCap = PenLineCap.Round,
+            StrokeJoin = PenLineJoin.Round,
+        };
+
+        var canvas = new Canvas {
+            Width = 512,
+            Height = 512
+        };
+        canvas.Children.Add(Line("M192 448h128"));
+        canvas.Children.Add(Line(
+            "M384 208v32c0 70.4-57.6 128-128 128h0c-70.4 0-128-57.6-128-128v-32"));
+        canvas.Children.Add(Line("M256 368v80"));
+        canvas.Children.Add(new Shape {
+            Data = Geometry.Parse(
+                "M256 320a78.83 78.83 0 0 1-56.55-24.1A80.89 80.89 0 0 1 176 239V128a79.69 79.69 0 0 1 80-80c44.86 0 80 35.14 80 80v111c0 44.66-35.89 81-80 81z"),
+            Fill = color,
+        });
+        return new Viewbox {
+            Width = 88,
+            Height = 88,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 8, 0, 0),
+            Child = canvas,
+        };
     }
 
     /// <summary>Ends the recording and sends it to the chat.</summary>
@@ -105,16 +171,24 @@ public sealed class RecordingDialog {
             return;
         recorder = null;
         ticker.Stop();
-        var done = await rec.Stop();
+        // The dialog goes at once; the file is closed behind it.
         dialog.OnClose = null;
         dialog.Close();
         dialog.OnClose = Discard;
+        var done = await rec.Stop();
         if (done == null)
             return;
         Ops.Start("send recording");
         try {
-            if (done.Duration >= TimeSpan.FromMilliseconds(500))
-                await controller.SendAttachment(done.Path);
+            if (done.Duration >= TimeSpan.FromMilliseconds(500)) {
+                if (done.MimeType.StartsWith("audio/",
+                        StringComparison.Ordinal))
+                    await controller.SendVoice(done.Path, done.Duration,
+                        done.Waveform ?? []);
+                else
+                    await controller.SendAttachment(done.Path);
+            }
+
             Ops.Done("send recording");
         } catch (Exception e) {
             Ops.Fail("send recording", e);

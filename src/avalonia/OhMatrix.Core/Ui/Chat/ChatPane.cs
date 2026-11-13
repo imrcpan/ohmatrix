@@ -501,11 +501,11 @@ public sealed partial class ChatPane : Grid {
         bar.Margin = new Thickness(10, 8);
         Lifetime.Own(this, TextMenu.Attach(input, controller));
         Lifetime.Own(this, TextMenu.Attach(searchInput, controller));
-        mic.CornerRadius = new CornerRadius(0);
+        mic.CornerRadius = new CornerRadius(15);
         mic.Margin = new Thickness(6, 0, -8, 0);
         mic.Click += (_, _) => {
             if (TopLevel.GetTopLevel(this) is { } w)
-                recording.Open(w, false);
+                recording.Open(w, false, this);
         };
         Grid.SetColumn(mic, 1);
         var field = new Grid {
@@ -545,13 +545,16 @@ public sealed partial class ChatPane : Grid {
             e.Handled = true;
             Submit();
         };
-        input.KeyDown += (_, e) => {
+        // Caught on the way down: the box takes the Enter for a new line (it
+        // accepts returns) and marks it handled before a handler of ours that
+        // waits for it is called.
+        input.AddHandler(KeyDownEvent, (_, e) => {
             if (e.Key == Key.Enter &&
                 !e.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
                 e.Handled = true;
                 Submit();
             }
-        };
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         input.PropertyChanged += (_, e) => {
             if (e.Property == TextBox.TextProperty) {
                 // Only what the text changes is done for a key: the rest of
@@ -1731,7 +1734,7 @@ public sealed partial class ChatPane : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
-        SendFiles.Show(window, paths, () => _ = SendPaths(paths));
+        SendFiles.Show(window, paths, () => _ = SendPaths(paths), this);
     }
 
     private async Task SendPaths(IReadOnlyList<string> paths)
@@ -1789,11 +1792,11 @@ public sealed partial class ChatPane : Grid {
         };
         if (RecordingDialog.Available(false))
             items.Add(new MenuItem(controller.T("record.voice"),
-                () => recording.Open(window, false),
+                () => recording.Open(window, false, this),
                 Icon: "mic"));
         if (RecordingDialog.Available(true))
             items.Add(new MenuItem(controller.T("record.video"),
-                () => recording.Open(window, true),
+                () => recording.Open(window, true, this),
                 Icon: "video"));
         // Calls are for one-to-one chats, where this machine can make them.
         var s = controller.Store.Value;

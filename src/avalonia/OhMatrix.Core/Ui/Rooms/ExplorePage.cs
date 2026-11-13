@@ -192,7 +192,7 @@ public sealed class ExplorePage : Grid {
         JoinCard.Show(window, room, () => {
             _ = controller.JoinPublicRoom(room);
             controller.OpenSidebarPage(SidebarPage.Chats);
-        });
+        }, this);
     }
 
     private RoomCardDialog? card;

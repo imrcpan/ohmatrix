@@ -772,6 +772,15 @@ public sealed class AppController(
         await chat.SendAttachment(path, mime, width, height);
     }
 
+    /// <summary>Sends a recording to the open chat as a voice message. Failures are <see cref="EngineException"/>.</summary>
+    public async Task SendVoice(string path, TimeSpan duration,
+        IReadOnlyList<float> waveform)
+    {
+        if (chat == null)
+            return;
+        await chat.SendVoice(path, MimeTypes.For(path), duration, waveform);
+    }
+
     private ITimer? noticeTimer;
     private long noticeSerial;
 
