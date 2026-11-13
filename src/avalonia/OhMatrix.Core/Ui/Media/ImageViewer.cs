@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
@@ -26,7 +27,7 @@ public sealed class ImageViewer : IOverlay {
     public void Retire()
     {
         retired = true;
-        Close();
+        Detach();
     }
 
     private OverlayLayer? layer;
@@ -60,8 +61,12 @@ public sealed class ImageViewer : IOverlay {
     private Point? dragFrom;
     private Point dragStartOffset;
 
+    // The picture is moved by the person, so the viewer only fades.
+    private readonly Presence presence;
+
     public ImageViewer()
     {
+        presence = new Presence(shade);
         picture.RenderTransform = new TransformGroup {
             Children = [scale, move]
         };
@@ -155,7 +160,8 @@ public sealed class ImageViewer : IOverlay {
         };
     }
 
-    public bool IsOpen => shade.Parent != null;
+    /// <summary>It is shown and not on its way out: a viewer that is fading away has been closed.</summary>
+    public bool IsOpen => shade.Parent != null && !presence.Leaving;
 
     /// <summary>The zoom now: 1 is the picture fitted to the window.</summary>
     public double Zoom => zoom;
@@ -170,7 +176,7 @@ public sealed class ImageViewer : IOverlay {
         string name,
         IImage? preview, Func<Task>? save = null)
     {
-        Close();
+        Detach();
         onSave = save;
         saveButton.IsVisible = save != null;
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
@@ -181,17 +187,37 @@ public sealed class ImageViewer : IOverlay {
         Reset();
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
+        shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
+        presence.Enter();
         shade.Focus();
         var size = (int)Math.Min(2048,
             Math.Max(window.ClientSize.Width, window.ClientSize.Height));
         pictures.Attach(picture, source, size, size);
     }
 
+    /// <summary>Closes it: it fades away, and what is under it can be pressed at once.</summary>
     public void Close()
     {
-        layer?.Children.Remove(shade);
         dragFrom = null;
+        if (shade.Parent == null || presence.Leaving)
+            return;
+        shade.IsHitTestVisible = false;
+        presence.Leave(Remove);
+    }
+
+    // Takes it away without a motion: for a picture that is shown again at
+    // once and for a page that is thrown away.
+    private void Detach()
+    {
+        dragFrom = null;
+        presence.Cancel();
+        Remove();
+    }
+
+    private void Remove()
+    {
+        layer?.Children.Remove(shade);
     }
 
     /// <summary>Zooms by <paramref name="factor"/> keeping the point under <paramref name="at"/> where it is.</summary>

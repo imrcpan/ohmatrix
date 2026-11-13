@@ -7,6 +7,7 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
+using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Overlays;
 using Xunit;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
@@ -397,5 +398,66 @@ public class OverlayMotionTests {
         });
         Assert.False(notice.IsVisible);
         Assert.False(clock.Waiting);
+    }
+
+    // ----------------------------------------------------------- the viewers
+
+    private sealed class NoMedia : IMediaEngine {
+        public Task<string?> Download(string source, string fileName,
+            string mimeType)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        public Task<byte[]?> Thumbnail(string mxc, int width, int height)
+        {
+            return Task.FromResult<byte[]?>(null);
+        }
+    }
+
+    [AvaloniaFact]
+    public void The_image_viewer_fades_in_and_goes_when_it_has_faded()
+    {
+        using var clock = new FrameClock();
+        var window = Open();
+        var viewer = new ImageViewer();
+        viewer.Show(window, new Pictures(new NoMedia()), "mxc://x", "a.png",
+            null);
+        var shade = (Control)viewer.Picture.Parent!;
+        Assert.True(viewer.IsOpen);
+        Assert.Equal(0, shade.Opacity);
+        // The picture is moved by the person: no transform of the viewer is
+        // put on it.
+        Assert.Equal(1, viewer.Zoom);
+        clock.Finish();
+        Assert.Equal(1, shade.Opacity);
+
+        viewer.Close();
+        Assert.False(viewer.IsOpen);
+        Assert.NotNull(shade.Parent);
+        Assert.False(shade.IsHitTestVisible);
+        clock.Finish();
+        Assert.Null(shade.Parent);
+    }
+
+    [AvaloniaFact]
+    public void An_image_shown_again_while_the_viewer_goes_stays()
+    {
+        using var clock = new FrameClock();
+        var window = Open();
+        var pictures = new Pictures(new NoMedia());
+        var viewer = new ImageViewer();
+        viewer.Show(window, pictures, "mxc://x", "a.png", null);
+        var shade = (Control)viewer.Picture.Parent!;
+        clock.Finish();
+        viewer.Close();
+        clock.Frame();
+        clock.Frame(48);
+
+        viewer.Show(window, pictures, "mxc://y", "b.png", null);
+        Assert.True(viewer.IsOpen);
+        clock.Finish();
+        Assert.NotNull(shade.Parent);
+        Assert.True(viewer.IsOpen);
     }
 }
