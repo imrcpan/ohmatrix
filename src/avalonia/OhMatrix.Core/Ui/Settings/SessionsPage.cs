@@ -27,7 +27,11 @@ public sealed class SessionsPage : Grid {
     };
 
     private readonly StackPanel content = new();
-    private readonly PromptDialog confirm = new();
+
+    private readonly PromptDialog confirm = new() {
+        Warning = true
+    };
+
     private IReadOnlyList<DeviceInfo>? devices;
     private bool wasOpen;
     private TimeProvider time = TimeProvider.System;

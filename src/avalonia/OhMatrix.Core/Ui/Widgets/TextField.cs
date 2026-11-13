@@ -138,6 +138,17 @@ public sealed class TextField : Border {
         return box.Focus();
     }
 
+    /// <summary>
+    /// On a card of the secondary surface (a dialog) the box takes the hover tint over it, so that it is not the colour of the card it is on.
+    /// </summary>
+    public bool OnCard {
+        get;
+        set {
+            field = value;
+            Apply();
+        }
+    }
+
     protected override void OnAttachedToVisualTree(
         VisualTreeAttachmentEventArgs e)
     {
@@ -148,7 +159,7 @@ public sealed class TextField : Border {
     private void Apply()
     {
         var c = ThemeScope.GetColors(this);
-        Background = new SolidColorBrush(c.BgSecondary);
+        Background = new SolidColorBrush(OnCard ? c.Hover : c.BgSecondary);
         BorderBrush = box.IsFocused
             ? new SolidColorBrush(c.Accent)
             : Brushes.Transparent;

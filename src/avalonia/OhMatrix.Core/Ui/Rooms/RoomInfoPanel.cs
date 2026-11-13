@@ -41,7 +41,9 @@ public sealed class RoomInfoPanel : Grid {
     public RoomInfoPanel(AppController controller)
     {
         this.controller = controller;
-        Invite = new PeoplePicker(controller);
+        Invite = new PeoplePicker(controller) {
+            Glyph = "userPlus"
+        };
         RowDefinitions = new RowDefinitions("Auto,*");
         Children.Add(bar);
         var scroller = new ScrollViewer {
@@ -63,8 +65,15 @@ public sealed class RoomInfoPanel : Grid {
     }
 
     public StackPanel Content => content;
-    public PromptDialog EditPrompt { get; } = new();
-    public Dialog LeaveDialog { get; } = new();
+
+    public PromptDialog EditPrompt { get; } = new() {
+        Glyph = "edit"
+    };
+
+    public Dialog LeaveDialog { get; } = new() {
+        Warning = true
+    };
+
     public PeoplePicker Invite { get; }
     public Menu MemberMenu { get; } = new();
     public PromptDialog MemberPrompt { get; } = new();
@@ -241,6 +250,8 @@ public sealed class RoomInfoPanel : Grid {
                 controller.ShowNotice(e.Message, NoticeKind.Error);
             }
         };
+        MemberDialog.Warning = false;
+        MemberDialog.Glyph = "chat";
         MemberDialog.Show(window, c,
             controller.T("member.message.title", ("name", m.Name)),
             controller.T("member.message.body"), start, cancel);
@@ -280,6 +291,7 @@ public sealed class RoomInfoPanel : Grid {
                 controller.ShowNotice(e.Message, NoticeKind.Error);
             }
         };
+        MemberDialog.Warning = true;
         MemberDialog.Show(window, c,
             controller.T("member.block.title", ("name", m.Name)),
             controller.T("member.block.body"), block, cancel);
@@ -330,7 +342,7 @@ public sealed class RoomInfoPanel : Grid {
             return;
         EditPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            controller.T("room.editName"), "",
+            controller.T("room.editName"), controller.T("room.editName.body"),
             [new PromptField(controller.T("room.editName"), "users")],
             controller.T("save"),
             v => controller.SetRoomName(room.Id, v[0]));
@@ -345,7 +357,7 @@ public sealed class RoomInfoPanel : Grid {
             return;
         EditPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
-            controller.T("room.editTopic"), "",
+            controller.T("room.editTopic"), controller.T("room.editTopic.body"),
             [new PromptField(controller.T("room.editTopic"), "info", true)],
             controller.T("save"), v => controller.SetRoomTopic(room.Id, v[0]));
         EditPrompt.Fields[0].Text = topic ?? "";
@@ -401,6 +413,8 @@ public sealed class RoomInfoPanel : Grid {
         var mine = details?.Members.FirstOrDefault(x =>
             x.UserId == controller.Store.Value.UserId);
         var max = mine?.Power ?? 100;
+        MemberPrompt.Warning = false;
+        MemberPrompt.Glyph = "gear";
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("setLevel"),
@@ -483,6 +497,8 @@ public sealed class RoomInfoPanel : Grid {
         var body = controller.T($"role.confirm.{kind}.body");
         if (role == MemberRole.Admin)
             body += "\n\n" + controller.T("role.confirm.admin.warn");
+        MemberPrompt.Warning = false;
+        MemberPrompt.Glyph = "users";
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T($"role.confirm.{kind}.title"), body, [],
@@ -496,6 +512,7 @@ public sealed class RoomInfoPanel : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
+        MemberPrompt.Warning = true;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("removeMember.title", ("name", m.Name)),
@@ -511,6 +528,7 @@ public sealed class RoomInfoPanel : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
+        MemberPrompt.Warning = true;
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("ban.title", ("name", m.Name)),
@@ -1103,6 +1121,8 @@ public sealed class RoomInfoPanel : Grid {
         if (window == null)
             return;
         var server = ServerOf(controller.Store.Value.UserId ?? "");
+        MemberPrompt.Warning = false;
+        MemberPrompt.Glyph = "hash";
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("address.add"), controller.T("address.add.body"),
@@ -1147,6 +1167,8 @@ public sealed class RoomInfoPanel : Grid {
         if (d.Aliases.Count > 0 && d.Aliases[0] != alias)
             body += " " +
                     controller.T("address.main.old", ("alias", d.Aliases[0]));
+        MemberPrompt.Warning = false;
+        MemberPrompt.Glyph = "hash";
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("address.main.title"), body + "\n\n" + alias, [],
@@ -1166,6 +1188,7 @@ public sealed class RoomInfoPanel : Grid {
         var colors = ThemeScope.GetColors(this);
         var locale = controller.Store.Value.Locale;
         if (!sure) {
+            MemberPrompt.Warning = true;
             MemberPrompt.Show(window, colors, locale,
                 foreign
                     ? controller.T("address.unlist.title")
@@ -1194,6 +1217,7 @@ public sealed class RoomInfoPanel : Grid {
                     ? controller.T("address.remove.next",
                         ("alias", d.Aliases[1]))
                     : controller.T("address.remove.none")));
+        MemberPrompt.Warning = true;
         MemberPrompt.Show(window, colors, locale,
             foreign
                 ? controller.T("address.unlist.title2")
@@ -1228,6 +1252,8 @@ public sealed class RoomInfoPanel : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
+        MemberPrompt.Warning = false;
+        MemberPrompt.Glyph = "gear";
         MemberPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("level.customAction"),

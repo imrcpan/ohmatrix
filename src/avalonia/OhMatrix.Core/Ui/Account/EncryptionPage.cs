@@ -1,6 +1,7 @@
 using Avalonia.Input.Platform;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
@@ -51,11 +52,17 @@ public sealed class EncryptionPage : Grid {
         Apply();
     }
 
-    public PromptDialog RecoveryPrompt { get; } = new();
-    public PromptDialog SetupPrompt { get; } = new();
+    public PromptDialog RecoveryPrompt { get; } = new() {
+        Glyph = "key"
+    };
+
+    public PromptDialog SetupPrompt { get; } = new() {
+        Glyph = "lock"
+    };
 
     /// <summary>The dialog that shows the new recovery key, once.</summary>
     public Dialog KeyDialog { get; } = new() {
+        Glyph = "key",
         Modal = true
     };
 
@@ -72,7 +79,9 @@ public sealed class EncryptionPage : Grid {
     public Border? ResetRow { get; private set; }
 
     /// <summary>The warning before new keys are made.</summary>
-    public Dialog ResetDialog { get; } = new();
+    public Dialog ResetDialog { get; } = new() {
+        Warning = true
+    };
 
     /// <summary>Warns that new keys make the old recovery key useless, and goes on to the password.</summary>
     public void AskReset()
@@ -81,7 +90,9 @@ public sealed class EncryptionPage : Grid {
         if (window == null)
             return;
         var c = ThemeScope.GetColors(this);
-        var go = new TextButton {
+        // The confirmation is a red capsule, the cancel a tinted one, both in a
+        // row at the right, as the other dialogs.
+        var go = new PrimaryButton {
             Title = controller.T("keys.reset.confirm"),
             Danger = true
         };
@@ -95,16 +106,30 @@ public sealed class EncryptionPage : Grid {
             AskSetup();
         };
         cancel.Click += (_, _) => ResetDialog.Close();
+        // The warning is the second explanation of the dialog, in the format of
+        // the others and in the colour of danger.
         var warning = new TextBlock {
             Text = controller.T("keys.reset.warning"),
-            FontSize = 14,
+            FontSize = 16,
+            LineHeight = 21,
             Foreground = new SolidColorBrush(c.Danger),
             TextWrapping = TextWrapping.Wrap,
-            TextAlignment = TextAlignment.Center,
+            TextAlignment = TextAlignment.Left,
+            Margin = new Thickness(8, 0, 0, 0),
         };
-        ResetDialog.Show(window, c, controller.T("keys.reset"),
-            controller.T("keys.reset.body"),
-            warning, go, cancel);
+        var actions = new StackPanel {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 6, 0, 4),
+            Children = {
+                cancel,
+                go
+            },
+        };
+        // One explanation only: the red warning.
+        ResetDialog.Show(window, c, controller.T("keys.reset"), null,
+            warning, actions);
     }
 
     /// <summary>The row that asks my other sessions to verify this one; null when the state has no such step.</summary>

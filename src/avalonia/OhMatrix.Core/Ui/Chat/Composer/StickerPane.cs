@@ -360,6 +360,7 @@ public sealed class StickerPane : Grid {
         if (window == null)
             return;
         var (_, group, _) = Current();
+        prompt.Glyph = "edit";
         prompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("sticker.name.title"),
@@ -378,6 +379,7 @@ public sealed class StickerPane : Grid {
         if (window == null)
             return;
         var (groups, _, _) = Current();
+        prompt.Glyph = "plusCircle";
         prompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("sticker.group.new"),
@@ -443,8 +445,9 @@ public sealed class StickerPane : Grid {
         var colors = ThemeScope.GetColors(this);
         var (_, group, index) = Current();
         var title = Label(group, index);
+        dialog.Warning = true;
         dialog.Show(window, colors, controller.T("sticker.group.delete.title"),
-            null,
+            controller.T("sticker.group.delete.body"),
             Warning(controller.T("sticker.group.delete.a"),
                 controller.T("sticker.group.delete.b",
                     ("n", group.Stickers.Count)),
@@ -452,9 +455,10 @@ public sealed class StickerPane : Grid {
             Primary(controller.T("sticker.group.delete"), () => {
                 dialog.Close();
                 dialog.Modal = true;
+                dialog.Warning = true;
                 dialog.Show(window, colors,
                     controller.T("sticker.group.delete.title2"),
-                    null,
+                    controller.T("sticker.group.delete.2body"),
                     Warning(controller.T("sticker.group.delete.2a"),
                         controller.T("sticker.group.delete.2b", ("name", title),
                             ("n", group.Stickers.Count)),
@@ -475,6 +479,7 @@ public sealed class StickerPane : Grid {
         var window = Window;
         if (window == null)
             return;
+        dialog.Warning = true;
         dialog.Show(window, ThemeScope.GetColors(this),
             controller.T("sticker.remove.title"),
             controller.T("sticker.remove.body"),
@@ -560,7 +565,10 @@ public sealed class StickerPane : Grid {
             body = stack;
         }
 
-        dialog.Show(window, colors, controller.T("sticker.cover.title"), null,
+        dialog.Warning = false;
+        dialog.Glyph = "image";
+        dialog.Show(window, colors, controller.T("sticker.cover.title"),
+            controller.T("sticker.cover.body"),
             body);
 
         async Task FromDevice()

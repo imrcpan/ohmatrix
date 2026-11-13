@@ -12,6 +12,7 @@ namespace OhMatrix.Core.Storage;
 )]
 [JsonSerializable(typeof(Session))]
 [JsonSerializable(typeof(Preferences))]
+[JsonSerializable(typeof(Profile))]
 [JsonSerializable(typeof(StoredAccounts))]
 internal sealed partial class StorageJson : JsonSerializerContext;
 

@@ -52,6 +52,13 @@ public sealed class PeoplePicker : IOverlay {
     }
 
     public Dialog Dialog => dialog;
+
+    /// <summary>The icon of the dialog (see <see cref="Overlays.Dialog.Glyph"/>).</summary>
+    public string Glyph {
+        get => dialog.Glyph;
+        set => dialog.Glyph = value;
+    }
+
     public SearchField Field => search;
     public PrimaryButton ConfirmButton => confirm;
 

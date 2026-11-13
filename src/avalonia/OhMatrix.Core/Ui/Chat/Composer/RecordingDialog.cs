@@ -90,8 +90,10 @@ public sealed class RecordingDialog {
             clock.Text = "";
         }
 
+        dialog.Glyph = video ? "video" : "mic";
         dialog.Show(window, c,
-            controller.T(video ? "record.video" : "record.voice"), null,
+            controller.T(video ? "record.video" : "record.voice"),
+            controller.T("record.body"),
             clock, notice,
             sendButton, cancel);
     }

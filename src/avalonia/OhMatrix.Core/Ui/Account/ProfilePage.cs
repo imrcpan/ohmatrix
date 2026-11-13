@@ -51,7 +51,9 @@ public sealed class ProfilePage : Grid {
         Apply();
     }
 
-    public PromptDialog NamePrompt { get; } = new();
+    public PromptDialog NamePrompt { get; } = new() {
+        Glyph = "edit",
+    };
 
     /// <summary>The row that changes the name.</summary>
     public Border NameRow { get; private set; } = new();
@@ -94,7 +96,9 @@ public sealed class ProfilePage : Grid {
     /// <summary>The row that changes the status.</summary>
     public Border StatusRow { get; private set; } = new();
 
-    public PromptDialog StatusPrompt { get; } = new();
+    public PromptDialog StatusPrompt { get; } = new() {
+        Glyph = "edit"
+    };
 
     /// <summary>Asks for a new status line (up to 100 characters); a server without statuses says so.</summary>
     public void AskStatus()
@@ -104,7 +108,7 @@ public sealed class ProfilePage : Grid {
             return;
         var s = controller.Store.Value;
         StatusPrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
-            controller.T("status.edit"), "",
+            controller.T("status.edit"), controller.T("editStatus.body"),
             [
                 new PromptField(controller.T("status.placeholder"), "smile",
                     true)
@@ -131,7 +135,7 @@ public sealed class ProfilePage : Grid {
             return;
         var s = controller.Store.Value;
         NamePrompt.Show(window, ThemeScope.GetColors(this), s.Locale,
-            controller.T("editName"), "",
+            controller.T("editName"), controller.T("editName.body"),
             [new PromptField(controller.T("name"))], controller.T("save"),
             values => controller.SetDisplayName(values[0]));
         NamePrompt.Fields[0].Text = s.Profile?.DisplayName ?? "";
@@ -142,34 +146,6 @@ public sealed class ProfilePage : Grid {
     // The rows of the options of this page are closer than the 48 of the
     // rows of the other pages.
     private const double OptionHeight = 40;
-
-    // The title, and the cross at the top right of the card that closes it:
-    // no back arrow and no line under the bar.
-    private void FillBar(Theming.ColorTokens c)
-    {
-        var close = new IconButton("close", controller.T("cancel"), 22, 36) {
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0),
-        };
-        close.Click += (_, _) => controller.OpenSidebarPage(SidebarPage.Chats);
-        var title = new TextBlock {
-            Text = controller.T("profile"),
-            FontSize = 18,
-            FontWeight = Fonts.Bold,
-            Foreground = new SolidColorBrush(c.Text),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(26, 0, 0, 0),
-        };
-        Fonts.Center(title);
-        var row = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto")
-        };
-        row.Children.Add(title);
-        Grid.SetColumn(close, 1);
-        row.Children.Add(close);
-        bar.BorderThickness = new Thickness(0);
-        bar.Child = row;
-    }
 
     // The pill under the name (the React Native page's): a thin outline
     // that fills on hover and while pressed.
@@ -212,7 +188,8 @@ public sealed class ProfilePage : Grid {
         var c = ThemeScope.GetColors(this);
         var s = controller.Store.Value;
         Background = new SolidColorBrush(c.Bg);
-        FillBar(c);
+        PageBar.Close(bar, c, controller.T("profile"), controller.T("cancel"),
+            () => controller.OpenSidebarPage(SidebarPage.Chats));
 
         var id = s.UserId ?? "";
         var shown = s.Profile?.DisplayName is { Length: > 0 } dn

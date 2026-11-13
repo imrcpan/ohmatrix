@@ -50,7 +50,7 @@ public sealed class ExplorePage : Grid {
         this.controller = controller;
         RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*");
         Children.Add(bar);
-        search.Margin = new Thickness(12, 8);
+        search.Margin = new Thickness(12, 0, 12, 8);
         Grid.SetRow(search, 1);
         Children.Add(search);
         var scroller = new ScrollViewer {
@@ -97,7 +97,10 @@ public sealed class ExplorePage : Grid {
     public SearchField Field => search;
     public PromptDialog Confirm => confirm;
     public StackPanel Rows => rows;
-    public PromptDialog AddPrompt { get; } = new();
+
+    public PromptDialog AddPrompt { get; } = new() {
+        Glyph = "globe"
+    };
 
     /// <summary>The servers whose directory can be asked: matrix.org first, then the homeserver itself (null stands for it), then those added.</summary>
     public IReadOnlyList<(string? Server, string Name)> Servers()
@@ -222,7 +225,7 @@ public sealed class ExplorePage : Grid {
         Background = new SolidColorBrush(c.Bg);
         search.Placeholder = controller.T("explore.search");
         ThemeScope.SetColors(search, c);
-        PageBar.Fill(bar, c, controller.T("explore"), controller.T("chats"),
+        PageBar.Close(bar, c, controller.T("explore"), controller.T("cancel"),
             () => controller.OpenSidebarPage(SidebarPage.Chats));
         BuildServers(c);
         rows.Children.Clear();

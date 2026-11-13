@@ -1320,6 +1320,7 @@ public sealed class AppController(
                     Status = trimmed.Length == 0 ? null : trimmed
                 }
         });
+        Remember();
     }
 
     /// <summary>Changes my name; the profile shows the new one at once. Failures are <see cref="EngineException"/>.</summary>
@@ -1334,6 +1335,7 @@ public sealed class AppController(
                     DisplayName = trimmed
                 }
         });
+        Remember();
     }
 
     private async Task LoadProfile()
@@ -1342,12 +1344,39 @@ public sealed class AppController(
             return;
         try {
             var profile = await profiles.Load();
-            Post(() => Store.Update(s => s with {
-                Profile = profile
-            }));
+            Post(() => {
+                Store.Update(s => s with {
+                    Profile = profile
+                });
+                Remember();
+            });
         } catch (Exception) {
             // The name stays what it was until the next sign-in.
         }
+    }
+
+    // The name and the picture of the account are kept on this device, so
+    // that they show at once the next time the app starts for the same account.
+    private void Remember()
+    {
+        var profile = Store.Value.Profile;
+        if (profile == null || profile == Store.Value.Prefs.CachedProfile)
+            return;
+        SetPreferences(p => p with {
+            CachedProfile = profile
+        });
+    }
+
+    // Shown until the server's name and picture come, when they were kept for this account.
+    private void ShowCachedProfile()
+    {
+        var cached = Store.Value.Prefs.CachedProfile;
+        if (Store.Value.Profile != null || cached == null ||
+            cached.UserId != Store.Value.UserId)
+            return;
+        Store.Update(s => s with {
+            Profile = cached
+        });
     }
 
     // Right after sign-in the SDK has not found the keys of the account yet: the state is asked a few times.
@@ -1379,6 +1408,7 @@ public sealed class AppController(
 
     private void StartRooms()
     {
+        ShowCachedProfile();
         _ = LoadProfile();
         _ = WatchSecurity();
         _ = ListenForVerification();

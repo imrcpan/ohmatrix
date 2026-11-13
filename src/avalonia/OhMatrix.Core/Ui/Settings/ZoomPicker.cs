@@ -25,6 +25,7 @@ public sealed class ZoomPicker : IOverlay {
     private readonly TimeProvider time;
 
     private readonly Dialog dialog = new() {
+        Glyph = "zoomIn",
         Modal = true
     };
 

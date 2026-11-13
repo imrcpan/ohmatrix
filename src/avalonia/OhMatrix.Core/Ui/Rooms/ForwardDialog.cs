@@ -20,7 +20,11 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// </summary>
 public sealed class ForwardDialog : IOverlay {
     private readonly AppController controller;
-    private readonly Dialog dialog = new();
+
+    private readonly Dialog dialog = new() {
+        Glyph = "forward"
+    };
+
     private readonly SearchField filter = new();
     private readonly StackPanel list = new();
     private HashSet<string> picked = [];
@@ -294,7 +298,8 @@ public sealed class ForwardDialog : IOverlay {
         dialog.Show(window, c,
             confirming
                 ? controller.T("forward.confirm")
-                : controller.T("forward.title"), null,
+                : controller.T("forward.title"),
+            controller.T(confirming ? "forward.confirm.body" : "forward.body"),
             [.. content]);
     }
 

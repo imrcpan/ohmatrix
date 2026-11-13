@@ -25,7 +25,11 @@ public sealed class AccountsPage : Grid {
     private readonly Border bar = new();
     private readonly StackPanel content = new();
     private readonly Menu menu = new();
-    private readonly Dialog confirm = new();
+
+    private readonly Dialog confirm = new() {
+        Warning = true
+    };
+
     private bool reordering;
     private AccountManager? watched;
 

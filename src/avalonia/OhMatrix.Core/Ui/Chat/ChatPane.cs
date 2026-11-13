@@ -146,7 +146,9 @@ public sealed partial class ChatPane : Grid {
         Forwarding.Show(window, items, CancelSelect);
     }
 
-    private readonly Dialog groupDialog = new();
+    private readonly Dialog groupDialog = new() {
+        Glyph = "sticker"
+    };
 
     private readonly IconButton attach = new("plusCircle", "Attach", 30, 38) {
         StrokeWidth = 1.6
@@ -283,7 +285,11 @@ public sealed partial class ChatPane : Grid {
     private Dictionary<string, int> matchAt = [];
     private int current;
     private bool searching;
-    private readonly Dialog deleteDialog = new();
+
+    private readonly Dialog deleteDialog = new() {
+        Warning = true
+    };
+
     private readonly ImageViewer viewer = new();
     private readonly VideoViewer video = new();
     private string? editingId;
@@ -1327,7 +1333,7 @@ public sealed partial class ChatPane : Grid {
         };
         cancel.Click += (_, _) => groupDialog.Close();
         groupDialog.Show(window, colors, controller.T("sticker.add.where"),
-            null,
+            controller.T("sticker.add.where.body"),
             stickerPane.GroupChoice(id => {
                 groupDialog.Close();
                 _ = AddToStickers(item, id);
@@ -1423,7 +1429,10 @@ public sealed partial class ChatPane : Grid {
         pinnedBar.Cursor = new Cursor(StandardCursorType.Hand);
     }
 
-    private readonly Dialog pinnedDialog = new();
+    private readonly Dialog pinnedDialog = new() {
+        Glyph = "pin"
+    };
+
     public Dialog PinnedDialog => pinnedDialog;
 
     /// <summary>All the pinned messages of the chat, newest first, in a dialog; pressing one goes to it (<c>PinnedPage</c>).</summary>
@@ -1478,7 +1487,8 @@ public sealed partial class ChatPane : Grid {
         ThemeScope.SetColors(close, c);
         close.Click += (_, _) => pinnedDialog.Close();
         pinnedDialog.Show(window, c,
-            $"{controller.T("pinned.title")} · {ids.Count}", null,
+            $"{controller.T("pinned.title")} · {ids.Count}",
+            controller.T("pinned.body"),
             new ScrollViewer {
                 Content = rowsList,
                 MaxHeight = 360
@@ -1809,6 +1819,7 @@ public sealed partial class ChatPane : Grid {
         var roomId = controller.Store.Value.SelectedRoomId;
         if (roomId == null)
             return;
+        CallPrompt.Glyph = video ? "fluentVideo" : "fluentCall";
         CallPrompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T(video ? "call.video.ask" : "call.voice.ask"),

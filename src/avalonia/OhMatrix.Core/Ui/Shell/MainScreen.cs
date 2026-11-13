@@ -7,6 +7,7 @@ using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Account;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Chat;
 using OhMatrix.Core.Ui.Overlays;
@@ -87,6 +88,7 @@ public sealed class MainScreen : Grid {
     private readonly Grid profileHost = new();
     private readonly Border profileBackdrop = new();
     private readonly Border profileCard = new();
+    private readonly FallWindow profileFall;
 
     // Registered once for the type: a handler made in the constructor
     // stays in the property's observers for good and runs once for each
@@ -184,6 +186,7 @@ public sealed class MainScreen : Grid {
         profileCard.VerticalAlignment = VerticalAlignment.Center;
         profileHost.Children.Add(profileBackdrop);
         profileHost.Children.Add(profileCard);
+        profileFall = new FallWindow(profileBackdrop, profileCard);
         profileHost.IsVisible = false;
         profileHost.Focusable = true;
         profileHost.KeyDown += (_, e) => {
@@ -382,11 +385,13 @@ public sealed class MainScreen : Grid {
         // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
         infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
         infoNarrow.Showing = infoNarrow.IsVisible;
-        // What opens from the profile is a page of the left pane, whatever its width.
-        // The pages that open from it (the encryption, the accounts) are
-        // pages of the dialog, not of the sidebar.
-        var inProfile = s.SidebarPage is SidebarPage.Profile
-            or SidebarPage.Encryption or SidebarPage.Accounts;
+        // What opens from the profile is a dialog over the window, whatever
+        // its width. The pages that open from it (the encryption, the
+        // accounts) are pages of the dialog, not of the sidebar, and so is
+        // the explore page.
+        var inProfile = s.SidebarPage is SidebarPage.Profile or
+            SidebarPage.Encryption or SidebarPage.Accounts or
+            SidebarPage.Explore;
         var inSettings = SettingsContent(s.SidebarPage);
         // Settings open in their own window and leave the dialog as it is.
         if (inSettings == null)
@@ -396,16 +401,31 @@ public sealed class MainScreen : Grid {
             profileCard.Child = s.SidebarPage switch {
                 SidebarPage.Encryption => encryptionPage,
                 SidebarPage.Accounts => accountsPage,
+                SidebarPage.Explore => explorePage,
                 _ => profilePage,
             };
-        if (profileOpen && !profileHost.IsVisible)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                profileHost.Focus());
-        profileHost.IsVisible = profileOpen;
+        if (profileOpen) {
+            if (!profileHost.IsVisible)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    profileHost.Focus());
+            profileHost.IsVisible = true;
+            profileFall.Open(Bounds.Height, ProfileContent());
+        } else if (profileHost.IsVisible)
+            profileFall.Close(() => profileHost.IsVisible = false);
+
         profileBackdrop.Background = new SolidColorBrush(c.Overlay);
         profileCard.Background = new SolidColorBrush(c.Bg);
-        profileCard.Width = Math.Max(280, Math.Min(440, Bounds.Width - 32));
-        profileCard.Height = Math.Max(320, Math.Min(640, Bounds.Height - 48));
+        // The explore page is the width of the window, and its margin to the
+        // edges is the one it has above and below (24).
+        if (s.SidebarPage == SidebarPage.Explore) {
+            profileCard.Width = Math.Max(280, Bounds.Width - 48);
+            profileCard.Height = Math.Max(320, Bounds.Height - 48);
+        } else {
+            profileCard.Width = Math.Max(280, Math.Min(440, Bounds.Width - 32));
+            profileCard.Height =
+                Math.Max(320, Math.Min(640, Bounds.Height - 48));
+        }
+
         // Other pages (the profile, say) open over the chats and leave the
         // settings window as it is; it closes on its own close button.
         if (inSettings != null) {
@@ -419,7 +439,6 @@ public sealed class MainScreen : Grid {
         if (settingsWindow != null)
             ThemeScope.SetColors(settingsWindow, c);
         listHost.Child = s.SidebarPage switch {
-            SidebarPage.Explore => explorePage,
             SidebarPage.Space => spacePage,
             _ => strip ? Rail() : list,
         };
@@ -427,6 +446,10 @@ public sealed class MainScreen : Grid {
         wideChat.Showing = split && open;
         chipText.Text = Strings.T(s.Locale, "selectChat");
     }
+
+    // The pages in the dialog, as its items: they come in one after the other.
+    private IReadOnlyList<Control> ProfileContent() =>
+        profileCard.Child is Panel page ? [.. page.Children] : [];
 
     // The brushes are made again only when the colours are other ones.
     private void Paint(ColorTokens c)

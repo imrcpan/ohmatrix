@@ -62,4 +62,34 @@ public static class Curves {
     /// <c>cubic-bezier(.34, 1.56, .64, 1)</c>: it goes past its place by about a tenth (its progress peaks at 1.098) and comes back to it.
     /// </summary>
     public static Bezier Overshoot { get; } = new(0.34, 1.56, 0.64, 1);
+
+    /// <summary>
+    /// <c>cubic-bezier(.3, 1.25, .5, 1)</c>, the <c>--ease</c> of the pop-up window: a light overshoot, and a quick settle.
+    /// </summary>
+    public static Bezier Drop { get; } = new(0.3, 1.25, 0.5, 1);
+
+    /// <summary>CSS <c>cubic-bezier(.4, 0, .2, 1)</c>: the closing of the dialog, which goes steadily and stops gently.</summary>
+    public static Bezier EaseClose { get; } = new(0.4, 0, 0.2, 1);
+
+    // The overshoot of the dialog of the reference page, <c>--arc</c>: a
+    // <c>linear()</c> through these points, evenly spaced in time.
+    private static readonly double[] ArcPoints = [
+        0, .503, .863, 1.039, 1.075, 1.074, 1.072, 1.068, 1.064, 1.058,
+        1.052, 1.045, 1.038, 1.031, 1.024, 1.018, 1.012, 1.007, 1.003, 1.001, 1,
+    ];
+
+    /// <summary>
+    /// The progress of <c>--arc</c> at <paramref name="time"/>: it reaches its peak (1.075) at a fifth of the time and settles on 1 at the end.
+    /// </summary>
+    public static double Arc(double time)
+    {
+        if (time <= 0)
+            return 0;
+        if (time >= 1)
+            return 1;
+        var at = time * (ArcPoints.Length - 1);
+        var i = (int)Math.Floor(at);
+        var t = at - i;
+        return ArcPoints[i] + (ArcPoints[i + 1] - ArcPoints[i]) * t;
+    }
 }

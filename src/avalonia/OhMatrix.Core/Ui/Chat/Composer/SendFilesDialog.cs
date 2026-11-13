@@ -16,7 +16,10 @@ public sealed class SendFilesDialog : IOverlay {
     public const int MaxRows = 5;
 
     private readonly AppController controller;
-    private readonly Dialog dialog = new();
+
+    private readonly Dialog dialog = new() {
+        Glyph = "attach"
+    };
 
     public SendFilesDialog(AppController controller)
     {

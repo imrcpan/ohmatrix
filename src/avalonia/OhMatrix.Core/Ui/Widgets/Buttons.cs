@@ -106,6 +106,35 @@ public abstract class PressableButton : Border {
 
 /// <summary>The filled button of the screens (<c>PrimaryButton</c>): 50 high, grey when it cannot be pressed, dimmed with a ring while it works.</summary>
 public sealed class PrimaryButton : PressableButton {
+    /// <summary>In a dialog it is a capsule, as the buttons of the cards: bold 14 in a 14 corner.</summary>
+    public bool Capsule {
+        get;
+        set {
+            field = value;
+            Shape();
+            Refresh();
+        }
+    }
+
+    /// <summary>Red: the confirmation of a warning.</summary>
+    public bool Danger {
+        get;
+        set {
+            field = value;
+            Refresh();
+        }
+    }
+
+    private void Shape()
+    {
+        Height = Capsule ? double.NaN : 50;
+        CornerRadius = Capsule
+            ? new CornerRadius(14)
+            : new CornerRadius(Radius.Control + 2);
+        Padding = Capsule ? new Thickness(16, 6) : new Thickness(0);
+        label.FontSize = Capsule ? 14 : 17;
+    }
+
     private readonly TextBlock label = new() {
         FontSize = 17,
         FontWeight = Fonts.Bold,
@@ -146,7 +175,8 @@ public sealed class PrimaryButton : PressableButton {
     {
         var c = Colors;
         var grey = Disabled && !Loading;
-        Background = new SolidColorBrush(grey ? c.Separator : c.Accent);
+        Background = new SolidColorBrush(grey ? c.Separator
+            : Danger ? c.Danger : c.Accent);
         label.Foreground =
             new SolidColorBrush(grey ? c.TextSecondary : c.OnAccent);
         label.IsVisible = !Loading;
@@ -158,6 +188,27 @@ public sealed class PrimaryButton : PressableButton {
 
 /// <summary>The flat button with an accent label (<c>TextButton</c>): 40 high, a tint under the pointer.</summary>
 public sealed class TextButton : PressableButton {
+    /// <summary>In a dialog it is a capsule with a tint, as the Cancel of the cards.</summary>
+    public bool Capsule {
+        get;
+        set {
+            field = value;
+            Shape();
+            Refresh();
+        }
+    }
+
+    private void Shape()
+    {
+        Height = Capsule ? double.NaN : 40;
+        CornerRadius = Capsule
+            ? new CornerRadius(14)
+            : new CornerRadius(Radius.Control);
+        Padding = Capsule ? new Thickness(16, 6) : new Thickness(0);
+        label.FontSize = Capsule ? 14 : 16;
+        label.FontWeight = Capsule ? Fonts.Bold : Fonts.Normal;
+    }
+
     private readonly TextBlock label = new() {
         FontSize = 16,
         FontWeight = Fonts.Normal,
@@ -192,6 +243,7 @@ public sealed class TextButton : PressableButton {
         label.Foreground = new SolidColorBrush(Danger ? c.Danger : c.Accent);
         Background = Pressed ? new SolidColorBrush(c.Separator)
             : Hovered ? new SolidColorBrush(c.Hover)
+            : Capsule ? new SolidColorBrush(c.Hover)
             : Brushes.Transparent;
     }
 }

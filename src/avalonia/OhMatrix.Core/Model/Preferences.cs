@@ -26,6 +26,12 @@ public sealed record Preferences {
     /// <summary>The server last signed in to, offered again on the sign-in screen.</summary>
     public string? LastHomeserver { get; init; }
 
+    /// <summary>
+    /// My name and picture as they were last loaded, shown at once when the app starts for the same account; the server's are asked for, and
+    /// replace them when they come.
+    /// </summary>
+    public Profile? CachedProfile { get; init; }
+
     /// <summary>Servers added to Explore by name, in the order they were added.</summary>
     public IReadOnlyList<string> ExploreServers { get; init; } = [];
 

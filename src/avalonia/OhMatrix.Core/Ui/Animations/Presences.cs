@@ -24,22 +24,6 @@ public static class Presences {
     }
 
     /// <summary>
-    /// A dialog: the window dims first, and the card follows 40 ms later, comes down 18 px from above and grows from 94% of its size. It goes
-    /// with a little of that back again. Set <see cref="Presence.Backdrop"/> to the brush that dims the window.
-    /// </summary>
-    public static Presence Dialog(Control card)
-    {
-        return new Presence(card, card) {
-            FromScale = 0.94,
-            FromY = -18,
-            Delay = TimeSpan.FromMilliseconds(40),
-            EnterFeel = Comes,
-            LeaveFeel = Goes,
-            LeaveReach = 0.35,
-        };
-    }
-
-    /// <summary>
     /// A menu or a panel that opens from a corner (set <see cref="Presence.Origin"/> to it): it grows from just over half its size, and is
     /// whole before it is half way. It goes with a small shrink.
     /// </summary>

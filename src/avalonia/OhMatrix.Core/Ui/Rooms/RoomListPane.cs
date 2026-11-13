@@ -110,7 +110,9 @@ public sealed class RoomListPane : Grid {
         TimeProvider? time = null)
     {
         this.controller = controller;
-        People = new PeoplePicker(controller);
+        People = new PeoplePicker(controller) {
+            Glyph = "chat"
+        };
         this.time = time ?? TimeProvider.System;
         Rail = rail;
         plus = new IconButton("plus", "New", rail ? 28 : 24, rail ? 44 : 36);
@@ -283,6 +285,11 @@ public sealed class RoomListPane : Grid {
         IReadOnlyList<PromptField> fields, string confirm,
         Func<IReadOnlyList<string>, Task> run)
     {
+        prompt.Glyph = key switch {
+            "newGroup" => "users",
+            "joinRoom" => "hash",
+            _ => "plusCircle",
+        };
         prompt.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale, controller.T(key),
             controller.T(key + ".body"),

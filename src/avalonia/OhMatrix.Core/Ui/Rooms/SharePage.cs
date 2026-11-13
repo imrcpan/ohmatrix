@@ -22,7 +22,11 @@ public sealed class SharePage : Grid {
     private readonly Border bar = new();
     private readonly SearchField filter = new();
     private readonly StackPanel list = new();
-    private readonly Dialog confirmDialog = new();
+
+    private readonly Dialog confirmDialog = new() {
+        Glyph = "forward"
+    };
+
     private readonly HashSet<string> picked = [];
     private HashSet<string> keep = [];
     private bool sending;
@@ -152,7 +156,8 @@ public sealed class SharePage : Grid {
             });
         content.Add(send);
         content.Add(back);
-        confirmDialog.Show(window, c, controller.T("forward.confirm"), null,
+        confirmDialog.Show(window, c, controller.T("forward.confirm"),
+            controller.T("forward.confirm.body"),
             [.. content]);
     }
 

@@ -45,7 +45,11 @@ public sealed class SettingsShell : Grid {
     ];
 
     private readonly AppController controller;
-    private readonly Dialog confirm = new();
+
+    private readonly Dialog confirm = new() {
+        Warning = true
+    };
+
     private readonly Border list = new();
     private readonly Border host = new();
     private readonly List<ListItem> items = [];

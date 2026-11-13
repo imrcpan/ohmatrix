@@ -37,6 +37,38 @@ public static class PageBar {
         bar.Child = row;
     }
 
+    /// <summary>
+    /// Fills <paramref name="bar"/> for a page of a dialog over the window (the profile, the explore page): the title centred, and the cross at
+    /// its top right that closes the dialog; no back arrow and no line under the bar.
+    /// </summary>
+    public static void Close(Border bar, ColorTokens colors, string title,
+        string closeLabel, Action onClose)
+    {
+        var close = new IconButton("close", closeLabel, 22, 36) {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0),
+        };
+        close.Click += (_, _) => onClose();
+        var heading = new TextBlock {
+            Text = title,
+            FontSize = 18,
+            FontWeight = Fonts.Bold,
+            Foreground = new SolidColorBrush(colors.Text),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(26, 0, 0, 0),
+        };
+        Fonts.Center(heading);
+        var row = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto")
+        };
+        row.Children.Add(heading);
+        Grid.SetColumn(close, 1);
+        row.Children.Add(close);
+        bar.Height = 56;
+        bar.BorderThickness = new Thickness(0);
+        bar.Child = row;
+    }
+
     /// <summary>The room at the left and the right of a title, and of the rows, headings and notes under it in the panes of the settings window.</summary>
     public const double Side = 24;
 

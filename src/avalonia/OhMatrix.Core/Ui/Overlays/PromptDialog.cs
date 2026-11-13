@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using OhMatrix.Core.I18n;
 using OhMatrix.Core.Theming;
@@ -23,8 +25,16 @@ public sealed record PromptField(
 public sealed class PromptDialog : IOverlay {
     private readonly Dialog dialog = new();
     private readonly List<TextField> fields = [];
-    private readonly PrimaryButton confirm = new();
-    private readonly TextButton cancel = new();
+    private readonly CapsuleButton confirm = new(true);
+    private readonly CapsuleButton cancel = new(false);
+
+    // The confirmation and Cancel at the right, in a row: Cancel is the last.
+    private readonly StackPanel actions = new() {
+        Orientation = Orientation.Horizontal,
+        Spacing = 8,
+        HorizontalAlignment = HorizontalAlignment.Right,
+        Margin = new Thickness(0, 6, 0, 4),
+    };
 
     private readonly TextBlock error = new() {
         FontSize = 14,
@@ -38,8 +48,26 @@ public sealed class PromptDialog : IOverlay {
     private bool busy;
 
     public Dialog Dialog => dialog;
+
+    /// <summary>The icon of the dialog at the left of its title (see <see cref="Overlays.Dialog.Glyph"/>).</summary>
+    public string Glyph {
+        get => dialog.Glyph;
+        set => dialog.Glyph = value;
+    }
+
     public IReadOnlyList<TextField> Fields => fields;
-    public PrimaryButton ConfirmButton => confirm;
+    public CapsuleButton ConfirmButton => confirm;
+
+    /// <summary>A warning: the title has the red warning mark, and the confirmation is red.</summary>
+    public bool Warning {
+        get;
+        set {
+            field = value;
+            confirm.Danger = value;
+            dialog.Warning = value;
+        }
+    }
+
     public string? ErrorText => error.IsVisible ? error.Text : null;
 
     /// <summary>Opens the dialog in <paramref name="window"/>.</summary>
@@ -66,6 +94,8 @@ public sealed class PromptDialog : IOverlay {
                 Label = f.Label,
                 Glyph = f.Glyph
             };
+            // The card of a dialog is the secondary surface: the box is the background.
+            field.OnCard = true;
             ThemeScope.SetColors(field, colors);
             if (f.Secret)
                 field.Reveal = (Strings.T(locale, "password.show"),
@@ -85,8 +115,12 @@ public sealed class PromptDialog : IOverlay {
         cancel.Click -= OnCancelClick;
         cancel.Click += OnCancelClick;
         content.Add(error);
-        content.Add(confirm);
-        content.Add(cancel);
+        // The buttons are kept in their row from one showing to the next, so
+        // the row is emptied before they are put in it again.
+        actions.Children.Clear();
+        actions.Children.Add(confirm);
+        actions.Children.Add(cancel);
+        content.Add(actions);
         Refresh();
         dialog.Show(window, colors, title, message, [.. content]);
         fields.FirstOrDefault()?.FocusBox();

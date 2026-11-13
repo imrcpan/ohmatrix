@@ -271,6 +271,7 @@ public sealed class SpacePage : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
+        confirm.Glyph = "plusCircle";
         confirm.Show(window, ThemeScope.GetColors(this),
             controller.Store.Value.Locale,
             controller.T("space.createRoom"), controller.T("newGroup.body"),
@@ -321,7 +322,10 @@ public sealed class SpacePage : Grid {
         };
         ThemeScope.SetColors(close, c);
         close.Click += (_, _) => SpaceDialog.Close();
-        SpaceDialog.Show(window, c, controller.T("space.addRoom"), null,
+        SpaceDialog.Warning = false;
+        SpaceDialog.Glyph = "plusCircle";
+        SpaceDialog.Show(window, c, controller.T("space.addRoom"),
+            controller.T("space.addRoom.body"),
             new ScrollViewer {
                 Content = list,
                 MaxHeight = 320
@@ -376,7 +380,10 @@ public sealed class SpacePage : Grid {
                 await controller.RemoveSpaceChild(id, room);
             await Reload();
         };
-        SpaceDialog.Show(window, c, controller.T("space.manageRooms"), null,
+        SpaceDialog.Warning = false;
+        SpaceDialog.Glyph = "gear";
+        SpaceDialog.Show(window, c, controller.T("space.manageRooms"),
+            controller.T("space.manageRooms.body"),
             new ScrollViewer {
                 Content = list,
                 MaxHeight = 320
@@ -436,7 +443,9 @@ public sealed class SpacePage : Grid {
         var window = TopLevel.GetTopLevel(this);
         if (window == null)
             return;
-        Invite ??= new PeoplePicker(controller);
+        Invite ??= new PeoplePicker(controller) {
+            Glyph = "userPlus"
+        };
         Invite.Show(window, ThemeScope.GetColors(this),
             controller.T("room.invite"),
             controller.T("room.inviteBody"),
@@ -478,6 +487,8 @@ public sealed class SpacePage : Grid {
                     NoticeKind.Error);
             }
         };
+        SpaceDialog.Warning = false;
+        SpaceDialog.Glyph = "forward";
         SpaceDialog.Show(window, c, controller.T("space.share.title"),
             controller.T("space.share.body", ("name", name)),
             new Border {
@@ -514,6 +525,7 @@ public sealed class SpacePage : Grid {
             controller.OpenSidebarPage(SidebarPage.Chats);
         };
         no.Click += (_, _) => SpaceDialog.Close();
+        SpaceDialog.Warning = true;
         SpaceDialog.Show(window, c, controller.T("leaveSpace.title"),
             controller.T("leaveSpace.body"),
             yes, no);

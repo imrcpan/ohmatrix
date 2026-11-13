@@ -28,7 +28,9 @@ public sealed class VerifyDialog : IOverlay {
         Dialog.Modal = true;
     }
 
-    public Dialog Dialog { get; } = new();
+    public Dialog Dialog { get; } = new() {
+        Glyph = "checks"
+    };
 
     /// <summary>The buttons of the open dialog, by their labels' keys of the language file.</summary>
     public IReadOnlyDictionary<string, PressableButton> Buttons {

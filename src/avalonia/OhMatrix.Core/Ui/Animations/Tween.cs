@@ -11,7 +11,7 @@ internal sealed class Tween {
     private double to;
     private double seconds;
     private double delay;
-    private Bezier curve = Curves.Ease;
+    private Func<double, double> curve = Curves.Ease.At;
     private double? started;
     private bool moving;
 
@@ -42,6 +42,13 @@ internal sealed class Tween {
     /// <paramref name="along"/>.
     /// </summary>
     public void Go(double target, double time, Bezier along, double wait = 0)
+    {
+        Go(target, time, along.At, wait);
+    }
+
+    /// <summary>The same, along a curve that is not a Bézier (such as the <c>linear()</c> of the reference pages).</summary>
+    public void Go(double target, double time, Func<double, double> along,
+        double wait = 0)
     {
         if (target == to)
             return;
@@ -76,6 +83,6 @@ internal sealed class Tween {
             return;
         }
 
-        value = from + (to - from) * curve.At(t);
+        value = from + (to - from) * curve(t);
     }
 }
