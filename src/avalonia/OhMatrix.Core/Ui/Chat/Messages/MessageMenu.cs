@@ -229,17 +229,24 @@ public sealed class MessageMenu : IOverlay {
                 list.Children.Add(row);
             }
 
+            // The outer border draws the shadow, which falls outside it; the
+            // inner one clips the rows to the rounded corners. Clipping the
+            // one that has the shadow would cut the shadow off.
+            var corners = Tight(new CornerRadius(18));
             column.Children.Add(new Border {
                 Width = MenuWidth,
-                CornerRadius = Tight(new CornerRadius(18)),
-                ClipToBounds = true,
+                CornerRadius = corners,
                 Background = surface,
                 BoxShadow = shadow,
                 HorizontalAlignment =
                     toLeft
                         ? HorizontalAlignment.Right
                         : HorizontalAlignment.Left,
-                Child = list,
+                Child = new Border {
+                    CornerRadius = corners,
+                    ClipToBounds = true,
+                    Child = list,
+                },
             });
         }
 
