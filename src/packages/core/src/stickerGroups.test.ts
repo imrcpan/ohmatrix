@@ -63,13 +63,13 @@ describe("sticker groups", () => {
     expect(withoutStickers([g("a", ["x", "y"]), g("b", ["z"])], ["y", "nope"])).toEqual([g("a", ["x"]), g("b", ["z"])]);
   });
 
-  it("shows the chosen cover, else the first sticker of the pack, else a smiling face", () => {
+  it("shows the chosen cover, else the first sticker of the pack, else the playful face of Open Emoji Cute", () => {
     const pack = [{ shortcode: "x", url: "mxc://h/x", mimeType: "image/gif" }];
     expect(coverOf(g("a", ["x"]), pack)).toEqual({ kind: "emoji", emoji: "😀" });
     const bare = { id: "b", name: "", stickers: ["gone", "x"] };
     expect(coverOf(bare, pack)).toEqual({ kind: "image", url: "mxc://h/x", mimeType: "image/gif" });
-    expect(coverOf({ ...bare, stickers: [] }, pack)).toEqual({ kind: "emoji", emoji: "😊" });
-    expect(coverOf({ ...bare, stickers: ["gone"] }, pack)).toEqual({ kind: "emoji", emoji: "😊" });
+    expect(coverOf({ ...bare, stickers: [] }, pack)).toEqual({ kind: "builtin", name: "playful" });
+    expect(coverOf({ ...bare, stickers: ["gone"] }, pack)).toEqual({ kind: "builtin", name: "playful" });
   });
 
   it("puts the group of the stickers no group has first; it may have a cover like the others", () => {

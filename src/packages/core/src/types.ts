@@ -490,8 +490,14 @@ export interface StickerGroup {
 /** The id of the group that holds the stickers no other group has. It is a group like the others, shown only while it has something (see `withUngrouped`). */
 export const STICKER_DEFAULT_GROUP = "default";
 
-/** The cover a group has when none was chosen and it has no sticker yet. */
-export const STICKER_GROUP_FALLBACK_EMOJI = "😊";
+/**
+ * What a group shows as its cover: the one chosen, or (see `coverOf`) a sticker, or a picture of the app by its name (an emoji of Open
+ * Emoji Cute). The last is never stored.
+ */
+export type StickerGroupCover = StickerGroupIcon | { kind: "builtin"; name: string };
+
+/** The cover a group has when none was chosen and it has no sticker yet: the name of an emoji of Open Emoji Cute (the playful face). */
+export const STICKER_GROUP_FALLBACK_COVER = "playful";
 
 /** The most groups a pack may have besides the one of the stickers that have no group. */
 export const STICKER_GROUPS_MAX = 12;

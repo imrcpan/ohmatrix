@@ -8,6 +8,7 @@ import {
   withUngrouped,
   type Sticker,
   type StickerGroup,
+  type StickerGroupCover,
   type StickerGroupIcon,
 } from "@ohmatrix/core";
 import { ALL_EMOJI_GROUPS, Dialog, fontFamily, Icon, PopPiece, TextButton, useTheme } from "@ohmatrix/ui";
@@ -16,23 +17,26 @@ import { useController, useServices, useT } from "../context.js";
 import { useMediaUrl } from "../useMedia.js";
 import { useNotice } from "../useNotice.js";
 import { BUILTIN_COVER, BUILTIN_GROUP, openEmojiUri } from "./builtinGroup.js";
+import { OPEN_EMOJI } from "./openEmoji.js";
 
 /** The size of a group's icon (its tab is a little larger); a sticker in the grid is 72. */
 export const GROUP_ICON = 48;
 
 const EMOJI = ALL_EMOJI_GROUPS.flatMap((g) => g.emojis);
 
-/** A group's icon: its emoji, or its picture. */
-export function GroupIcon(props: { icon: StickerGroupIcon; size?: number }) {
+/** A group's icon: its emoji, its picture, or a picture of the app (an emoji of Open Emoji Cute, by its name). */
+export function GroupIcon(props: { icon: StickerGroupCover; size?: number }) {
   const size = props.size ?? GROUP_ICON;
   const uri = useMediaUrl(
     props.icon.kind === "image" ? props.icon.url : undefined,
     props.icon.kind === "image" ? { width: size * 3, height: size * 3, fit: "crop" } : {},
   );
   if (props.icon.kind === "emoji") return <Text style={{ fontSize: size - 2, lineHeight: size + 2, textAlign: "center" }}>{props.icon.emoji}</Text>;
+  const builtin = props.icon.kind === "builtin" ? OPEN_EMOJI.find((e) => e.name === (props.icon as { name: string }).name) : undefined;
+  const source = builtin ? openEmojiUri(builtin) : uri;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 4, overflow: "hidden" }}>
-      {uri ? <Image source={{ uri }} resizeMode="cover" style={{ width: size, height: size }} /> : null}
+      {source ? <Image source={{ uri: source }} resizeMode={builtin ? "contain" : "cover"} style={{ width: size, height: size }} /> : null}
     </View>
   );
 }

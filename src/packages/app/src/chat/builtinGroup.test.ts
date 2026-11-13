@@ -3,11 +3,12 @@ import { checkSticker } from "@ohmatrix/core";
 import { BUILTIN_COVER, BUILTIN_GROUP, decodeBase64, openEmojiFile, openEmojiUri } from "./builtinGroup.js";
 import { OPEN_EMOJI, OPEN_EMOJI_SIZE } from "./openEmoji.js";
 
-test("the set is Open Emoji Cute: 29 emoji with their names from the repository, the smiling face first and its cover", () => {
+test("the set is Open Emoji Cute: 29 emoji with their names from the repository, the smiling face first and the devil its cover", () => {
   expect(OPEN_EMOJI).toHaveLength(29);
   expect(new Set(OPEN_EMOJI.map((e) => e.name)).size).toBe(29);
   expect(OPEN_EMOJI[0]!.name).toBe("smile");
-  expect(BUILTIN_COVER).toBe(OPEN_EMOJI[0]);
+  expect(BUILTIN_COVER.name).toBe("devil");
+  expect(OPEN_EMOJI).toContain(BUILTIN_COVER);
   expect(OPEN_EMOJI.at(-1)!.name).toBe("awkward-laugh");
   expect(BUILTIN_GROUP).toBe("open-emoji-cute");
 });

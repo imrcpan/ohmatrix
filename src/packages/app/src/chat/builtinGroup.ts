@@ -9,8 +9,8 @@ export const BUILTIN_GROUP = "open-emoji-cute";
 
 export type OpenEmoji = (typeof OPEN_EMOJI)[number];
 
-/** The cover of the set: the smiling face. */
-export const BUILTIN_COVER: OpenEmoji = OPEN_EMOJI.find((e) => e.name === "smile")!;
+/** The cover of the set: the devil. */
+export const BUILTIN_COVER: OpenEmoji = OPEN_EMOJI.find((e) => e.name === "devil")!;
 
 /** The address of an emoji's picture, for an Image. */
 export const openEmojiUri = (e: OpenEmoji): string => `data:image/png;base64,${e.png}`;

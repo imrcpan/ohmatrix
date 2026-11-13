@@ -1,5 +1,13 @@
 import { EngineError } from "./errors.js";
-import { STICKER_DEFAULT_GROUP, STICKER_GROUP_FALLBACK_EMOJI, STICKER_GROUPS_MAX, type Sticker, type StickerGroup, type StickerGroupIcon } from "./types.js";
+import {
+  STICKER_DEFAULT_GROUP,
+  STICKER_GROUP_FALLBACK_COVER,
+  STICKER_GROUPS_MAX,
+  type Sticker,
+  type StickerGroup,
+  type StickerGroupCover,
+  type StickerGroupIcon,
+} from "./types.js";
 
 /** The account data event my sticker groups live in. Other clients do not read it: for them the pack is one list. */
 export const STICKER_GROUPS_EVENT = "org.ohmatrix.sticker_groups";
@@ -114,11 +122,11 @@ export function newGroupId(groups: readonly StickerGroup[], random: () => number
   }
 }
 
-/** What a group shows as its cover: the one chosen, else its first sticker (that is in the pack), else a smiling face. */
-export function coverOf(group: StickerGroup, pack: readonly Sticker[]): StickerGroupIcon {
+/** What a group shows as its cover: the one chosen, else its first sticker (that is in the pack), else the picture of the app that a group starts with. */
+export function coverOf(group: StickerGroup, pack: readonly Sticker[]): StickerGroupCover {
   if (group.icon) return group.icon;
   const first = group.stickers.map((code) => pack.find((s) => s.shortcode === code)).find((s) => !!s);
-  return first ? { kind: "image", url: first.url, mimeType: first.mimeType } : { kind: "emoji", emoji: STICKER_GROUP_FALLBACK_EMOJI };
+  return first ? { kind: "image", url: first.url, mimeType: first.mimeType } : { kind: "builtin", name: STICKER_GROUP_FALLBACK_COVER };
 }
 
 /** The list with the item at `from` taken out and put where the item at `to` was (before it going up, after it going down); other lists are left as they are. */

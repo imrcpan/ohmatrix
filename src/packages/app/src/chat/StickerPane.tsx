@@ -326,7 +326,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
         confirmLabel={t("sticker.group.create")}
         onConfirm={async ([name]) => {
           const next = (name ?? "").trim();
-          // A new group has no cover of its own: it shows its first sticker, or a smiling face until it has one.
+          // A new group has no cover of its own: it shows its first sticker, or the playful face of Open Emoji Cute until it has one.
           const id = newGroupId(groups);
           await controller.setStickerGroups([...groups, { id, name: next, stickers: [] }]);
           show(id);
