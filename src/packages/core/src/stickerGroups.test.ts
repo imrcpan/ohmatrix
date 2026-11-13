@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { coverOf, placeSticker, isEmojiGlyph, moveItem, newGroupId, parseGroups, withDefault, withoutStickers, writeGroups } from "./stickerGroups.js";
+import {
+  coverOf,
+  placeSticker,
+  isEmojiGlyph,
+  moveItem,
+  newGroupId,
+  parseGroups,
+  withDefault,
+  withUngrouped,
+  withoutStickers,
+  writeGroups,
+} from "./stickerGroups.js";
 import { STICKER_GROUPS_MAX, type StickerGroup } from "./types.js";
 
 const g = (id: string, stickers: string[] = [], emoji = "😀"): StickerGroup => ({ id, name: `Group ${id}`, icon: { kind: "emoji", emoji }, stickers });
@@ -61,7 +72,7 @@ describe("sticker groups", () => {
     expect(coverOf({ ...bare, stickers: ["gone"] }, pack)).toEqual({ kind: "emoji", emoji: "😊" });
   });
 
-  it("puts the default group first, with the stickers no group has; it has no cover of its own and may not be given one", () => {
+  it("puts the group of the stickers no group has first; it may have a cover like the others", () => {
     const pack = ["a", "b", "c", "d"].map((shortcode) => ({ shortcode, url: `mxc://h/${shortcode}`, mimeType: "image/png" }));
     const stored = [g("g1", ["b", "gone"]), { id: "default", name: "Mine", stickers: ["d", "b", "x"] }];
     expect(withDefault(stored, pack).map((x) => [x.id, x.name, x.stickers])).toEqual([
@@ -69,10 +80,31 @@ describe("sticker groups", () => {
       ["g1", "Group g1", ["b"]],
     ]);
     expect(withDefault([], pack)[0]).toEqual({ id: "default", name: "", stickers: ["a", "b", "c", "d"] });
-    expect(parseGroups({ groups: [{ id: "default", name: "", icon: { kind: "emoji", emoji: "😀" }, stickers: [] }] })[0]).not.toHaveProperty("icon");
-    expect(() => writeGroups([{ id: "default", name: "", icon: { kind: "emoji", emoji: "😀" }, stickers: [] }])).toThrow();
+    const covered = { id: "default", name: "", icon: { kind: "emoji" as const, emoji: "😀" }, stickers: [] };
+    expect(parseGroups({ groups: [covered] })[0]).toHaveProperty("icon", covered.icon);
+    expect(() => writeGroups([covered])).not.toThrow();
+    expect(withDefault([covered], pack)[0]).toHaveProperty("icon", covered.icon);
     const many = [{ id: "default", name: "", stickers: [] }, ...Array.from({ length: STICKER_GROUPS_MAX }, (_, n) => g(`g${n}`))];
     expect(() => writeGroups(many)).not.toThrow();
+  });
+
+  it("shows the group of the stickers no group has only while it has something: a sticker, a name or a cover", () => {
+    const pack = ["a", "b"].map((shortcode) => ({ shortcode, url: `mxc://h/${shortcode}`, mimeType: "image/png" }));
+    // Nothing is in no group: only mine.
+    expect(withUngrouped([g("g1", ["a", "b"])], pack).map((x) => x.id)).toEqual(["g1"]);
+    expect(withUngrouped([], []).map((x) => x.id)).toEqual([]);
+    // A sticker that no group has makes the group show, first.
+    expect(withUngrouped([g("g1", ["a"])], pack).map((x) => [x.id, x.stickers])).toEqual([
+      ["default", ["b"]],
+      ["g1", ["a"]],
+    ]);
+    // Emptied, it stays while it has a name or a cover.
+    const all = [g("g1", ["a", "b"])];
+    expect(withUngrouped([{ id: "default", name: "Mine", stickers: [] }, ...all], pack).map((x) => x.id)).toEqual(["default", "g1"]);
+    expect(withUngrouped([{ id: "default", name: "", icon: { kind: "emoji", emoji: "😀" }, stickers: [] }, ...all], pack).map((x) => x.id)).toEqual([
+      "default",
+      "g1",
+    ]);
   });
 
   it("places a sticker in one group and no other", () => {

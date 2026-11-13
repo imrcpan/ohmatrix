@@ -71,7 +71,7 @@ export function parseGroups(content: unknown): StickerGroup[] {
     if (typeof g?.id !== "string" || !g.id || ids.has(g.id)) continue;
     if (!isDefault && out.filter((x) => x.id !== STICKER_DEFAULT_GROUP).length >= STICKER_GROUPS_MAX) continue;
     ids.add(g.id);
-    const icon = isDefault ? undefined : iconOf(g.icon);
+    const icon = iconOf(g.icon);
     const stickers = (Array.isArray(g.stickers) ? g.stickers : []).filter((s): s is string => typeof s === "string" && !used.has(s));
     const unique = [...new Set(stickers)];
     for (const s of unique) used.add(s);
@@ -90,7 +90,6 @@ export function writeGroups(groups: readonly StickerGroup[]): { groups: StickerG
   if (groups.filter((g) => g.id !== STICKER_DEFAULT_GROUP).length > STICKER_GROUPS_MAX)
     throw new EngineError("unsupported", `At most ${STICKER_GROUPS_MAX} groups`);
   for (const g of groups) {
-    if (g.id === STICKER_DEFAULT_GROUP && g.icon) throw new EngineError("unsupported", "The default group's cover cannot be changed");
     if (g.icon && !iconOf(g.icon)) throw new EngineError("unsupported_type", "A group's cover has to be a standard emoji or a picture");
   }
   const clean = parseGroups({ groups });
@@ -132,8 +131,8 @@ export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
 }
 
 /**
- * The groups as the screen shows them: the default group first (made when none is stored), with the stickers no other group has, in the order
- * it kept them and the pack's order for the rest; the others as stored, without a sticker the pack no longer has.
+ * The groups with the one that holds the stickers no other group has first (made when none is stored), in the order it kept them and the
+ * pack's order for the rest; the others as stored, without a sticker the pack no longer has.
  */
 export function withDefault(stored: readonly StickerGroup[], pack: readonly Sticker[]): StickerGroup[] {
   const have = new Set(pack.map((s) => s.shortcode));
@@ -142,7 +141,17 @@ export function withDefault(stored: readonly StickerGroup[], pack: readonly Stic
   const mine = stored.find((g) => g.id === STICKER_DEFAULT_GROUP);
   const listed = (mine?.stickers ?? []).filter((c) => have.has(c) && !taken.has(c));
   const rest = pack.map((s) => s.shortcode).filter((c) => !taken.has(c) && !listed.includes(c));
-  return [{ id: STICKER_DEFAULT_GROUP, name: mine?.name ?? "", stickers: [...listed, ...rest] }, ...others];
+  return [{ id: STICKER_DEFAULT_GROUP, name: mine?.name ?? "", ...(mine?.icon && { icon: mine.icon }), stickers: [...listed, ...rest] }, ...others];
+}
+
+/**
+ * The groups as the screen shows them: mine, as stored, without a sticker the pack no longer has. There is no default group that is
+ * always there: the stickers no group has are in the group stored as `STICKER_DEFAULT_GROUP`, which is a group like the others (it can be
+ * named, given a cover, and deleted), and which is shown only while it has a sticker, a name or a cover.
+ */
+export function withUngrouped(stored: readonly StickerGroup[], pack: readonly Sticker[]): StickerGroup[] {
+  const [bucket, ...others] = withDefault(stored, pack) as [StickerGroup, ...StickerGroup[]];
+  return bucket.stickers.length > 0 || bucket.name || bucket.icon ? [bucket, ...others] : others;
 }
 
 /**

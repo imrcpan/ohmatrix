@@ -487,13 +487,13 @@ export interface StickerGroup {
   stickers: string[];
 }
 
-/** The id of the default group: always the first, it holds the stickers that no other group has, and its cover cannot be changed. */
+/** The id of the group that holds the stickers no other group has. It is a group like the others, shown only while it has something (see `withUngrouped`). */
 export const STICKER_DEFAULT_GROUP = "default";
 
 /** The cover a group has when none was chosen and it has no sticker yet. */
 export const STICKER_GROUP_FALLBACK_EMOJI = "😊";
 
-/** The most groups a pack may have besides the default one. */
+/** The most groups a pack may have besides the one of the stickers that have no group. */
 export const STICKER_GROUPS_MAX = 12;
 
 /** What a call is doing, in the order it goes: ringing (someone is being called, or is calling me), connecting, talking, over. */
