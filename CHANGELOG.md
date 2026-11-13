@@ -4,10 +4,13 @@ All notable changes to OhMatrix are written here, newest first. The text of a ve
 takes the section whose heading is `## [x.y.z]`; a version with no section gets the notes GitHub generates from the commits).
 A version lists what changed since the version before it.
 
-## [1.2.2] - 2026
+## [1.2.3] - 2026-11
+
+- Better and smoother animation effects.
+
+## [1.2.2] - 2026-11-13
 
 - Fix abnormal display of transparent avatars.
-- Better and smoother animation effects.
 - Optimized the style of voice message bubbles.
 
 ## [1.2.1] - 2026-11-11
