@@ -151,12 +151,13 @@ public sealed partial class ChatPane : Grid {
     };
 
     private readonly IconButton attach = new("plusCircle", "Attach", 30, 38) {
-        StrokeWidth = 1.6
+        StrokeWidth = 1.4
     };
 
-    private readonly IconButton emojiButton = new("sticker", "Emoji", 32, 38) {
-        StrokeWidth = 1.6
-    };
+    private readonly IconButton emojiButton =
+        new("stickerFace", "Emoji", 32, 38) {
+            StrokeWidth = 1.4
+        };
 
     // Voice sits inside the field, at its right edge, until something is typed.
     private readonly IconButton mic = new("mic", "Voice", 22, 30) {
@@ -519,7 +520,14 @@ public sealed partial class ChatPane : Grid {
         attach.VerticalAlignment = VerticalAlignment.Bottom;
         attach.Click += (_, _) => OpenAttach();
         emojiButton.VerticalAlignment = VerticalAlignment.Bottom;
-        emojiButton.Click += (_, _) => OpenEmoji();
+        // The picker opens as the button is pressed, and does not wait for it
+        // to be let go.
+        emojiButton.PointerPressed += (_, e) => {
+            if (!e.GetCurrentPoint(emojiButton).Properties
+                    .IsLeftButtonPressed)
+                return;
+            OpenEmoji();
+        };
         // The buttons touch, and sit a little closer to the field than the row's gap.
         bar.Children.Add(new StackPanel {
             Orientation = Orientation.Horizontal,

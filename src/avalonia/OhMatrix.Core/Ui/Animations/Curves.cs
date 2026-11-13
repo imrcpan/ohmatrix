@@ -81,15 +81,33 @@ public static class Curves {
     /// <summary>
     /// The progress of <c>--arc</c> at <paramref name="time"/>: it reaches its peak (1.075) at a fifth of the time and settles on 1 at the end.
     /// </summary>
-    public static double Arc(double time)
+    public static double Arc(double time) => Sample(ArcPoints, time);
+
+    // The <c>--arc</c> of the emoji panel of the reference page, whole: its
+    // peak is 1.15.
+    private static readonly double[] FullArcPoints = [
+        0, .503, .863, 1.078, 1.15, 1.148, 1.144, 1.136, 1.127, 1.115,
+        1.103, 1.089, 1.075, 1.061, 1.047, 1.035, 1.023, 1.014, 1.006, 1.002, 1,
+    ];
+
+    /// <summary>The progress of the whole <c>--arc</c> (15% past at its peak, a fifth of the time in) at <paramref name="time"/>.</summary>
+    public static double FullArc(double time) => Sample(FullArcPoints, time);
+
+    /// <summary><c>cubic-bezier(.3, 1.6, .5, 1)</c>, the <c>--pop</c> of the emoji panel: a quick, large overshoot for small things.</summary>
+    public static Bezier Pop { get; } = new(0.3, 1.6, 0.5, 1);
+
+    /// <summary><c>cubic-bezier(.4, 0, 1, 1)</c>: what goes, which speeds up to the end.</summary>
+    public static Bezier Accelerate { get; } = new(0.4, 0, 1, 1);
+
+    private static double Sample(double[] points, double time)
     {
         if (time <= 0)
             return 0;
         if (time >= 1)
             return 1;
-        var at = time * (ArcPoints.Length - 1);
+        var at = time * (points.Length - 1);
         var i = (int)Math.Floor(at);
         var t = at - i;
-        return ArcPoints[i] + (ArcPoints[i + 1] - ArcPoints[i]) * t;
+        return points[i] + (points[i + 1] - points[i]) * t;
     }
 }

@@ -28,6 +28,8 @@ public static class IconData {
         ["plusCircle"] = "M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v8M8 12h8",
         ["grip"] = "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
         ["sort"] = "M8 4v16M8 4L4 8M8 4l4 4M16 20V4M16 20l-4-4M16 20l4-4",
+        // The face of the emoji button: its eyes are the solid dots of Dots.
+        ["stickerFace"] = "M20 12V7a3 3 0 00-3-3H7a3 3 0 00-3 3v10a3 3 0 003 3h6l7-7zM20 12h-4a3 3 0 00-3 3v5M8.5 14a4 4 0 003 1",
         ["sticker"] = "M20 12V7a3 3 0 00-3-3H7a3 3 0 00-3 3v10a3 3 0 003 3h6l7-7zM20 12h-4a3 3 0 00-3 3v5M9 9.5h.01M15 9.5h.01M8.5 14a4 4 0 003 1",
         ["gear"] = "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z",
         ["user"] = "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
@@ -81,6 +83,12 @@ public static class IconData {
         ["more"] = 4.2,
         ["grip"] = 3.6,
     };
+
+    /// <summary>Solid dots drawn over a glyph, each as (x, y, radius) on the grid of 24: for a dot that is to be heavier than the line.</summary>
+    public static readonly IReadOnlyDictionary<string, (double X, double Y, double Radius)[]> Dots =
+        new Dictionary<string, (double, double, double)[]> {
+            ["stickerFace"] = [(9, 9.5, 0.95), (15, 9.5, 0.95)],
+        };
 
     /// <summary>Solid glyphs: filled, with a line of 1.6 over them.</summary>
     public static readonly IReadOnlySet<string> Solid = new HashSet<string> { "play", "pause", "stop" };

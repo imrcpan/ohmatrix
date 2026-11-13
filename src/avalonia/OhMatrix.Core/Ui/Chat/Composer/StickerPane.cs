@@ -8,6 +8,7 @@ using Avalonia.Platform.Storage;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
+using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Overlays;
@@ -79,6 +80,9 @@ public sealed class StickerPane : Grid {
         var scroller = new ScrollViewer {
             Content = grid,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            // Hidden at rest, and over the content when it shows: the five
+            // columns keep their room.
+            AllowAutoHide = true,
         };
         Grid.SetRow(scroller, 1);
         Children.Add(scroller);
@@ -731,11 +735,12 @@ public sealed class StickerPane : Grid {
             .OfType<Sticker>().ToList();
 
         // The bar.
+        heading = null;
         var row = new Grid {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
         if (Mode == PaneMode.Browse) {
-            row.Children.Add(new TextBlock {
+            heading = new TextBlock {
                 Text = Label(group, index),
                 FontSize = 16,
                 FontWeight = Fonts.Bold,
@@ -743,7 +748,8 @@ public sealed class StickerPane : Grid {
                 Margin = new Thickness(8, 0, 0, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            row.Children.Add(heading);
             var button = new Border {
                 Width = 34,
                 Height = 30,
@@ -904,6 +910,17 @@ public sealed class StickerPane : Grid {
                 else if (Mode == PaneMode.Browse)
                     Send(sticker.Shortcode);
             };
+            // Under the pointer a sticker grows and turns, as the emoji do; it
+            // waits for the tiles to come in.
+            if (Mode == PaneMode.Browse) {
+                EmojiHover? hover = null;
+                tile.PointerEntered += (_, _) => {
+                    if (Entering?.Invoke() != true)
+                        (hover ??= new EmojiHover(tile)).To(true);
+                };
+                tile.PointerExited += (_, _) => hover?.To(false);
+            }
+
             grid.Children.Add(tile);
         }
 
@@ -922,7 +939,30 @@ public sealed class StickerPane : Grid {
             });
 
         BuildTabs(c, groups, group, s.Stickers);
+        Rebuilt?.Invoke();
     }
+
+    // The name of the group on show, in the bar over the tiles; null when the
+    // bar is that of choosing or of moving.
+    private TextBlock? heading;
+
+    /// <summary>The name of the group on show, in the bar over the tiles, as it is now.</summary>
+    public Control? Heading => heading;
+
+    /// <summary>The covers of the groups, in the bar under the tiles, as laid out now.</summary>
+    public IReadOnlyList<Control> Covers =>
+        (tabs.Child as ScrollViewer)?.Content is StackPanel row
+            ? [
+                .. row.Children.OfType<Border>().Select(t => t.Child)
+                    .OfType<Control>()
+            ]
+            : [];
+
+    /// <summary>Says whether the tiles are coming in, when a sticker under the pointer is to wait; the picker that shows the pane sets it.</summary>
+    public Func<bool>? Entering { get; set; }
+
+    /// <summary>The tiles were made again (the stickers were loaded, a group was opened): the picker that shows the pane brings the new ones in.</summary>
+    public event Action? Rebuilt;
 
     private static Border Arrow(ColorTokens c, string glyph, Action press)
     {

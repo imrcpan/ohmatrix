@@ -92,6 +92,9 @@ public sealed class Icon : Control {
         using (context.PushTransform(Matrix.CreateScale(scale, scale))) {
             context.DrawGeometry(fluent || solid ? Color : null, pen,
                 GeometryOf(Glyph, data));
+            if (IconData.Dots.TryGetValue(Glyph, out var dots))
+                foreach (var (x, y, r) in dots)
+                    context.DrawEllipse(Color, null, new Point(x, y), r, r);
         }
     }
 }

@@ -20,6 +20,9 @@ public sealed class EmojiPicker : IOverlay {
     private const double PickerWidth = 320;
     private const double PickerHeight = 340;
     private const double Margin = 8;
+
+    // What the search field (or the bar) and the tabs take of the height.
+    private const double Chrome = 100;
     public const int RecentMax = 24;
 
     // Set when the page that owns it is thrown away: an answer that comes
@@ -83,14 +86,20 @@ public sealed class EmojiPicker : IOverlay {
         Padding = new Thickness(0, 4),
     };
 
-    // The picker grows from its bottom left corner, the one at the button it
-    // opens from.
-    private readonly Presence presence;
+    // The picker grows from the corner of the button it opens from, and its
+    // emoji pop out from the middle, as in the emoji panel of the animation
+    // lab.
+    private readonly EmojiPanelMotion motion;
+
+    // The sticker pane on show, whose tiles are made again when the stickers
+    // are loaded, which is while they come in.
+    private StickerPane? stickers;
 
     public EmojiPicker()
     {
-        presence = Presences.Popup(surface);
-        presence.Origin = new RelativePoint(0, 1, RelativeUnit.Relative);
+        // It grows from most of its height, and only up from its foot, being
+        // large: it keeps its width all the way.
+        motion = new EmojiPanelMotion(surface);
         var root = emojiRoot;
         root.RowDefinitions = new RowDefinitions("Auto,*,Auto");
         var top = new Border {
@@ -111,7 +120,13 @@ public sealed class EmojiPicker : IOverlay {
         surface.Child = clip;
         shade.Children.Add(surface);
         search.TextChanged += (_, _) => {
-            query = search.Text?.Trim() ?? "";
+            // The box says its text has changed when it is laid out the first
+            // time, with the same text: the tiles are not made again for that,
+            // or the ones that are coming in would be thrown away.
+            var typed = search.Text?.Trim() ?? "";
+            if (typed == query)
+                return;
+            query = typed;
             Build();
         };
         // A press outside the picker shuts it; a press on it is its own.
@@ -127,7 +142,7 @@ public sealed class EmojiPicker : IOverlay {
     }
 
     /// <summary>It is shown and not on its way out: a picker that is fading away has been closed.</summary>
-    public bool IsOpen => shade.Parent != null && !presence.Leaving;
+    public bool IsOpen => shade.Parent != null && !motion.Closing;
 
     /// <summary>The field that filters the emoji.</summary>
     public TextBox Search => search;
@@ -157,7 +172,9 @@ public sealed class EmojiPicker : IOverlay {
         clip.Child = emojiRoot;
         Style();
         Build();
-        Place(anchor, window, PickerWidth, PickerHeight);
+        // The tiles are 36 with a margin of 1, in a grid with 8 at its sides.
+        Place(anchor, window, PickerWidth, PickerHeight, grid.Children, 38,
+            16);
         search.Focus();
     }
 
@@ -169,12 +186,34 @@ public sealed class EmojiPicker : IOverlay {
         // The overlay layer is not under the screen that holds the colours:
         // the pane is given them, or it is drawn in the light ones.
         ThemeScope.SetColors(pane, tokens);
+        if (!ReferenceEquals(stickers, pane)) {
+            if (stickers != null)
+                stickers.Rebuilt -= Retile;
+            stickers = pane;
+            pane.Rebuilt += Retile;
+            pane.Entering = () => motion.Busy;
+        }
+
         clip.Child = pane;
         Style();
-        var width =
-            StickerPane.WidthOf(
-                StickerPane.Columns(window.ClientSize.Width - 2 * Margin));
-        Place(anchor, window, width, pane.Height);
+        // Five columns, or as many as the window has room for (four, then three);
+        // the width of the panel is what the stickers take. The edge of the
+        // panel is inside the room of the window.
+        var edge = surface.BorderThickness.Left + surface.BorderThickness.Right;
+        var width = StickerPane.WidthOf(
+            StickerPane.Columns(window.ClientSize.Width - 2 * Margin - edge));
+        // The stickers are tiles with a gap, in a pane with a pad at its sides.
+        Place(anchor, window, width, pane.Height, pane.Tiles,
+            StickerPane.Tile + StickerPane.Gap,
+            2 * StickerPane.Pad - StickerPane.Gap, true, pane.Covers,
+            pane.Heading);
+    }
+
+    // The tiles of the sticker pane were made again: the new ones come in.
+    private void Retile()
+    {
+        if (stickers != null && ReferenceEquals(clip.Child, stickers))
+            motion.Retile(stickers.Tiles, stickers.Covers, stickers.Heading);
     }
 
     private void Style()
@@ -212,7 +251,9 @@ public sealed class EmojiPicker : IOverlay {
     }
 
     private void Place(Control anchor, TopLevel window, double wanted,
-        double tall)
+        double tall, IReadOnlyList<Control> tiles, double pitch, double side,
+        bool fixedWidth = false, IReadOnlyList<Control>? covers = null,
+        Control? name = null)
     {
         Detach();
         layer = retired ? null : OverlayLayer.GetOverlayLayer(window);
@@ -220,36 +261,49 @@ public sealed class EmojiPicker : IOverlay {
             return;
         var origin = anchor.TranslatePoint(new Point(0, 0), window) ??
                      new Point();
-        var width = Math.Min(wanted, window.ClientSize.Width - 2 * Margin);
+        // A fixed width is the room inside: the edge (drawn on the dark theme)
+        // is added to it, so that the last column is not pushed to the next row.
+        var width = fixedWidth
+            ? wanted + surface.BorderThickness.Left +
+              surface.BorderThickness.Right
+            : Math.Min(wanted, window.ClientSize.Width - 2 * Margin);
         surface.Width = width;
         var height = Math.Min(tall, Math.Max(160, origin.Y - 2 * Margin));
         surface.Height = height;
         // Above the anchor with a gap of 8, at its left edge, and inside the window.
         var left = Math.Max(Margin,
             Math.Min(origin.X, window.ClientSize.Width - width - Margin));
+        var top = Math.Max(Margin, origin.Y - height - Margin);
         Canvas.SetLeft(surface, left);
-        Canvas.SetTop(surface, Math.Max(Margin, origin.Y - height - Margin));
+        Canvas.SetTop(surface, top);
         shade.Width = window.ClientSize.Width;
         shade.Height = window.ClientSize.Height;
         shade.IsHitTestVisible = true;
         layer.Children.Add(shade);
-        presence.Enter();
+        // The panel grows from the top left corner of the button, which is
+        // below its foot (a point of the panel, in px).
+        var from = new RelativePoint(origin.X - left, origin.Y - top,
+            RelativeUnit.Absolute);
+        // The tiles that are in view: they come out from the middle of them.
+        var columns = Math.Max(1, (int)((width - side) / pitch));
+        var rows = Math.Max(1, (int)Math.Ceiling((height - Chrome) / pitch));
+        motion.Open(from, tiles, columns, rows, covers, name);
     }
 
     /// <summary>Closes it: it fades away at once, and what is under it can be pressed.</summary>
     public void Close()
     {
-        if (shade.Parent == null || presence.Leaving)
+        if (shade.Parent == null || motion.Closing)
             return;
         shade.IsHitTestVisible = false;
-        presence.Leave(Remove);
+        motion.Close(Remove);
     }
 
     // Takes it away without a motion: for a picker that is shown again at
     // once and for a page that is thrown away.
     private void Detach()
     {
-        presence.Cancel();
+        motion.Stop();
         Remove();
     }
 
@@ -309,10 +363,14 @@ public sealed class EmojiPicker : IOverlay {
                     VerticalAlignment = VerticalAlignment.Center,
                 },
             };
-            tile.PointerEntered += (_, _) =>
-                tile.Background = new SolidColorBrush(colors.Hover);
-            tile.PointerExited += (_, _) =>
-                tile.Background = Brushes.Transparent;
+            // Under the pointer an emoji grows and turns, as in the animation
+            // lab; it waits for the panel to settle.
+            EmojiHover? hover = null;
+            tile.PointerEntered += (_, _) => {
+                if (!motion.Busy)
+                    (hover ??= new EmojiHover(tile)).To(true);
+            };
+            tile.PointerExited += (_, _) => hover?.To(false);
             tile.PointerPressed += (_, e) => {
                 e.Handled = true;
                 Close();
