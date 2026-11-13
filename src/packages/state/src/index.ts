@@ -213,6 +213,11 @@ export interface AppController {
   uploadStickerGroupIcon(file: AttachmentSource): Promise<{ url: MxcUri; mimeType: string }>;
   removeStickers(shortcodes: string[]): Promise<void>;
   sendSticker(roomId: RoomId, shortcode: string): Promise<void>;
+  /**
+   * Send a picture that is not in my pack (a bundled one) as a sticker: it is uploaded the first time (once for each `file.name` while
+   * this account is on), and sent by the address the server gave. The size and kind are those of the pack's.
+   */
+  sendStickerFile(roomId: RoomId, file: AttachmentSource): Promise<void>;
   /** Whether calls can be made on this device. */
   readonly callsSupported: boolean;
   /** What a call can do here besides talking (the buttons the call screen shows). */
@@ -455,6 +460,8 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     }));
   const offToken = services.push?.onToken(() => void syncPush());
 
+  // The bundled stickers this account has uploaded, by name: sent again, they are not uploaded again.
+  const uploadedStickers = new Map<string, Promise<{ url: MxcUri; mimeType: string }>>();
   const controller: AppController = {
     store,
     async bootstrap() {
@@ -608,6 +615,26 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     removeStickers: (codes) => (engine.stickers ? engine.stickers.remove(codes) : Promise.reject(new EngineError("unsupported", "No sticker pack here"))),
     sendSticker: (roomId, code) =>
       engine.stickers ? engine.stickers.send(roomId, code) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
+    sendStickerFile: async (roomId, file) => {
+      const stickers = engine.stickers;
+      if (!stickers) throw new EngineError("unsupported", "No sticker pack here");
+      let up = uploadedStickers.get(file.name);
+      if (!up) {
+        up = stickers.uploadGroupIcon(file);
+        uploadedStickers.set(file.name, up);
+        // A failure is not kept: the next ask uploads again.
+        up.catch(() => uploadedStickers.delete(file.name));
+      }
+      const { url, mimeType } = await up;
+      await stickers.sendExisting(roomId, {
+        url,
+        mimeType,
+        size: file.size,
+        ...(file.width !== undefined && { width: file.width }),
+        ...(file.height !== undefined && { height: file.height }),
+        name: file.name.replace(/\.[^.]+$/, ""),
+      });
+    },
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);
       set((s) => ({

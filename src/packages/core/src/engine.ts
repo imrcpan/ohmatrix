@@ -153,6 +153,8 @@ export interface StickersApi {
   remove(shortcodes: string[]): Promise<void>;
   /** Send one of the pack's stickers to a room. */
   send(roomId: RoomId, shortcode: string): Promise<void>;
+  /** Send a picture that is already on the server (from `uploadGroupIcon`, say) to a room as a sticker, without adding it to the pack. `name` is its body. */
+  sendExisting(roomId: RoomId, s: { url: MxcUri; mimeType: string; width?: number; height?: number; size?: number; name: string }): Promise<void>;
 }
 
 /**

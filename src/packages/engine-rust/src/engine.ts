@@ -655,6 +655,11 @@ export class RustEngineCore implements MatrixEngine {
         if (!sticker) throw new EngineError("not_found", "That sticker is not in the pack any more");
         await this.room(roomId).sendRaw("m.sticker", JSON.stringify(stickerEventContent(sticker)));
       }),
+    sendExisting: (roomId: string, s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name: string }) =>
+      guard(async () => {
+        const { name, ...rest } = s;
+        await this.room(roomId).sendRaw("m.sticker", JSON.stringify(stickerEventContent({ shortcode: name, ...rest })));
+      }),
   };
 
   /** My pack from the account (the first time, and each time a view opens). */

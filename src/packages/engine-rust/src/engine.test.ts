@@ -1179,6 +1179,13 @@ test("my sticker pack is kept in the account: adding uploads and saves, sending 
   });
   await expect(engine.stickers.addExisting({ url: "mxc://s/2", mimeType: "image/png", width: 5, height: 5, name: "from chat.png" })).resolves.toBe("from chat");
   expect(seen.at(-1)).toEqual(["cat 2", "from chat"]);
+  // A picture that is not in the pack is sent as a sticker as it is, and is not added to the pack.
+  room.calls.length = 0;
+  await engine.stickers.sendExisting("!r", { url: "mxc://s/9", mimeType: "image/png", width: 192, height: 192, size: 11, name: "smile" });
+  expect(room.calls).toEqual([
+    ["sendRaw", "m.sticker", JSON.stringify({ body: "smile", url: "mxc://s/9", info: { mimetype: "image/png", w: 192, h: 192, size: 11 } })],
+  ]);
+  expect(seen.at(-1)).toEqual(["cat 2", "from chat"]);
 });
 
 test("sticker groups are kept in the account; a bad icon is refused; removing a sticker takes it out of its group; an icon picture is uploaded alone", async () => {

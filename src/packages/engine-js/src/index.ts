@@ -513,6 +513,11 @@ export class JsSdkEngine implements MatrixEngine {
         if (!sticker) throw new EngineError("not_found", "That sticker is not in the pack any more");
         await this.requireClient().sendEvent(roomId, EventType.Sticker as never, stickerEventContent(sticker) as never);
       }),
+    sendExisting: (roomId: string, s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name: string }) =>
+      guard(async () => {
+        const { name, ...rest } = s;
+        await this.requireClient().sendEvent(roomId, EventType.Sticker as never, stickerEventContent({ shortcode: name, ...rest }) as never);
+      }),
   };
 
   private pack(): { content: unknown; stickers: Sticker[] } {
