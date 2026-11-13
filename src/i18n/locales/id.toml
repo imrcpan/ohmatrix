@@ -654,3 +654,6 @@
 "editStatus.body" = "Status Anda ditampilkan di bawah nama Anda."
 "room.editName.body" = "Semua orang di ruangan akan melihat nama baru."
 "room.editTopic.body" = "Terlihat oleh semua orang di ruangan."
+"banner.dismiss" = "Abaikan"
+"encReminder.off" = "Matikan pengingat enkripsi"
+"encReminder.footer" = "Pemberitahuan yang meminta Anda menyiapkan atau memverifikasi enkripsi disembunyikan. Matikan opsi ini dan pengingat akan muncul lagi."

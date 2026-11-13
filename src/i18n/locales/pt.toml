@@ -654,3 +654,6 @@
 "editStatus.body" = "O seu status aparece abaixo do seu nome."
 "room.editName.body" = "Todos na sala veem o novo nome."
 "room.editTopic.body" = "Visível para todos na sala."
+"banner.dismiss" = "Ignorar"
+"encReminder.off" = "Desativar o lembrete de criptografia"
+"encReminder.footer" = "O aviso que pede para configurar ou verificar a criptografia está oculto. Desative isto e ele volta a aparecer."

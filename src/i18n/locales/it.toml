@@ -654,3 +654,6 @@
 "editStatus.body" = "Il tuo stato è mostrato sotto il tuo nome."
 "room.editName.body" = "Tutti nella stanza vedranno il nuovo nome."
 "room.editTopic.body" = "Visibile a tutti nella stanza."
+"banner.dismiss" = "Ignora"
+"encReminder.off" = "Disattiva il promemoria della crittografia"
+"encReminder.footer" = "L'avviso che chiede di configurare o verificare la crittografia è nascosto. Disattiva questa opzione e verrà mostrato di nuovo."

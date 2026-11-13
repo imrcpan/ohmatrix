@@ -654,3 +654,6 @@
 "editStatus.body" = "상태는 이름 아래에 표시됩니다."
 "room.editName.body" = "방의 모든 사람에게 새 이름이 보입니다."
 "room.editTopic.body" = "방의 모든 사람에게 표시됩니다."
+"banner.dismiss" = "무시"
+"encReminder.off" = "암호화 알림 끄기"
+"encReminder.footer" = "암호화 설정이나 확인을 요청하는 알림이 숨겨집니다. 이 옵션을 끄면 다시 알려 줍니다."

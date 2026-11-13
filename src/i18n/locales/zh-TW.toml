@@ -654,3 +654,6 @@
 "editStatus.body" = "你的狀態會顯示在名字下面。"
 "room.editName.body" = "房間裡的所有人都會看到新名稱。"
 "room.editTopic.body" = "房間裡的所有人都能看到。"
+"banner.dismiss" = "忽略"
+"encReminder.off" = "關閉加密提醒"
+"encReminder.footer" = "詢問你設定或驗證加密的提示已隱藏。關閉此選項後會重新提醒。"

@@ -654,3 +654,6 @@
 "editStatus.body" = "Votre statut s'affiche sous votre nom."
 "room.editName.body" = "Tout le monde dans le salon voit le nouveau nom."
 "room.editTopic.body" = "Visible par tout le monde dans le salon."
+"banner.dismiss" = "Ignorer"
+"encReminder.off" = "Désactiver le rappel de chiffrement"
+"encReminder.footer" = "L'avis qui vous demande de configurer ou de vérifier le chiffrement est masqué. Désactivez cette option pour qu'il réapparaisse."

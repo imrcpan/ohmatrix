@@ -654,3 +654,6 @@
 "editStatus.body" = "Dein Status wird unter deinem Namen angezeigt."
 "room.editName.body" = "Alle im Raum sehen den neuen Namen."
 "room.editTopic.body" = "Für alle im Raum sichtbar."
+"banner.dismiss" = "Ignorieren"
+"encReminder.off" = "Verschlüsselungshinweis ausschalten"
+"encReminder.footer" = "Der Hinweis, der zum Einrichten oder Bestätigen der Verschlüsselung auffordert, ist ausgeblendet. Schalte dies aus, dann erscheint er wieder."

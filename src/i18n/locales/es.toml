@@ -654,3 +654,6 @@
 "editStatus.body" = "Tu estado se muestra bajo tu nombre."
 "room.editName.body" = "Todos en la sala verán el nuevo nombre."
 "room.editTopic.body" = "Visible para todos en la sala."
+"banner.dismiss" = "Ignorar"
+"encReminder.off" = "Desactivar el recordatorio de cifrado"
+"encReminder.footer" = "El aviso que te pide configurar o verificar el cifrado está oculto. Desactiva esto y volverá a aparecer."

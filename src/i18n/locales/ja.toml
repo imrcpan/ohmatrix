@@ -654,3 +654,6 @@
 "editStatus.body" = "ステータスは名前の下に表示されます。"
 "room.editName.body" = "ルームの全員に新しい名前が表示されます。"
 "room.editTopic.body" = "ルームの全員に表示されます。"
+"banner.dismiss" = "無視"
+"encReminder.off" = "暗号化のリマインドをオフにする"
+"encReminder.footer" = "暗号化の設定や確認を促すお知らせは表示されません。オフにすると、再び表示されます。"

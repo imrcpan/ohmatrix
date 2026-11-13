@@ -654,3 +654,6 @@
 "editStatus.body" = "Your status is shown under your name."
 "room.editName.body" = "Everyone in the room sees the new name."
 "room.editTopic.body" = "Shown to everyone in the room."
+"banner.dismiss" = "Dismiss"
+"encReminder.off" = "Turn off encryption reminder"
+"encReminder.footer" = "The notice that asks you to set up or verify encryption is hidden. Turn this off and it asks again."
