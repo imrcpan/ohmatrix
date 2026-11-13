@@ -330,6 +330,9 @@ importers:
         specifier: ^5.0.15
         version: 5.0.15(@types/react@19.2.18)(react@19.2.3)
     devDependencies:
+      '@resvg/resvg-js':
+        specifier: 2.6.2
+        version: 2.6.2
       '@types/react':
         specifier: ~19.2.0
         version: 19.2.18
