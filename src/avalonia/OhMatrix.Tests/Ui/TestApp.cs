@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Headless;
 using OhMatrix.Core.Ui.Animations;
+using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Tests.Ui;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
@@ -19,7 +20,7 @@ public sealed class TestApp : Application {
     }
 }
 
-/// <summary>Starts Avalonia without a window system, drawing with Skia, so that controls can be rendered in a test.</summary>
+/// <summary>Starts Avalonia without a window system, drawing with Skia, so that controls can be rendered in a test; it has the fonts of the app.</summary>
 public static class TestAppBuilder {
     public static AppBuilder BuildAvaloniaApp()
     {
@@ -27,6 +28,7 @@ public static class TestAppBuilder {
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions {
                 UseHeadlessDrawing = false
-            });
+            })
+            .With(Fonts.ManagerOptions);
     }
 }

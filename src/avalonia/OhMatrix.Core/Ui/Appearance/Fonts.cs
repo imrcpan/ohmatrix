@@ -63,6 +63,35 @@ public static class Fonts {
     public static FontFamily Mono { get; private set; } =
         new("monospace, " + MonoMarker + "0");
 
+    // The blocks of the emoji, and the signs that join them into one (the
+    // joiner, the variation selector, the keycap), as a range of code points.
+    private const string EmojiBlocks =
+        "U+200D, U+20E3, U+231A-231B, U+23E9-23F3, U+23F8-23FA, U+25FD-25FE, " +
+        "U+2600-27BF, U+2B1B-2B1C, U+2B50, U+2B55, U+FE0F, U+1F000-1FAFF";
+
+    /// <summary>
+    /// What the font manager of Avalonia is given when the app starts (<c>.With(Fonts.ManagerOptions)</c>): the colour emoji fonts, for the
+    /// emoji. A glyph that no font of a text has is looked for by the platform, and fontconfig on Linux can answer with a font that has it in
+    /// one colour (Symbola draws the emoji as outlines) and not with the colour one. So the colour fonts are asked first, by the names they have
+    /// on each system (the one that is installed answers, the others are skipped), and only for the blocks of the emoji: the letters and the
+    /// signs of a text are left to the fonts of the text.
+    /// </summary>
+    public static FontManagerOptions ManagerOptions { get; } = new() {
+        FontFallbacks = [
+            ColorEmoji("Apple Color Emoji"),
+            ColorEmoji("Segoe UI Emoji"),
+            ColorEmoji("Noto Color Emoji"),
+        ]
+    };
+
+    private static FontFallback ColorEmoji(string family)
+    {
+        return new FontFallback {
+            FontFamily = new FontFamily(family),
+            UnicodeRange = UnicodeRange.Parse(EmojiBlocks),
+        };
+    }
+
     /// <summary>
     /// The three kinds of weight a text can ask for. What it is drawn in is not the number it asks for but the one chosen for its kind in the
     /// font settings (<see cref="Drawn"/>), whoever draws it, so a text asks for a kind and never for a number.

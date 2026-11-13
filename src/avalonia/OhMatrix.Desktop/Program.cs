@@ -1,4 +1,5 @@
 using Avalonia;
+using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Desktop;
@@ -30,5 +31,6 @@ class Program {
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(Fonts.ManagerOptions)
             .LogToTrace();
 }
