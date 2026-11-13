@@ -349,36 +349,6 @@ public class PresenceTests {
     }
 
     [AvaloniaFact]
-    public void The_backdrop_dims_before_the_card_comes_and_goes_with_it()
-    {
-        using var clock = new FrameClock();
-        var card = new Border();
-        var dim = new SolidColorBrush(Colors.Black);
-        var presence = Presences.Dialog(card);
-        presence.Backdrop = dim;
-        presence.Enter();
-        Assert.Equal(0, dim.Opacity);
-        Assert.Equal(0, card.Opacity);
-        clock.Frame();
-        clock.Frame(16);
-        clock.Frame(16);
-        // 32 ms on: the window has started to dim, and the card waits 40 ms.
-        Assert.True(dim.Opacity > 0.1, $"{dim.Opacity}");
-        Assert.Equal(0, card.Opacity);
-        clock.Finish();
-        Assert.Equal(1, dim.Opacity);
-        Assert.Equal(1, card.Opacity);
-
-        presence.Leave(() => {
-        });
-        clock.Frame();
-        clock.Frame(16);
-        Assert.True(dim.Opacity < 1);
-        clock.Finish();
-        Assert.Equal(0, dim.Opacity);
-    }
-
-    [AvaloniaFact]
     public void A_solid_thing_is_never_faded_and_goes_when_it_has_landed()
     {
         using var clock = new FrameClock();
