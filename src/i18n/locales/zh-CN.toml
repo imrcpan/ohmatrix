@@ -533,7 +533,7 @@
 "confirm" = "确认"
 "signOut.title" = "确定退出登录？"
 "signOut.body" = "退出后需要重新登录才能在此设备上使用该账号。"
-"newChat" = "新建聊天"
+"newChat" = "添加联系人"
 "newChat.menu" = "新建"
 "newGroup" = "新建群组"
 "joinRoom" = "加入房间"
