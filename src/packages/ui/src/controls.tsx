@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { ActivityIndicator, Modal, Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
-import { ScaleRoot } from "./Scale.js";
-import { useInsets, useKeyboardHold, useScale } from "./viewport.js";
+import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
+import { DialogFrame } from "./DialogFrame.js";
+import { useInsets, useKeyboardHold } from "./viewport.js";
 import { Icon, type IconName } from "./Icon.js";
 import { fontFamily, radius, useTheme } from "./theme.js";
 
@@ -184,27 +184,17 @@ export function SearchField(props: { value: string; onChangeText: (v: string) =>
 /** `onClose` is also what the system's back and Esc do. With `modal`, pressing the dim area around the dialog does not close it: it needs an answer. */
 export function Dialog(props: { visible: boolean; title: string; message?: string; children?: ReactNode; onClose: () => void; modal?: boolean }) {
   const { colors } = useTheme();
-  const scale = useScale();
   // The keyboard comes up over the dialog, not over a page that was lifted behind it: the dialog moves up by itself.
   useKeyboardHold(props.visible);
   const keyboard = useInsets().keyboard ?? 0;
   return (
-    <Modal transparent visible={props.visible} animationType="fade" onRequestClose={props.onClose}>
-      <ScaleRoot scale={scale}>
-        <Pressable
-          onPress={props.modal ? undefined : props.onClose}
-          style={{ flex: 1, backgroundColor: colors.overlay, alignItems: "center", justifyContent: "center", padding: 24, paddingBottom: 24 + keyboard }}
-        >
-          <Pressable onPress={() => {}} style={{ width: "100%", maxWidth: 400, borderRadius: 16, backgroundColor: colors.bg, padding: 20, gap: 14 }}>
-            <Text style={{ fontSize: 19, fontWeight: "700", fontFamily, color: colors.text, textAlign: "center" }}>{props.title}</Text>
-            {!!props.message && (
-              <Text style={{ fontSize: 15, lineHeight: 20, fontFamily, color: colors.textSecondary, textAlign: "center" }}>{props.message}</Text>
-            )}
-            {props.children}
-          </Pressable>
-        </Pressable>
-      </ScaleRoot>
-    </Modal>
+    <DialogFrame visible={props.visible} onClose={props.onClose} dismiss={!props.modal} bottom={keyboard} wrap={{ width: "100%", maxWidth: 400 }}>
+      <Pressable onPress={() => {}} style={{ width: "100%", borderRadius: 16, backgroundColor: colors.bg, padding: 20, gap: 14 }}>
+        <Text style={{ fontSize: 19, fontWeight: "700", fontFamily, color: colors.text, textAlign: "center" }}>{props.title}</Text>
+        {!!props.message && <Text style={{ fontSize: 15, lineHeight: 20, fontFamily, color: colors.textSecondary, textAlign: "center" }}>{props.message}</Text>}
+        {props.children}
+      </Pressable>
+    </DialogFrame>
   );
 }
 

@@ -20,6 +20,7 @@ export { TopNotice } from "./TopNotice.js";
 export { LivePreview, StreamView, setStreamRenderer, setVideoRenderer } from "./VideoSurface.js";
 export { AudioRow, ProgressRing, Waveform, LinkPreviewCard } from "./media.js";
 export { ScaleProvider, ScaleRoot } from "./Scale.js";
+export { DialogFrame } from "./DialogFrame.js";
 export { RichText } from "./richtext.js";
 export { parseFormatted, plainRuns, type Run } from "./richtextModel.js";
 export { ALL_EMOJI_GROUPS, EmojiPicker, useRecentEmoji } from "./EmojiPicker.js";

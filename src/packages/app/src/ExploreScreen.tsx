@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View, type DimensionValue } from "react-native";
 import type { PublicRoom } from "@ohmatrix/core";
-import { Avatar, fontFamily, Icon, IconButton, Pulse, ScaleRoot, SearchField, SkeletonBlock, useInsets, useScale, useTheme, useViewport } from "@ohmatrix/ui";
+import {
+  Avatar,
+  DialogFrame,
+  fontFamily,
+  Icon,
+  IconButton,
+  Pulse,
+  ScaleRoot,
+  SearchField,
+  SkeletonBlock,
+  useInsets,
+  useScale,
+  useTheme,
+  useViewport,
+} from "@ohmatrix/ui";
 import { ConfirmDialog } from "./ConfirmDialog.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { serverName } from "./serverName.js";
@@ -64,7 +78,6 @@ function Card(props: { room: PublicRoom; width: DimensionValue; busy: boolean; j
   const { room } = props;
   const avatar = useMediaUrl(room.avatar, { width: 112, height: 112, fit: "crop" });
   const { width: window, height: viewport } = useViewport();
-  const scale = useScale();
   const services = useServices();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -156,29 +169,22 @@ function Card(props: { room: PublicRoom; width: DimensionValue; busy: boolean; j
         />
       </Pressable>
       {/* The same card, larger: the whole text, scrolling inside when it is long. */}
-      <Modal transparent visible={full} animationType="fade" onRequestClose={() => setFull(false)}>
-        <ScaleRoot scale={scale}>
-          <Pressable
-            onPress={() => setFull(false)}
-            style={{ flex: 1, backgroundColor: colors.overlay, alignItems: "center", justifyContent: "center", padding: 24 }}
-          >
-            <Pressable onPress={() => {}} style={{ ...cardStyle, width: Math.min(window - 48, 560), backgroundColor: colors.bgSecondary }}>
-              <CardFace
-                room={room}
-                avatar={avatar}
-                topic={
-                  <ScrollView style={{ maxHeight: Math.max(160, viewport * 0.5) }}>
-                    <Text selectable style={topicStyle}>
-                      {room.topic?.trim() ?? ""}
-                    </Text>
-                  </ScrollView>
-                }
-                actions={actions(() => setFull(false))}
-              />
-            </Pressable>
-          </Pressable>
-        </ScaleRoot>
-      </Modal>
+      <DialogFrame visible={full} onClose={() => setFull(false)}>
+        <Pressable onPress={() => {}} style={{ ...cardStyle, width: Math.min(window - 48, 560), backgroundColor: colors.bgSecondary }}>
+          <CardFace
+            room={room}
+            avatar={avatar}
+            topic={
+              <ScrollView style={{ maxHeight: Math.max(160, viewport * 0.5) }}>
+                <Text selectable style={topicStyle}>
+                  {room.topic?.trim() ?? ""}
+                </Text>
+              </ScrollView>
+            }
+            actions={actions(() => setFull(false))}
+          />
+        </Pressable>
+      </DialogFrame>
     </>
   );
 }
