@@ -21,6 +21,7 @@ export { LivePreview, StreamView, setStreamRenderer, setVideoRenderer } from "./
 export { AudioRow, ProgressRing, Waveform, LinkPreviewCard } from "./media.js";
 export { ScaleProvider, ScaleRoot } from "./Scale.js";
 export { DialogFrame } from "./DialogFrame.js";
+export { PopFade, PopPiece, PopProvider, usePanelMotion, type Hover } from "./panelMotion.js";
 export { RichText } from "./richtext.js";
 export { parseFormatted, plainRuns, type Run } from "./richtextModel.js";
 export { ALL_EMOJI_GROUPS, EmojiPicker, useRecentEmoji } from "./EmojiPicker.js";
