@@ -412,6 +412,7 @@
 "sticker.new" = "स्टिकर जोड़ें"
 "sticker.empty" = "अभी कोई स्टिकर नहीं है। यहाँ चित्र या एनिमेशन जोड़ें, या चैट के किसी चित्र से जोड़ें।"
 "sticker.group.default" = "डिफ़ॉल्ट ग्रुप"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "ग्रुप {n}"
 "sticker.group.delete" = "ग्रुप मिटाएँ"
 "sticker.group.delete.a" = "इससे ग्रुप और "

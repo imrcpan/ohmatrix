@@ -412,6 +412,7 @@
 "sticker.new" = "스티커 추가"
 "sticker.empty" = "아직 스티커가 없어요. 여기에 이미지나 애니메이션을 추가하거나 채팅의 이미지에서 추가하세요."
 "sticker.group.default" = "기본 그룹"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "그룹 {n}"
 "sticker.group.delete" = "그룹 삭제"
 "sticker.group.delete.a" = "이 그룹과 "

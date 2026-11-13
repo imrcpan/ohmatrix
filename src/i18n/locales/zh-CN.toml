@@ -412,6 +412,7 @@
 "sticker.new" = "添加表情"
 "sticker.empty" = "还没有表情。可以在这里添加图片或动图，也可以在聊天里对图片选择“添加到表情包”。"
 "sticker.group.default" = "默认分组"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "分组 {n}"
 "sticker.group.delete" = "删除分组"
 "sticker.group.delete.a" = "将删除这个分组，以及"

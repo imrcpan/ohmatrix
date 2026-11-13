@@ -412,6 +412,7 @@
 "sticker.new" = "স্টিকার যোগ করুন"
 "sticker.empty" = "এখনও কোনো স্টিকার নেই। এখানে ছবি বা অ্যানিমেশন যোগ করুন, অথবা চ্যাটের কোনো ছবি থেকে যোগ করুন।"
 "sticker.group.default" = "ডিফল্ট গ্রুপ"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "গ্রুপ {n}"
 "sticker.group.delete" = "গ্রুপ মুছুন"
 "sticker.group.delete.a" = "এটি গ্রুপ এবং "

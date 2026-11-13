@@ -412,6 +412,7 @@
 "sticker.new" = "Adicionar uma figurinha"
 "sticker.empty" = "Ainda não há figurinhas. Adicione imagens ou animações aqui, ou a partir de uma imagem de uma conversa."
 "sticker.group.default" = "Grupo padrão"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "Grupo {n}"
 "sticker.group.delete" = "Excluir grupo"
 "sticker.group.delete.a" = "Isso exclui o grupo e "

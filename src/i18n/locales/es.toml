@@ -412,6 +412,7 @@
 "sticker.new" = "Añadir un sticker"
 "sticker.empty" = "Aún no hay stickers. Añade imágenes o animaciones aquí, o desde una imagen de un chat."
 "sticker.group.default" = "Grupo predeterminado"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "Grupo {n}"
 "sticker.group.delete" = "Eliminar grupo"
 "sticker.group.delete.a" = "Esto elimina el grupo y "

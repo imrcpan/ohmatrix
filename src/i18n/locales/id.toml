@@ -412,6 +412,7 @@
 "sticker.new" = "Tambah stiker"
 "sticker.empty" = "Belum ada stiker. Tambahkan gambar atau animasi di sini, atau dari gambar di obrolan."
 "sticker.group.default" = "Grup bawaan"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "Grup {n}"
 "sticker.group.delete" = "Hapus grup"
 "sticker.group.delete.a" = "Ini menghapus grup dan "

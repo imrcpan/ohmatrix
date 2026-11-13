@@ -412,6 +412,7 @@
 "sticker.new" = "新增貼圖"
 "sticker.empty" = "還沒有貼圖。在這裡新增圖片或動畫，或從聊天中的圖片新增。"
 "sticker.group.default" = "預設群組"
+"sticker.builtin.name" = "Open Emoji Cute"
 "sticker.group.n" = "群組 {n}"
 "sticker.group.delete" = "刪除群組"
 "sticker.group.delete.a" = "這會刪除這個群組，以及"

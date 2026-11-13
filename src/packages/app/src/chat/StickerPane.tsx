@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import {
-  checkSticker,
-  moveItem,
-  newGroupId,
-  STICKER_DEFAULT_GROUP,
-  STICKER_GROUPS_MAX,
-  type Sticker,
-  type StickerGroup,
-  type StickerGroupIcon,
-  withDefault,
-} from "@ohmatrix/core";
+import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { checkSticker, moveItem, newGroupId, STICKER_GROUPS_MAX, type Sticker, type StickerGroup, type StickerGroupIcon, withUngrouped } from "@ohmatrix/core";
 import { Dialog, fontFamily, Icon, Menu, PopFade, PopPiece, PrimaryButton, TextButton, useTheme, type Anchor } from "@ohmatrix/ui";
 import { failureReason } from "../avatarFailure.js";
 import { useAppState, useController, useServices, useT } from "../context.js";
@@ -19,7 +9,9 @@ import { PromptDialog } from "../PromptDialog.js";
 import { STICKER_GAP, STICKER_PAD, STICKER_TILE } from "./stickerGrid.js";
 import { StickerTile } from "./StickerTile.js";
 import { StickerReorder } from "./StickerReorder.js";
-import { GroupCoverDialog, GroupTabs, groupLabel } from "./StickerGroups.js";
+import { GroupCoverDialog, GroupTabs, groupLabel, labelOffset } from "./StickerGroups.js";
+import { BUILTIN_GROUP, openEmojiFile, openEmojiUri } from "./builtinGroup.js";
+import { OPEN_EMOJI } from "./openEmoji.js";
 
 /** A warning in three parts, the middle one in red: what is going to be lost. */
 function Warning(props: { parts: [string, string, string] }) {
@@ -48,9 +40,9 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [stored, setStored] = useState<StickerGroup[]>([]);
   // The group on show (null = all the stickers), and what the person is doing: choosing stickers, or reordering the ones of a group.
-  // It opens on the group left on show last time; if that group is gone, `current` below falls back to the default one.
+  // It opens on the group left on show last time; if that group is gone, `current` below falls back to the set of the app, which is always there.
   const remembered = useAppState((s) => s.prefs.stickerGroup);
-  const [view, setView] = useState<string>(remembered ?? STICKER_DEFAULT_GROUP);
+  const [view, setView] = useState<string>(remembered ?? BUILTIN_GROUP);
   const show = (id: string) => {
     setView(id);
     controller.setPreferences({ stickerGroup: id });
@@ -64,13 +56,13 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
   const gear = useRef<View>(null);
   useEffect(() => controller.subscribeStickers(setStickers), [controller]);
   useEffect(() => controller.subscribeStickerGroups(setStored), [controller]);
-  // The default group is always first: it holds the stickers no other group has.
-  const groups = withDefault(stored, stickers);
-  // A group that is gone (deleted on another device) is not left on show.
-  const current = groups.find((g) => g.id === view) ?? groups[0]!;
-  const isDefault = current.id === STICKER_DEFAULT_GROUP;
+  // My groups (the one of the stickers that no group has is among them only while it has something); the set of the app comes before them.
+  const groups = withUngrouped(stored, stickers);
+  // A group that is gone (deleted on another device) is not left on show: the set of the app is.
+  const current = groups.find((g) => g.id === view) ?? { id: BUILTIN_GROUP, name: "", stickers: [] };
+  const isBuiltin = current.id === BUILTIN_GROUP;
   const shown = current.stickers.flatMap((code) => stickers.find((x) => x.shortcode === code) ?? []);
-  const title = groupLabel(current, groups.indexOf(current), t);
+  const title = isBuiltin ? t("sticker.builtin.name") : groupLabel(current, groups.indexOf(current) + labelOffset(groups), t);
 
   const saveGroups = async (next: StickerGroup[]) => {
     try {
@@ -129,7 +121,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
     });
   const canAct = mode === "choose" && chosen.size > 0;
   // The grid as it is drawn: the columns that fit, and the rows the pane shows (the last one cut). The stickers come up in rings from the middle of these.
-  const hasAdd = !!(services.pickPhoto || services.pickFiles) && mode === "browse";
+  const hasAdd = !isBuiltin && !!(services.pickPhoto || services.pickFiles) && mode === "browse";
   const cols = Math.max(1, Math.floor((width - 2 * STICKER_PAD + STICKER_GAP) / (STICKER_TILE + STICKER_GAP)));
   const rowsSeen = Math.max(1, Math.ceil((height - STICKER_PAD) / (STICKER_TILE + STICKER_GAP)));
   const setCover = (icon: StickerGroupIcon) => {
@@ -165,18 +157,24 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
     </Pressable>
   );
 
-  const items = [
-    ...(shown.length > 0 ? [{ label: t("sticker.select"), icon: "multiSelect" as const, onPress: () => setMode("choose") }] : []),
-    ...(shown.length > 1 ? [{ label: t("sticker.reorder"), icon: "sort" as const, onPress: () => setMode("reorder") }] : []),
-    { label: t("sticker.name.set"), icon: "edit" as const, onPress: () => setDialog("name") },
-    // The default group keeps its cover and cannot be deleted: the stickers that no group has have to be somewhere.
-    ...(isDefault
-      ? []
-      : [
-          { label: t("sticker.cover.set"), icon: "image" as const, onPress: () => setDialog("cover") },
-          { label: t("sticker.group.delete"), icon: "trash" as const, danger: true, onPress: () => setDialog("deleteGroup") },
-        ]),
-  ];
+  // The set of the app has no settings: it cannot be selected from, reordered, named, covered or deleted.
+  const items = isBuiltin
+    ? []
+    : [
+        ...(shown.length > 0 ? [{ label: t("sticker.select"), icon: "multiSelect" as const, onPress: () => setMode("choose") }] : []),
+        ...(shown.length > 1 ? [{ label: t("sticker.reorder"), icon: "sort" as const, onPress: () => setMode("reorder") }] : []),
+        { label: t("sticker.name.set"), icon: "edit" as const, onPress: () => setDialog("name") },
+        { label: t("sticker.cover.set"), icon: "image" as const, onPress: () => setDialog("cover") },
+        { label: t("sticker.group.delete"), icon: "trash" as const, danger: true, onPress: () => setDialog("deleteGroup") },
+      ];
+
+  // An emoji of the set is sent as a picture: it goes up the first time, and the server's address is used after that.
+  const sendOpenEmoji = (e: (typeof OPEN_EMOJI)[number]) => {
+    props.close();
+    controller
+      .sendStickerFile(props.roomId, openEmojiFile(e, Platform.OS === "web"))
+      .catch((err: unknown) => notice.show(t("sticker.send.failed", { reason: failureReason(err, t) }), "error"));
+  };
 
   return (
     <View style={{ height: 360 }}>
@@ -234,6 +232,29 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
         {mode === "reorder" && (
           <StickerReorder stickers={shown} width={width} onMove={(from, to) => void change({ stickers: moveItem(current.stickers, from, to) })} />
         )}
+        {isBuiltin &&
+          OPEN_EMOJI.map((e, i) => (
+            <PopPiece key={e.name} index={i} cols={cols} rows={rowsSeen}>
+              {(hover) => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={e.name}
+                  onPress={() => sendOpenEmoji(e)}
+                  onHoverIn={hover.onHoverIn}
+                  onHoverOut={hover.onHoverOut}
+                  style={({ hovered, pressed: down }: { hovered?: boolean; pressed: boolean }) => ({
+                    width: STICKER_TILE,
+                    height: STICKER_TILE,
+                    borderRadius: 10,
+                    padding: 4,
+                    backgroundColor: down ? colors.separator : hovered ? colors.hover : "transparent",
+                  })}
+                >
+                  <Image source={{ uri: openEmojiUri(e) }} resizeMode="contain" style={{ flex: 1 }} />
+                </Pressable>
+              )}
+            </PopPiece>
+          ))}
         {hasAdd && (
           <PopPiece index={0} cols={cols} rows={rowsSeen}>
             {(hover) => (
@@ -277,9 +298,9 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
               )}
             </PopPiece>
           ))}
-        {shown.length === 0 && (
+        {!isBuiltin && shown.length === 0 && (
           <Text style={{ width: "100%", paddingTop: 12, paddingHorizontal: 8, fontSize: 13, lineHeight: 18, fontFamily, color: colors.textSecondary }}>
-            {isDefault ? t("sticker.empty") : t("sticker.group.empty")}
+            {groups.length === 1 ? t("sticker.empty") : t("sticker.group.empty")}
           </Text>
         )}
       </ScrollView>
@@ -301,7 +322,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
         title={t("sticker.group.new")}
         message={t("sticker.name.body")}
         fields={[{ label: t("sticker.name.label"), optional: true }]}
-        initial={[t("sticker.group.n", { n: groups.length })]}
+        initial={[t("sticker.group.n", { n: groups.length + labelOffset(groups) })]}
         confirmLabel={t("sticker.group.create")}
         onConfirm={async ([name]) => {
           const next = (name ?? "").trim();
@@ -339,8 +360,7 @@ export function StickerPane(props: { roomId: string; close: () => void }) {
           onPress={() => {
             const g = current;
             setDialog(null);
-            show(STICKER_DEFAULT_GROUP);
-            if (isDefault) return;
+            show(BUILTIN_GROUP);
             // The stickers go first (that also takes them out of every group); then the group itself.
             void (g.stickers.length ? controller.removeStickers(g.stickers) : Promise.resolve())
               .then(() => saveGroups(groups.filter((x) => x.id !== g.id)))
