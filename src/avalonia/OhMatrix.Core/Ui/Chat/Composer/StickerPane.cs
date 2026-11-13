@@ -938,9 +938,31 @@ public sealed class StickerPane : Grid {
                 Margin = new Thickness(8, 12, 8, 0),
             });
 
-        BuildTabs(c, groups, group, s.Stickers);
+        // The tabs are made again for other stickers, groups, words or colours;
+        // for another group on show only the one that is on show changes.
+        if (!ReferenceEquals(tabsStickers, s.Stickers) ||
+            !ReferenceEquals(tabsGroups, s.StickerGroups) ||
+            tabsLocale != s.Locale || !Equals(tabsColors, c)) {
+            tabsStickers = s.Stickers;
+            tabsGroups = s.StickerGroups;
+            tabsLocale = s.Locale;
+            tabsColors = c;
+            BuildTabs(c, groups, group, s.Stickers);
+        } else
+            SelectTab(c, group.Id);
+
         Rebuilt?.Invoke();
     }
+
+    // The scroller of the tabs, and what the tabs were made from: they are made
+    // again only when that changes, not when another group is opened.
+    private ScrollViewer? tabScroller;
+    private IReadOnlyList<Sticker>? tabsStickers;
+    private IReadOnlyList<StickerGroup>? tabsGroups;
+    private string? tabsLocale;
+    private ColorTokens? tabsColors;
+    private string? selectedTab;
+    private readonly List<(string? Id, Border Cell)> cells = [];
 
     // The name of the group on show, in the bar over the tiles; null when the
     // bar is that of choosing or of moving.
@@ -987,6 +1009,17 @@ public sealed class StickerPane : Grid {
         return arrow;
     }
 
+    // Another group is on show: its tab takes the tint and the one before it
+    // loses it.
+    private void SelectTab(ColorTokens c, string id)
+    {
+        selectedTab = id;
+        foreach (var (cell, tab) in cells)
+            tab.Background = cell != null && cell == id
+                ? new SolidColorBrush(c.BgSecondary)
+                : Brushes.Transparent;
+    }
+
     private void BuildTabs(ColorTokens c, IReadOnlyList<StickerGroup> groups,
         StickerGroup current,
         IReadOnlyList<Sticker> pack)
@@ -996,7 +1029,11 @@ public sealed class StickerPane : Grid {
             Spacing = 2
         };
 
-        Border Tab(string label, bool selected, Action press, Control child)
+        cells.Clear();
+        selectedTab = current.Id;
+
+        Border Tab(string label, string? id, bool selected, Action press,
+            Control child)
         {
             var tab = new Border {
                 Width = 62,
@@ -1009,12 +1046,18 @@ public sealed class StickerPane : Grid {
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = child,
             };
-            if (!selected) {
-                tab.PointerEntered += (_, _) =>
+            // Which tab is on show changes without the tabs being made again:
+            // what is under the pointer and what is on show are looked up when
+            // the pointer comes and goes.
+            tab.PointerEntered += (_, _) => {
+                if (id == null || id != selectedTab)
                     tab.Background = new SolidColorBrush(c.Hover);
-                tab.PointerExited += (_, _) =>
-                    tab.Background = Brushes.Transparent;
-            }
+            };
+            tab.PointerExited += (_, _) => tab.Background =
+                id != null && id == selectedTab
+                    ? new SolidColorBrush(c.BgSecondary)
+                    : Brushes.Transparent;
+            cells.Add((id, tab));
 
             tab.PointerPressed += (_, e) => {
                 e.Handled = true;
@@ -1036,12 +1079,12 @@ public sealed class StickerPane : Grid {
                 }
                 : IconOf(StickerPack.CoverOf(g, pack), GroupIcon);
             var id = g.Id;
-            row.Children.Add(Tab(Label(g, i), id == current.Id, () => Show(id),
-                face));
+            row.Children.Add(Tab(Label(g, i), id, id == current.Id,
+                () => Show(id), face));
         }
 
         if (groups.Count - 1 < StickerPack.GroupsMax)
-            row.Children.Add(Tab(controller.T("sticker.group.new"), false,
+            row.Children.Add(Tab(controller.T("sticker.group.new"), null, false,
                 AskNewGroup,
                 new Icon {
                     Glyph = "plus",
@@ -1050,9 +1093,12 @@ public sealed class StickerPane : Grid {
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 }));
-        // The bar scrolls sideways when there are more groups than it holds: the
-        // scroll bar is always shown, and the wheel turns it.
-        tabs.Child = SideScroller.Make(row);
+        // The scroller is kept, so that where the bar was scrolled to is kept
+        // when the tabs are made again.
+        tabScroller ??= SideScroller.Make(row);
+        tabScroller.Content = row;
+        if (!ReferenceEquals(tabs.Child, tabScroller))
+            tabs.Child = tabScroller;
     }
 
     /// <summary>My sticker groups as tiles to choose one from (the default group first), each with its cover and its name.</summary>
