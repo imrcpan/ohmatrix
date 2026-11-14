@@ -4,7 +4,7 @@
 # the SDK is our own, under OHM_TOOLS.
 
 _sdk_complete() {
-  [ -d "$1/ndk/$ANDROID_NDK" ] && [ -d "$1/platforms/android-$ANDROID_PLATFORM" ] && [ -d "$1/build-tools/$ANDROID_BUILD_TOOLS" ] && [ -d "$1/platform-tools" ]
+  [ -d "$1/ndk/$ANDROID_NDK" ] && [ -d "$1/platforms/android-$ANDROID_PLATFORM" ] && [ -d "$1/build-tools/$ANDROID_BUILD_TOOLS" ] && [ -d "$1/platform-tools" ] && [ -d "$1/cmake/$ANDROID_CMAKE" ]
 }
 
 _use_sdk() {
@@ -34,7 +34,7 @@ setup_android_sdk() {
   for dir in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$OHM_TOOLS/android-sdk"; do
     if [ -n "$dir" ] && _sdk_complete "$dir"; then
       _use_sdk "$dir"
-      ok "android sdk with ndk $ANDROID_NDK, platform $ANDROID_PLATFORM, build-tools $ANDROID_BUILD_TOOLS (in $dir)"
+      ok "android sdk with ndk $ANDROID_NDK, platform $ANDROID_PLATFORM, build-tools $ANDROID_BUILD_TOOLS, cmake $ANDROID_CMAKE (in $dir)"
       return 0
     fi
   done
@@ -55,7 +55,7 @@ setup_android_sdk() {
     set +o pipefail
     yes | "$manager" --sdk_root="$sdk" --licenses >"$log" 2>&1
   ) || true
-  "$manager" --sdk_root="$sdk" "ndk;$ANDROID_NDK" "platforms;android-$ANDROID_PLATFORM" "build-tools;$ANDROID_BUILD_TOOLS" "platform-tools" >>"$log" 2>&1 ||
+  "$manager" --sdk_root="$sdk" "ndk;$ANDROID_NDK" "platforms;android-$ANDROID_PLATFORM" "build-tools;$ANDROID_BUILD_TOOLS" "platform-tools" "cmake;$ANDROID_CMAKE" >>"$log" 2>&1 ||
     {
       tail -n 30 "$log" >&2
       die "sdkmanager failed (log: $log)"
