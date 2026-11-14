@@ -2,7 +2,7 @@ namespace OhMatrix.Core.Model;
 
 /// <summary>
 /// The emoji set that stands first in the sticker panel, always: Open Emoji
-/// Cute (github.com/imrcpan/open-emoji-cute), drawn at 128 px and embedded in
+/// Cute (github.com/imrcpan/open-emoji-cute), drawn at 256 px and embedded in
 /// the app. It is not in my pack and not in the account; a sticker of it is
 /// uploaded when it is sent. Its urls are <c>builtin:name</c>.
 /// </summary>
@@ -20,7 +20,7 @@ public static class BuiltinStickers {
     public const string Fallback = "playful";
 
     /// <summary>The pixels of each side of a picture.</summary>
-    public const int Pixels = 128;
+    public const int Pixels = 256;
 
     // In the order of the set's page.
     private static readonly string[] Names = [
