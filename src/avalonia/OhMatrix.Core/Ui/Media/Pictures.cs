@@ -178,7 +178,7 @@ public sealed class Pictures(
             using var stream = new MemoryStream(bytes);
             return new Bitmap(stream);
         } catch (Exception e) {
-            logger.Unexpected($"load the picture {mxc}", e);
+            logger.Unexpected("Pictures", e);
             // A picture that cannot be had is the initials; Fetch lets go of
             // the entry and the next ask tries again.
             return null;

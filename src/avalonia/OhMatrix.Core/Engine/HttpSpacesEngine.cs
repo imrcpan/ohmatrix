@@ -38,7 +38,7 @@ public sealed class HttpSpacesEngine(
             try {
                 parsed = JsonNode.Parse(text);
             } catch (System.Text.Json.JsonException e) {
-                logger.Exception("read the spaces answer", e);
+                logger.Exception("HttpSpacesEngine", e);
                 // No usable body.
             }
 

@@ -86,7 +86,7 @@ public sealed class SpacePage : Grid {
         try {
             found = await controller.SpaceChildren(id);
         } catch (Exception e) {
-            logger.Unexpected("load a space", e);
+            logger.Unexpected("SpacePage", e);
             // The list stays empty; opening the space again asks again.
         }
 

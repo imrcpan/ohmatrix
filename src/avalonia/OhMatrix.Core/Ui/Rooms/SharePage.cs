@@ -181,7 +181,7 @@ public sealed class SharePage : Grid {
             try {
                 await controller.SendShared(id, share);
             } catch (Exception e) {
-                logger.Exception($"share to {id}", e);
+                logger.Exception("SharePage", e);
                 left.Add(id);
             }
         }

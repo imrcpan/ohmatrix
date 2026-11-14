@@ -1,17 +1,21 @@
 namespace OhMatrix.Infra.Logging;
 
 public static class LoggerExtensions {
-    /// <summary>An error that was caught and is known: the message says what it was.</summary>
+    // name:
+    // such as "ThemeManager", "MatrixClient", "WebRequest", etc.
+    // not "themeManager" not "theme manager"
     public static void Exception(this ILogger logger,
-        string what, Exception e)
+        string name, Exception e)
     {
-        logger.Warn($"{what} Error: {e.Message}");
+        logger.Warn($"{name} Error: {e.Message}");
     }
 
-    /// <summary>An error that was caught and is not expected: its stack is logged too.</summary>
+    // name:
+    // such as "ThemeManager", "MatrixClient", "WebRequest", etc.
+    // not "themeManager" not "theme manager"
     public static void Unexpected(this ILogger logger,
-        string what, Exception e)
+        string name, Exception e)
     {
-        logger.Error($"{what} Unexpected Error: {e}");
+        logger.Error($"{name} Unexpected Error: {e}");
     }
 }

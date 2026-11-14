@@ -95,7 +95,7 @@ public sealed class SharedMediaView : StackPanel {
             tab.Next = page.Next;
             tab.Loaded = true;
         } catch (Exception e) {
-            logger.Unexpected("load shared media", e);
+            logger.Unexpected("SharedMediaView", e);
             tab.Failed = true;
         } finally {
             tab.Loading = false;
@@ -319,7 +319,7 @@ public sealed class SharedMediaView : StackPanel {
             if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
         } catch (Exception e) {
-            logger.Unexpected("open a file", e);
+            logger.Unexpected("SharedMediaView", e);
             // The file stays unopened; pressing it again tries again.
         }
     }

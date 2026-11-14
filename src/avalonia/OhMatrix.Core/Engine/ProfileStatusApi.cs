@@ -45,7 +45,7 @@ public sealed class ProfileStatusApi(
             try {
                 parsed = JsonNode.Parse(text) as JsonObject ?? new JsonObject();
             } catch (System.Text.Json.JsonException e) {
-                logger.Exception("read the status answer", e);
+                logger.Exception("ProfileStatusApi", e);
                 parsed = new JsonObject();
             }
 
@@ -69,7 +69,7 @@ public sealed class ProfileStatusApi(
                 ? s
                 : null;
         } catch (EngineException e) {
-            logger.Exception("get the status", e);
+            logger.Exception("ProfileStatusApi", e);
             return null;
         }
     }

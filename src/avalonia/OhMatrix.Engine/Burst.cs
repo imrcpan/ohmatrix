@@ -39,7 +39,7 @@ public sealed class Burst(TimeSpan window, TimeProvider time) {
         try {
             action?.Invoke();
         } catch (Exception e) {
-            logger.Unexpected("run a queued action", e);
+            logger.Unexpected("Burst", e);
             // What was asked for tells of its own failure.
         }
     }

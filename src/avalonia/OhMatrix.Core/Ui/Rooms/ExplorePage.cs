@@ -176,7 +176,7 @@ public sealed class ExplorePage : Grid {
             result =
                 await controller.SearchPublicRooms(search.Text.Trim(), Server);
         } catch (Exception e) {
-            logger.Unexpected("search public rooms", e);
+            logger.Unexpected("ExplorePage", e);
             // The list stays empty; searching again tries again.
         }
 

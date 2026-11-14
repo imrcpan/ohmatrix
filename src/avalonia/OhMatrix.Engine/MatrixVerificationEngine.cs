@@ -127,7 +127,7 @@ public sealed class MatrixVerificationEngine(
                         details.SenderProfile.UserId, details.FlowId);
                 engine.Tell(VerifyPhase.Requested, who);
             } catch (Exception e) {
-                logger.Unexpected("answer a verification request", e);
+                logger.Unexpected("MatrixVerificationEngine", e);
                 engine.Tell(VerifyPhase.Failed);
             }
         }
@@ -147,7 +147,7 @@ public sealed class MatrixVerificationEngine(
                 engine.Tell(VerifyPhase.Waiting);
                 await (await engine.Controller()).StartSasVerification();
             } catch (Exception e) {
-                logger.Unexpected("start a verification", e);
+                logger.Unexpected("MatrixVerificationEngine", e);
                 engine.Tell(VerifyPhase.Failed);
             }
         }

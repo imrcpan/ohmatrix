@@ -184,7 +184,7 @@ public sealed class AudioCard : Grid {
             if (!player.Play())
                 fallback();
         } catch (Exception e) {
-            logger.Unexpected("play a voice message", e);
+            logger.Unexpected("AudioCard", e);
             fallback();
         } finally {
             loading = false;

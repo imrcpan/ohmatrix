@@ -57,7 +57,7 @@ public sealed class KeyedWork(int limit) {
             try {
                 await Limit(job);
             } catch (Exception e) {
-                logger.Unexpected($"run a queued job for {key}", e);
+                logger.Unexpected("KeyedWork", e);
                 // A job tells of its own failure; this one is over.
             }
 

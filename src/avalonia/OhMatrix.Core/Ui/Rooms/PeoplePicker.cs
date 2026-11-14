@@ -129,7 +129,7 @@ public sealed class PeoplePicker : IOverlay {
             try {
                 people = await controller.SearchPeople(term);
             } catch (Exception e) {
-                logger.Unexpected("search people", e);
+                logger.Unexpected("PeoplePicker", e);
                 // The list stays empty; typing again searches again.
             }
         }
@@ -309,7 +309,7 @@ public sealed class PeoplePicker : IOverlay {
             await onConfirm([.. chosen.Keys]);
             dialog.Close();
         } catch (Exception e) {
-            logger.Exception("confirm a dialog", e);
+            logger.Exception("PeoplePicker", e);
             error.Text = e.Message;
             error.IsVisible = true;
         } finally {

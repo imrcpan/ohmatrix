@@ -62,7 +62,7 @@ internal static unsafe partial class LibGst {
                         Has("vp8enc");
             } catch (Exception e) when (e is DllNotFoundException
                                             or EntryPointNotFoundException) {
-                logger.Exception("load GStreamer", e);
+                logger.Exception("LibGst", e);
                 ready = false;
             }
 
@@ -80,7 +80,7 @@ internal static unsafe partial class LibGst {
                        Has("webmmux"));
         } catch (Exception e) when (e is DllNotFoundException
                                         or EntryPointNotFoundException) {
-            logger.Exception("check the GStreamer elements", e);
+            logger.Exception("LibGst", e);
             return false;
         }
     }

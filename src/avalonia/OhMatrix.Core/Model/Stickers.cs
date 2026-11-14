@@ -132,7 +132,7 @@ public static class StickerPack {
         try {
             return JsonNode.Parse(content) as JsonObject;
         } catch (System.Text.Json.JsonException e) {
-            logger.Exception("read the account data of stickers", e);
+            logger.Exception("StickerPack", e);
             return null;
         }
     }

@@ -177,7 +177,7 @@ public sealed class PromptDialog : IOverlay {
             await onConfirm(fields.Select(f => f.Text.Trim()).ToList());
             Close();
         } catch (Exception e) {
-            logger.Exception("confirm a dialog", e);
+            logger.Exception("PromptDialog", e);
             error.Text = e.Message;
             error.IsVisible = true;
         } finally {

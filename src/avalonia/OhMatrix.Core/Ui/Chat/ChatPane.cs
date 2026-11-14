@@ -211,7 +211,7 @@ public sealed partial class ChatPane : Grid {
         try {
             await work();
         } catch (Exception e) {
-            logger.Unexpected("a background update", e);
+            logger.Unexpected("ChatPane", e);
             // The stickers shown stay as they were.
         }
     }
@@ -1709,7 +1709,7 @@ public sealed partial class ChatPane : Grid {
             if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
         } catch (Exception e) {
-            logger.Unexpected("open a file", e);
+            logger.Unexpected("ChatPane", e);
             // The file stays unopened; pressing it again tries again.
         }
     }
@@ -1756,7 +1756,7 @@ public sealed partial class ChatPane : Grid {
             try {
                 await controller.SendAttachment(path);
             } catch (Exception e) {
-                logger.Unexpected("send a file", e);
+                logger.Unexpected("ChatPane", e);
                 // The file stays unsent; the person can try again.
             }
         }
@@ -1882,7 +1882,7 @@ public sealed partial class ChatPane : Grid {
                 try {
                     await controller.SendAttachment(path);
                 } catch (Exception e) {
-                    logger.Unexpected("send a file", e);
+                    logger.Unexpected("ChatPane", e);
                     // The file stays unsent; the person can try again.
                 }
             }

@@ -409,7 +409,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             try {
                 return await run();
             } catch (Exception e) {
-                logger.Unexpected("run a chat job", e);
+                logger.Unexpected("MatrixChatEngine", e);
                 return false;
             }
         }

@@ -129,7 +129,7 @@ public sealed class AccountManager(
         try {
             await account.Controller.Logout();
         } catch (Exception e) {
-            logger.Exception("sign out on the server", e);
+            logger.Exception("AccountManager", e);
             // The account is forgotten here all the same.
         }
 
@@ -233,7 +233,7 @@ public sealed class AccountManager(
             try {
                 Directory.Delete(account.Dir, true);
             } catch (IOException e) {
-                logger.Exception("delete the folder of an account", e);
+                logger.Exception("AccountManager", e);
                 // A folder that stays is only a little disk.
             }
         }

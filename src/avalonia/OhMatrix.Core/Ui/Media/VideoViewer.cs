@@ -214,7 +214,7 @@ public sealed class VideoViewer : IOverlay {
         try {
             path = await fetch(file);
         } catch (Exception e) {
-            logger.Unexpected("fetch a video", e);
+            logger.Unexpected("VideoViewer", e);
             // Nothing to play: the viewer closes below.
         }
 
