@@ -11,7 +11,8 @@ namespace OhMatrix.Core.Ui.Overlays;
 /// </summary>
 public static class TextMenu {
     /// <summary>Gives <paramref name="box"/> the menu of the app in place of its own.</summary>
-    public static Menu Attach(TextBox box, AppController controller)
+    public static Menu Attach(TextBox box, AppController controller,
+        Action? paste = null)
     {
         var menu = new Menu {
             Width = 180
@@ -21,12 +22,13 @@ public static class TextMenu {
         box.AddHandler(InputElement.ContextRequestedEvent,
             (object? _, ContextRequestedEventArgs e) => {
                 e.Handled = true;
-                Open(box, controller, menu);
+                Open(box, controller, menu, paste);
             }, RoutingStrategies.Tunnel, true);
         return menu;
     }
 
-    private static void Open(TextBox box, AppController controller, Menu menu)
+    private static void Open(TextBox box, AppController controller, Menu menu,
+        Action? paste)
     {
         if (TopLevel.GetTopLevel(box) is not { } window)
             return;
@@ -38,7 +40,8 @@ public static class TextMenu {
         if (selected)
             items.Add(new MenuItem(controller.T("copy"), box.Copy));
         if (!box.IsReadOnly)
-            items.Add(new MenuItem(controller.T("edit.paste"), box.Paste));
+            items.Add(new MenuItem(controller.T("edit.paste"),
+                paste ?? box.Paste));
         if (!string.IsNullOrEmpty(box.Text))
             items.Add(new MenuItem(controller.T("edit.selectAll"),
                 box.SelectAll));

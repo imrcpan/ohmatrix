@@ -504,7 +504,8 @@ public sealed partial class ChatPane : Grid {
         var bar = inputBar;
         bar.ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto");
         bar.Margin = new Thickness(10, 8);
-        Lifetime.Own(this, TextMenu.Attach(input, controller));
+        Lifetime.Own(this, TextMenu.Attach(input, controller,
+            () => _ = PasteIntoComposer()));
         Lifetime.Own(this, TextMenu.Attach(searchInput, controller));
         mic.CornerRadius = new CornerRadius(15);
         mic.Margin = new Thickness(6, 0, -8, 0);
@@ -565,6 +566,13 @@ public sealed partial class ChatPane : Grid {
                 !e.KeyModifiers.HasFlag(KeyModifiers.Shift)) {
                 e.Handled = true;
                 Submit();
+            } else if (e.Key == Key.V &&
+                       (e.KeyModifiers & (KeyModifiers.Control |
+                                          KeyModifiers.Meta)) != 0) {
+                // Taken here, before the field pastes: a file or a picture is
+                // sent, and only text goes into the field.
+                e.Handled = true;
+                _ = PasteIntoComposer();
             }
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         input.PropertyChanged += (_, e) => {
@@ -1742,6 +1750,48 @@ public sealed partial class ChatPane : Grid {
 
             return sendFiles;
         }
+    }
+
+    /// <summary>
+    /// Pastes into the field. Files on the clipboard are offered to be sent as
+    /// dropped files are; a picture with no text is saved as a PNG and offered
+    /// the same way. Anything else is pasted as text.
+    /// </summary>
+    public async Task PasteIntoComposer()
+    {
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard != null &&
+            controller.Store.Value.SelectedRoomId != null) {
+            try {
+                var files = await ClipboardExtensions.TryGetFilesAsync(
+                    clipboard);
+                var paths = files?
+                    .Select(f => StorageProviderExtensions.TryGetLocalPath(f))
+                    .OfType<string>().ToList();
+                if (paths is { Count: > 0 }) {
+                    OfferFiles(paths);
+                    return;
+                }
+
+                var text = await clipboard.TryGetTextAsync();
+                if (string.IsNullOrEmpty(text)) {
+                    var picture =
+                        await ClipboardExtensions.TryGetBitmapAsync(clipboard);
+                    if (picture != null) {
+                        var path = Path.Combine(Path.GetTempPath(),
+                            $"ohmatrix-paste-{DateTime.UtcNow.Ticks}.png");
+                        picture.Save(path);
+                        OfferFiles([path]);
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                logger.Unexpected("ChatPane", e);
+                // The clipboard could not be read: the text is pasted as it is.
+            }
+        }
+
+        input.Paste();
     }
 
     /// <summary>Asks before files dropped on the chat are sent, then sends each.</summary>
