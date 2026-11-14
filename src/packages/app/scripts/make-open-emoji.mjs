@@ -1,4 +1,4 @@
-// Draws the SVG files of assets/open-emoji-cute as 192 px PNG pictures and writes them, as base64, into src/chat/openEmoji.ts.
+// Draws the SVG files of assets/open-emoji-cute as 256 px PNG pictures and writes them, as base64, into src/chat/openEmoji.ts.
 // A phone's Image cannot draw SVG, and a sticker has to be a picture the other clients can show, so the set is kept as PNG.
 //   pnpm --filter @ohmatrix/app make-open-emoji
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -8,7 +8,7 @@ import { Resvg } from "@resvg/resvg-js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dir = join(here, "..", "assets", "open-emoji-cute");
-const SIZE = 192;
+const SIZE = 256;
 
 // The set in the order of the repository's README (the first is the cover); the files not listed come last, by name.
 const ORDER = [
