@@ -5,6 +5,7 @@
 #
 #   matrix-rust-sdk-ring-provider.patch  the SDK uses `ring` instead of aws-lc (aws-lc's symbols clash with React Native's Folly at run time)
 #   matrix-rust-sdk-call-events.patch    a listener the app gives the signalling events of a room to (calls between two people)
+#   matrix-rust-sdk-send-sticker.patch   Timeline.send_sticker: a sticker is sent through the timeline, so it has its local echo and send state
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 sdk=${1:?say where the SDK is checked out: apply-patches.sh SDK_CHECKOUT}
@@ -17,4 +18,7 @@ if ! grep -q "rustls-no-provider" "$sdk/crates/matrix-sdk/Cargo.toml"; then
 fi
 if [ ! -f "$sdk/bindings/matrix-sdk-ffi/src/call_events.rs" ]; then
   git -C "$sdk" apply "$here/patches/matrix-rust-sdk-call-events.patch"
+fi
+if ! grep -q "pub async fn send_sticker" "$sdk/bindings/matrix-sdk-ffi/src/timeline/mod.rs"; then
+  git -C "$sdk" apply "$here/patches/matrix-rust-sdk-send-sticker.patch"
 fi

@@ -1,0 +1,35 @@
+diff --git a/bindings/matrix-sdk-ffi/src/timeline/mod.rs b/bindings/matrix-sdk-ffi/src/timeline/mod.rs
+index 2ec184c..ccad1ea 100644
+--- a/bindings/matrix-sdk-ffi/src/timeline/mod.rs
++++ b/bindings/matrix-sdk-ffi/src/timeline/mod.rs
+@@ -399,6 +399,30 @@ impl Timeline {
+         }
+     }
+ 
++    /// Sends a sticker (an `m.sticker` event) to the timeline, as a message is sent: it shows in the timeline at once, with its send state, and
++    /// is sent by the send queue like the others. `source` is a picture that is on the server already; an encrypted one is refused.
++    pub async fn send_sticker(
++        self: Arc<Self>,
++        body: String,
++        image_info: ImageInfo,
++        source: Arc<crate::ruma::MediaSource>,
++    ) -> Result<Arc<SendHandle>, ClientError> {
++        let ruma::events::room::MediaSource::Plain(url) = source.media_source.clone() else {
++            return Err(ClientError::Generic {
++                msg: "a sticker must be a picture on the server, not an encrypted one".to_owned(),
++                details: None,
++            });
++        };
++        let content = ruma::events::sticker::StickerEventContent::new(body, image_info.into(), url);
++        match self.inner.send(AnyMessageLikeEventContent::Sticker(content)).await {
++            Ok(handle) => Ok(Arc::new(SendHandle::new(handle))),
++            Err(err) => {
++                error!("error when sending a sticker: {err}");
++                Err(err.into())
++            }
++        }
++    }
++
+     pub fn send_image(
+         self: Arc<Self>,
+         params: UploadParameters,
