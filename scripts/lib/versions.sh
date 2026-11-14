@@ -30,9 +30,6 @@ ANDROID_CMDLINE_TOOLS_SHA256=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0
 ANDROID_NDK=27.1.12297006
 ANDROID_PLATFORM=35
 ANDROID_BUILD_TOOLS=35.0.0
-# The CMake of the Android Gradle plugin's default. Installed before Gradle runs: left to Gradle, the parallel configureCMake tasks
-# (expo-modules-core, the engine, the app) install it at the same moment and fail with no message of their own (CI, x86_64).
-ANDROID_CMAKE=3.22.1
 
 # Packages from the distribution. Every build needs the first group; the Android side needs the second, the Tauri window the third.
 APT_BASE=(ca-certificates curl git unzip xz-utils)
