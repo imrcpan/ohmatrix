@@ -168,7 +168,7 @@ public sealed class MediaRecorder : IDisposable {
         try {
             File.Delete(path);
         } catch (IOException e) {
-            logger.Caught("delete a recording", e);
+            logger.Exception("delete a recording", e);
             // A file in the temporary folder that stays is only a little disk.
         }
     }

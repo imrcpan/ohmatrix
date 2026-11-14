@@ -309,7 +309,7 @@ public sealed class PeoplePicker : IOverlay {
             await onConfirm([.. chosen.Keys]);
             dialog.Close();
         } catch (Exception e) {
-            logger.Caught("confirm a dialog", e);
+            logger.Exception("confirm a dialog", e);
             error.Text = e.Message;
             error.IsVisible = true;
         } finally {

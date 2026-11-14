@@ -39,7 +39,7 @@ internal static partial class LibVlc {
             instance = libvlc_new(3, ["--no-video", "--quiet", "--no-xlib"]);
         } catch (Exception e) when (e is DllNotFoundException
                                         or EntryPointNotFoundException) {
-            logger.Caught("load libvlc", e);
+            logger.Exception("load libvlc", e);
             instance = IntPtr.Zero;
         }
 
@@ -56,7 +56,7 @@ internal static partial class LibVlc {
             videoInstance = libvlc_new(2, ["--quiet", "--no-xlib"]);
         } catch (Exception e) when (e is DllNotFoundException
                                         or EntryPointNotFoundException) {
-            logger.Caught("load libvlc for video", e);
+            logger.Exception("load libvlc for video", e);
             videoInstance = IntPtr.Zero;
         }
 

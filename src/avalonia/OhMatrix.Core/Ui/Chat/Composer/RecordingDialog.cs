@@ -95,7 +95,7 @@ public sealed class RecordingDialog {
             recorder = rec;
             ticker.Start();
         } catch (Exception e) {
-            logger.Caught("start a recording", e);
+            logger.Exception("start a recording", e);
             rec.Cancel();
             notice.Text = controller.T(MediaRecorder.Available(video)
                 ? "record.noDevice"
@@ -202,7 +202,7 @@ public sealed class RecordingDialog {
             try {
                 File.Delete(done.Path);
             } catch (IOException e) {
-                logger.Caught("delete a recording", e);
+                logger.Exception("delete a recording", e);
                 // A file in the temporary folder that stays is only a little disk.
             }
         }

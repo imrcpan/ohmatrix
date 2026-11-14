@@ -34,7 +34,7 @@ internal static class JsonFile {
             await using var stream = File.OpenRead(path);
             return await JsonSerializer.DeserializeAsync(stream, info);
         } catch (JsonException e) {
-            logger.Caught($"read {path}", e);
+            logger.Exception($"read {path}", e);
             // A file that cannot be read is as good as none: the person signs in again.
             return null;
         }

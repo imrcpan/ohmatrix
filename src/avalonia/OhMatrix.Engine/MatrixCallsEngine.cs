@@ -76,7 +76,7 @@ public sealed class MatrixCallsEngine(MatrixAuthEngine auth) : ICallsEngine {
                         eventType, sender,
                         eventId, (long)ageMs, content));
             } catch (Exception e) {
-                logger.Caught("read a call event", e);
+                logger.Exception("read a call event", e);
                 // An event that cannot be read is not one of a call.
             }
         }

@@ -45,7 +45,7 @@ public sealed class HttpTurnServers(
             ];
         } catch (Exception e) when (e is HttpRequestException
                                         or System.Text.Json.JsonException) {
-            logger.Caught("get the TURN servers", e);
+            logger.Exception("get the TURN servers", e);
             return [];
         }
     }

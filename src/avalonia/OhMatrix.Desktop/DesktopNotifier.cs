@@ -29,7 +29,7 @@ internal sealed class DesktopNotifier(
             else
                 Process.Start(start)?.Dispose();
         } catch (Exception e) {
-            logger.Caught("show a notification", e);
+            logger.Exception("show a notification", e);
             // No notification program: the message is in the chat list all the same.
         }
     }
@@ -45,7 +45,7 @@ internal sealed class DesktopNotifier(
             if (answer?.Trim() == "default")
                 open!(roomId);
         } catch (Exception e) {
-            logger.Caught("read the answer of a notification", e);
+            logger.Exception("read the answer of a notification", e);
             // No notification program, or it ended without an answer.
         }
     }

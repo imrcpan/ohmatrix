@@ -74,7 +74,7 @@ public sealed partial class CallSignalling {
         try {
             await transport.Send(c.Info.RoomId, type, Content(c, extra ?? []));
         } catch (Exception e) {
-            logger.Caught("send a call event", e);
+            logger.Exception("send a call event", e);
             // A hangup or a candidate that cannot be sent leaves nothing to do: the call goes on or ends by the other side's timeout.
         }
     }
@@ -200,7 +200,7 @@ public sealed partial class CallSignalling {
         try {
             servers = await transport.IceServers();
         } catch (Exception e) {
-            logger.Caught("get the TURN servers", e);
+            logger.Exception("get the TURN servers", e);
             servers = [];
         }
 
@@ -248,7 +248,7 @@ public sealed partial class CallSignalling {
         try {
             servers = await transport.IceServers();
         } catch (Exception e) {
-            logger.Caught("get the TURN servers", e);
+            logger.Exception("get the TURN servers", e);
             servers = [];
         }
 
@@ -271,7 +271,7 @@ public sealed partial class CallSignalling {
             try {
                 await peer.AddIceCandidate(x);
             } catch (Exception e) {
-                logger.Caught("add a remote candidate", e);
+                logger.Exception("add a remote candidate", e);
                 // A candidate that does not fit is skipped; the others may.
             }
         }
@@ -414,7 +414,7 @@ public sealed partial class CallSignalling {
                             ["reason"] = "user_busy",
                         });
                 } catch (Exception ex) {
-                    logger.Caught("send the busy answer", ex);
+                    logger.Exception("send the busy answer", ex);
                     // The caller learns by the timeout.
                 }
 
@@ -469,7 +469,7 @@ public sealed partial class CallSignalling {
                         try {
                             await c.Peer.AddIceCandidate(cand);
                         } catch (Exception ex) {
-                            logger.Caught("add a remote candidate", ex);
+                            logger.Exception("add a remote candidate", ex);
                             // Skipped: another candidate may connect.
                         }
                     } else
@@ -530,7 +530,7 @@ public sealed partial class CallSignalling {
                 try {
                     await c.Peer.AddIceCandidate(x);
                 } catch (Exception ex) {
-                    logger.Caught("add a remote candidate", ex);
+                    logger.Exception("add a remote candidate", ex);
                     // Skipped.
                 }
             }

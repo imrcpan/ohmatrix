@@ -12,7 +12,7 @@ public static class Format {
         try {
             return CultureInfo.GetCultureInfo(locale);
         } catch (CultureNotFoundException e) {
-            logger.Caught($"find the culture {locale}", e);
+            logger.Exception($"find the culture {locale}", e);
             return CultureInfo.InvariantCulture;
         }
     }

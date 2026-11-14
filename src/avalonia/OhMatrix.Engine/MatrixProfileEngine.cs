@@ -28,7 +28,7 @@ public sealed class MatrixProfileEngine(
             try {
                 name = await client.DisplayName();
             } catch (Exception e) {
-                logger.Caught("read the display name", e);
+                logger.Exception("read the display name", e);
                 // A server that keeps no name: the part of the user id before the colon is shown instead.
             }
 

@@ -81,7 +81,7 @@ public sealed class AppController(
             StartRooms();
         } catch (Exception e) {
             if (e is EngineException)
-                logger.Caught("restore the session", e);
+                logger.Exception("restore the session", e);
             else
                 logger.Unexpected("restore the session", e);
             var code = (e as EngineException)?.Code;
@@ -1305,7 +1305,7 @@ public sealed class AppController(
             }
         } catch (Exception e) {
             if (e is EngineException)
-                logger.Caught("sign in", e);
+                logger.Exception("sign in", e);
             else
                 logger.Unexpected("sign in", e);
             SignedOut(e.Message, (e as EngineException)?.Code);

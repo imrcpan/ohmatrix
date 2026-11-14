@@ -51,7 +51,7 @@ public sealed class HttpDevicesEngine(
             try {
                 parsed = JsonNode.Parse(text) as JsonObject ?? new JsonObject();
             } catch (JsonException e) {
-                logger.Caught("read the devices answer", e);
+                logger.Exception("read the devices answer", e);
                 parsed = new JsonObject();
             }
 
