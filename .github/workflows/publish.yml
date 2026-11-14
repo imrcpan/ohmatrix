@@ -53,6 +53,9 @@ jobs:
       VERSION: ${{ needs.check.outputs.version }}
       # The whole output of Gradle and CMake (the default one hides the cause of a failed configure step).
       OHM_GRADLE_EXTRA: "--stacktrace --info"
+      # JDK 21, not the runner's default 25: AGP runs its prefab tool on this JDK, and JDK 24+ prints a "restricted method" warning to
+      # stderr, which AGP takes for an error (the configureCMake tasks fail with that text and nothing else).
+      JAVA_HOME: /usr/lib/jvm/temurin-21-jdk-amd64
     strategy:
       fail-fast: false
       matrix:
