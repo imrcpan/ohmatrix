@@ -52,11 +52,16 @@ public static class StickerPack {
     /// <summary>The most one sticker may weigh (bytes): a larger file is refused, not shrunk.</summary>
     public const long MaxBytes = 3 * 1024 * 1024;
 
-    /// <summary>The id of the default group: always the first, it holds the stickers that no other group has.</summary>
+    /// <summary>The id of the group that stands first, always: the built-in emoji set (<see cref="BuiltinStickers"/>). It is not stored and cannot be changed or deleted.</summary>
+    public const string BuiltinGroup = "builtin";
+
+    /// <summary>The id of the group that holds the stickers that no group has (an older pack had them in an undeletable first group). It is shown only when it has some.</summary>
     public const string DefaultGroup = "default";
 
-    /// <summary>The cover a group has when none was chosen and it has no sticker yet.</summary>
-    public const string FallbackEmoji = "😊";
+    /// <summary>The cover of a group when none was chosen and it has no sticker yet.</summary>
+    public static StickerIcon FallbackCover { get; } =
+        StickerIcon.OfImage(BuiltinStickers.Scheme + BuiltinStickers.Fallback,
+            "image/png");
 
     /// <summary>The most groups a pack may have besides the default one.</summary>
     public const int GroupsMax = 12;
@@ -279,7 +284,7 @@ public static class StickerPack {
             foreach (var s in stickers)
                 used.Add(s);
             result.Add(new StickerGroup(id, (Text(g?["name"]) ?? "").Trim(),
-                isDefault ? null : IconOf(g?["icon"]), stickers));
+                IconOf(g?["icon"]), stickers));
         }
 
         return result;
@@ -288,12 +293,11 @@ public static class StickerPack {
     /// <summary>The content to store for <paramref name="groups"/>; refuses what would be dropped or cut.</summary>
     public static string WriteGroups(IReadOnlyList<StickerGroup> groups)
     {
+        // The built-in group is never stored.
+        groups = groups.Where(g => g.Id != BuiltinGroup).ToList();
         if (groups.Count(g => g.Id != DefaultGroup) > GroupsMax)
             throw new EngineException(EngineErrorCode.Unsupported,
                 $"At most {GroupsMax} groups");
-        if (groups.Any(g => g.Id == DefaultGroup && g.Icon != null))
-            throw new EngineException(EngineErrorCode.Unsupported,
-                "The default group's cover cannot be changed");
         var array = new JsonArray();
         foreach (var g in groups) {
             var item = new JsonObject {
@@ -358,18 +362,21 @@ public static class StickerPack {
         }
     }
 
-    /// <summary>What a group shows as its cover: the one chosen, else its first sticker (that is in the pack), else a smiling face.</summary>
+    /// <summary>What a group shows as its cover: the one chosen, else its first sticker (that is in the pack), else <see cref="FallbackCover"/>.</summary>
     public static StickerIcon CoverOf(StickerGroup group,
         IReadOnlyList<Sticker> pack)
     {
         var icon = group.Icon;
         if (icon != null)
             return icon;
+        if (group.Id == BuiltinGroup)
+            return StickerIcon.OfImage(
+                BuiltinStickers.Scheme + BuiltinStickers.Cover, "image/png");
         var first = group.Stickers
             .Select(c => pack.FirstOrDefault(s => s.Shortcode == c))
             .FirstOrDefault(s => s != null);
         return first == null
-            ? StickerIcon.OfEmoji(FallbackEmoji)
+            ? FallbackCover
             : StickerIcon.OfImage(first.Url, first.MimeType);
     }
 
@@ -387,28 +394,41 @@ public static class StickerPack {
     }
 
     /// <summary>
-    /// The groups as the screen shows them: the default group first (made when none is stored), with the stickers no other group has, in the order
-    /// it kept them and the pack's order for the rest; the others as stored, without a sticker the pack no longer has.
+    /// The groups as the screen shows them: the built-in set first, then the
+    /// stored ones without a sticker the pack no longer has. The stickers that
+    /// no group has (those of an older pack's first group) are in the group
+    /// <see cref="DefaultGroup"/>, which is shown only while it has some.
     /// </summary>
     public static IReadOnlyList<StickerGroup> WithDefault(
         IReadOnlyList<StickerGroup> stored,
         IReadOnlyList<Sticker> pack)
     {
         var have = pack.Select(s => s.Shortcode).ToHashSet();
-        var others = stored.Where(g => g.Id != DefaultGroup)
+        var others = stored.Where(g => g.Id != BuiltinGroup)
             .Select(g => g with {
                 Stickers = g.Stickers.Where(have.Contains).ToList()
             }).ToList();
-        var taken = others.SelectMany(g => g.Stickers).ToHashSet();
-        var mine = stored.FirstOrDefault(g => g.Id == DefaultGroup);
-        var listed = (mine?.Stickers ?? [])
-            .Where(c => have.Contains(c) && !taken.Contains(c))
+        var taken = others.Where(g => g.Id != DefaultGroup)
+            .SelectMany(g => g.Stickers).ToHashSet();
+        var mine = others.FirstOrDefault(g => g.Id == DefaultGroup);
+        var listed = (mine?.Stickers ?? []).Where(c => !taken.Contains(c))
             .ToList();
         var rest = pack.Select(s => s.Shortcode)
             .Where(c => !taken.Contains(c) && !listed.Contains(c));
-        var first = new StickerGroup(DefaultGroup, mine?.Name ?? "", null,
-            [.. listed, .. rest]);
-        return [first, .. others];
+        List<string> loose = [.. listed, .. rest];
+        var kept = others.Where(g => g.Id != DefaultGroup).ToList();
+        if (loose.Count > 0) {
+            var group = (mine ?? new StickerGroup(DefaultGroup, "", null, []))
+                with {
+                    Stickers = loose
+                };
+            var at = mine == null ? kept.Count : others.IndexOf(mine);
+            kept.Insert(Math.Min(at, kept.Count), group);
+        }
+
+        var first = new StickerGroup(BuiltinGroup, "", null,
+            [.. BuiltinStickers.All.Select(s => s.Shortcode)]);
+        return [first, .. kept];
     }
 
     /// <summary>

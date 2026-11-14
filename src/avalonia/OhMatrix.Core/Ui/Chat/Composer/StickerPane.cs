@@ -135,7 +135,7 @@ public sealed class StickerPane : Grid {
     {
         var s = controller.Store.Value;
         var groups = StickerPack.WithDefault(s.StickerGroups, s.Stickers);
-        var want = view ?? s.Prefs.StickerGroup ?? StickerPack.DefaultGroup;
+        var want = view ?? s.Prefs.StickerGroup ?? StickerPack.BuiltinGroup;
         // A group that is gone (deleted on another device) is not left on show.
         var index = Math.Max(0, groups.ToList().FindIndex(g => g.Id == want));
         return (groups, groups[index], index);
@@ -284,17 +284,17 @@ public sealed class StickerPane : Grid {
     }
 
     /// <summary>Sends a sticker to the open chat and shuts the picker.</summary>
-    public void Send(string shortcode)
+    public void Send(string shortcode, bool builtin = false)
     {
         close();
-        _ = SendNow(shortcode);
+        _ = SendNow(shortcode, builtin);
     }
 
-    private async Task SendNow(string shortcode)
+    private async Task SendNow(string shortcode, bool builtin)
     {
         Ops.Start("send sticker", shortcode);
         try {
-            await controller.SendSticker(shortcode);
+            await controller.SendSticker(shortcode, builtin);
             Ops.Done("send sticker", shortcode);
         } catch (Exception e) {
             Ops.Fail("send sticker", e, shortcode);
@@ -329,8 +329,8 @@ public sealed class StickerPane : Grid {
     public async Task DeleteGroup()
     {
         var (groups, group, _) = Current();
-        Show(StickerPack.DefaultGroup);
-        if (group.Id == StickerPack.DefaultGroup)
+        Show(StickerPack.BuiltinGroup);
+        if (group.Id == StickerPack.BuiltinGroup)
             return;
         Ops.Start("delete sticker group", group.Id);
         try {
@@ -391,7 +391,7 @@ public sealed class StickerPane : Grid {
             [new PromptField(controller.T("sticker.name.label"), "hash", true)],
             controller.T("sticker.group.create"),
             async values => {
-                // A new group has no cover of its own: it shows its first sticker, or a smiling face until it has one.
+                // A new group has no cover of its own: it shows its first sticker, or the playful face until it has one.
                 var id = StickerPack.NewGroupId(groups);
                 await controller.SetStickerGroups(
                 [
@@ -635,8 +635,9 @@ public sealed class StickerPane : Grid {
     private List<MenuItem> SettingsItems()
     {
         var (_, group, _) = Current();
-        var isDefault = group.Id == StickerPack.DefaultGroup;
         var items = new List<MenuItem>();
+        if (group.Id == StickerPack.BuiltinGroup)
+            return items;
         if (group.Stickers.Count > 0)
             items.Add(new MenuItem(controller.T("sticker.select"),
                 () => SetMode(PaneMode.Choose),
@@ -647,16 +648,13 @@ public sealed class StickerPane : Grid {
                 Icon: "sort"));
         items.Add(new MenuItem(controller.T("sticker.name.set"), AskName,
             Icon: "edit"));
-        // The default group keeps its cover and cannot be deleted: the stickers that no group has have to be somewhere.
-        if (!isDefault) {
-            items.Add(new MenuItem(controller.T("sticker.cover.set"),
-                () => AskCover(),
-                Icon: "image"));
-            items.Add(new MenuItem(controller.T("sticker.group.delete"),
-                AskDeleteGroup,
-                Icon: "trash",
-                Danger: true));
-        }
+        items.Add(new MenuItem(controller.T("sticker.cover.set"),
+            () => AskCover(),
+            Icon: "image"));
+        items.Add(new MenuItem(controller.T("sticker.group.delete"),
+            AskDeleteGroup,
+            Icon: "trash",
+            Danger: true));
 
         return items;
     }
@@ -729,10 +727,13 @@ public sealed class StickerPane : Grid {
         Background = new SolidColorBrush(c.Bg);
         tabs.BorderBrush = new SolidColorBrush(c.Separator);
         var (groups, group, index) = Current();
-        var isDefault = group.Id == StickerPack.DefaultGroup;
-        var shown = group.Stickers
-            .Select(code => s.Stickers.FirstOrDefault(x => x.Shortcode == code))
-            .OfType<Sticker>().ToList();
+        var builtin = group.Id == StickerPack.BuiltinGroup;
+        var shown = builtin
+            ? [.. BuiltinStickers.All]
+            : group.Stickers
+                .Select(code =>
+                    s.Stickers.FirstOrDefault(x => x.Shortcode == code))
+                .OfType<Sticker>().ToList();
 
         // The bar.
         heading = null;
@@ -750,33 +751,36 @@ public sealed class StickerPane : Grid {
                 VerticalAlignment = VerticalAlignment.Center,
             };
             row.Children.Add(heading);
-            var button = new Border {
-                Width = 34,
-                Height = 30,
-                CornerRadius = new CornerRadius(15),
-                Background = Brushes.Transparent,
-                Cursor = new Cursor(StandardCursorType.Hand),
-                Child = new Icon {
-                    Glyph = "gear",
-                    Size = 20,
-                    Color = new SolidColorBrush(c.TextSecondary),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                },
-            };
-            gear = button;
-            button.PointerEntered += (_, _) =>
-                button.Background = new SolidColorBrush(c.Hover);
-            button.PointerExited += (_, _) =>
-                button.Background = Brushes.Transparent;
-            button.PointerPressed += (_, e) => {
-                e.Handled = true;
-                OpenSettings();
-            };
-            Avalonia.Automation.AutomationProperties.SetName(button,
-                controller.T("sticker.settings"));
-            Grid.SetColumn(button, 1);
-            row.Children.Add(button);
+            gear = null;
+            if (!builtin) {
+                var button = new Border {
+                    Width = 34,
+                    Height = 30,
+                    CornerRadius = new CornerRadius(15),
+                    Background = Brushes.Transparent,
+                    Cursor = new Cursor(StandardCursorType.Hand),
+                    Child = new Icon {
+                        Glyph = "gear",
+                        Size = 20,
+                        Color = new SolidColorBrush(c.TextSecondary),
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                };
+                gear = button;
+                button.PointerEntered += (_, _) =>
+                    button.Background = new SolidColorBrush(c.Hover);
+                button.PointerExited += (_, _) =>
+                    button.Background = Brushes.Transparent;
+                button.PointerPressed += (_, e) => {
+                    e.Handled = true;
+                    OpenSettings();
+                };
+                Avalonia.Automation.AutomationProperties.SetName(button,
+                    controller.T("sticker.settings"));
+                Grid.SetColumn(button, 1);
+                row.Children.Add(button);
+            }
         } else {
             row.Children.Add(BarButton(c, controller.T("sticker.done"), Stop,
                 true, true));
@@ -805,7 +809,8 @@ public sealed class StickerPane : Grid {
 
         // The grid.
         grid.Children.Clear();
-        if (Mode == PaneMode.Browse) {
+        // Nothing is added to the built-in set.
+        if (Mode == PaneMode.Browse && !builtin) {
             var add = new Border {
                 Width = Tile,
                 Height = Tile,
@@ -908,7 +913,7 @@ public sealed class StickerPane : Grid {
                 if (Mode == PaneMode.Choose)
                     Choose(sticker.Shortcode);
                 else if (Mode == PaneMode.Browse)
-                    Send(sticker.Shortcode);
+                    Send(sticker.Shortcode, builtin);
             };
             // Under the pointer a sticker grows and turns, as the emoji do; it
             // waits for the tiles to come in.
@@ -927,7 +932,7 @@ public sealed class StickerPane : Grid {
         if (shown.Count == 0)
             grid.Children.Add(new TextBlock {
                 Text =
-                    isDefault
+                    group.Id == StickerPack.DefaultGroup
                         ? controller.T("sticker.empty")
                         : controller.T("sticker.group.empty"),
                 FontSize = 13,
@@ -1069,21 +1074,15 @@ public sealed class StickerPane : Grid {
 
         for (var i = 0; i < groups.Count; i++) {
             var g = groups[i];
-            Control face = g.Id == StickerPack.DefaultGroup
-                ? new Icon {
-                    Glyph = "sticker",
-                    Size = GroupIcon - 6,
-                    Color = new SolidColorBrush(c.TextSecondary),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                }
-                : IconOf(StickerPack.CoverOf(g, pack), GroupIcon);
+            Control face = IconOf(StickerPack.CoverOf(g, pack), GroupIcon);
             var id = g.Id;
             row.Children.Add(Tab(Label(g, i), id, id == current.Id,
                 () => Show(id), face));
         }
 
-        if (groups.Count - 1 < StickerPack.GroupsMax)
+        if (groups.Count(g => g.Id != StickerPack.BuiltinGroup &&
+                              g.Id != StickerPack.DefaultGroup) <
+            StickerPack.GroupsMax)
             row.Children.Add(Tab(controller.T("sticker.group.new"), null, false,
                 AskNewGroup,
                 new Icon {
@@ -1112,14 +1111,8 @@ public sealed class StickerPane : Grid {
         };
         for (var i = 0; i < groups.Count; i++) {
             var g = groups[i];
-            Control face = g.Id == StickerPack.DefaultGroup
-                ? new Icon {
-                    Glyph = "sticker",
-                    Size = GroupIcon - 6,
-                    Color = new SolidColorBrush(c.TextSecondary),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                }
-                : IconOf(StickerPack.CoverOf(g, s.Stickers), GroupIcon);
+            Control face =
+                IconOf(StickerPack.CoverOf(g, s.Stickers), GroupIcon);
             var name = Label(g, i);
             var tile = new Border {
                 Width = 84,

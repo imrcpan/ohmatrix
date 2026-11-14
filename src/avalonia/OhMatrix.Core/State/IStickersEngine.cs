@@ -37,4 +37,7 @@ public interface IStickersEngine {
 
     /// <summary>Sends one of the pack's stickers to a room.</summary>
     Task Send(string roomId, string shortcode);
+
+    /// <summary>Uploads a picture and sends it to a room as a sticker, without adding it to the pack.</summary>
+    Task SendUpload(string roomId, StickerUpload file);
 }

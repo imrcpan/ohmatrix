@@ -286,6 +286,12 @@ public partial class ChatPaneTests {
             return Task.FromResult(code);
         }
 
+        public Task SendUpload(string roomId, StickerUpload file)
+        {
+            Calls.Add("upload " + file.Name);
+            return Task.CompletedTask;
+        }
+
         public Task Remove(IReadOnlyList<string> shortcodes)
         {
             Pack.RemoveAll(p => shortcodes.Contains(p.Shortcode));
@@ -3156,6 +3162,10 @@ public partial class ChatPaneTests {
         pane.EmojiButton.RaiseClick();
         await Settle();
         var stickers = pane.Stickers!;
+        // The built-in set takes nothing; the loose stickers are in the group
+        // that follows it.
+        stickers.Show("default");
+        await Settle();
         await stickers.Add([Png("fox.png", 40, 30), Png("fox2.txt", 10, 10)]);
         await Settle();
         // The picture was added; the other is not a picture the pack takes.
@@ -3190,7 +3200,13 @@ public partial class ChatPaneTests {
         pane.EmojiButton.RaiseClick();
         await Settle();
         var stickers = pane.Stickers!;
-        Assert.Equal(["Select to delete", "Reorder", "Set group name"],
+        Assert.Empty(stickers.SettingsLabels);
+        stickers.Show("default");
+        await Settle();
+        Assert.Equal([
+                "Select to delete", "Reorder", "Set group name",
+                "Set group cover", "Delete group"
+            ],
             stickers.SettingsLabels);
         await controller.SetStickerGroups([new("g1", "Pets", null, ["owl"])]);
         await Settle();
@@ -3212,8 +3228,9 @@ public partial class ChatPaneTests {
         await stickers.Move(0, 1);
         await Settle();
         var order = StickerPack.WithDefault(
-            controller.Store.Value.StickerGroups,
-            controller.Store.Value.Stickers)[0].Stickers;
+                controller.Store.Value.StickerGroups,
+                controller.Store.Value.Stickers)
+            .First(g => g.Id == "default").Stickers;
         Assert.Equal(["dog", "cat"], order);
         // Deleting the group takes its stickers with it.
         stickers.Show("g1");
@@ -3223,7 +3240,7 @@ public partial class ChatPaneTests {
             s => s.Shortcode == "owl");
         Assert.DoesNotContain(controller.Store.Value.StickerGroups,
             g => g.Id == "g1");
-        Assert.Equal("default", stickers.CurrentId);
+        Assert.Equal("builtin", stickers.CurrentId);
     }
 
     [AvaloniaFact]

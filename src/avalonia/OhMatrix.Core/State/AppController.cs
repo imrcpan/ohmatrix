@@ -1045,12 +1045,18 @@ public sealed class AppController(
     }
 
     /// <summary>Sends one of my stickers to the open chat.</summary>
-    public Task SendSticker(string shortcode)
+    public Task SendSticker(string shortcode, bool builtin = false)
     {
         var room = Store.Value.SelectedRoomId;
-        return room != null && stickersEngine != null
+        if (room == null || stickersEngine == null)
+            return Task.CompletedTask;
+        // An emoji of the built-in set is not in my pack: it is uploaded.
+        var png = builtin ? BuiltinStickers.Png(shortcode) : null;
+        return png == null
             ? stickersEngine.Send(room, shortcode)
-            : Task.CompletedTask;
+            : stickersEngine.SendUpload(room,
+                new StickerUpload(shortcode, "image/png", png,
+                    BuiltinStickers.Pixels, BuiltinStickers.Pixels));
     }
 
     /// <summary>Starts changing one of my messages: the composer takes its text, and the next send replaces it. Null cancels.</summary>

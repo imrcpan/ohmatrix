@@ -83,7 +83,7 @@ public class StickerPackTests {
         new(id, "", null, stickers);
 
     [Fact]
-    public void The_default_group_holds_what_no_group_has()
+    public void The_builtin_set_is_first_and_the_loose_stickers_follow()
     {
         var pack = new[] {
             "a", "b", "c", "d"
@@ -91,9 +91,20 @@ public class StickerPackTests {
         var groups =
             StickerPack.WithDefault([G("x", "c", "gone"), G("default", "d")],
                 pack);
-        Assert.Equal(["default", "x"], groups.Select(g => g.Id));
-        Assert.Equal(["d", "a", "b"], groups[0].Stickers);
+        Assert.Equal(["builtin", "x", "default"], groups.Select(g => g.Id));
+        Assert.Equal(BuiltinStickers.All.Count, groups[0].Stickers.Count);
         Assert.Equal(["c"], groups[1].Stickers);
+        Assert.Equal(["d", "a", "b"], groups[2].Stickers);
+        Assert.Equal(BuiltinStickers.Scheme + "devil",
+            StickerPack.CoverOf(groups[0], pack).Url);
+        Assert.Equal(BuiltinStickers.Scheme + "playful",
+            StickerPack.FallbackCover.Url);
+        // With nothing loose there is no group for it.
+        Assert.Equal(["builtin", "x"],
+            StickerPack.WithDefault([G("x", "c")], pack.Take(3).ToList())
+                .Select(g => g.Id).Take(2));
+        Assert.Equal(["builtin"],
+            StickerPack.WithDefault([], []).Select(g => g.Id));
     }
 
     [Fact]
@@ -124,10 +135,9 @@ public class StickerPackTests {
         Assert.Equal(parsed.Select(g => (g.Id, g.Name, g.Icon)),
             again.Select(g => (g.Id, g.Name, g.Icon)));
         Assert.Equal(parsed[0].Stickers, again[0].Stickers);
-        Assert.Throws<EngineException>(() =>
-            StickerPack.WriteGroups([
-                new("default", "", StickerIcon.OfEmoji("😀"), [])
-            ]));
+        Assert.DoesNotContain("builtin", StickerPack.WriteGroups([
+            new("builtin", "", null, []), G("z")
+        ]));
         Assert.Throws<EngineException>(() =>
             StickerPack.WriteGroups(Enumerable.Range(0, 13)
                 .Select(i => G("g" + i)).ToList()));
@@ -144,8 +154,8 @@ public class StickerPackTests {
                 pack).Emoji);
         Assert.Equal("mxc://s/a",
             StickerPack.CoverOf(G("x", "gone", "a"), pack).Url);
-        Assert.Equal(StickerPack.FallbackEmoji,
-            StickerPack.CoverOf(G("x"), pack).Emoji);
+        Assert.Equal(StickerPack.FallbackCover,
+            StickerPack.CoverOf(G("x"), pack));
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui.Widgets;
 
@@ -55,7 +56,8 @@ public sealed class Pictures(
     /// <summary>The picture at <paramref name="width"/> by <paramref name="height"/> logical pixels.</summary>
     public Task<IImage?> Get(string? source, int width, int height)
     {
-        if (media == null || string.IsNullOrEmpty(source))
+        if (string.IsNullOrEmpty(source) ||
+            (media == null && !BuiltinStickers.Is(source)))
             return Task.FromResult<IImage?>(null);
         var key = (source, width, height);
         TaskCompletionSource<IImage?> start;
@@ -164,7 +166,10 @@ public sealed class Pictures(
     private async Task<IImage?> Load(string mxc, int width, int height)
     {
         try {
-            var bytes = await media!.Thumbnail(mxc, width * 2, height * 2);
+            // The built-in emoji are in the app, not on a server.
+            var bytes = BuiltinStickers.Is(mxc)
+                ? BuiltinStickers.Png(BuiltinStickers.NameOf(mxc))
+                : await media!.Thumbnail(mxc, width * 2, height * 2);
             if (bytes == null || bytes.Length == 0)
                 return null;
             using var stream = new MemoryStream(bytes);

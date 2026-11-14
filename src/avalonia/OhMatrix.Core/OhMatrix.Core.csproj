@@ -17,6 +17,11 @@
         <EmbeddedResource Include="../../i18n/locales/*.toml" LogicalName="i18n/%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <!-- The emoji of the sticker panel's first group (Open Emoji Cute), drawn to PNG. -->
+    <ItemGroup>
+        <EmbeddedResource Include="Assets/EmojiCute/*.png" LogicalName="emoji-cute/%(Filename)%(Extension)" />
+    </ItemGroup>
+
     <!-- The tests reach what is internal, such as the text wrappers of the screens. -->
     <ItemGroup>
         <InternalsVisibleTo Include="OhMatrix.Tests" />
