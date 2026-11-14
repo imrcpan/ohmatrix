@@ -654,6 +654,40 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 };
             }
 
+            // A sticker is a picture with no caption. Its shortcode is kept as the
+            // file name: that is how the copy shown while it is sent is found.
+            if (e.Content is TimelineItemContent.MsgLike {
+                    Content.Kind: MsgLikeKind.Sticker st
+                }) {
+                return new TimelineItem {
+                    Id = id,
+                    Body = "",
+                    SenderId = e.Sender,
+                    SenderName = name,
+                    SenderAvatar = avatar,
+                    ReadBy = e.IsOwn
+                        ? [.. e.ReadReceipts.Keys.Where(u => u != e.Sender)]
+                        : [],
+                    IsOwn = e.IsOwn,
+                    Read = e.IsOwn &&
+                           e.ReadReceipts.Keys.Any(u => u != e.Sender),
+                    Ts = (long)e.Timestamp,
+                    Sending = e.LocalSendState is EventSendState.NotSentYet,
+                    Failed = e.LocalSendState is EventSendState.SendingFailed,
+                    EventId =
+                        e.EventOrTransactionId is EventOrTransactionId.EventId
+                            ev3
+                            ? ev3.EventIdValue
+                            : null,
+                    Image = new ImageAttachment(
+                        st.Source.ToJson(),
+                        (int?)st.Info.Width,
+                        (int?)st.Info.Height,
+                        st.Body
+                    ),
+                };
+            }
+
             // A message this device cannot read (its keys have not come): shown as a line, not left out.
             if (e.Content is TimelineItemContent.MsgLike {
                     Content.Kind: MsgLikeKind.UnableToDecrypt
