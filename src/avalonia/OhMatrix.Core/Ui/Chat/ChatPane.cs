@@ -578,12 +578,17 @@ public sealed partial class ChatPane : Grid {
             }
         };
         DragDrop.SetAllowDrop(this, true);
+        // The hint goes whenever the drag ends over the chat, even when a
+        // control inside has handled the event: otherwise it stays up until
+        // the files are sent.
         AddHandler(DragDrop.DragEnterEvent,
-            (_, _) => dropHint.IsVisible = true);
+            (_, _) => dropHint.IsVisible = true, handledEventsToo: true);
         AddHandler(DragDrop.DragLeaveEvent,
-            (_, _) => dropHint.IsVisible = false);
+            (_, _) => dropHint.IsVisible = false, handledEventsToo: true);
         AddHandler(DragDrop.DropEvent, (_, _) => dropHint.IsVisible = false,
-            Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            Avalonia.Interactivity.RoutingStrategies.Tunnel |
+            Avalonia.Interactivity.RoutingStrategies.Bubble,
+            handledEventsToo: true);
         AddHandler(DragDrop.DropEvent, (_, e) => {
             var files = DataTransferExtensions.TryGetFiles(e.DataTransfer)?
                 .Select(f =>
