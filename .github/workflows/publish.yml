@@ -51,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.check.outputs.version }}
+      # The whole output of Gradle and CMake (the default one hides the cause of a failed configure step).
+      OHM_GRADLE_EXTRA: "--stacktrace --info"
     strategy:
       fail-fast: false
       matrix:

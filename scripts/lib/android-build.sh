@@ -162,7 +162,7 @@ build_abi() {
   run_step "Gradle $task ($abi)" bash -c 'cd src/apps/mobile/android && ./gradlew --no-daemon \
     "-Dorg.gradle.jvmargs=-Xmx${OHM_GRADLE_XMX_MB}m -XX:MaxMetaspaceSize=512m" \
     "-Dkotlin.daemon.jvm.options=-Xmx${OHM_KOTLIN_XMX_MB}m" \
-    "-Dorg.gradle.workers.max=${OHM_GRADLE_WORKERS}" "-PreactNativeArchitectures=$1" "$0" -x lint' "$task" "$abi"
+    "-Dorg.gradle.workers.max=${OHM_GRADLE_WORKERS}" "-PreactNativeArchitectures=$1" ${OHM_GRADLE_EXTRA:-} "$0" -x lint' "$task" "$abi"
 
   apk="$OHM_ROOT/src/apps/mobile/android/app/build/outputs/apk/$variant/app-$variant.apk"
   [ -f "$apk" ] || die "Gradle finished but there is no $apk"
