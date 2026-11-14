@@ -20,6 +20,11 @@ public interface IChatSession : IDisposable {
         IReadOnlyList<string>? mentions = null);
 
     /// <summary>
+    /// Sends one of my stickers to the chat, as a message is sent: it is a line of the chat at once, being sent, and the room has it after.
+    /// </summary>
+    Task SendSticker(Sticker picture);
+
+    /// <summary>
     /// Sends a file from disk as a message: a picture when <paramref name="mimeType"/> is an image (with its size when known), otherwise a file.
     /// </summary>
     Task SendAttachment(string path, string mimeType, int? width, int? height);

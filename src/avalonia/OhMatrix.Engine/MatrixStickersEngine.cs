@@ -153,36 +153,5 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth)
             throw MatrixAuthEngine.Translate(e);
         }
     }
-
-    public async Task SendPicture(string roomId, Sticker picture)
-    {
-        try {
-            var room = Client.GetRoom(roomId) ?? throw new EngineException(
-                EngineErrorCode.NotFound, "No such room.");
-            await room.SendRaw("m.sticker",
-                StickerPack.EventContent(picture).ToJsonString());
-        } catch (Exception e) when (e is not EngineException) {
-            throw MatrixAuthEngine.Translate(e);
-        }
-    }
-
-    public async Task Send(string roomId, string shortcode)
-    {
-        try {
-            var client = Client;
-            var sticker = StickerPack
-                              .Parse(await client.AccountData(StickerPack
-                                  .PackEvent))
-                              .FirstOrDefault(s => s.Shortcode == shortcode) ??
-                          throw new EngineException(
-                              EngineErrorCode.NotFound, "No such sticker.");
-            var room = client.GetRoom(roomId) ?? throw new EngineException(
-                EngineErrorCode.NotFound, "No such room.");
-            await room.SendRaw("m.sticker",
-                StickerPack.EventContent(sticker).ToJsonString());
-        } catch (Exception e) when (e is not EngineException) {
-            throw MatrixAuthEngine.Translate(e);
-        }
-    }
 }
 #endif

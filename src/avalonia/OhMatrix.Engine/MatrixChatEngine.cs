@@ -251,6 +251,26 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             }
         }
 
+        public async Task SendSticker(Sticker picture)
+        {
+            try {
+                // The picture is on the server already: its address is sent, not the picture.
+                var info = new uniffi.matrix_sdk_ffi.ImageInfo(
+                    Height: picture.Height is { } h ? (ulong)h : null,
+                    Width: picture.Width is { } w ? (ulong)w : null,
+                    Mimetype: picture.MimeType,
+                    Size: picture.Size is { } size ? (ulong)size : null,
+                    ThumbnailInfo: null,
+                    ThumbnailSource: null,
+                    Blurhash: null,
+                    IsAnimated: null);
+                await timeline.SendSticker(picture.Shortcode, info,
+                    uniffi.matrix_sdk_ffi.MediaSource.FromUrl(picture.Url));
+            } catch (Exception e) when (e is not EngineException) {
+                throw MatrixAuthEngine.Translate(e);
+            }
+        }
+
         public async Task SendAttachment(string path, string mimeType,
             int? width, int? height)
         {

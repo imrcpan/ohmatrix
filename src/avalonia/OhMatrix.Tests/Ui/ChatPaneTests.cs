@@ -58,6 +58,13 @@ public partial class ChatPaneTests {
         }
 
         public readonly List<string> Attached = [];
+        public readonly List<string> Stickers = [];
+
+        public Task SendSticker(Sticker picture)
+        {
+            Stickers.Add(picture.Shortcode);
+            return Task.CompletedTask;
+        }
 
         public Task SendAttachment(string path, string mimeType, int? width,
             int? height)
@@ -292,11 +299,6 @@ public partial class ChatPaneTests {
             return Task.FromResult("mxc://s/" + file.Name);
         }
 
-        public Task SendPicture(string roomId, Sticker picture)
-        {
-            Calls.Add("send " + picture.Shortcode + " " + picture.Url);
-            return Task.CompletedTask;
-        }
 
         public Task Remove(IReadOnlyList<string> shortcodes)
         {
@@ -317,12 +319,6 @@ public partial class ChatPaneTests {
         {
             return Task.FromResult(StickerIcon.OfImage("mxc://s/icon",
                 file.MimeType));
-        }
-
-        public Task Send(string roomId, string shortcode)
-        {
-            Calls.Add($"send {roomId} {shortcode}");
-            return Task.CompletedTask;
         }
     }
 

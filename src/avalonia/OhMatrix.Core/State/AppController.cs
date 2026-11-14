@@ -1051,105 +1051,6 @@ public sealed class AppController(
         return stickersEngine!.UploadGroupIcon(ReadUpload(path));
     }
 
-    // A sticker sent from here is shown in its chat at once, as a line being
-    // sent, until the room has the real one; the line is then taken out.
-    private const string PendingPrefix = "pending-sticker-";
-
-    private sealed class PendingSticker {
-        public required string Id { get; init; }
-        public required string RoomId { get; init; }
-        public required string Shortcode { get; init; }
-        public required string Source { get; init; }
-        public required int? Width { get; init; }
-        public required int? Height { get; init; }
-        public required long Ts { get; init; }
-
-        /// <summary>The events of my own that the room had when this was sent: a sticker that comes later is its own.</summary>
-        public required HashSet<string> Known { get; init; }
-
-        public bool Sending { get; set; } = true;
-        public bool Failed { get; set; }
-    }
-
-    private readonly List<PendingSticker> pendingStickers = [];
-
-    // The events that a pending sticker has taken: each one stands for one send.
-    private readonly HashSet<string> claimed = [];
-
-    private PendingSticker AddPending(string roomId, string shortcode,
-        string source, int? width, int? height)
-    {
-        var pending = new PendingSticker {
-            Id = PendingPrefix + Guid.NewGuid().ToString("N"),
-            RoomId = roomId,
-            Shortcode = shortcode,
-            Source = source,
-            Width = width,
-            Height = height,
-            Ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Known = [
-                .. Store.Value.Timeline.Select(i => i.EventId)
-                    .OfType<string>()
-            ],
-        };
-        pendingStickers.Add(pending);
-        PublishPending(roomId);
-        return pending;
-    }
-
-    /// <summary>
-    /// The items of a chat with the stickers still being sent to it: a pending one is taken out once the room has a sticker of mine with
-    /// its shortcode, sent at about the time it was.
-    /// </summary>
-    private IReadOnlyList<TimelineItem> WithPending(
-        IReadOnlyList<TimelineItem> items, string roomId, string me)
-    {
-        var shown = items.Where(i => !i.Id.StartsWith(PendingPrefix,
-            StringComparison.Ordinal)).ToList();
-        // The server's times are not those of this device, so a sticker is
-        // matched by its shortcode and by its event: one that was not there
-        // before the send, and that no other pending send has taken.
-        foreach (var pending in pendingStickers.Where(p => p.RoomId == roomId)
-                     .ToList()) {
-            var arrived = shown.FirstOrDefault(i => i.IsOwn &&
-                                                    i.EventId != null &&
-                                                    i.Image?.FileName ==
-                                                    pending.Shortcode &&
-                                                    !pending.Known.Contains(
-                                                        i.EventId) &&
-                                                    !claimed.Contains(
-                                                        i.EventId));
-            if (arrived == null)
-                continue;
-            claimed.Add(arrived.EventId!);
-            pendingStickers.Remove(pending);
-        }
-
-        if (pendingStickers.Count == 0)
-            claimed.Clear();
-        shown.AddRange(pendingStickers.Where(p => p.RoomId == roomId)
-            .Select(p => new TimelineItem {
-                Id = p.Id,
-                SenderId = me,
-                IsOwn = true,
-                Ts = p.Ts,
-                Sending = p.Sending,
-                Failed = p.Failed,
-                Image = new ImageAttachment(p.Source, p.Width, p.Height,
-                    p.Shortcode),
-            }));
-        return shown;
-    }
-
-    private void PublishPending(string roomId)
-    {
-        Store.Update(s => s.SelectedRoomId == roomId
-            ? s with {
-                Timeline = WithPending(s.Timeline, roomId, s.UserId ?? "")
-            }
-            : s);
-    }
-
     // The address of a built-in emoji's picture on the server. The picture is
     // uploaded the first time one is sent, and the address is kept: the sends
     // after that do not upload it again. A failed upload is not kept.
@@ -1176,51 +1077,24 @@ public sealed class AppController(
     }
 
     /// <summary>
-    /// Sends one of my stickers to the open chat. It shows in the chat at once, being sent, and is ticked when the send is done.
+    /// Sends one of my stickers to the open chat. It is a line of the chat at once, being sent, as a message is (the sdk keeps that line).
     /// </summary>
     public async Task SendSticker(string shortcode, bool builtin = false)
     {
-        var room = Store.Value.SelectedRoomId;
-        if (room == null || stickersEngine == null)
+        var open = chat ?? throw new EngineException(
+            EngineErrorCode.NotFound, "No chat is open.");
+        if (builtin) {
+            var address = await BuiltinAddress(shortcode);
+            await open.SendSticker(new Sticker(shortcode, address, "image/png",
+                BuiltinStickers.Pixels, BuiltinStickers.Pixels));
             return;
-        // An emoji of the built-in set is not in my pack: it is sent by the
-        // address its picture was uploaded to.
-        var png = builtin ? BuiltinStickers.Png(shortcode) : null;
-        var mine = builtin
-            ? null
-            : Store.Value.Stickers.FirstOrDefault(s =>
-                s.Shortcode == shortcode);
-        var pending = builtin
-            ? AddPending(room, shortcode,
-                BuiltinStickers.Scheme + shortcode, BuiltinStickers.Pixels,
-                BuiltinStickers.Pixels)
-            : mine == null
-                ? null
-                : AddPending(room, shortcode, mine.Url, mine.Width,
-                    mine.Height);
-        try {
-            if (png == null)
-                await stickersEngine.Send(room, shortcode);
-            else {
-                var address = await BuiltinAddress(shortcode);
-                await stickersEngine.SendPicture(room,
-                    new Sticker(shortcode, address, "image/png",
-                        BuiltinStickers.Pixels, BuiltinStickers.Pixels));
-            }
-        } catch (Exception) {
-            if (pending != null) {
-                pending.Sending = false;
-                pending.Failed = true;
-                PublishPending(room);
-            }
-
-            throw;
         }
 
-        if (pending != null) {
-            pending.Sending = false;
-            PublishPending(room);
-        }
+        var mine =
+            Store.Value.Stickers.FirstOrDefault(s =>
+                s.Shortcode == shortcode) ?? throw new EngineException(
+                EngineErrorCode.NotFound, "No such sticker.");
+        await open.SendSticker(mine);
     }
 
     /// <summary>Starts changing one of my messages: the composer takes its text, and the next send replaces it. Null cancels.</summary>
@@ -1286,14 +1160,10 @@ public sealed class AppController(
             chat = session;
             session.Changed += items => Post(() => {
                 if (ReferenceEquals(chat, session))
-                    Store.Update(s => {
-                        var shown = WithPending(items, roomId,
-                            s.UserId ?? "");
-                        return s with {
-                            Timeline = shown,
-                            TimelineReady = true,
-                            Rooms = WithPreview(s.Rooms, roomId, shown),
-                        };
+                    Store.Update(s => s with {
+                        Timeline = items,
+                        TimelineReady = true,
+                        Rooms = WithPreview(s.Rooms, roomId, items),
                     });
             });
             session.TypingChanged += names => Post(() => {
@@ -1302,8 +1172,7 @@ public sealed class AppController(
                         Typing = names
                     });
             });
-            var now = WithPending(session.Items, roomId,
-                Store.Value.UserId ?? "");
+            var now = session.Items;
             Store.Update(s => s with {
                 Timeline = now,
                 TimelineReady = true,
