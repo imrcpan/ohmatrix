@@ -144,6 +144,8 @@ public sealed class StickerPane : Grid {
     /// <summary>What a group is called: its name, or "Group n" while it has none.</summary>
     public string Label(StickerGroup g, int index)
     {
+        if (g.Id == StickerPack.BuiltinGroup)
+            return BuiltinStickers.Name;
         return g.Name.Length > 0
             ? g.Name
             : g.Id == StickerPack.DefaultGroup

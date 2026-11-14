@@ -7,6 +7,9 @@ namespace OhMatrix.Core.Model;
 /// uploaded when it is sent. Its urls are <c>builtin:name</c>.
 /// </summary>
 public static class BuiltinStickers {
+    /// <summary>The name of the set's group: a name, not a translated word, so it is the same in every language.</summary>
+    public const string Name = "Open Emoji Cute";
+
     /// <summary>The scheme of the urls of the set.</summary>
     public const string Scheme = "builtin:";
 
