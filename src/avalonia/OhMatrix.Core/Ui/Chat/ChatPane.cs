@@ -510,8 +510,9 @@ public sealed partial class ChatPane : Grid {
         mic.CornerRadius = new CornerRadius(15);
         mic.Margin = new Thickness(6, 0, -8, 0);
         mic.Click += (_, _) => {
-            if (TopLevel.GetTopLevel(this) is { } w)
-                recording.Open(w, false, this);
+            var window = TopLevel.GetTopLevel(this);
+            if (window != null)
+                recording.Open(window, false, this);
         };
         Grid.SetColumn(mic, 1);
         var field = new Grid {

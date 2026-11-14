@@ -147,7 +147,8 @@ public static class Fonts {
             Mono = new FontFamily($"{monospaced}, {MonoMarker}{Version}");
         }
 
-        if (Application.Current is { } app)
+        var app = Application.Current;
+        if (app != null)
             Defaults(app);
     }
 

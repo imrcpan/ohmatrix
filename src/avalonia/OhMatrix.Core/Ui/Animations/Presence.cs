@@ -219,8 +219,8 @@ public sealed class Presence {
 
     private void Frame(TimeSpan now, Action<TimeSpan> next)
     {
-        if (last is { } before)
-            clock += Math.Min((now - before).TotalSeconds, LongestStep) /
+        if (last != null)
+            clock += Math.Min((now - last.Value).TotalSeconds, LongestStep) /
                      Math.Max(Motion.Slowdown, 0.01);
         last = now;
         fade.Step(clock);

@@ -256,10 +256,10 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             try {
                 // The picture is on the server already: its address is sent, not the picture.
                 var info = new uniffi.matrix_sdk_ffi.ImageInfo(
-                    Height: picture.Height is { } h ? (ulong)h : null,
-                    Width: picture.Width is { } w ? (ulong)w : null,
+                    Height: (ulong?)picture.Height,
+                    Width: (ulong?)picture.Width,
                     Mimetype: picture.MimeType,
-                    Size: picture.Size is { } size ? (ulong)size : null,
+                    Size: (ulong?)picture.Size,
                     ThumbnailInfo: null,
                     ThumbnailSource: null,
                     Blurhash: null,
@@ -461,7 +461,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
 
         private void AskForQuote(SdkTimelineItem item)
         {
-            if (item.AsEvent() is not { } e)
+            var e = item.AsEvent();
+            if (e == null)
                 return;
             if (e.Content is not TimelineItemContent.MsgLike {
                     Content:

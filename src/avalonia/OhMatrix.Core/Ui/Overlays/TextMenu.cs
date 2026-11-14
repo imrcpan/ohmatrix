@@ -30,7 +30,8 @@ public static class TextMenu {
     private static void Open(TextBox box, AppController controller, Menu menu,
         Action? paste)
     {
-        if (TopLevel.GetTopLevel(box) is not { } window)
+        var window = TopLevel.GetTopLevel(box);
+        if (window == null)
             return;
         box.Focus();
         var items = new List<MenuItem>();

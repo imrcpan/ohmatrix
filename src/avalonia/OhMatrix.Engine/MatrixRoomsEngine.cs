@@ -815,7 +815,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
                  wait < 15 && Newest(session.Items) == null;
                  wait++)
                 await Task.Delay(100);
-            if (Newest(session.Items) is { } message)
+            var message = Newest(session.Items);
+            if (message != null)
                 return message;
             if (page == RecentPages || await session.LoadOlder())
                 return new Recent(null, null, 0);

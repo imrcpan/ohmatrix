@@ -266,9 +266,9 @@ public class ScriptFontTests {
             TextParagraphProperties paragraphProperties,
             TextLineBreak? previousLineBreak = null)
         {
-            for (var at = firstTextSourceIndex;
-                 textSource.GetTextRun(at) is { } run;
-                 at += run.Length) {
+            var at = firstTextSourceIndex;
+            var run = textSource.GetTextRun(at);
+            while (run != null) {
                 if (run is TextCharacters c)
                     Runs.Add((c.Text.ToString(),
                         c.Properties.Typeface.FontFamily.FamilyNames[0],
@@ -278,6 +278,8 @@ public class ScriptFontTests {
                 else
                     Runs.Add(("<" + run.GetType().Name + ">", "", 0,
                         FontWeight.Normal, null));
+                at += run.Length;
+                run = textSource.GetTextRun(at);
             }
 
             return null;
@@ -545,9 +547,11 @@ public class ScriptFontTests {
             TextParagraphProperties paragraphProperties,
             TextLineBreak? previousLineBreak = null)
         {
-            for (var at = firstTextSourceIndex;
-                 textSource.GetTextRun(at) is { } run;
-                 at += run.Length) {
+            var at = firstTextSourceIndex;
+            var run = textSource.GetTextRun(at);
+            while (run != null) {
+                at += run.Length;
+                run = textSource.GetTextRun(at);
             }
 
             return null;

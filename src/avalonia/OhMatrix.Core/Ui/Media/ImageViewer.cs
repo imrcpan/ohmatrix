@@ -279,9 +279,12 @@ public sealed class ImageViewer : IOverlay {
         presence.FromX = 0;
         presence.FromY = 0;
         presence.Solid = false;
-        if (window == null || from == null ||
-            from.TranslatePoint(new Point(0, 0), window) is not { } at)
+        if (window == null || from == null)
             return;
+        var origin = from.TranslatePoint(new Point(0, 0), window);
+        if (origin == null)
+            return;
+        var at = origin.Value;
         var size = from.Bounds.Size;
         var whole = window.ClientSize;
         if (size.Width < 1 || size.Height < 1 || whole.Width < 1 ||
