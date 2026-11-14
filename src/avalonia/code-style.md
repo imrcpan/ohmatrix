@@ -115,3 +115,9 @@ Func<int> f = () => 3;
   check) lists the file. `Directory.Build.props` turns on what the analyzer needs to see it.
 - A namespace is file-scoped (`namespace OhMatrix.Core;`). A namespace with braces is an error.
 - An auto property may be written on one line (`{ get; init; }`) or over several; the formatter keeps either.
+
+## Syntax
+
+Do not use `is {}` or `is not {}`; use `some == null` and `some != null` instead. Explicit is better than implicit. You should use `==` to compare equality. If you need to compare reference equality, you should also use `==` to express it clearly instead of using `is`.
+
+Avoid overuse of pattern matching; however, well-applied pattern matching is encouraged. For instance, using it in a construct like `return some switch {}` is explicitly encouraged, as it enhances readability in such scenarios.
