@@ -703,7 +703,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                         st.Source.ToJson(),
                         (int?)st.Info.Width,
                         (int?)st.Info.Height,
-                        st.Body
+                        st.Body,
+                        Sticker: true
                     ),
                 };
             }

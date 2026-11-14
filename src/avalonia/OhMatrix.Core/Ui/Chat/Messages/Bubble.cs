@@ -28,6 +28,9 @@ public sealed class Bubble : Border {
     private readonly SolidColorBrush linkForeground = new();
     private readonly SolidColorBrush mentionBackground = new();
     private readonly SolidColorBrush imageFill = new();
+
+    // The bubble of a sticker has no fill; its picture is drawn on the chat.
+    private bool sticker;
     private readonly SolidColorBrush previewFill = new();
     private readonly SelectableTextBlock body;
     private readonly StackPanel stack;
@@ -94,8 +97,10 @@ public sealed class Bubble : Border {
         fileCard = file != null && !audioCard && !hasText && reply == null;
         plainFile = file != null && !audioCard;
         var mine = own && accent && !fileCard;
+        // A sticker is drawn on the chat's own background, as the picture is.
+        sticker = image is { Sticker: true };
         SetColors(colors, mine, failed);
-        Background = fill;
+        Background = sticker ? Brushes.Transparent : fill;
         Padding = pictureOnly ? new Thickness(0)
             : fileCard ? new Thickness(14, 12, 14, 12)
             : new Thickness(12, 7, 12, 6);
@@ -319,7 +324,7 @@ public sealed class Bubble : Border {
                 Height = h,
                 CornerRadius = clip,
                 ClipToBounds = true,
-                Background = imageFill,
+                Background = sticker ? Brushes.Transparent : imageFill,
                 Margin = pictureOnly
                     ? new Thickness(0)
                     : new Thickness(-12, senderName == null ? -7 : 0, -12,

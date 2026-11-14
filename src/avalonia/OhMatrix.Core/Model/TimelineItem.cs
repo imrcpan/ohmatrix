@@ -87,13 +87,15 @@ public sealed record FileAttachment(
 
 /// <summary>
 /// A picture in a message. <paramref name="Source"/> is what the engine needs to fetch it (the <c>mxc://</c> address, or the JSON of an
-/// encrypted file); the size is the one the sender gave, if any.
+/// encrypted file); the size is the one the sender gave, if any. A sticker is shown with no bubble behind it, as its picture has
+/// transparent parts.
 /// </summary>
 public sealed record ImageAttachment(
     string Source,
     int? Width,
     int? Height,
-    string FileName);
+    string FileName,
+    bool Sticker = false);
 
 /// <summary>A reaction under a message: the key (an emoji), how many gave it, and whether I did.</summary>
 public sealed record ReactionCount(string Key, int Count, bool Mine);
