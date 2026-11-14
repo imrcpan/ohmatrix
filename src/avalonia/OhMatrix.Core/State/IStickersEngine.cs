@@ -38,6 +38,9 @@ public interface IStickersEngine {
     /// <summary>Sends one of the pack's stickers to a room.</summary>
     Task Send(string roomId, string shortcode);
 
-    /// <summary>Uploads a picture and sends it to a room as a sticker, without adding it to the pack.</summary>
-    Task SendUpload(string roomId, StickerUpload file);
+    /// <summary>Uploads a picture and gives its address, without adding it to the pack or sending it.</summary>
+    Task<string> UploadPicture(StickerUpload file);
+
+    /// <summary>Sends a picture that is already on the server to a room as a sticker, without uploading it again.</summary>
+    Task SendPicture(string roomId, Sticker picture);
 }

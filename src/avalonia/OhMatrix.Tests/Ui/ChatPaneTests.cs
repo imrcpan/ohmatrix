@@ -286,9 +286,15 @@ public partial class ChatPaneTests {
             return Task.FromResult(code);
         }
 
-        public Task SendUpload(string roomId, StickerUpload file)
+        public Task<string> UploadPicture(StickerUpload file)
         {
             Calls.Add("upload " + file.Name);
+            return Task.FromResult("mxc://s/" + file.Name);
+        }
+
+        public Task SendPicture(string roomId, Sticker picture)
+        {
+            Calls.Add("send " + picture.Shortcode + " " + picture.Url);
             return Task.CompletedTask;
         }
 

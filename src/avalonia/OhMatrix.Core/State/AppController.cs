@@ -1150,6 +1150,31 @@ public sealed class AppController(
             : s);
     }
 
+    // The address of a built-in emoji's picture on the server. The picture is
+    // uploaded the first time one is sent, and the address is kept: the sends
+    // after that do not upload it again. A failed upload is not kept.
+    private readonly Dictionary<string, Task<string>> builtinAddresses = [];
+
+    private async Task<string> BuiltinAddress(string shortcode)
+    {
+        if (!builtinAddresses.TryGetValue(shortcode, out var address)) {
+            var png = BuiltinStickers.Png(shortcode) ??
+                      throw new EngineException(
+                          EngineErrorCode.NotFound, "No such sticker.");
+            address = stickersEngine!.UploadPicture(new StickerUpload(
+                shortcode, "image/png", png, BuiltinStickers.Pixels,
+                BuiltinStickers.Pixels));
+            builtinAddresses[shortcode] = address;
+        }
+
+        try {
+            return await address;
+        } catch (Exception) {
+            builtinAddresses.Remove(shortcode);
+            throw;
+        }
+    }
+
     /// <summary>
     /// Sends one of my stickers to the open chat. It shows in the chat at once, being sent, and is ticked when the send is done.
     /// </summary>
@@ -1158,7 +1183,8 @@ public sealed class AppController(
         var room = Store.Value.SelectedRoomId;
         if (room == null || stickersEngine == null)
             return;
-        // An emoji of the built-in set is not in my pack: it is uploaded.
+        // An emoji of the built-in set is not in my pack: it is sent by the
+        // address its picture was uploaded to.
         var png = builtin ? BuiltinStickers.Png(shortcode) : null;
         var mine = builtin
             ? null
@@ -1175,10 +1201,12 @@ public sealed class AppController(
         try {
             if (png == null)
                 await stickersEngine.Send(room, shortcode);
-            else
-                await stickersEngine.SendUpload(room,
-                    new StickerUpload(shortcode, "image/png", png,
+            else {
+                var address = await BuiltinAddress(shortcode);
+                await stickersEngine.SendPicture(room,
+                    new Sticker(shortcode, address, "image/png",
                         BuiltinStickers.Pixels, BuiltinStickers.Pixels));
+            }
         } catch (Exception) {
             if (pending != null) {
                 pending.Sending = false;

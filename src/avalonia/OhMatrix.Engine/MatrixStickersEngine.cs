@@ -143,19 +143,24 @@ public sealed class MatrixStickersEngine(MatrixAuthEngine auth)
         }
     }
 
-    public async Task SendUpload(string roomId, StickerUpload file)
+    public async Task<string> UploadPicture(StickerUpload file)
     {
         var mime =
             StickerPack.Check(file.Name, file.MimeType, file.Data.Length);
         try {
-            var client = Client;
-            var room = client.GetRoom(roomId) ?? throw new EngineException(
+            return await Client.UploadMedia(mime, file.Data, null);
+        } catch (Exception e) when (e is not EngineException) {
+            throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    public async Task SendPicture(string roomId, Sticker picture)
+    {
+        try {
+            var room = Client.GetRoom(roomId) ?? throw new EngineException(
                 EngineErrorCode.NotFound, "No such room.");
-            var mxc = await client.UploadMedia(mime, file.Data, null);
-            var sticker = new Sticker(file.Name, mxc, mime, file.Width,
-                file.Height, file.Data.Length);
             await room.SendRaw("m.sticker",
-                StickerPack.EventContent(sticker).ToJsonString());
+                StickerPack.EventContent(picture).ToJsonString());
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
