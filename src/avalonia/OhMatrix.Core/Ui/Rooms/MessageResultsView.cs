@@ -11,6 +11,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -19,6 +20,8 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// and picture of each hit when <c>showRoom</c> is set (the search of the chat list).
 /// </summary>
 public sealed class MessageResultsView : StackPanel {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
     private readonly string? roomId;
     private readonly bool showRoom;
@@ -91,7 +94,8 @@ public sealed class MessageResultsView : StackPanel {
         SearchPage? page = null;
         try {
             page = await controller.SearchMessages(term.Trim(), roomId, from);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("search messages", e);
             // Shown as no results.
         }
 

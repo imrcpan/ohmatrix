@@ -2,6 +2,7 @@
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using uniffi.matrix_sdk_ffi;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Engine;
 
@@ -10,6 +11,8 @@ public sealed class MatrixVerificationEngine(
     MatrixAuthEngine auth,
     TimeProvider? time = null
 ) : IVerificationEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private SessionVerificationController? controller;
     private Client? owner;
     private bool incoming;
@@ -123,7 +126,8 @@ public sealed class MatrixVerificationEngine(
                     .AcknowledgeVerificationRequest(
                         details.SenderProfile.UserId, details.FlowId);
                 engine.Tell(VerifyPhase.Requested, who);
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Unexpected("answer a verification request", e);
                 engine.Tell(VerifyPhase.Failed);
             }
         }
@@ -142,7 +146,8 @@ public sealed class MatrixVerificationEngine(
             try {
                 engine.Tell(VerifyPhase.Waiting);
                 await (await engine.Controller()).StartSasVerification();
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Unexpected("start a verification", e);
                 engine.Tell(VerifyPhase.Failed);
             }
         }

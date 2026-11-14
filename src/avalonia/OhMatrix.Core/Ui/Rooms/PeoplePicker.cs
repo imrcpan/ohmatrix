@@ -11,6 +11,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -19,6 +20,8 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// people found with a mark on the chosen ones, and a button that takes them. A user id typed in full is offered as it is.
 /// </summary>
 public sealed class PeoplePicker : IOverlay {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
     private readonly Dialog dialog = new();
 
@@ -125,7 +128,8 @@ public sealed class PeoplePicker : IOverlay {
         if (term.Length >= 2) {
             try {
                 people = await controller.SearchPeople(term);
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Unexpected("search people", e);
                 // The list stays empty; typing again searches again.
             }
         }
@@ -305,6 +309,7 @@ public sealed class PeoplePicker : IOverlay {
             await onConfirm([.. chosen.Keys]);
             dialog.Close();
         } catch (Exception e) {
+            logger.Caught("confirm a dialog", e);
             error.Text = e.Message;
             error.IsVisible = true;
         } finally {

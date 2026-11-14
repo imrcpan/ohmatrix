@@ -80,6 +80,10 @@ public sealed class AppController(
             });
             StartRooms();
         } catch (Exception e) {
+            if (e is EngineException)
+                logger.Caught("restore the session", e);
+            else
+                logger.Unexpected("restore the session", e);
             var code = (e as EngineException)?.Code;
             // A session the server no longer takes, or whose keys are gone, is not kept.
             if (code is EngineErrorCode.Unauthorized
@@ -548,7 +552,8 @@ public sealed class AppController(
         });
         try {
             await verification.Request();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("request a verification", e);
             Store.Update(s => s with {
                 Verification = new VerifyFlow(VerifyPhase.Failed, false)
             });
@@ -571,7 +576,8 @@ public sealed class AppController(
         });
         try {
             await verification.RequestUser(userId);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("request a verification of a user", e);
             Store.Update(s => s with {
                 Verification = new VerifyFlow(VerifyPhase.Failed, false)
             });
@@ -745,7 +751,8 @@ public sealed class AppController(
                         Details = details
                     });
             });
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("load the room details", e);
             // The panel shows what it has; opening it again tries again.
         }
     }
@@ -1141,7 +1148,8 @@ public sealed class AppController(
                 Rooms = WithPreview(s.Rooms, roomId, now),
             });
             _ = Quietly(session.MarkRead);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("open a room", e);
             // The chat stays empty; choosing it again tries again.
         }
     }
@@ -1296,6 +1304,10 @@ public sealed class AppController(
                 SavePreferences();
             }
         } catch (Exception e) {
+            if (e is EngineException)
+                logger.Caught("sign in", e);
+            else
+                logger.Unexpected("sign in", e);
             SignedOut(e.Message, (e as EngineException)?.Code);
         }
     }
@@ -1365,7 +1377,8 @@ public sealed class AppController(
                 });
                 Remember();
             });
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("load the profile", e);
             // The name stays what it was until the next sign-in.
         }
     }

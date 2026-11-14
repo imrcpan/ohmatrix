@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Model;
 
@@ -43,6 +44,8 @@ public sealed record StickerGroup(
 
 /// <summary>The pack of stickers and its groups: what is read from the account data, what is written back, and how a group is changed (<c>stickerPack.ts</c>, <c>stickerGroups.ts</c>).</summary>
 public static class StickerPack {
+    private static readonly Logger logger = Logger.GetDefault();
+
     /// <summary>The account data event my own pack lives in (MSC2545, as Element and Cinny write it).</summary>
     public const string PackEvent = "im.ponies.user_emotes";
 
@@ -128,7 +131,8 @@ public static class StickerPack {
             return null;
         try {
             return JsonNode.Parse(content) as JsonObject;
-        } catch (System.Text.Json.JsonException) {
+        } catch (System.Text.Json.JsonException e) {
+            logger.Caught("read the account data of stickers", e);
             return null;
         }
     }

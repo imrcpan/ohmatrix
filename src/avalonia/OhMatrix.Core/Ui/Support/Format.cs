@@ -1,14 +1,18 @@
 using System.Globalization;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Support;
 
 /// <summary>Times as the screens show them (<c>format.ts</c> of the React Native app).</summary>
 public static class Format {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private static CultureInfo Culture(string locale)
     {
         try {
             return CultureInfo.GetCultureInfo(locale);
-        } catch (CultureNotFoundException) {
+        } catch (CultureNotFoundException e) {
+            logger.Caught($"find the culture {locale}", e);
             return CultureInfo.InvariantCulture;
         }
     }

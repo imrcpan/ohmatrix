@@ -14,6 +14,7 @@ using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -22,6 +23,8 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// picture, count and description. A room already joined opens (a space opens as a space), one not joined asks whether to join it.
 /// </summary>
 public sealed class SpacePage : Grid {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
     private readonly Border bar = new();
     private readonly StackPanel rows = new();
@@ -82,7 +85,8 @@ public sealed class SpacePage : Grid {
         IReadOnlyList<SpaceChild> found = [];
         try {
             found = await controller.SpaceChildren(id);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("load a space", e);
             // The list stays empty; opening the space again asks again.
         }
 

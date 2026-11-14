@@ -5,11 +5,14 @@ using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using uniffi.matrix_sdk_ffi;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Engine;
 
 /// <summary>The events of calls over the Matrix SDK: its call-event subscription brings them in, <c>Room.SendRaw</c> sends them (<c>RustCalls</c> of the TypeScript engine).</summary>
 public sealed class MatrixCallsEngine(MatrixAuthEngine auth) : ICallsEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly HttpTurnServers turn = new(() => auth.CurrentSession);
     private CallEventSubscription? subscription;
     private Client? subscribed;
@@ -72,7 +75,8 @@ public sealed class MatrixCallsEngine(MatrixAuthEngine auth) : ICallsEngine {
                     engine.CallEvent?.Invoke(new Core.Calls.CallEvent(roomId,
                         eventType, sender,
                         eventId, (long)ageMs, content));
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Caught("read a call event", e);
                 // An event that cannot be read is not one of a call.
             }
         }

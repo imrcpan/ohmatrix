@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using OhMatrix.Core.Calls;
 using OhMatrix.Core.Model;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Engine;
 
@@ -9,6 +10,8 @@ namespace OhMatrix.Core.Engine;
 public sealed class HttpTurnServers(
     Func<Session?> session,
     HttpClient? http = null) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly HttpClient web = http ?? new HttpClient();
 
     public async Task<IReadOnlyList<IceServer>> Get()
@@ -42,6 +45,7 @@ public sealed class HttpTurnServers(
             ];
         } catch (Exception e) when (e is HttpRequestException
                                         or System.Text.Json.JsonException) {
+            logger.Caught("get the TURN servers", e);
             return [];
         }
     }

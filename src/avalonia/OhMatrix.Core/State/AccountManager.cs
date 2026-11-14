@@ -1,3 +1,5 @@
+using OhMatrix.Infra.Logging;
+
 namespace OhMatrix.Core.State;
 
 /// <summary>An account the app keeps: where its data lives, and the controller that keeps it syncing.</summary>
@@ -35,6 +37,8 @@ public sealed class AccountManager(
     Func<string, AppController> create,
     IAccountsStore store
 ) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly List<AccountEntry> accounts = [];
     private AppController? signingIn;
     private string? signingInDir;
@@ -124,7 +128,8 @@ public sealed class AccountManager(
             return;
         try {
             await account.Controller.Logout();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Caught("sign out on the server", e);
             // The account is forgotten here all the same.
         }
 
@@ -227,7 +232,8 @@ public sealed class AccountManager(
         if (account.Dir != dataDirectory) {
             try {
                 Directory.Delete(account.Dir, true);
-            } catch (IOException) {
+            } catch (IOException e) {
+                logger.Caught("delete the folder of an account", e);
                 // A folder that stays is only a little disk.
             }
         }

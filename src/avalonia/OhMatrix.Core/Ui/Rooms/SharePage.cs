@@ -10,6 +10,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -18,6 +19,8 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// second step listing the chosen ones to be sure, where Send sends to each in turn. Chats that could not be sent to stay chosen for another try.
 /// </summary>
 public sealed class SharePage : Grid {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
     private readonly Border bar = new();
     private readonly SearchField filter = new();
@@ -177,7 +180,8 @@ public sealed class SharePage : Grid {
                      .ToList()) {
             try {
                 await controller.SendShared(id, share);
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Caught($"share to {id}", e);
                 left.Add(id);
             }
         }

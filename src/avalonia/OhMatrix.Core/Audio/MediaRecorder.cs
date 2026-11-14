@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using OhMatrix.Core.Calls.Gst;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Audio;
 
@@ -15,6 +16,8 @@ public sealed record Recording(
 /// a clip as VP8 and Opus in WebM. <see cref="Stop"/> ends the file properly; <see cref="Cancel"/> throws it away.
 /// </summary>
 public sealed class MediaRecorder : IDisposable {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly bool video;
     private readonly string path;
     private IntPtr pipeline;
@@ -164,7 +167,8 @@ public sealed class MediaRecorder : IDisposable {
         Release();
         try {
             File.Delete(path);
-        } catch (IOException) {
+        } catch (IOException e) {
+            logger.Caught("delete a recording", e);
             // A file in the temporary folder that stays is only a little disk.
         }
     }

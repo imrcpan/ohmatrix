@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Storage;
 
@@ -18,6 +19,8 @@ internal sealed partial class StorageJson : JsonSerializerContext;
 
 /// <summary>Keeps one value as a JSON file, written through a temporary file so that a crash never leaves half of it.</summary>
 internal static class JsonFile {
+    private static readonly Logger logger = Logger.GetDefault();
+
     // Saves come one after the other, in the order they were asked for: two at once would write the same temporary file.
     private static readonly SemaphoreSlim Gate = new(1, 1);
 
@@ -30,7 +33,8 @@ internal static class JsonFile {
         try {
             await using var stream = File.OpenRead(path);
             return await JsonSerializer.DeserializeAsync(stream, info);
-        } catch (JsonException) {
+        } catch (JsonException e) {
+            logger.Caught($"read {path}", e);
             // A file that cannot be read is as good as none: the person signs in again.
             return null;
         }

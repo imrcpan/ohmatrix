@@ -9,6 +9,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Chat.Composer;
 
@@ -17,6 +18,8 @@ namespace OhMatrix.Core.Ui.Chat.Composer;
 /// recording starts at once, a running clock is shown, and Send or Discard end it. A recording under half a second is not sent.
 /// </summary>
 public sealed class RecordingDialog {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
     private readonly Dialog dialog = new();
 
@@ -91,7 +94,8 @@ public sealed class RecordingDialog {
             rec.Start();
             recorder = rec;
             ticker.Start();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Caught("start a recording", e);
             rec.Cancel();
             notice.Text = controller.T(MediaRecorder.Available(video)
                 ? "record.noDevice"
@@ -197,7 +201,8 @@ public sealed class RecordingDialog {
         } finally {
             try {
                 File.Delete(done.Path);
-            } catch (IOException) {
+            } catch (IOException e) {
+                logger.Caught("delete a recording", e);
                 // A file in the temporary folder that stays is only a little disk.
             }
         }

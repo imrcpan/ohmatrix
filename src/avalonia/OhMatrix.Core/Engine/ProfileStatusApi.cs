@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json.Nodes;
 using OhMatrix.Core.Model;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Engine;
 
@@ -10,6 +11,8 @@ namespace OhMatrix.Core.Engine;
 public sealed class ProfileStatusApi(
     Func<Session?> session,
     HttpClient? http = null) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     /// <summary>The custom profile field the status line lives in.</summary>
     public const string Field = "com.ohmatrix.status";
 
@@ -41,7 +44,8 @@ public sealed class ProfileStatusApi(
             JsonObject parsed;
             try {
                 parsed = JsonNode.Parse(text) as JsonObject ?? new JsonObject();
-            } catch (System.Text.Json.JsonException) {
+            } catch (System.Text.Json.JsonException e) {
+                logger.Caught("read the status answer", e);
                 parsed = new JsonObject();
             }
 
@@ -64,7 +68,8 @@ public sealed class ProfileStatusApi(
                                                    out var s) && s.Length > 0
                 ? s
                 : null;
-        } catch (EngineException) {
+        } catch (EngineException e) {
+            logger.Caught("get the status", e);
             return null;
         }
     }

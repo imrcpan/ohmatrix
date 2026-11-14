@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Calls;
 
@@ -10,6 +11,8 @@ namespace OhMatrix.Core.Calls;
 /// negotiating again in the middle of a call, changing the kind of a call, screen sharing and hold.
 /// </summary>
 public sealed partial class CallSignalling {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private const string Version = "1";
 
     /// <summary>How long an invitation lasts: after this the one called no longer rings, and the caller gives up.</summary>
@@ -70,7 +73,8 @@ public sealed partial class CallSignalling {
     {
         try {
             await transport.Send(c.Info.RoomId, type, Content(c, extra ?? []));
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Caught("send a call event", e);
             // A hangup or a candidate that cannot be sent leaves nothing to do: the call goes on or ends by the other side's timeout.
         }
     }
@@ -195,7 +199,8 @@ public sealed partial class CallSignalling {
         IReadOnlyList<IceServer> servers;
         try {
             servers = await transport.IceServers();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Caught("get the TURN servers", e);
             servers = [];
         }
 
@@ -242,7 +247,8 @@ public sealed partial class CallSignalling {
         IReadOnlyList<IceServer> servers;
         try {
             servers = await transport.IceServers();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Caught("get the TURN servers", e);
             servers = [];
         }
 
@@ -250,7 +256,8 @@ public sealed partial class CallSignalling {
         Wire(c, peer);
         try {
             await transport.Media.Start(peer, video && c.Info.Video);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("start the media of a call", e);
             _ = Send(c, "m.call.hangup", new JsonObject {
                 ["reason"] = "user_media_failed"
             });
@@ -263,7 +270,8 @@ public sealed partial class CallSignalling {
         foreach (var x in c.PendingRemote.ToList()) {
             try {
                 await peer.AddIceCandidate(x);
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Caught("add a remote candidate", e);
                 // A candidate that does not fit is skipped; the others may.
             }
         }
@@ -405,7 +413,8 @@ public sealed partial class CallSignalling {
                             ["version"] = Version,
                             ["reason"] = "user_busy",
                         });
-                } catch (Exception) {
+                } catch (Exception ex) {
+                    logger.Caught("send the busy answer", ex);
                     // The caller learns by the timeout.
                 }
 
@@ -459,7 +468,8 @@ public sealed partial class CallSignalling {
                     if (c.RemoteSet && c.Peer != null) {
                         try {
                             await c.Peer.AddIceCandidate(cand);
-                        } catch (Exception) {
+                        } catch (Exception ex) {
+                            logger.Caught("add a remote candidate", ex);
                             // Skipped: another candidate may connect.
                         }
                     } else
@@ -519,13 +529,15 @@ public sealed partial class CallSignalling {
             foreach (var x in c.PendingRemote.ToList()) {
                 try {
                     await c.Peer.AddIceCandidate(x);
-                } catch (Exception) {
+                } catch (Exception ex) {
+                    logger.Caught("add a remote candidate", ex);
                     // Skipped.
                 }
             }
 
             c.PendingRemote.Clear();
-        } catch (Exception) {
+        } catch (Exception ex) {
+            logger.Unexpected("answer a call", ex);
             End(c, EndReason.Failed, true);
             return;
         }

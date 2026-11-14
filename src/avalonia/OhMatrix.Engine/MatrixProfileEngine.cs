@@ -2,6 +2,7 @@
 using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Engine;
 
@@ -10,6 +11,8 @@ public sealed class MatrixProfileEngine(
     MatrixAuthEngine auth,
     ProfileStatusApi? statuses = null)
     : IProfileEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly ProfileStatusApi status =
         statuses ?? new ProfileStatusApi(() => auth.CurrentSession);
 
@@ -24,7 +27,8 @@ public sealed class MatrixProfileEngine(
             string? name = null;
             try {
                 name = await client.DisplayName();
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Caught("read the display name", e);
                 // A server that keeps no name: the part of the user id before the colon is shown instead.
             }
 

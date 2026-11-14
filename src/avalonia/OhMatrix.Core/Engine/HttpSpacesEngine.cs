@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Engine;
 
@@ -11,6 +12,8 @@ namespace OhMatrix.Core.Engine;
 public sealed class HttpSpacesEngine(
     Func<Session?> session,
     HttpClient? http = null) : ISpacesEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly HttpClient web = http ?? new HttpClient();
 
     private Session Account() =>
@@ -34,7 +37,8 @@ public sealed class HttpSpacesEngine(
             JsonNode? parsed = null;
             try {
                 parsed = JsonNode.Parse(text);
-            } catch (System.Text.Json.JsonException) {
+            } catch (System.Text.Json.JsonException e) {
+                logger.Caught("read the spaces answer", e);
                 // No usable body.
             }
 

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using OhMatrix.Core.Audio;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Calls.Gst;
 
@@ -27,6 +28,8 @@ internal unsafe struct GstMapInfo {
 /// at run time. Signals with arguments are emitted through <c>g_signal_emitv</c> (the variadic <c>g_signal_emit_by_name</c> is not portable to call).
 /// </summary>
 internal static unsafe partial class LibGst {
+    private static readonly Logger logger = Logger.GetDefault();
+
     public const nuint TypeBoolean = 5 << 2;
     public const nuint TypeInt = 6 << 2;
     public const nuint TypeUint = 7 << 2;
@@ -59,6 +62,7 @@ internal static unsafe partial class LibGst {
                         Has("vp8enc");
             } catch (Exception e) when (e is DllNotFoundException
                                             or EntryPointNotFoundException) {
+                logger.Caught("load GStreamer", e);
                 ready = false;
             }
 
@@ -76,6 +80,7 @@ internal static unsafe partial class LibGst {
                        Has("webmmux"));
         } catch (Exception e) when (e is DllNotFoundException
                                         or EntryPointNotFoundException) {
+            logger.Caught("check the GStreamer elements", e);
             return false;
         }
     }

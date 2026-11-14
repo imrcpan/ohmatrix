@@ -14,6 +14,7 @@ using OhMatrix.Core.Ui.Animations;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Media;
 
@@ -22,6 +23,8 @@ namespace OhMatrix.Core.Ui.Media;
 /// and change where it is, and the time. A press on the picture plays or pauses; Esc, the cross or a press outside closes it.
 /// </summary>
 public sealed class VideoViewer : IOverlay {
+    private static readonly Logger logger = Logger.GetDefault();
+
     // Set when the page that owns it is thrown away: an answer that comes
     // late must not open it again over the page that is shown now.
     private bool retired;
@@ -210,7 +213,8 @@ public sealed class VideoViewer : IOverlay {
         string? path = null;
         try {
             path = await fetch(file);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("fetch a video", e);
             // Nothing to play: the viewer closes below.
         }
 

@@ -19,6 +19,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Chat;
 
@@ -27,6 +28,8 @@ namespace OhMatrix.Core.Ui.Chat;
 /// their date dividers, and the input to write in. The view stays at the bottom while new messages come, unless the person has scrolled up.
 /// </summary>
 public sealed partial class ChatPane : Grid {
+    private static readonly Logger logger = Logger.GetDefault();
+
     public const double HeaderHeight = PageBar.HeaderHeight;
 
     private readonly AppController controller;
@@ -207,7 +210,8 @@ public sealed partial class ChatPane : Grid {
     {
         try {
             await work();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("a background update", e);
             // The stickers shown stay as they were.
         }
     }
@@ -1704,7 +1708,8 @@ public sealed partial class ChatPane : Grid {
                 await window.StorageProvider.TryGetFileFromPathAsync(path);
             if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("open a file", e);
             // The file stays unopened; pressing it again tries again.
         }
     }
@@ -1750,7 +1755,8 @@ public sealed partial class ChatPane : Grid {
         foreach (var path in paths) {
             try {
                 await controller.SendAttachment(path);
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Unexpected("send a file", e);
                 // The file stays unsent; the person can try again.
             }
         }
@@ -1875,7 +1881,8 @@ public sealed partial class ChatPane : Grid {
             if (path != null) {
                 try {
                     await controller.SendAttachment(path);
-                } catch (Exception) {
+                } catch (Exception e) {
+                    logger.Unexpected("send a file", e);
                     // The file stays unsent; the person can try again.
                 }
             }

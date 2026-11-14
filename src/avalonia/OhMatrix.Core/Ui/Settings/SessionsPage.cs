@@ -11,6 +11,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Settings;
 
@@ -19,6 +20,8 @@ namespace OhMatrix.Core.Ui.Settings;
 /// of the others out after the password is entered.
 /// </summary>
 public sealed class SessionsPage : Grid {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
 
     private readonly Border bar = new() {
@@ -71,7 +74,8 @@ public sealed class SessionsPage : Grid {
     {
         try {
             devices = await controller.ListDevices();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("load the sessions", e);
             devices = [];
         }
 

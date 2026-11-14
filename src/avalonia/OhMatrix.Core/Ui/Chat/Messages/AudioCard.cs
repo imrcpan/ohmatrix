@@ -8,6 +8,7 @@ using OhMatrix.Core.Audio;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Support;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Chat.Messages;
 
@@ -16,6 +17,8 @@ namespace OhMatrix.Core.Ui.Chat.Messages;
 /// kept by message, so playback survives its card leaving the visual tree.
 /// </summary>
 public sealed class AudioCard : Grid {
+    private static readonly Logger logger = Logger.GetDefault();
+
     // Every audio bubble has the same width, and the waveform (or the bar)
     // runs the whole of it.
     private const double Wide = 220;
@@ -180,7 +183,8 @@ public sealed class AudioCard : Grid {
             Players[file.Source] = player;
             if (!player.Play())
                 fallback();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("play a voice message", e);
             fallback();
         } finally {
             loading = false;

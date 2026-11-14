@@ -11,6 +11,7 @@ using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -19,6 +20,8 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// history a page at a time, shows pictures and videos as a grid and audio and files as a list, and opens them as the chat does.
 /// </summary>
 public sealed class SharedMediaView : StackPanel {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private const int PageSize = 24;
 
     private sealed class Tab {
@@ -91,7 +94,8 @@ public sealed class SharedMediaView : StackPanel {
             tab.Items.AddRange(page.Items.Where(i => seen.Add(i.Id)));
             tab.Next = page.Next;
             tab.Loaded = true;
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("load shared media", e);
             tab.Failed = true;
         } finally {
             tab.Loading = false;
@@ -314,7 +318,8 @@ public sealed class SharedMediaView : StackPanel {
                 await window.StorageProvider.TryGetFileFromPathAsync(path);
             if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("open a file", e);
             // The file stays unopened; pressing it again tries again.
         }
     }

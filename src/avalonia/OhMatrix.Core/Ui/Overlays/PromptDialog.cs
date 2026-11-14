@@ -7,6 +7,7 @@ using OhMatrix.Core.Theming;
 using OhMatrix.Core.Ui.Appearance;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Overlays;
 
@@ -23,6 +24,8 @@ public sealed record PromptField(
 /// filled and that may fail (the reason is shown under the fields), and Cancel. The button works while the confirmation runs.
 /// </summary>
 public sealed class PromptDialog : IOverlay {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly Dialog dialog = new();
     private readonly List<TextField> fields = [];
     private readonly CapsuleButton confirm = new(true);
@@ -174,6 +177,7 @@ public sealed class PromptDialog : IOverlay {
             await onConfirm(fields.Select(f => f.Text.Trim()).ToList());
             Close();
         } catch (Exception e) {
+            logger.Caught("confirm a dialog", e);
             error.Text = e.Message;
             error.IsVisible = true;
         } finally {

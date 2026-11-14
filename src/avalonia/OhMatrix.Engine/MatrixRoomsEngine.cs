@@ -351,7 +351,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             for (var i = 0; i < 4; i++) {
                 try {
                     await list.Paginate();
-                } catch (Exception) {
+                } catch (Exception e) {
+                    logger.Unexpected("read more of a space", e);
                     break;
                 }
             }
@@ -754,7 +755,8 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
             if (summary != null && NeedsRecent(summary))
                 summary = WithRecent(summary, entered, gen);
             return book.Write(gen, entered.Id, entered.Entry, summary);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected($"update the summary of a room {entered.Id}", e);
             // The room is gone, or the SDK is not ready: the next change tries again.
             return false;
         }

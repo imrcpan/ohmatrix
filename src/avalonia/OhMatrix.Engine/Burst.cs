@@ -1,3 +1,5 @@
+using OhMatrix.Infra.Logging;
+
 namespace OhMatrix.Engine;
 
 /// <summary>
@@ -6,6 +8,8 @@ namespace OhMatrix.Engine;
 /// latest is done when the pause ends.
 /// </summary>
 public sealed class Burst(TimeSpan window, TimeProvider time) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly Lock gate = new();
     private Action? pending;
     private bool waiting;
@@ -34,7 +38,8 @@ public sealed class Burst(TimeSpan window, TimeProvider time) {
 
         try {
             action?.Invoke();
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("run a queued action", e);
             // What was asked for tells of its own failure.
         }
     }

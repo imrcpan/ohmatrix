@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Audio;
 
@@ -7,6 +8,8 @@ namespace OhMatrix.Core.Audio;
 /// run time: where there is none, <see cref="Available"/> is false and the app opens files with the program of the system instead.
 /// </summary>
 internal static partial class LibVlc {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private const string Name = "vlc";
 
     private static IntPtr instance;
@@ -36,6 +39,7 @@ internal static partial class LibVlc {
             instance = libvlc_new(3, ["--no-video", "--quiet", "--no-xlib"]);
         } catch (Exception e) when (e is DllNotFoundException
                                         or EntryPointNotFoundException) {
+            logger.Caught("load libvlc", e);
             instance = IntPtr.Zero;
         }
 
@@ -52,6 +56,7 @@ internal static partial class LibVlc {
             videoInstance = libvlc_new(2, ["--quiet", "--no-xlib"]);
         } catch (Exception e) when (e is DllNotFoundException
                                         or EntryPointNotFoundException) {
+            logger.Caught("load libvlc for video", e);
             videoInstance = IntPtr.Zero;
         }
 

@@ -3,6 +3,7 @@ using Avalonia.Media.Imaging;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui.Widgets;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Media;
 
@@ -15,6 +16,8 @@ namespace OhMatrix.Core.Ui.Media;
 public sealed class Pictures(
     IMediaEngine? media,
     long budget = Pictures.DefaultBudget) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     /// <summary>64 MB of pixels: some thousands of avatars, or some dozens of big pictures.</summary>
     public const long DefaultBudget = 64L * 1024 * 1024;
 
@@ -174,7 +177,8 @@ public sealed class Pictures(
                 return null;
             using var stream = new MemoryStream(bytes);
             return new Bitmap(stream);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected($"load the picture {mxc}", e);
             // A picture that cannot be had is the initials; Fetch lets go of
             // the entry and the next ask tries again.
             return null;

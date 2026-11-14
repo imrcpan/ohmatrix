@@ -5,11 +5,14 @@ using OhMatrix.Core.State;
 using uniffi.matrix_sdk_ffi;
 using TimelineItem = OhMatrix.Core.Model.TimelineItem;
 using SdkTimelineItem = uniffi.matrix_sdk_ffi.TimelineItem;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Engine;
 
 /// <summary>Opens chats over the Matrix SDK (<c>timeline</c> of <c>RustEngineCore</c>).</summary>
 public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     public async Task SendMessageContent(string roomId,
         System.Text.Json.Nodes.JsonObject content)
     {
@@ -405,7 +408,8 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         {
             try {
                 return await run();
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Unexpected("run a chat job", e);
                 return false;
             }
         }

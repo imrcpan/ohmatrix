@@ -265,7 +265,8 @@ public sealed class MatrixAuthEngine(
                         JsonNode.Parse(await res.Content.ReadAsStringAsync()) as
                             JsonObject
                         ?? new JsonObject();
-                } catch (System.Text.Json.JsonException) {
+                } catch (System.Text.Json.JsonException e) {
+                    logger.Caught("read the server answer", e);
                     json = new JsonObject();
                 }
 

@@ -12,6 +12,7 @@ using OhMatrix.Core.Ui.Overlays;
 using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -20,6 +21,8 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// their picture, name, description and member count; pressing one asks whether to join it, and joining opens the chat.
 /// </summary>
 public sealed class ExplorePage : Grid {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly AppController controller;
     private readonly Border bar = new();
     private readonly SearchField search = new();
@@ -172,7 +175,8 @@ public sealed class ExplorePage : Grid {
         try {
             result =
                 await controller.SearchPublicRooms(search.Text.Trim(), Server);
-        } catch (Exception) {
+        } catch (Exception e) {
+            logger.Unexpected("search public rooms", e);
             // The list stays empty; searching again tries again.
         }
 

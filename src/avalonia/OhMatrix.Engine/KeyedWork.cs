@@ -1,3 +1,5 @@
+using OhMatrix.Infra.Logging;
+
 namespace OhMatrix.Engine;
 
 /// <summary>
@@ -7,6 +9,8 @@ namespace OhMatrix.Engine;
 /// not one for each ask.
 /// </summary>
 public sealed class KeyedWork(int limit) {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly SemaphoreSlim slots = new(limit, limit);
 
     // A key whose job is running; true when it was asked for again meanwhile.
@@ -52,7 +56,8 @@ public sealed class KeyedWork(int limit) {
         while (true) {
             try {
                 await Limit(job);
-            } catch (Exception) {
+            } catch (Exception e) {
+                logger.Unexpected($"run a queued job for {key}", e);
                 // A job tells of its own failure; this one is over.
             }
 

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
+using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Engine;
 
@@ -13,6 +14,8 @@ public sealed class HttpDevicesEngine(
     Func<Session?> session,
     HttpClient? http = null)
     : IDevicesEngine {
+    private static readonly Logger logger = Logger.GetDefault();
+
     private readonly HttpClient web = http ?? new HttpClient();
 
     private Session Account()
@@ -47,7 +50,8 @@ public sealed class HttpDevicesEngine(
             JsonObject parsed;
             try {
                 parsed = JsonNode.Parse(text) as JsonObject ?? new JsonObject();
-            } catch (JsonException) {
+            } catch (JsonException e) {
+                logger.Caught("read the devices answer", e);
                 parsed = new JsonObject();
             }
 
