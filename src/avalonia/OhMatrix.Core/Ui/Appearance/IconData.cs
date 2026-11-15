@@ -14,6 +14,7 @@ public static class IconData {
         ["speaker"] = "M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13",
         ["minimize"] = "M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7",
         ["more"] = "M5 12h.01M12 12h.01M19 12h.01",
+        ["moreVertical"] = "M12 5h.01M12 12h.01M12 19h.01",
         ["check"] = "M5 12.5l4.5 4.5L19 7.5",
         ["checks"] = "M1 12.5l4.5 4.5L15 7.5M10.5 15.5l1.5 1.5L21.5 7.5",
         ["clock"] = "M12 7v5l3 2M12 21a9 9 0 100-18 9 9 0 000 18z",
@@ -81,6 +82,7 @@ public static class IconData {
     /// <summary>Line weight of the icons that are not drawn with 2.</summary>
     public static readonly IReadOnlyDictionary<string, double> Weight = new Dictionary<string, double> {
         ["more"] = 4.2,
+        ["moreVertical"] = 4.2,
         ["grip"] = 3.6,
     };
 

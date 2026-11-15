@@ -1232,10 +1232,11 @@ public sealed partial class ChatPane : Grid {
         find.Click += (_, _) => ToggleSearch();
         Grid.SetColumn(find, 1);
         bar.Children.Add(find);
-        var info = new IconButton("info", controller.T("chatInfo"), 24) {
-            Margin = new Thickness(0, 0, 12, 0),
-            Tint = s.RoomInfoOpen ? c.Accent : null,
-        };
+        var info =
+            new IconButton("moreVertical", controller.T("chatInfo"), 24) {
+                Margin = new Thickness(0, 0, 12, 0),
+                Tint = c.TextSecondary,
+            };
         info.Click += (_, _) =>
             controller.OpenRoomInfo(!controller.Store.Value.RoomInfoOpen);
         Grid.SetColumn(info, 2);
