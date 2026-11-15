@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using System.Text.RegularExpressions;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Theming;
@@ -22,7 +23,10 @@ namespace OhMatrix.Core.Ui.Rooms;
 /// The info panel of a chat (<c>RoomInfoPanel</c>), as far as it is ported: a bar with the title and a close button, the picture, the name and the
 /// member count, the topic, and the people of the room, admins first, each with their role.
 /// </summary>
-public sealed class RoomInfoPanel : Grid {
+public sealed partial class RoomInfoPanel : Grid {
+    [GeneratedRegex("^[a-zA-Z0-9._=/+-]+$")]
+    private static partial Regex LocalPart();
+
     public const double Width_ = 320;
 
     private readonly AppController controller;
@@ -1131,8 +1135,7 @@ public sealed class RoomInfoPanel : Grid {
             async v => {
                 var name = v[0].Trim().TrimStart('#');
                 if (name.Length == 0 ||
-                    !System.Text.RegularExpressions.Regex.IsMatch(name,
-                        "^[a-zA-Z0-9._=/+-]+$"))
+                    !LocalPart().IsMatch(name))
                     throw new InvalidOperationException(
                         controller.T("address.invalid"));
                 var alias = $"#{name}:{server}";

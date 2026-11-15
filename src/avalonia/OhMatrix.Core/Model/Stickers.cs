@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using OhMatrix.Infra.Logging;
 
 namespace OhMatrix.Core.Model;
@@ -43,7 +44,10 @@ public sealed record StickerGroup(
 );
 
 /// <summary>The pack of stickers and its groups: what is read from the account data, what is written back, and how a group is changed (<c>stickerPack.ts</c>, <c>stickerGroups.ts</c>).</summary>
-public static class StickerPack {
+public static partial class StickerPack {
+    [GeneratedRegex(@"\.[A-Za-z0-9]{1,5}$")]
+    private static partial Regex Extension();
+
     private static readonly Logger logger = Logger.GetDefault();
 
     /// <summary>The account data event my own pack lives in (MSC2545, as Element and Cinny write it).</summary>
@@ -193,9 +197,7 @@ public static class StickerPack {
     /// <summary>A name for a new sticker from a file name or caption: no extension, no surrounding blanks, and not one the pack already has.</summary>
     public static string NewShortcode(string? name, ISet<string> taken)
     {
-        var text =
-            System.Text.RegularExpressions.Regex.Replace(name ?? "",
-                @"\.[A-Za-z0-9]{1,5}$", "");
+        var text = Extension().Replace(name ?? "", "");
         text = string.Join(" ",
             text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         var baseName = text.Length > 40 ? text[..40].Trim() : text;

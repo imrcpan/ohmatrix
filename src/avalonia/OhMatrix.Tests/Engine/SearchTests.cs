@@ -2,11 +2,15 @@ using System.Net;
 using System.Text;
 using OhMatrix.Core.Engine;
 using OhMatrix.Core.Model;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace OhMatrix.Tests.Engine;
 
-public class SearchTests {
+public partial class SearchTests {
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Spaces();
+
     private sealed class Handler : HttpMessageHandler {
         public string? Url;
         public string? Body;
@@ -64,7 +68,7 @@ public class SearchTests {
     {
         // What the first version did, kept here to compare with.
         static string Old(string s) =>
-            System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
+            Spaces().Replace(s, " ")
                 .Trim();
 
         string[] texts = [

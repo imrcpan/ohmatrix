@@ -5,7 +5,10 @@ using Xunit;
 namespace OhMatrix.Tests.I18n;
 
 // The cases of i18n.test.ts and catalogs.test.ts of src/i18n, read from the same TOML files.
-public class StringsTests {
+public partial class StringsTests {
+    [GeneratedRegex(@"\{(\w+)\}")]
+    private static partial Regex Placeholder();
+
     [Fact]
     public void T_fills_the_values_and_reads_each_language()
     {
@@ -63,7 +66,7 @@ public class StringsTests {
     [Fact]
     public void Every_language_has_every_text_of_English_with_the_same_values()
     {
-        var values = new Regex(@"\{(\w+)\}");
+        var values = Placeholder();
         var keys = Strings.Keys();
         Assert.Equal(642, keys.Count);
         var problems = new List<string>();

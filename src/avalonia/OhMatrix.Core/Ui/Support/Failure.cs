@@ -4,7 +4,7 @@ using OhMatrix.Core.Model;
 namespace OhMatrix.Core.Ui.Support;
 
 /// <summary>Why something could not be done, in words for the person: a known cause by what it means, and for anything else what the server said, so that a notice is never just "failed" (<c>failureReason</c>).</summary>
-public static class Failure {
+public static partial class Failure {
     public static string Reason(Exception e, Func<string, string> t)
     {
         var whole = e.Message.Trim();
@@ -14,9 +14,7 @@ public static class Failure {
             return t("sticker.reason.large");
         if (e is EngineException { Code: EngineErrorCode.UnsupportedType })
             return t("sticker.reason.type");
-        if (Regex.IsMatch(said,
-                @"too.?large|payload too large|\b413\b|exceeds? .*(size|limit)",
-                RegexOptions.IgnoreCase))
+        if (TooLarge().IsMatch(said))
             return t("avatar.reason.large");
         if (e is EngineException engine) {
             switch (engine.Code) {
@@ -39,4 +37,9 @@ public static class Failure {
             ? said[..Math.Min(160, said.Length)]
             : t("avatar.reason.unknown");
     }
+
+    [GeneratedRegex(
+        @"too.?large|payload too large|\b413\b|exceeds? .*(size|limit)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TooLarge();
 }
