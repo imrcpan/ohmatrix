@@ -881,9 +881,14 @@ public sealed class AppController(
     {
         Ops.Start("save as", name);
         try {
+            // A sticker has no extension in its name: it is given the one of
+            // its picture.
+            var suggested = Path.GetExtension(name).Length == 0
+                ? name + (MimeTypes.SniffExtension(path) ?? "")
+                : name;
             var target = await window.StorageProvider.SaveFilePickerAsync(
                 new Avalonia.Platform.Storage.FilePickerSaveOptions {
-                    SuggestedFileName = name
+                    SuggestedFileName = suggested
                 });
             if (target == null)
                 return;
