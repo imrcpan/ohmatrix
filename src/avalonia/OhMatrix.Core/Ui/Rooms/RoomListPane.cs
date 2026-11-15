@@ -12,6 +12,7 @@ using OhMatrix.Core.Ui.Support;
 using OhMatrix.Core.Ui.Widgets;
 using Menu = OhMatrix.Core.Ui.Overlays.Menu;
 using MenuItem = OhMatrix.Core.Ui.Overlays.MenuItem;
+using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 
 namespace OhMatrix.Core.Ui.Rooms;
 
@@ -30,6 +31,15 @@ public sealed class RoomListPane : Grid {
         FontWeight = Fonts.Bold,
         TextTrimming = TextTrimming.CharacterEllipsis,
         VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    // While the chats are not synced after they were, a turning ring stands
+    // after the name in place of a "connecting" text.
+    private readonly Spinner connecting = new() {
+        Size = 14,
+        Margin = new Thickness(6, 0, 0, 0),
+        VerticalAlignment = VerticalAlignment.Center,
+        IsVisible = false,
     };
 
     private readonly Border bar = new() {
@@ -119,11 +129,11 @@ public sealed class RoomListPane : Grid {
             Spacing = rail ? 0 : 10
         };
         var line = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*")
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
         line.Children.Add(avatarHolder);
-        // A long name ends where the plus button starts, it does not run
-        // under it.
+        // A long name is cut with an ellipsis before the ring, and the ring
+        // stays at the end of the row.
         foreach (var label in new Control[] {
                      name, nameSkeleton
                  }) {
@@ -131,6 +141,9 @@ public sealed class RoomListPane : Grid {
             Grid.SetColumn(label, 1);
             line.Children.Add(label);
         }
+
+        Grid.SetColumn(connecting, 2);
+        line.Children.Add(connecting);
 
         profile.Child = line;
         profile.Click += (_, _) =>
@@ -483,11 +496,12 @@ public sealed class RoomListPane : Grid {
         }
 
         var waiting = s.SyncState == SyncState.Syncing && s.Profile == null;
-        name.Text = s.SyncState == SyncState.Syncing || !connectedOnce
-            ? shown
-            : controller.T("connecting");
+        name.Text = shown;
         name.IsVisible = !Rail && !waiting;
         nameSkeleton.IsVisible = !Rail && waiting;
+        connecting.Color = new SolidColorBrush(c.TextSecondary);
+        connecting.IsVisible = !Rail && !waiting && connectedOnce &&
+                               s.SyncState != SyncState.Syncing;
         Avalonia.Automation.AutomationProperties.SetName(profile,
             controller.T("profile"));
         // The notice to set up or to verify the encryption, above the chats;
