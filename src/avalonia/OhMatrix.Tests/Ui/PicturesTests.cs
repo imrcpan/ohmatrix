@@ -184,6 +184,18 @@ public class PicturesTests {
 
 public class MediaSizeTests {
     [Xunit.Theory]
+    [Xunit.InlineData(64, 64, 64, 64)]
+    [Xunit.InlineData(256, 256, 130, 130)]
+    [Xunit.InlineData(200, 100, 130, 65)]
+    [Xunit.InlineData(null, null, 130, 130)]
+    public void A_sticker_keeps_its_shape_without_a_floor(int? w, int? h,
+        int ew, int eh)
+    {
+        Xunit.Assert.Equal((ew, eh),
+            OhMatrix.Core.Ui.Media.MediaSize.FitSticker(w, h));
+    }
+
+    [Xunit.Theory]
     [Xunit.InlineData(1600, 900, 300, 169)]
     [Xunit.InlineData(900, 1600, 169, 300)]
     [Xunit.InlineData(100, 100, 130, 100)]

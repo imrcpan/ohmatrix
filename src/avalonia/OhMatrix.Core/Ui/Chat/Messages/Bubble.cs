@@ -288,8 +288,9 @@ public sealed class Bubble : Border {
         }
 
         if (image != null) {
-            var (w, h) = MediaSize.Fit(image.Width, image.Height,
-                image.Sticker ? MediaSize.MaxSticker : MediaSize.MaxImage);
+            var (w, h) = image.Sticker
+                ? MediaSize.FitSticker(image.Width, image.Height)
+                : MediaSize.Fit(image.Width, image.Height);
             var picture = new Image {
                 Width = w,
                 Height = h,
