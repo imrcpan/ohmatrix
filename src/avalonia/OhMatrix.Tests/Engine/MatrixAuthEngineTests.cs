@@ -775,7 +775,12 @@ public class MatrixChatEngineTests {
 
 [Collection("homeserver")]
 public class MatrixEngineWorkLiveTests {
-    private static async Task<MatrixAuthEngine> SignIn()
+    private static Task<MatrixAuthEngine> SignIn()
+    {
+        return SignInAs("test");
+    }
+
+    private static async Task<MatrixAuthEngine> SignInAs(string user)
     {
         var server =
             Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
@@ -785,8 +790,51 @@ public class MatrixEngineWorkLiveTests {
             Path.Combine(Path.GetTempPath(),
                 "ohm-work-" + Guid.NewGuid().ToString("N"))
         );
-        await auth.LoginWithPassword(server!, "test", "123456");
+        await auth.LoginWithPassword(server!, user, "123456");
         return auth;
+    }
+
+    [Fact]
+    public async Task
+        A_message_shows_the_read_mark_once_the_other_person_has_read_it()
+    {
+        var sender = await SignIn();
+        var reader = await SignInAs("alice");
+        // The sender must sync: the receipt of the other person comes that way.
+        var rooms = new MatrixRoomsEngine(sender);
+        var syncing = false;
+        rooms.SyncChanged += state => {
+            if (state == SyncState.Syncing)
+                syncing = true;
+        };
+        await rooms.StartSync();
+        await Until(() => syncing, "not syncing");
+        var id = await NewRoom(sender, "Read " +
+                                       Guid.NewGuid().ToString("N")[..8]);
+        await rooms.InviteToRoom(id, ["@alice:localhost"]);
+        await new MatrixRoomsEngine(reader).JoinRoom(id);
+
+        var mine = await new MatrixChatEngine(sender).Open(id);
+        await mine.Send("read me " + Guid.NewGuid().ToString("N")[..8]);
+        TimelineItem? sent = null;
+        await Until(() => (sent = mine.Items.LastOrDefault(i =>
+                i.IsOwn && i.Body.StartsWith("read me",
+                    StringComparison.Ordinal))) != null,
+            "the message did not come back");
+        Assert.False(sent!.Read);
+
+        var theirs = await new MatrixChatEngine(reader).Open(id);
+        await Until(() => theirs.Items.Any(i => i.Body.StartsWith("read me",
+                StringComparison.Ordinal)),
+            "the reader's timeline has no message yet");
+        await theirs.MarkRead();
+        await Until(() => mine.Items.Any(i =>
+                i.Id == sent.Id && i.Read),
+            "the read mark did not come",
+            () => string.Join(",", mine.Items.Select(i => i.Id + ":" +
+                i.Read + ":" + i.ReadBy.Count)));
+        Assert.Contains("@alice:localhost",
+            mine.Items.First(i => i.Id == sent.Id).ReadBy);
     }
 
     private static Task<string> NewRoom(MatrixAuthEngine auth, string name)
