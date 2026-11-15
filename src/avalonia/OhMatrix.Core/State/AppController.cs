@@ -244,6 +244,10 @@ public sealed class AppController(
 
     public Task MarkRoomRead(string roomId)
     {
+        // The row is read at once; the engine's receipt follows.
+        Store.Update(s => s with {
+            Rooms = WithRead(s.Rooms, roomId),
+        });
         return rooms!.MarkRoomRead(roomId);
     }
 
@@ -1176,13 +1180,39 @@ public sealed class AppController(
             Store.Update(s => s with {
                 Timeline = now,
                 TimelineReady = true,
-                Rooms = WithPreview(s.Rooms, roomId, now),
+                Rooms = WithRead(WithPreview(s.Rooms, roomId, now), roomId),
             });
             _ = Quietly(session.MarkRead);
         } catch (Exception e) {
             logger.Unexpected("AppController", e);
             // The chat stays empty; choosing it again tries again.
         }
+    }
+
+    /// <summary>
+    /// The row of a room as read at once: its unread count and its mark go, before the engine has
+    /// sent the receipt and the sync has come back with the same. The same list is kept when the room has nothing unread.
+    /// </summary>
+    public static IReadOnlyList<RoomSummary> WithRead(
+        IReadOnlyList<RoomSummary> rooms,
+        string roomId)
+    {
+        var index = -1;
+        for (var i = 0; i < rooms.Count; i++) {
+            if (rooms[i].Id == roomId)
+                index = i;
+        }
+
+        if (index < 0 || (rooms[index].UnreadCount == 0 &&
+                          !rooms[index].MarkedUnread))
+            return rooms;
+        var copy = rooms.ToList();
+        copy[index] = copy[index] with {
+            UnreadCount = 0,
+            HighlightCount = 0,
+            MarkedUnread = false,
+        };
+        return copy;
     }
 
     /// <summary>

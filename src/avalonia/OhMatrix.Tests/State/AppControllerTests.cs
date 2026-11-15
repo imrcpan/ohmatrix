@@ -379,6 +379,28 @@ public class AppControllerTests {
     }
 
     [Fact]
+    public void A_room_is_read_at_once_and_a_room_with_nothing_unread_is_kept()
+    {
+        var rooms = new List<RoomSummary> {
+            new() {
+                Id = "!a",
+                UnreadCount = 3,
+                HighlightCount = 1,
+                MarkedUnread = true,
+            },
+            new() {
+                Id = "!b",
+            },
+        };
+        var read = AppController.WithRead(rooms, "!a");
+        Assert.Equal((0, 0, false), (read[0].UnreadCount,
+            read[0].HighlightCount, read[0].MarkedUnread));
+        Assert.Equal("!b", read[1].Id);
+        Assert.Same(rooms, AppController.WithRead(rooms, "!b"));
+        Assert.Same(rooms, AppController.WithRead(rooms, "!missing"));
+    }
+
+    [Fact]
     public void The_locale_follows_the_preferences_it_is_kept_with()
     {
         var state = new AppState();
