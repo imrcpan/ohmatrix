@@ -867,6 +867,38 @@ public sealed class AppController(
         }
     }
 
+    /// <summary>Fetches a file of a message to disk for "Save as" and gives its path; null when it cannot be fetched.</summary>
+    public Task<string?> FetchFile(string source, string name, string mime)
+    {
+        return media == null
+            ? Task.FromResult<string?>(null)
+            : media.Download(source, name, mime);
+    }
+
+    /// <summary>Asks where to keep a fetched file, and copies it there. Says so when it is kept; nothing is shown when the person cancels.</summary>
+    public async Task KeepFile(Avalonia.Controls.TopLevel window, string path,
+        string name)
+    {
+        Ops.Start("save as", name);
+        try {
+            var target = await window.StorageProvider.SaveFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerSaveOptions {
+                    SuggestedFileName = name
+                });
+            if (target == null)
+                return;
+            await using (var from = File.OpenRead(path))
+            await using (var to = await target.OpenWriteAsync())
+                await from.CopyToAsync(to);
+            Ops.Done("save as", name);
+            ShowNotice(Strings.T(Store.Value.Locale, "file.saved"));
+        } catch (Exception e) {
+            Ops.Fail("save as", e, name);
+            ShowNotice(Strings.T(Store.Value.Locale, "copyFailed"),
+                NoticeKind.Error);
+        }
+    }
+
     /// <summary>What another app handed over to be shared (text and files); null when nothing waits.</summary>
     public void SetIncomingShare(SharedContent? content)
     {

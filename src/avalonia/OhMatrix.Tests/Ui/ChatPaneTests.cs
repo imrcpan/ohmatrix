@@ -2512,6 +2512,75 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_file_at_hand_is_kept_at_once_with_no_dialog()
+    {
+        var (window, controller, _, _) = await Open("light", 1000);
+        var saveAs = new SaveAsDialog(controller);
+        var kept = new List<string>();
+        await saveAs.Save(window, ThemeScope.GetColors(window), "a.txt",
+            () => Task.FromResult<string?>("/tmp/a.txt"),
+            p => {
+                kept.Add(p);
+                return Task.CompletedTask;
+            });
+        Assert.Equal(["/tmp/a.txt"], kept);
+        Assert.False(saveAs.IsOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task A_file_that_takes_a_while_shows_a_dialog_until_it_comes()
+    {
+        Assert.SkipWhen(SaveAsDialog.SpinForever,
+            "the save dialog spins for the style test");
+        var (window, controller, _, _) = await Open("light", 1000);
+        var saveAs = new SaveAsDialog(controller);
+        var fetched = new TaskCompletionSource<string?>();
+        var kept = new List<string>();
+        var saving = saveAs.Save(window, ThemeScope.GetColors(window), "b.txt",
+            () => fetched.Task, p => {
+                kept.Add(p);
+                return Task.CompletedTask;
+            });
+        await Task.Delay(
+            SaveAsDialog.QuickWait + TimeSpan.FromMilliseconds(200));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(saveAs.IsOpen);
+        fetched.SetResult("/tmp/b.txt");
+        await saving;
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(saveAs.IsOpen);
+        Assert.Equal(["/tmp/b.txt"], kept);
+    }
+
+    [AvaloniaFact]
+    public async Task Cancelling_a_slow_file_keeps_nothing_and_removes_it()
+    {
+        var (window, controller, _, _) = await Open("light", 1000);
+        var saveAs = new SaveAsDialog(controller);
+        var file = Path.Combine(Path.GetTempPath(),
+            "slow-" + Guid.NewGuid().ToString("N") + ".txt");
+        File.WriteAllText(file, "x");
+        var fetched = new TaskCompletionSource<string?>();
+        var kept = new List<string>();
+        var saving = saveAs.Save(window, ThemeScope.GetColors(window), "c.txt",
+            () => fetched.Task, p => {
+                kept.Add(p);
+                return Task.CompletedTask;
+            });
+        await Task.Delay(
+            SaveAsDialog.QuickWait + TimeSpan.FromMilliseconds(200));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(saveAs.IsOpen);
+        saveAs.Cancel();
+        await saving;
+        Assert.False(saveAs.IsOpen);
+        fetched.SetResult(file);
+        await Task.Delay(100);
+        Assert.Empty(kept);
+        Assert.False(File.Exists(file));
+    }
+
+    [AvaloniaFact]
     public async Task Enter_sends_the_dropped_files_and_Esc_cancels_them()
     {
         var (_, controller, _, screen) = await Open("light", 1000);

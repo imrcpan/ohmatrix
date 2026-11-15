@@ -1272,6 +1272,19 @@ public sealed partial class ChatPane : Grid {
     }
 
     /// <summary>The menu of a message: a pill of quick reactions and the actions (<c>MessageMenu</c>); it opens at <paramref name="at"/> or under <paramref name="anchor"/>.</summary>
+    // The source, name and type of the file a message holds, for "Save as";
+    // null when it holds none (a text, or a picture with no address).
+    private static (string Source, string Name, string Mime)?
+        SavedSource(TimelineItem item)
+    {
+        if (item.File != null && item.File.Source.Length > 0)
+            return (item.File.Source, item.File.Name, item.File.Mime);
+        if (item.Image != null && item.Image.Source.Length > 0)
+            return (item.Image.Source, item.Image.FileName,
+                MimeTypes.For(item.Image.FileName));
+        return null;
+    }
+
     public void OpenActions(Control anchor, TimelineItem item, Point? at = null)
     {
         var window = TopLevel.GetTopLevel(this);
@@ -1320,6 +1333,16 @@ public sealed partial class ChatPane : Grid {
             items.Add(new MenuItem(controller.T("forward"), () => {
                 Forwarding.Show(window, [item], null, this);
             }, Icon: "forward"));
+        // A file, audio, video, voice message, picture or sticker that has
+        // reached the server can be kept at a place of the person's choice.
+        var saved = SavedSource(item);
+        if (saved != null && !item.Sending && !item.Failed) {
+            var (source, name, mime) = saved.Value;
+            items.Add(new MenuItem(controller.T("saveAs"),
+                () => _ = SaveAs(window, source, name, mime),
+                Icon: "download"));
+        }
+
         var picture = item.Image;
         if (picture != null && controller.CanStickers
                             && picture.Source.StartsWith("mxc://",
@@ -1738,6 +1761,23 @@ public sealed partial class ChatPane : Grid {
             shown.Source,
             () => controller.SavePicture(window, image.Source, image.FileName),
             shown);
+    }
+
+    private SaveAsDialog? saveAs;
+
+    // The file is fetched first (a dialog says so when that takes a while),
+    // then the place to keep it is asked for.
+    private Task SaveAs(TopLevel window, string source, string name,
+        string mime)
+    {
+        if (saveAs == null) {
+            saveAs = new SaveAsDialog(controller);
+            Lifetime.Own(this, saveAs);
+        }
+
+        return saveAs.Save(window, ThemeScope.GetColors(this), name,
+            () => controller.FetchFile(source, name, mime),
+            path => controller.KeepFile(window, path, name));
     }
 
     private SendFilesDialog? sendFiles;
