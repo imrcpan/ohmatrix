@@ -6,7 +6,8 @@ A version lists what changed since the version before it.
 
 ## [1.2.4] - 2026-11-15
 
-Optimized the experience of sending stickers.
+- Optimized the experience of sending stickers.
+- Improved the display style in the connection.
 
 ## [1.2.3] - 2026-11-14
 
