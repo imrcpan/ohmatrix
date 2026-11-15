@@ -2778,10 +2778,6 @@ public partial class ChatPaneTests {
         Assert.Contains("Admin", texts);
         Assert.Contains("Moderator", texts);
         Save(window, "info-wide");
-        var panelShared = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
-            .First();
-        Assert.Single(panelShared.MediaThumbnails);
-        Assert.Contains("budget-2026.pdf", texts);
         Assert.Contains("Shared media", texts);
         controller.OpenRoomInfo(false);
         Dispatcher.UIThread.RunJobs();
@@ -2854,6 +2850,12 @@ public partial class ChatPaneTests {
             .OfType<TextButton>()
             .FirstOrDefault(b => b.Title == "Show 50 more");
 
+        // The info has the first ten, and the way to all of them.
+        Assert.Equal(10, Rows());
+        Assert.False(panel.MembersOpen);
+        panel.OpenMembers();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(panel.MembersOpen);
         Assert.Equal(50, Rows());
         More()!.RaiseClick();
         Dispatcher.UIThread.RunJobs();
@@ -2864,6 +2866,9 @@ public partial class ChatPaneTests {
         last.RaiseClick();
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(120, Rows());
+        panel.LeaveMembers();
+        Assert.False(panel.MembersOpen);
+        Assert.Equal(10, Rows());
     }
 
     private static bool Uses(Control root, FontFamily font)
@@ -2928,10 +2933,9 @@ public partial class ChatPaneTests {
             .First(t => t.Text == "Alice");
 
         var alice = Alice();
-        var thumbs = panel.MediaThumbnails.ToList();
-        Assert.Single(thumbs);
+        var first = panel.Content.Children[0];
 
-        // A message, an edit, a receipt: new timelines, the same pictures.
+        // A message, an edit, a receipt: new timelines, the same rows.
         controller.Store.Update(s => s with {
             Timeline = [
                 .. s.Timeline,
@@ -2965,25 +2969,167 @@ public partial class ChatPaneTests {
             ]
         });
         Assert.Same(alice, Alice());
-        Assert.Equal(thumbs, panel.MediaThumbnails);
+        Assert.Same(first, panel.Content.Children[0]);
+    }
 
-        // A new picture makes the media part again, and only that.
+    private static void Press(Control control)
+    {
+        control.RaiseEvent(new PointerPressedEventArgs(control,
+            new Pointer(0, PointerType.Mouse, true), control,
+            new Avalonia.Point(5, 5), 0, new PointerPointProperties(
+                RawInputModifiers.LeftMouseButton,
+                PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_panel_has_the_groups_of_the_react_native_page()
+    {
+        var (_, panel, _) = await OpenInfo();
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        // The bar, the head, and the groups in the order of the page.
+        string[] order = [
+            "Group info", "Demo team", "About", "Access", "Messages",
+            "Members · 3", "Leave group"
+        ];
+        var at = order.Select(o => texts.IndexOf(o)).ToList();
+        Assert.DoesNotContain(-1, at);
+        Assert.Equal(at.Order(), at);
+        Assert.Contains("Mute notifications", texts);
+        Assert.Contains("Shared media", texts);
+        Assert.Contains("Pinned messages", texts);
+        // Three people: all of them are in the list, none behind View all.
+        Assert.DoesNotContain("View all", texts);
+    }
+
+    [AvaloniaFact]
+    public async Task The_rows_of_the_info_are_as_high_as_those_of_the_profile()
+    {
+        var (_, panel, _) = await OpenInfo();
+        Assert.Equal(40, panel.PhotoRow!.Height);
+        Assert.Equal(40, panel.NameRow!.Height);
+        Assert.Equal(40, panel.LeaveRow!.Height);
+    }
+
+    [AvaloniaFact]
+    public async Task The_mute_row_has_a_switch_that_mutes_the_chat()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(100);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .First(p => p.IsEffectivelyVisible);
+        var toggle = panel.GetVisualDescendants().OfType<Toggle>().Single();
+        Assert.False(toggle.IsOn);
+        Press(toggle);
+        Assert.True(toggle.IsOn);
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("mute !g True", engine.Actions);
+    }
+
+    [AvaloniaFact]
+    public async Task The_pinned_row_counts_the_pins_and_shows_them()
+    {
+        var (_, panel, _) = await OpenInfo();
+        var shown = 0;
+        panel.ShowPinned = () => shown++;
+        var row = panel.GetVisualDescendants().OfType<Border>()
+            .First(b => b.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "Pinned messages"));
+        Assert.Contains(row.GetVisualDescendants().OfType<TextBlock>(),
+            t => t.Text == "2");
+        Press(row);
+        Assert.Equal(1, shown);
+    }
+
+    [AvaloniaFact]
+    public async Task A_person_from_the_list_of_people_goes_back_to_it()
+    {
+        var (controller, panel, _) = await OpenInfo();
+        var bob =
+            controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
+        panel.OpenMembers();
+        panel.ViewMember(bob);
+        Assert.Equal(bob, panel.Viewing);
+        panel.LeaveMember();
+        Assert.Null(panel.Viewing);
+        Assert.True(panel.MembersOpen);
+        panel.LeaveMembers();
+        // From the info of the chat it goes back to the info.
+        panel.ViewMember(bob);
+        panel.LeaveMember();
+        Assert.False(panel.MembersOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task The_people_come_in_order_of_their_power()
+    {
+        var people = new[] {
+            new RoomMemberInfo("@z:s", "Zed", null, MemberRole.Member),
+            new RoomMemberInfo("@a:s", "Ann", null, MemberRole.Member),
+            new RoomMemberInfo("@m:s", "Mia", null, MemberRole.Moderator) {
+                Power = 50
+            },
+            new RoomMemberInfo("@o:s", "Omar", null, MemberRole.Admin),
+            new RoomMemberInfo("@d:s", "Dee", null, MemberRole.Admin) {
+                Power = 100
+            },
+        };
+        // The creator (no level) first, then the admin, the moderator, and
+        // the others by name.
+        Assert.Equal(["Omar", "Dee", "Mia", "Ann", "Zed"],
+            MemberOrder.Sort(people).Select(m => m.Name));
+        Assert.Equal(["Omar", "Dee"],
+            MemberOrder.Top(people, 2).Select(m => m.Name));
+        await Task.CompletedTask;
+    }
+
+    [AvaloniaFact]
+    public async Task The_banned_have_a_page_of_their_own()
+    {
+        var (controller, panel, _) = await OpenInfo();
+        Assert.DoesNotContain(panel.GetVisualDescendants().OfType<TextBlock>(),
+            t => t.Text == "Banned · 1");
         controller.Store.Update(s => s with {
-            Timeline = [
-                .. s.Timeline,
-                new TimelineItem {
-                    Id = "pic",
-                    Body = "",
-                    SenderId = "@bob",
-                    SenderName = "Bob",
-                    Ts = Now,
-                    Image = new ImageAttachment("mxc://s/new", 10, 10,
-                        "new.png")
-                }
-            ]
+            Details = s.Details! with {
+                Banned = [new BannedMemberInfo("@eve:s", "Eve", "spam")]
+            }
         });
-        Assert.Equal(2, panel.MediaThumbnails.Count);
-        Assert.Same(alice, Alice());
+        Assert.Contains(panel.GetVisualDescendants().OfType<TextBlock>(),
+            t => t.Text == "Banned · 1");
+        Assert.DoesNotContain(panel.GetVisualDescendants().OfType<TextBlock>(),
+            t => t.Text == "Eve");
+        panel.OpenBanned();
+        Assert.True(panel.BannedOpen);
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.Contains("Eve", texts);
+        Assert.Contains("@eve:s · spam", texts);
+        panel.LeaveBanned();
+        Assert.False(panel.BannedOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task What_the_person_may_not_do_has_no_row()
+    {
+        var (controller, panel, _) = await OpenInfo();
+        controller.Store.Update(s => s with {
+            Details = s.Details! with {
+                Can = new RoomPermissions(false, false, false, false, false,
+                    false, false)
+            }
+        });
+        Assert.Null(panel.PhotoRow);
+        Assert.Null(panel.InviteRow);
+        // The name and the description can still be seen, not changed.
+        Assert.NotNull(panel.NameRow);
+        Assert.NotNull(panel.TopicRow);
+        Assert.Equal(40, panel.TopicRow!.Height);
+        Assert.NotNull(panel.LeaveRow);
     }
 
     [AvaloniaFact]
@@ -2997,7 +3143,12 @@ public partial class ChatPaneTests {
         Dispatcher.UIThread.RunJobs();
         var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
             .First();
-        Assert.NotNull(panel.EditNameButton);
+        // The fixture lets me do everything, so every row is there.
+        Assert.NotNull(panel.PhotoRow);
+        Assert.NotNull(panel.NameRow);
+        Assert.NotNull(panel.TopicRow);
+        Assert.NotNull(panel.InviteRow);
+        Assert.NotNull(panel.LeaveRow);
         var room = controller.Store.Value.Rooms.First(r => r.Id == "!g");
         panel.AskName(room);
         Dispatcher.UIThread.RunJobs();
@@ -3620,7 +3771,7 @@ public partial class ChatPaneTests {
             Dispatcher.UIThread.RunJobs();
             var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
                 .First();
-            Assert.NotNull(panel.PhotoButton);
+            Assert.NotNull(panel.PhotoRow);
             await panel.ChangePhoto(
                 controller.Store.Value.Rooms.First(r => r.Id == "!g"), path);
             Assert.Contains("avatar !g image/png 4", engine.Actions);

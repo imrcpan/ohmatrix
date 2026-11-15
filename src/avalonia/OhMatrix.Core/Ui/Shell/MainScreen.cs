@@ -110,6 +110,13 @@ public sealed class MainScreen : Grid {
         themePage = new ThemePage(controller);
         infoDock = new RoomInfoPanel(controller);
         infoNarrow = new RoomInfoPanel(controller);
+        // The pinned messages are the list of the chat pane. Over the chat
+        // the panel goes first, so that the message can be seen.
+        infoDock.ShowPinned = () => wideChat.OpenPinnedList();
+        infoNarrow.ShowPinned = () => {
+            controller.OpenRoomInfo(false);
+            narrowChat.OpenPinnedList();
+        };
         languagePage = new LanguagePage(controller);
         explorePage = new ExplorePage(controller);
         settingsPage = new SettingsPage(controller);

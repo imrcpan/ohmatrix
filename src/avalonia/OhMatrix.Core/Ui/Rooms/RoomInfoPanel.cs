@@ -20,8 +20,9 @@ using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
-/// The info panel of a chat (<c>RoomInfoPanel</c>), as far as it is ported: a bar with the title and a close button, the picture, the name and the
-/// member count, the topic, and the people of the room, admins first, each with their role.
+/// The info panel of a chat (<c>RoomInfoPanel</c>): a bar with a back arrow and the title, the picture, the name and the member count, and the
+/// groups of rows of the React Native page (About, the access settings, Mute, Messages, Members, Banned, and the way out), set as the rows of
+/// the profile page are. The rest is pages of their own: the members, the banned, the gallery and a person.
 /// </summary>
 public sealed partial class RoomInfoPanel : Grid {
     [GeneratedRegex("^[a-zA-Z0-9._=/+-]+$")]
@@ -62,8 +63,6 @@ public sealed partial class RoomInfoPanel : Grid {
         Lifetime.Watch(this, controller, state => {
             if (Differs(state))
                 Apply();
-            else if (!ReferenceEquals(seenTimeline, state.Timeline))
-                RefreshShared(state);
         });
         Apply();
     }
@@ -81,12 +80,21 @@ public sealed partial class RoomInfoPanel : Grid {
     public PeoplePicker Invite { get; }
     public Menu MemberMenu { get; } = new();
     public PromptDialog MemberPrompt { get; } = new();
-    public TextButton? InviteButton { get; private set; }
-    public TextButton? PhotoButton { get; private set; }
-    public ImageViewer Viewer { get; } = new();
 
-    /// <summary>The pictures shown under Shared media (those of the messages loaded), newest first.</summary>
-    public IReadOnlyList<Image> MediaThumbnails => mediaThumbs;
+    /// <summary>The rows that change the picture, the name and the description, invite and leave; null where they are not offered.</summary>
+    public Border? PhotoRow { get; private set; }
+
+    public Border? NameRow { get; private set; }
+    public Border? TopicRow { get; private set; }
+    public Border? InviteRow { get; private set; }
+    public Border? LeaveRow { get; private set; }
+
+    /// <summary>
+    /// Shows the pinned messages of the chat (the list of the chat pane); set by the screen that has both. Pressing the Pinned row calls it.
+    /// </summary>
+    public Action? ShowPinned { get; set; }
+
+    public ImageViewer Viewer { get; } = new();
 
     private RoomMemberInfo? viewing;
     private string? viewingRoom;
@@ -141,10 +149,52 @@ public sealed partial class RoomInfoPanel : Grid {
         Apply();
     }
 
-    /// <summary>Goes back from the page of a person to the info of the chat.</summary>
+    /// <summary>
+    /// Goes back from the page of a person: to the list of the people when it was opened from there, to the info of the chat otherwise.
+    /// </summary>
     public void LeaveMember()
     {
         viewing = null;
+        Apply();
+    }
+
+    private bool membersPage;
+    private bool bannedPage;
+
+    /// <summary>The page with all the people of the room is open.</summary>
+    public bool MembersOpen => membersPage;
+
+    /// <summary>The page with the banned people is open.</summary>
+    public bool BannedOpen => bannedPage;
+
+    /// <summary>Opens the page with all the people of the room.</summary>
+    public void OpenMembers()
+    {
+        membersPage = true;
+        memberLimit = MemberPage;
+        viewingRoom = controller.Store.Value.SelectedRoomId;
+        Apply();
+    }
+
+    /// <summary>Goes back from the list of the people to the info of the chat.</summary>
+    public void LeaveMembers()
+    {
+        membersPage = false;
+        Apply();
+    }
+
+    /// <summary>Opens the page with the banned people.</summary>
+    public void OpenBanned()
+    {
+        bannedPage = true;
+        viewingRoom = controller.Store.Value.SelectedRoomId;
+        Apply();
+    }
+
+    /// <summary>Goes back from the banned people to the info of the chat.</summary>
+    public void LeaveBanned()
+    {
+        bannedPage = false;
         Apply();
     }
 
@@ -172,12 +222,12 @@ public sealed partial class RoomInfoPanel : Grid {
     /// <summary>The page of one person: who they are, and what can be done with them (copy their link, write to them, block).</summary>
     private void BuildMember(ColorTokens c, RoomMemberInfo m)
     {
-        PageBar.Fill(bar, c, controller.T("member.info"),
-            controller.T("chatInfo"), LeaveMember);
+        FillBar(c, controller.T("member.info"), LeaveMember,
+            controller.T(membersPage ? "membersTitle" : "chatInfo"));
         var me = m.UserId == controller.Store.Value.UserId;
         var head = new StackPanel {
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(20, 12, 20, 8),
+            Margin = new Thickness(20, 12, 20, 14),
             Spacing = 2,
         };
         var avatar = new Avatar(m.UserId, m.Name, 72) {
@@ -203,24 +253,20 @@ public sealed partial class RoomInfoPanel : Grid {
             TextWrapping = TextWrapping.Wrap,
         });
         content.Children.Add(head);
-        content.Children.Add(NavRows.Make(c, "copy",
-            controller.T("member.copyLink"),
-            () => Copy($"https://matrix.to/#/{m.UserId}"), 12, chevron: false));
-        content.Children.Add(NavRows.Make(c, "copy",
-            controller.T("member.copyAddress"),
-            () => Copy(m.UserId), 8, chevron: false));
+        content.Children.Add(Row(c, "copy", controller.T("member.copyLink"),
+            () => Copy($"https://matrix.to/#/{m.UserId}"), chevron: false));
+        content.Children.Add(Row(c, "copy", controller.T("member.copyAddress"),
+            () => Copy(m.UserId), chevron: false));
         if (!me) {
-            content.Children.Add(NavRows.Make(c, "chat",
-                controller.T("member.message"),
-                () => AskMessage(m), 8, chevron: false));
+            content.Children.Add(Row(c, "chat", controller.T("member.message"),
+                () => AskMessage(m), chevron: false));
             if (controller.CanVerifyUser)
-                content.Children.Add(NavRows.Make(c, "lock",
+                content.Children.Add(Row(c, "lock",
                     controller.T("member.verify"),
-                    () => _ = controller.VerifyUser(m.UserId), 8,
+                    () => _ = controller.VerifyUser(m.UserId),
                     chevron: false));
-            content.Children.Add(NavRows.Make(c, "close",
-                controller.T("member.block"),
-                () => AskBlock(m), 8, chevron: false, danger: true));
+            content.Children.Add(Row(c, "close", controller.T("member.block"),
+                () => AskBlock(m), chevron: false, danger: true));
         }
     }
 
@@ -301,10 +347,6 @@ public sealed partial class RoomInfoPanel : Grid {
             controller.T("member.block.body"), block, cancel);
     }
 
-    private readonly List<Image> mediaThumbs = [];
-    private const int MediaShown = 9;
-    private const int FilesShown = 5;
-
     /// <summary>Asks for a picture file and makes it the picture of the room; the path can be given to skip the dialog.</summary>
     public async Task ChangePhoto(RoomSummary room, string? path = null)
     {
@@ -333,10 +375,6 @@ public sealed partial class RoomInfoPanel : Grid {
                 NoticeKind.Error);
         }
     }
-
-    public TextButton? EditNameButton { get; private set; }
-    public TextButton? EditTopicButton { get; private set; }
-    public TextButton? LeaveButton { get; private set; }
 
     /// <summary>Asks for a new group name.</summary>
     public void AskName(RoomSummary room)
@@ -377,6 +415,12 @@ public sealed partial class RoomInfoPanel : Grid {
         var items = new List<MenuItem> {
             new(controller.T("member.view"), () => ViewMember(m), Icon: "user"),
         };
+        // Nothing else is done to oneself from here.
+        if (m.UserId == controller.Store.Value.UserId) {
+            MemberMenu.Show(anchor, window, items);
+            return;
+        }
+
         foreach (var role in new[] {
                      MemberRole.Admin, MemberRole.Moderator, MemberRole.Member
                  }) {
@@ -436,50 +480,95 @@ public sealed partial class RoomInfoPanel : Grid {
 
     public Menu BannedMenu { get; } = new();
 
-    /// <summary>The people banned from the room; pressing one offers to lift the ban.</summary>
-    private void AddBanned(ColorTokens c, RoomSummary room, RoomDetails details)
+    // Every banned person, as a page of its own; pressing one offers to
+    // lift the ban.
+    private void BuildBannedPage(ColorTokens c, RoomDetails? details)
     {
-        content.Children.Add(Section(c,
-            $"{controller.T("banned.title")} · {details.Banned.Count}"));
-        foreach (var b in details.Banned) {
-            var line = new StackPanel {
-                Margin = new Thickness(20, 6),
-                Background = Brushes.Transparent,
-                Cursor = details.Can.Ban
-                    ? new Cursor(StandardCursorType.Hand)
-                    : null,
-            };
-            line.Children.Add(new TextBlock {
-                Text = b.Name,
-                FontSize = 16,
-                Foreground = new SolidColorBrush(c.Text),
+        FillBar(c, details == null
+                ? controller.T("banned.title")
+                : $"{controller.T("banned.title")} · {details.Banned.Count}",
+            LeaveBanned, controller.T("chatInfo"));
+        if (details == null) {
+            content.Children.Add(new Spinner {
+                Size = 28,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 24),
             });
-            var sub = string.Join(" · ", new[] {
-                b.Name != b.UserId ? b.UserId : "", b.Reason ?? ""
-            }.Where(x => x.Length > 0));
-            if (sub.Length > 0)
-                line.Children.Add(new TextBlock {
-                    Text = sub,
-                    FontSize = 13,
-                    Foreground = new SolidColorBrush(c.TextSecondary),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                });
-            var banned = b;
-            if (details.Can.Ban)
-                line.PointerPressed += (_, e) => {
-                    e.Handled = true;
-                    var window = TopLevel.GetTopLevel(this);
-                    if (window != null)
-                        BannedMenu.Show(line, window, [
-                            new MenuItem(controller.T("unban"),
-                                () => _ =
-                                    Run(controller.UnbanMember(room.Id,
-                                        banned.UserId)),
-                                Icon: "user")
-                        ]);
-                };
-            content.Children.Add(line);
+            return;
         }
+
+        var roomId = controller.Store.Value.SelectedRoomId ?? "";
+        foreach (var b in details.Banned)
+            content.Children.Add(BannedRow(c, roomId, details.Can.Ban, b));
+        content.Children.Add(new Border {
+            Height = 16
+        });
+    }
+
+    private Control BannedRow(ColorTokens c, string roomId, bool can,
+        BannedMemberInfo b)
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
+        };
+        grid.Children.Add(new Avatar(b.UserId, b.Name, 36) {
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var words = new StackPanel {
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        words.Children.Add(new TextBlock {
+            Text = b.Name,
+            FontSize = 16,
+            Foreground = new SolidColorBrush(c.Text),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        var sub = string.Join(" · ", new[] {
+            b.Name != b.UserId ? b.UserId : "", b.Reason ?? ""
+        }.Where(x => x.Length > 0));
+        if (sub.Length > 0)
+            words.Children.Add(new TextBlock {
+                Text = sub,
+                FontSize = 13,
+                Foreground = new SolidColorBrush(c.TextSecondary),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+        Grid.SetColumn(words, 1);
+        grid.Children.Add(words);
+        if (can) {
+            var more = new Icon {
+                Glyph = "more",
+                Size = 18,
+                Color = new SolidColorBrush(c.TextTertiary),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(more, 2);
+            grid.Children.Add(more);
+        }
+
+        var row = new Border {
+            Height = 60,
+            Padding = new Thickness(26, 0),
+            Background = Brushes.Transparent,
+            Child = grid,
+        };
+        Avalonia.Automation.AutomationProperties.SetName(row, b.Name);
+        if (!can)
+            return row;
+        row.Cursor = new Cursor(StandardCursorType.Hand);
+        NavRows.Hover(row, c);
+        row.PointerPressed += (_, e) => {
+            e.Handled = true;
+            var window = TopLevel.GetTopLevel(this);
+            if (window != null)
+                BannedMenu.Show(row, window, [
+                    new MenuItem(controller.T("unban"),
+                        () => _ = Run(controller.UnbanMember(roomId, b.UserId)),
+                        Icon: "user")
+                ]);
+        };
+        return row;
     }
 
     /// <summary>Asks before a person is made an admin or moderator; a member is made at once.</summary>
@@ -566,7 +655,8 @@ public sealed partial class RoomInfoPanel : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var yes = new PrimaryButton {
-            Title = controller.T(room.IsDirect ? "deleteChat" : "leaveGroup")
+            Title = controller.T(room.IsDirect ? "deleteChat"
+                : room.IsSpace ? "space.leave" : "leaveGroup")
         };
         var no = new TextButton {
             Title = controller.T("cancel")
@@ -593,7 +683,6 @@ public sealed partial class RoomInfoPanel : Grid {
     private RoomSummary? seenRoom;
     private string? seenRoomId;
     private RoomDetails? seenDetails;
-    private IReadOnlyList<TimelineItem>? seenTimeline;
     private string? seenLocale;
     private string? seenUser;
 
@@ -613,62 +702,8 @@ public sealed partial class RoomInfoPanel : Grid {
                seenLocale != state.Locale || seenUser != state.UserId;
     }
 
-    // The timeline changes with every message and every receipt, and the
-    // panel shows only a few pictures and files of it: when those are the
-    // same nothing is made, and when they are not only that part is.
-    private readonly StackPanel sharedHost = new();
-    private bool sharedBuilt;
-    private List<object>? sharedKey;
-
-    private static List<object> SharedKeyOf(
-        IReadOnlyList<TimelineItem> timeline)
-    {
-        return [
-            .. timeline.Where(i => i.Image != null).Reverse()
-                .Take(MediaShown).Select(i => (object)i.Image!),
-            .. timeline.Where(i => i.File != null).Reverse()
-                .Take(FilesShown).Select(i => (object)i.File!),
-        ];
-    }
-
-    private void RefreshShared(AppState state)
-    {
-        seenTimeline = state.Timeline;
-        if (!showing) {
-            stale = true;
-            return;
-        }
-
-        // A member's page or the gallery is open: the part is made when
-        // the page is left.
-        if (!sharedBuilt)
-            return;
-        var key = SharedKeyOf(state.Timeline);
-        if (sharedKey != null && sharedKey.SequenceEqual(key))
-            return;
-        sharedKey = key;
-        AddShared(ThemeScope.GetColors(this), state.Timeline);
-    }
-
-    // The rows of the members: what they are made from, kept to know
-    // whether they are still right.
-    private readonly StackPanel membersHost = new();
-
-    private readonly record struct MembersKey(
-        IReadOnlyList<RoomMemberInfo> Members,
-        RoomPermissions Can,
-        PowerThresholds Levels,
-        ColorTokens Colors,
-        string Locale,
-        string? User,
-        string RoomId,
-        bool Direct,
-        int Limit,
-        FontFamily Font
-    );
-
-    private MembersKey? membersKey;
-
+    // The page of the people lists them a page at a time: a big room has a
+    // thousand.
     private const int MemberPage = 50;
     private string? memberRoom;
     private int memberLimit = MemberPage;
@@ -699,7 +734,6 @@ public sealed partial class RoomInfoPanel : Grid {
         seenRoomId = s.SelectedRoomId;
         seenRoom = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         seenDetails = s.Details;
-        seenTimeline = s.Timeline;
         seenLocale = s.Locale;
         seenUser = s.UserId;
         if (!showing) {
@@ -709,36 +743,20 @@ public sealed partial class RoomInfoPanel : Grid {
 
         stale = false;
         Background = new SolidColorBrush(c.Bg);
-        var close = new IconButton("close", controller.T("cancel"), 22) {
-            Tint = c.TextSecondary
-        };
-        close.Click += (_, _) => controller.OpenRoomInfo(false);
-        var barRow = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Margin = new Thickness(20, 0, 8, 0),
-        };
-        barRow.Children.Add(new TextBlock {
-            Text = controller.T("chatInfo"),
-            FontSize = 17,
-            FontWeight = Fonts.Bold,
-            Foreground = new SolidColorBrush(c.Text),
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        Grid.SetColumn(close, 1);
-        barRow.Children.Add(close);
-        bar.Child = barRow;
-        bar.Height = PageBar.HeaderHeight;
-        bar.BorderThickness = new Thickness(0, 0, 0, 1);
-        bar.BorderBrush = new SolidColorBrush(c.Separator);
-
         content.Children.Clear();
-        sharedBuilt = false;
         var room = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
-        if (room == null)
+        if (room == null) {
+            FillBar(c, controller.T("chatInfo"), Dismiss);
             return;
+        }
+
         // Another chat has its own info.
-        if (viewingRoom != room.Id)
+        if (viewingRoom != room.Id) {
             viewing = null;
+            membersPage = false;
+            bannedPage = false;
+        }
+
         var person = viewing;
         if (person != null) {
             BuildMember(c, person);
@@ -746,8 +764,8 @@ public sealed partial class RoomInfoPanel : Grid {
         }
 
         if (gallery && viewingRoom == room.Id) {
-            PageBar.Fill(bar, c, controller.T("sharedMedia"),
-                controller.T("chatInfo"), LeaveGallery);
+            FillBar(c, controller.T("sharedMedia"), LeaveGallery,
+                controller.T("chatInfo"));
             // Kept while the page is open, so a rebuild (a theme change, a sync) does not ask the server again.
             Gallery ??= new SharedMediaView(controller, room.Id, Viewer);
             content.Children.Add(Gallery);
@@ -755,38 +773,22 @@ public sealed partial class RoomInfoPanel : Grid {
         }
 
         gallery = false;
-
-        var head = new StackPanel {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(16, 16, 16, 8),
-            Spacing = 2,
-        };
-        var avatar = new Avatar(room.Id, room.Name, 96, room.IsSpace) {
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-        controller.Pictures.Attach(avatar, room.AvatarUrl, 96);
-        AttachViewer(avatar, room.AvatarUrl, room.Name);
-        head.Children.Add(avatar);
-        head.Children.Add(new TextBlock {
-            Text = room.Name,
-            FontSize = 22,
-            FontWeight = Fonts.Bold,
-            Foreground = new SolidColorBrush(c.Text),
-            TextAlignment = TextAlignment.Center,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 8, 0, 0),
-        });
-        head.Children.Add(new TextBlock {
-            Text = room.IsDirect ? controller.T("directChat")
-                : room.MemberCount == 1 ? controller.T("member.one")
-                : controller.T("members", ("n", room.MemberCount)),
-            FontSize = 15,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        });
-        content.Children.Add(head);
-
         var details = s.Details;
+        if (membersPage && viewingRoom == room.Id) {
+            BuildMembersPage(c, room, details);
+            return;
+        }
+
+        if (bannedPage && viewingRoom == room.Id) {
+            BuildBannedPage(c, details);
+            return;
+        }
+
+        membersPage = false;
+        bannedPage = false;
+        FillBar(c, controller.T(room.IsDirect ? "userInfo"
+            : room.IsSpace ? "spaceInfo" : "groupInfo"), Dismiss);
+        content.Children.Add(Head(c, room));
         if (details == null) {
             content.Children.Add(new Spinner {
                 Size = 28,
@@ -796,104 +798,312 @@ public sealed partial class RoomInfoPanel : Grid {
             return;
         }
 
-        EditNameButton = null;
-        EditTopicButton = null;
-        PhotoButton = null;
-        if (!room.IsDirect) {
-            PhotoButton = new TextButton {
-                Title = controller.T("room.changePhoto")
-            };
-            PhotoButton.Click += (_, _) => _ = ChangePhoto(room);
-            ThemeScope.SetColors(PhotoButton, c);
-            content.Children.Add(PhotoButton);
-        }
-
-        LeaveButton = null;
-        if (!room.IsDirect) {
-            EditNameButton = new TextButton {
-                Title = controller.T("room.editName") + " · " +
-                        controller.T("modify")
-            };
-            EditNameButton.Click += (_, _) => AskName(room);
-            ThemeScope.SetColors(EditNameButton, c);
-            content.Children.Add(EditNameButton);
-        }
-
-        if (details.Topic != null || !room.IsDirect) {
-            content.Children.Add(Section(c, controller.T("topic")));
-            content.Children.Add(new TextBlock {
-                Text = details.Topic ?? controller.T("room.noTopic"),
-                FontSize = 15,
-                Foreground = new SolidColorBrush(c.Text),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(20, 0, 20, 8),
-            });
-            if (!room.IsDirect) {
-                EditTopicButton = new TextButton {
-                    Title = controller.T("room.editTopic") + " · " +
-                            controller.T("modify")
-                };
-                EditTopicButton.Click += (_, _) =>
-                    AskTopic(room, details.Topic);
-                ThemeScope.SetColors(EditTopicButton, c);
-                content.Children.Add(EditTopicButton);
-            }
-        }
-
-        if (!room.IsSpace) {
-            content.Children.Add(SettingRow(c, controller.T("encryption"),
-                controller.T(details.IsEncrypted
-                    ? "room.encrypted"
-                    : "room.notEncrypted"),
-                details.IsEncrypted ? "lock" : "info", null));
-        }
-
-        InviteButton = null;
-        if (!room.IsDirect) {
-            InviteButton = new TextButton {
-                Title = controller.T("room.invite")
-            };
-            InviteButton.Click += (_, _) => AskInvite(room);
-            ThemeScope.SetColors(InviteButton, c);
-            content.Children.Add(InviteButton);
-        }
-
+        AddAbout(c, room, details);
         if (!room.IsDirect) {
             content.Children.Add(Section(c, controller.T("access.title")));
             AddAccessSettings(c, room, details);
         }
 
-        content.Children.Add(sharedHost);
-        sharedBuilt = true;
-        sharedKey = SharedKeyOf(s.Timeline);
-        AddShared(c, s.Timeline);
-        if (!room.IsDirect && details.Banned.Count > 0)
-            AddBanned(c, room, details);
-        content.Children.Add(Section(c, controller.T("membersTitle")));
-        // A big room has a thousand members; the rows come a page at a time.
+        if (!room.IsSpace) {
+            AddMute(c, room);
+            AddMessages(c, room);
+        }
+
+        AddPeople(c, room, details);
+        if (!room.IsDirect && details.Banned.Count > 0) {
+            content.Children.Add(Section(c,
+                $"{controller.T("banned.title")} · {details.Banned.Count}"));
+            content.Children.Add(Row(c, "users", controller.T("viewAll"),
+                OpenBanned));
+        }
+
+        content.Children.Add(Gap());
+        LeaveRow = Row(c, "signOut", controller.T(room.IsDirect ? "deleteChat"
+                : room.IsSpace ? "space.leave" : "leaveGroup"),
+            () => AskLeave(room), chevron: false, danger: true);
+        content.Children.Add(LeaveRow);
+        content.Children.Add(new Border {
+            Height = 16
+        });
+    }
+
+    private void Dismiss()
+    {
+        controller.OpenRoomInfo(false);
+    }
+
+    // The bar: the back arrow and the title (the page header of the React
+    // Native app), with a line under it.
+    private void FillBar(ColorTokens c, string title, Action back,
+        string? backLabel = null)
+    {
+        PageBar.Fill(bar, c, title, backLabel ?? controller.T("close"), back);
+        bar.Height = PageBar.HeaderHeight;
+        bar.BorderThickness = new Thickness(0, 0, 0, 1);
+        bar.BorderBrush = new SolidColorBrush(c.Separator);
+    }
+
+    // The rows are as high as those of the profile page and follow each
+    // other with no gap.
+    private const double RowHeight = 40;
+
+    private static Border Row(ColorTokens c, string glyph, string label,
+        Action? press, string? value = null, bool chevron = true,
+        bool danger = false)
+    {
+        var row = NavRows.Make(c, glyph, label, press ?? (() => {
+            }), 0, value, chevron && press != null, danger, flat: true,
+            height: RowHeight);
+        if (press != null)
+            row.Cursor = new Cursor(StandardCursorType.Hand);
+        return row;
+    }
+
+    // The space above a group that has no heading.
+    private static Border Gap()
+    {
+        return new Border {
+            Height = 14
+        };
+    }
+
+    // The picture, the name and the number of people, as at the top of the
+    // profile page.
+    private Control Head(ColorTokens c, RoomSummary room)
+    {
+        var head = new StackPanel {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Spacing = 2,
+            Margin = new Thickness(20, 12, 20, 4),
+        };
+        var avatar = new Avatar(room.Id, room.Name, 72, room.IsSpace) {
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        controller.Pictures.Attach(avatar, room.AvatarUrl, 72);
+        AttachViewer(avatar, room.AvatarUrl, room.Name);
+        head.Children.Add(avatar);
+        head.Children.Add(new TextBlock {
+            Text = room.Name,
+            FontSize = 22,
+            FontWeight = Fonts.Bold,
+            Foreground = new SolidColorBrush(c.Text),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            MaxLines = 2,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(0, 8, 0, 0),
+        });
+        var count = room.MemberCount == 1
+            ? controller.T("member.one")
+            : controller.T("members", ("n", room.MemberCount));
+        head.Children.Add(new TextBlock {
+            Text = room.IsDirect
+                ? controller.T("directChat")
+                : room.IsSpace
+                    ? $"{controller.T("space")} · {count}"
+                    : count,
+            FontSize = 15,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        return head;
+    }
+
+    // About: the picture, the name, the address, the encryption and the
+    // description, with the description under its row in a card.
+    private void AddAbout(ColorTokens c, RoomSummary room, RoomDetails details)
+    {
+        var direct = room.IsDirect;
+        var edit = details.Can.EditInfo;
+        content.Children.Add(Section(c, controller.T("about")));
+        PhotoRow = null;
+        NameRow = null;
+        TopicRow = null;
+        if (edit && !direct) {
+            PhotoRow = Row(c, "camera", controller.T("changePhoto"),
+                () => _ = ChangePhoto(room));
+            content.Children.Add(PhotoRow);
+        }
+
+        if (!direct) {
+            NameRow = Row(c, "users", controller.T(room.IsSpace
+                    ? "space.name"
+                    : "room.editName"),
+                edit ? () => AskName(room) : null, room.Name, edit);
+            content.Children.Add(NameRow);
+        }
+
+        var address = details.Aliases.FirstOrDefault() ?? room.Id;
+        content.Children.Add(Row(c, "hash", controller.T("address"),
+            () => Copy(address), address, false));
+        if (!room.IsSpace)
+            content.Children.Add(Row(c, details.IsEncrypted ? "lock" : "info",
+                controller.T("encryption"), null,
+                controller.T(details.IsEncrypted
+                    ? "room.encrypted"
+                    : "room.notEncrypted"), false));
+        if (direct)
+            return;
+        // The text can be long, so the row only says Edit and the text is
+        // spread out under it.
+        TopicRow = Row(c, "info", controller.T("topic"),
+            edit ? () => AskTopic(room, details.Topic) : null,
+            edit ? controller.T("modify") : null, edit);
+        content.Children.Add(TopicRow);
+        var has = !string.IsNullOrWhiteSpace(details.Topic);
+        content.Children.Add(new Border {
+            Margin = new Thickness(26, 2, 26, 4),
+            Padding = new Thickness(14, 12),
+            CornerRadius = new CornerRadius(Radius.Control),
+            Background = new SolidColorBrush(c.BgSecondary),
+            Child = new SelectableTextBlock {
+                Text = has ? details.Topic : controller.T("room.noTopic"),
+                FontSize = 15,
+                LineHeight = 21,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(has
+                    ? c.Text
+                    : c.TextTertiary),
+            },
+        });
+    }
+
+    // Mute: a row with a switch; the switch turns at once and goes back if
+    // the change fails.
+    private void AddMute(ColorTokens c, RoomSummary room)
+    {
+        content.Children.Add(Gap());
+        var toggle = new Toggle {
+            IsOn = room.Muted
+        };
+        toggle.Changed += on => _ = Mute(room, on, toggle);
+        content.Children.Add(SwitchRow(c, room.Muted ? "bellOff" : "bell",
+            controller.T("mute"), toggle));
+    }
+
+    private async Task Mute(RoomSummary room, bool on, Toggle toggle)
+    {
+        toggle.IsOn = on;
+        Ops.Start("mute chat", room.Id);
+        try {
+            await controller.SetRoomMuted(room.Id, on);
+            Ops.Done("mute chat", room.Id);
+        } catch (Exception e) {
+            Ops.Fail("mute chat", e, room.Id);
+            toggle.IsOn = !on;
+            controller.ShowNotice(e.Message, NoticeKind.Error);
+        }
+    }
+
+    private static Border SwitchRow(ColorTokens c, string glyph, string label,
+        Toggle toggle)
+    {
+        var grid = new Grid {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
+        };
+        grid.Children.Add(new Icon {
+            Glyph = glyph,
+            Size = 21,
+            Color = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(0, 0, 14, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        var name = new TextBlock {
+            Text = label,
+            FontSize = 16,
+            Foreground = new SolidColorBrush(c.Text),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Fonts.Center(name);
+        Grid.SetColumn(name, 1);
+        grid.Children.Add(name);
+        toggle.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(toggle, 2);
+        grid.Children.Add(toggle);
+        var row = new Border {
+            Height = RowHeight,
+            Padding = new Thickness(26, 0),
+            Background = Brushes.Transparent,
+            Child = grid,
+        };
+        Avalonia.Automation.AutomationProperties.SetName(row, label);
+        return row;
+    }
+
+    // Messages: the gallery of the chat and its pinned messages.
+    private void AddMessages(ColorTokens c, RoomSummary room)
+    {
+        content.Children.Add(Section(c, controller.T("messages.title")));
+        content.Children.Add(Row(c, "image", controller.T("sharedMedia"),
+            OpenGallery));
+        var pinned = room.PinnedEventIds.Count;
+        content.Children.Add(Row(c, "pin", controller.T("pinned.title"),
+            pinned > 0 ? () => ShowPinned?.Invoke() : null,
+            pinned.ToString(), pinned > 0));
+    }
+
+    // The people: inviting, the first few (the most powerful), and the way
+    // to the page with all of them.
+    private void AddPeople(ColorTokens c, RoomSummary room,
+        RoomDetails details)
+    {
+        var people = details.Members;
+        content.Children.Add(Section(c, room.IsDirect
+            ? controller.T("participant")
+            : $"{controller.T("membersTitle")} · {people.Count}"));
+        InviteRow = null;
+        if (!room.IsDirect && details.Can.Invite) {
+            InviteRow = Row(c, "userPlus", controller.T("room.invite"),
+                () => AskInvite(room), chevron: false);
+            content.Children.Add(InviteRow);
+        }
+
+        foreach (var member in MemberOrder.Top(people))
+            content.Children.Add(MemberRow(c, member, room));
+        if (people.Count > MemberOrder.Shown)
+            content.Children.Add(Row(c, "users", controller.T("viewAll"),
+                OpenMembers));
+    }
+
+    // Every person, in that order, as a page of its own; a page at a time.
+    private void BuildMembersPage(ColorTokens c, RoomSummary room,
+        RoomDetails? details)
+    {
+        FillBar(c, details == null
+                ? controller.T("membersTitle")
+                : $"{controller.T("membersTitle")} · {details.Members.Count}",
+            LeaveMembers, controller.T("chatInfo"));
+        if (details == null) {
+            content.Children.Add(new Spinner {
+                Size = 28,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 24),
+            });
+            return;
+        }
+
         if (memberRoom != room.Id) {
             memberRoom = room.Id;
             memberLimit = MemberPage;
         }
 
-        var key = new MembersKey(details.Members, details.Can,
-            details.Levels, c, s.Locale, s.UserId, room.Id, room.IsDirect,
-            memberLimit, Fonts.System);
-        if (membersKey != key) {
-            membersKey = key;
-            BuildMembers(c, room, details);
+        var sorted = MemberOrder.Sort(details.Members);
+        foreach (var member in sorted.Take(memberLimit))
+            content.Children.Add(MemberRow(c, member, room));
+        if (sorted.Count > memberLimit) {
+            var more = new TextButton {
+                Title = controller.T("members.more",
+                    ("n", Math.Min(MemberPage, sorted.Count - memberLimit)))
+            };
+            more.Click += (_, _) => {
+                memberLimit += MemberPage;
+                Apply();
+            };
+            ThemeScope.SetColors(more, c);
+            content.Children.Add(more);
         }
 
-        content.Children.Add(membersHost);
-        LeaveButton = new TextButton {
-            Title = controller.T(room.IsDirect ? "deleteChat" : "leaveGroup"),
-            Margin = new Thickness(0, 16, 0, 0),
-        };
-        LeaveButton.Click += (_, _) => AskLeave(room);
-        ThemeScope.SetColors(LeaveButton, c with {
-            Accent = c.Danger
-        });
-        content.Children.Add(LeaveButton);
         content.Children.Add(new Border {
             Height = 16
         });
@@ -1097,7 +1307,7 @@ public sealed partial class RoomInfoPanel : Grid {
             FontSize = 13,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(20, 6, 20, 4),
+            Margin = new Thickness(26, 2, 20, 6),
         };
     }
 
@@ -1272,22 +1482,21 @@ public sealed partial class RoomInfoPanel : Grid {
         MemberPrompt.Fields[0].Text = current.ToString();
     }
 
+    // A setting: the icon, the name with the value under it, and a small
+    // arrow down where a list can be opened.
     private Border SettingRow(ColorTokens c, string label, string value,
-        string icon,
-        Action? onPress)
+        string icon, Action? onPress)
     {
         var grid = new Grid {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
         grid.Children.Add(new Icon {
             Glyph = icon,
-            Size = 22,
-            Color = new SolidColorBrush(c.Accent),
-            Margin = new Thickness(0, 0, 12, 0),
+            Size = 21,
+            Color = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(0, 0, 14, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
-        // The value goes under the name: the panel is narrow, and a value
-        // beside a name would cut the name short.
         var words = new StackPanel {
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 6),
@@ -1301,193 +1510,113 @@ public sealed partial class RoomInfoPanel : Grid {
         if (value.Length > 0)
             words.Children.Add(new TextBlock {
                 Text = value,
-                FontSize = 14,
+                FontSize = 13,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
         Grid.SetColumn(words, 1);
         grid.Children.Add(words);
+        if (onPress != null) {
+            var arrow = new Icon {
+                Glyph = "chevronDown",
+                Size = 16,
+                Color = new SolidColorBrush(c.TextTertiary),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(arrow, 2);
+            grid.Children.Add(arrow);
+        }
 
         var row = new Border {
-            Margin = new Thickness(12, 4, 12, 0),
-            Padding = new Thickness(14, 0),
-            MinHeight = 48,
-            CornerRadius = new CornerRadius(Radius.Control),
-            Background = new SolidColorBrush(c.BgSecondary),
-            Cursor = new Cursor(StandardCursorType.Hand),
+            Padding = new Thickness(26, 0),
+            MinHeight = RowHeight,
+            Background = Brushes.Transparent,
             Child = grid,
         };
+        Avalonia.Automation.AutomationProperties.SetName(row, label);
+        if (onPress == null)
+            return row;
+        row.Cursor = new Cursor(StandardCursorType.Hand);
+        NavRows.Hover(row, c);
         row.PointerPressed += (_, e) => {
             e.Handled = true;
-            onPress?.Invoke();
+            onPress();
         };
         return row;
     }
 
-    /// <summary>The pictures and files of the messages loaded.</summary>
-    private void BuildMembers(ColorTokens c, RoomSummary room,
-        RoomDetails details)
-    {
-        membersHost.Children.Clear();
-        foreach (var member in details.Members.Take(memberLimit))
-            membersHost.Children.Add(MemberRow(c, member, room));
-        if (details.Members.Count <= memberLimit)
-            return;
-        var more = new TextButton {
-            Title = controller.T("members.more",
-                ("n", Math.Min(MemberPage,
-                    details.Members.Count - memberLimit)))
-        };
-        more.Click += (_, _) => {
-            memberLimit += MemberPage;
-            Apply();
-        };
-        ThemeScope.SetColors(more, c);
-        membersHost.Children.Add(more);
-    }
-
-    private void AddShared(ColorTokens c, IReadOnlyList<TimelineItem> timeline)
-    {
-        sharedHost.Children.Clear();
-        mediaThumbs.Clear();
-        var pictures = timeline.Where(i => i.Image != null).Reverse()
-            .Take(MediaShown).ToList();
-        var files = timeline.Where(i => i.File != null).Reverse()
-            .Take(FilesShown).ToList();
-        sharedHost.Children.Add(Section(c, controller.T("sharedMedia")));
-        sharedHost.Children.Add(NavRows.Make(c, "image",
-            controller.T("viewAll"),
-            OpenGallery, 0));
-        if (pictures.Count == 0 && files.Count == 0) {
-            sharedHost.Children.Add(new TextBlock {
-                Text = controller.T("media.none"),
-                FontSize = 15,
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                Margin = new Thickness(20, 0, 20, 8),
-            });
-            return;
-        }
-
-        if (pictures.Count > 0) {
-            var grid = new WrapPanel {
-                Margin = new Thickness(18, 0, 18, 8)
-            };
-            foreach (var item in pictures) {
-                var image = new Image {
-                    Width = 88,
-                    Height = 88,
-                    Stretch = Stretch.UniformToFill
-                };
-                controller.Pictures.Attach(image, item.Image!.Source, 176, 176);
-                mediaThumbs.Add(image);
-                var cell = new Border {
-                    Width = 88,
-                    Height = 88,
-                    Margin = new Thickness(2),
-                    CornerRadius = new CornerRadius(6),
-                    ClipToBounds = true,
-                    Background = new SolidColorBrush(c.BgSecondary),
-                    Cursor =
-                        new Avalonia.Input.Cursor(Avalonia.Input
-                            .StandardCursorType.Hand),
-                    Child = image,
-                };
-                var shown = item.Image!;
-                cell.PointerPressed += (_, e) => {
-                    e.Handled = true;
-                    var window = TopLevel.GetTopLevel(this);
-                    if (window != null)
-                        Viewer.Show(window, controller.Pictures, shown.Source,
-                            shown.FileName,
-                            image.Source,
-                            () => controller.SavePicture(window, shown.Source,
-                                shown.FileName),
-                            image);
-                };
-                grid.Children.Add(cell);
-            }
-
-            sharedHost.Children.Add(grid);
-        }
-
-        if (files.Count > 0) {
-            sharedHost.Children.Add(Section(c, controller.T("sharedFiles")));
-            foreach (var item in files) {
-                var row = new Grid {
-                    ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-                    Margin = new Thickness(20, 4),
-                };
-                row.Children.Add(new Icon {
-                    Glyph = "file",
-                    Size = 20,
-                    Color = new SolidColorBrush(c.Accent),
-                    Margin = new Thickness(0, 0, 10, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                });
-                var name = new TextBlock {
-                    Text = item.File!.Name,
-                    FontSize = 15,
-                    Foreground = new SolidColorBrush(c.Text),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    VerticalAlignment = VerticalAlignment.Center,
-                };
-                Grid.SetColumn(name, 1);
-                row.Children.Add(name);
-                var size = new TextBlock {
-                    Text = Format.Bytes(item.File.Size),
-                    FontSize = 13,
-                    Foreground = new SolidColorBrush(c.TextSecondary),
-                    Margin = new Thickness(8, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                };
-                Grid.SetColumn(size, 2);
-                row.Children.Add(size);
-                sharedHost.Children.Add(row);
-            }
-        }
-    }
-
+    // The heading of a group of rows, as on the profile page.
     private static TextBlock Section(ColorTokens c, string title)
     {
         return new TextBlock {
             Text = title,
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = Fonts.Bold,
-            Foreground = new SolidColorBrush(c.TextSecondary),
-            Margin = new Thickness(20, 12, 20, 6),
+            Foreground = new SolidColorBrush(c.Accent),
+            Margin = new Thickness(26, 14, 12, 4),
         };
     }
 
+    // What a person is, said at the right of their row: the role, or the
+    // level when it is none of the usual ones.
+    private string? TagOf(RoomMemberInfo m)
+    {
+        if (m.Power is { } power) {
+            if (power == 100)
+                return controller.T("role.admin");
+            if (power == 50)
+                return controller.T("role.moderator");
+            if (power > 100)
+                return LevelLabel(power);
+            return power > 0
+                ? controller.T("level.custom", ("n", power))
+                : null;
+        }
+
+        return m.Role switch {
+            MemberRole.Admin => controller.T("role.admin"),
+            MemberRole.Moderator => controller.T("role.moderator"),
+            _ => null,
+        };
+    }
+
+    // A person: the picture, the name with the address under it, and the
+    // role. In a room a press opens the menu of what can be done with them.
     private Control MemberRow(ColorTokens c, RoomMemberInfo m, RoomSummary room)
     {
         var grid = new Grid {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            Margin = new Thickness(12, 0),
-            Height = 52,
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
         };
-        var avatar = new Avatar(m.UserId, m.Name, 38) {
-            Margin = new Thickness(8, 0, 12, 0),
+        var avatar = new Avatar(m.UserId, m.Name, 36) {
+            Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
-        controller.Pictures.Attach(avatar, m.AvatarUrl, 38);
+        controller.Pictures.Attach(avatar, m.AvatarUrl, 36);
         grid.Children.Add(avatar);
-        var name = new TextBlock {
+        var words = new StackPanel {
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        words.Children.Add(new TextBlock {
             Text = m.Name,
             FontSize = 16,
             Foreground = new SolidColorBrush(c.Text),
             TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        Grid.SetColumn(name, 1);
-        grid.Children.Add(name);
-        if (m.Role != MemberRole.Member) {
+        });
+        words.Children.Add(new TextBlock {
+            Text = m.UserId,
+            FontSize = 13,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        Grid.SetColumn(words, 1);
+        grid.Children.Add(words);
+        var tag = TagOf(m);
+        if (tag != null) {
             var role = new TextBlock {
-                Text = controller.T(m.Role == MemberRole.Admin
-                    ? "role.admin"
-                    : "role.moderator"),
+                Text = tag,
                 FontSize = 13,
-                Foreground = new SolidColorBrush(c.TextSecondary),
-                Margin = new Thickness(8, 0, 8, 0),
+                Foreground = new SolidColorBrush(c.Accent),
+                Margin = new Thickness(8, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
             Grid.SetColumn(role, 2);
@@ -1496,19 +1625,19 @@ public sealed partial class RoomInfoPanel : Grid {
 
         Avalonia.Automation.AutomationProperties.SetName(grid, m.Name);
         var row = new Border {
+            Height = 54,
+            Padding = new Thickness(26, 0),
             Child = grid,
-            Background = Brushes.Transparent
+            Background = Brushes.Transparent,
         };
-        if (!room.IsDirect && m.UserId != controller.Store.Value.UserId) {
-            row.Cursor =
-                new Avalonia.Input.Cursor(
-                    Avalonia.Input.StandardCursorType.Hand);
-            row.PointerPressed += (_, e) => {
-                e.Handled = true;
-                OpenMemberMenu(row, room, m);
-            };
-        }
-
+        if (room.IsDirect)
+            return row;
+        row.Cursor = new Cursor(StandardCursorType.Hand);
+        NavRows.Hover(row, c);
+        row.PointerPressed += (_, e) => {
+            e.Handled = true;
+            OpenMemberMenu(row, room, m);
+        };
         return row;
     }
 }
