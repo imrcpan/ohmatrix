@@ -36,13 +36,7 @@ public sealed class MainScreen : Grid {
     private readonly Border detail = new();
     private readonly ProfilePage profilePage;
     private readonly ThemePage themePage;
-    private readonly RoomInfoPanel infoDock;
-    private readonly RoomInfoPanel infoNarrow;
-
-    private readonly Border infoDockHost = new() {
-        Width = RoomInfoPanel.Width_,
-        BorderThickness = new Thickness(1, 0, 0, 0)
-    };
+    private readonly RoomInfoPanel infoPanel;
 
     private readonly LanguagePage languagePage;
     private readonly ExplorePage explorePage;
@@ -90,6 +84,12 @@ public sealed class MainScreen : Grid {
     private readonly Border profileCard = new();
     private readonly FallWindow profileFall;
 
+    // The info of a chat is a dialog in the same way.
+    private readonly Grid infoHost = new();
+    private readonly Border infoBackdrop = new();
+    private readonly Border infoCard = new();
+    private readonly FallWindow infoFall;
+
     // Registered once for the type: a handler made in the constructor
     // stays in the property's observers for good and runs once for each
     // control that was ever made.
@@ -108,14 +108,13 @@ public sealed class MainScreen : Grid {
         wideChat = new ChatPane(controller);
         profilePage = new ProfilePage(controller);
         themePage = new ThemePage(controller);
-        infoDock = new RoomInfoPanel(controller);
-        infoNarrow = new RoomInfoPanel(controller);
-        // The pinned messages are the list of the chat pane. Over the chat
-        // the panel goes first, so that the message can be seen.
-        infoDock.ShowPinned = () => wideChat.OpenPinnedList();
-        infoNarrow.ShowPinned = () => {
+        infoPanel = new RoomInfoPanel(controller);
+        // The pinned messages are the list of the chat pane. The dialog goes
+        // first, so that the message can be seen.
+        infoPanel.ShowPinned = () => {
             controller.OpenRoomInfo(false);
-            narrowChat.OpenPinnedList();
+            (Bounds.Width >= SplitBreakpoint ? wideChat : narrowChat)
+                .OpenPinnedList();
         };
         languagePage = new LanguagePage(controller);
         explorePage = new ExplorePage(controller);
@@ -137,16 +136,14 @@ public sealed class MainScreen : Grid {
         // are in the tree: they go with the screen all the same.
         foreach (var owned in new object[] {
                      list, narrowChat, wideChat, profilePage, themePage,
-                     infoDock, infoNarrow, languagePage, explorePage,
-                     settingsPage, aboutPage, settingsShell, sessionsPage,
-                     accountsPage, fontPage, advancedPage, logPage,
-                     encryptionPage, spacePage, verifyDialog, callScreen
+                     infoPanel, languagePage, explorePage, settingsPage,
+                     aboutPage, settingsShell, sessionsPage, accountsPage,
+                     fontPage, advancedPage, logPage, encryptionPage, spacePage,
+                     verifyDialog, callScreen
                  })
             Lifetime.Own(this, owned);
         listHost.Child = list;
-        ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto");
-        infoDockHost.Child = infoDock;
-        Grid.SetColumn(infoDockHost, 3);
+        ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*");
         var row = new StackPanel {
             Orientation = Orientation.Horizontal,
             Spacing = 8
@@ -174,14 +171,11 @@ public sealed class MainScreen : Grid {
         Children.Add(divider);
         Children.Add(resizer);
         Children.Add(detail);
-        Children.Add(infoDockHost);
-        Grid.SetColumnSpan(narrowChat, 4);
+        Grid.SetColumnSpan(narrowChat, 3);
         Children.Add(narrowChat);
-        Grid.SetColumnSpan(infoNarrow, 4);
-        Children.Add(infoNarrow);
         // The profile is a dialog over the window, not a page of the
         // left pane: the pane keeps the list under it.
-        Grid.SetColumnSpan(profileHost, 4);
+        Grid.SetColumnSpan(profileHost, 3);
         // Above the resizer, so that the dialog's backdrop takes its pointer.
         profileHost.ZIndex = 10;
         profileBackdrop.PointerPressed += (_, e) => {
@@ -205,10 +199,34 @@ public sealed class MainScreen : Grid {
             controller.OpenSidebarPage(SidebarPage.Chats);
         };
         Children.Add(profileHost);
-        Grid.SetColumnSpan(callScreen, 4);
+        // The info of a chat, over the window like the profile.
+        Grid.SetColumnSpan(infoHost, 3);
+        infoHost.ZIndex = 10;
+        infoBackdrop.PointerPressed += (_, e) => {
+            e.Handled = true;
+            controller.OpenRoomInfo(false);
+        };
+        infoCard.Child = infoPanel;
+        infoCard.CornerRadius = new CornerRadius(16);
+        infoCard.ClipToBounds = true;
+        infoCard.HorizontalAlignment = HorizontalAlignment.Center;
+        infoCard.VerticalAlignment = VerticalAlignment.Center;
+        infoHost.Children.Add(infoBackdrop);
+        infoHost.Children.Add(infoCard);
+        infoFall = new FallWindow(infoBackdrop, infoCard);
+        infoHost.IsVisible = false;
+        infoHost.Focusable = true;
+        infoHost.KeyDown += (_, e) => {
+            if (e.Key != Avalonia.Input.Key.Escape)
+                return;
+            e.Handled = true;
+            controller.OpenRoomInfo(false);
+        };
+        Children.Add(infoHost);
+        Grid.SetColumnSpan(callScreen, 3);
         Children.Add(callScreen);
         notice = new TopNotice(controller);
-        Grid.SetColumnSpan(notice, 4);
+        Grid.SetColumnSpan(notice, 3);
         // Above the profile dialog (10): a notice is over whatever shows.
         notice.ZIndex = 20;
         Children.Add(notice);
@@ -389,11 +407,23 @@ public sealed class MainScreen : Grid {
         // Beside the list the chat takes the right pane; alone, it covers the list, and Back returns to it.
         narrowChat.IsVisible = !split && open;
         narrowChat.Showing = narrowChat.IsVisible;
-        infoDockHost.IsVisible = split && open && s.RoomInfoOpen;
-        infoDock.Showing = infoDockHost.IsVisible;
-        // Narrow, the panel covers the chat; Close (or choosing another chat) returns to it.
-        infoNarrow.IsVisible = !split && open && s.RoomInfoOpen;
-        infoNarrow.Showing = infoNarrow.IsVisible;
+        // The info of the chat is a dialog over the window, whatever its
+        // width; Close (or choosing another chat) closes it.
+        var infoOpen = open && s.RoomInfoOpen;
+        infoPanel.Showing = infoOpen;
+        if (infoOpen) {
+            if (!infoHost.IsVisible)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    infoHost.Focus());
+            infoHost.IsVisible = true;
+            infoFall.Open(Bounds.Height, InfoContent());
+        } else if (infoHost.IsVisible)
+            infoFall.Close(() => infoHost.IsVisible = false);
+
+        infoBackdrop.Background = new SolidColorBrush(c.Overlay);
+        infoCard.Background = new SolidColorBrush(c.Bg);
+        infoCard.Width = Math.Max(280, Math.Min(440, Bounds.Width - 32));
+        infoCard.Height = Math.Max(320, Math.Min(640, Bounds.Height - 48));
         // What opens from the profile is a dialog over the window, whatever
         // its width. The pages that open from it (the encryption, the
         // accounts) are pages of the dialog, not of the sidebar, and so is
@@ -460,6 +490,8 @@ public sealed class MainScreen : Grid {
     private IReadOnlyList<Control> ProfileContent() =>
         profileCard.Child is Panel page ? [.. page.Children] : [];
 
+    private IReadOnlyList<Control> InfoContent() => [.. infoPanel.Children];
+
     // The brushes are made again only when the colours are other ones.
     private void Paint(ColorTokens c)
     {
@@ -468,7 +500,6 @@ public sealed class MainScreen : Grid {
         seenColors = c;
         Background = new SolidColorBrush(c.Bg);
         divider.Background = new SolidColorBrush(c.Separator);
-        infoDockHost.BorderBrush = new SolidColorBrush(c.Separator);
         detail.Background = new SolidColorBrush(c.ChatBg);
         chip.Background = new SolidColorBrush(c.ServiceChip);
         chipText.Foreground = new SolidColorBrush(c.ServiceChipText);

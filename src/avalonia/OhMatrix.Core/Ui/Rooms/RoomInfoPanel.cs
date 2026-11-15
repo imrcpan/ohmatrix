@@ -20,15 +20,14 @@ using Spinner = OhMatrix.Core.Ui.Widgets.Spinner;
 namespace OhMatrix.Core.Ui.Rooms;
 
 /// <summary>
-/// The info panel of a chat (<c>RoomInfoPanel</c>): a bar with a back arrow and the title, the picture, the name and the member count, and the
-/// groups of rows of the React Native page (About, the access settings, Mute, Messages, Members, Banned, and the way out), set as the rows of
-/// the profile page are. The rest is pages of their own: the members, the banned, the gallery and a person.
+/// The info of a chat (<c>RoomInfoPanel</c>), a page of a dialog over the window as the profile is: a bar with the title and a cross, the
+/// picture, the name and the member count, and the groups of rows of the React Native page (About, the access settings, Mute, Messages,
+/// Members, Banned, and the way out), set as the rows of the profile page are. The rest is pages of the dialog: the members, the banned, the
+/// gallery and a person, each with a back arrow.
 /// </summary>
 public sealed partial class RoomInfoPanel : Grid {
     [GeneratedRegex("^[a-zA-Z0-9._=/+-]+$")]
     private static partial Regex LocalPart();
-
-    public const double Width_ = 320;
 
     private readonly AppController controller;
     private readonly Border bar = new();
@@ -832,15 +831,15 @@ public sealed partial class RoomInfoPanel : Grid {
         controller.OpenRoomInfo(false);
     }
 
-    // The bar: the back arrow and the title (the page header of the React
-    // Native app), with a line under it.
+    // The bar of the page of the dialog, as the profile has it: the title and
+    // a cross on the first page, a back arrow and the title on the others.
     private void FillBar(ColorTokens c, string title, Action back,
         string? backLabel = null)
     {
-        PageBar.Fill(bar, c, title, backLabel ?? controller.T("close"), back);
-        bar.Height = PageBar.HeaderHeight;
-        bar.BorderThickness = new Thickness(0, 0, 0, 1);
-        bar.BorderBrush = new SolidColorBrush(c.Separator);
+        if (backLabel == null)
+            PageBar.Close(bar, c, title, controller.T("close"), back);
+        else
+            PageBar.Fill(bar, c, title, backLabel, back);
     }
 
     // The rows are as high as those of the profile page and follow each

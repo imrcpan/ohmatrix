@@ -2784,28 +2784,25 @@ public partial class ChatPaneTests {
         Save(window, "info-closed");
     }
 
-    private static async Task<(AppController Controller, RoomInfoPanel Panel,
-        RoomInfoPanel Hidden)> OpenInfo()
+    private static async Task<(AppController Controller, RoomInfoPanel Panel)>
+        OpenInfo()
     {
         var (_, controller, _, screen) = await Open("light", 1000);
         controller.SelectRoom("!g");
         await Task.Delay(50);
         controller.OpenRoomInfo(true);
-        await Task.Delay(100);
+        await Task.Delay(400);
         Dispatcher.UIThread.RunJobs();
-        var panels = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
-            .ToList();
-        Assert.Equal(2, panels.Count);
-        return (controller, panels.Single(p => p.IsEffectivelyVisible),
-            panels.Single(p => !p.IsEffectivelyVisible));
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        Assert.True(panel.IsEffectivelyVisible);
+        return (controller, panel);
     }
 
     [AvaloniaFact]
     public async Task The_info_panel_is_not_made_again_for_other_changes()
     {
-        var (controller, panel, hidden) = await OpenInfo();
-        // The panel that is not on the screen has not been built.
-        Assert.Empty(hidden.Content.Children);
+        var (controller, panel) = await OpenInfo();
         var first = panel.Content.Children[0];
 
         controller.Store.Update(s => s with {
@@ -2817,7 +2814,6 @@ public partial class ChatPaneTests {
             }
         });
         Assert.Same(first, panel.Content.Children[0]);
-        Assert.Empty(hidden.Content.Children);
 
         // What it shows changing makes it again.
         controller.Store.Update(s => s with {
@@ -2826,13 +2822,35 @@ public partial class ChatPaneTests {
             }
         });
         Assert.NotSame(first, panel.Content.Children[0]);
-        Assert.Empty(hidden.Content.Children);
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_is_not_built_until_it_is_opened()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        Assert.Empty(panel.Content.Children);
+        Assert.False(panel.IsEffectivelyVisible);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(panel.IsEffectivelyVisible);
+        Assert.NotEmpty(panel.Content.Children);
+        // It goes away with the motion of the dialog.
+        controller.OpenRoomInfo(false);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(panel.IsEffectivelyVisible);
     }
 
     [AvaloniaFact]
     public async Task The_info_panel_lists_a_big_room_a_page_at_a_time()
     {
-        var (controller, panel, _) = await OpenInfo();
+        var (controller, panel) = await OpenInfo();
         controller.Store.Update(s => s with {
             Details = s.Details! with {
                 Members = [
@@ -2881,7 +2899,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task The_info_panel_follows_a_change_of_font_alone()
     {
-        var (controller, panel, hidden) = await OpenInfo();
+        var (controller, panel) = await OpenInfo();
         try {
             var old = Fonts.System;
             Assert.True(Uses(panel, old));
@@ -2890,11 +2908,21 @@ public partial class ChatPaneTests {
             });
             Assert.NotEqual(old, Fonts.System);
             Assert.True(Uses(panel, Fonts.System));
+            var mono = Fonts.System;
 
-            // The panel that was not on the screen takes the font when it is.
-            Assert.Empty(hidden.Content.Children);
-            hidden.Showing = true;
-            Assert.True(Uses(hidden, Fonts.System));
+            // A panel that was closed takes the font that is set when it is
+            // opened again.
+            controller.OpenRoomInfo(false);
+            await Task.Delay(400);
+            Dispatcher.UIThread.RunJobs();
+            controller.SetPreferences(p => p with {
+                Font = new Preferences().Font
+            });
+            controller.OpenRoomInfo(true);
+            await Task.Delay(400);
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotEqual(mono, Fonts.System);
+            Assert.True(Uses(panel, Fonts.System));
         } finally {
             Fonts.Use(new Preferences());
         }
@@ -2927,7 +2955,7 @@ public partial class ChatPaneTests {
     public async Task
         The_info_panel_keeps_its_members_for_messages_and_receipts()
     {
-        var (controller, panel, _) = await OpenInfo();
+        var (controller, panel) = await OpenInfo();
 
         TextBlock Alice() => panel.GetVisualDescendants().OfType<TextBlock>()
             .First(t => t.Text == "Alice");
@@ -2984,7 +3012,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task The_info_panel_has_the_groups_of_the_react_native_page()
     {
-        var (_, panel, _) = await OpenInfo();
+        var (_, panel) = await OpenInfo();
         var texts = panel.GetVisualDescendants().OfType<TextBlock>()
             .Select(t => t.Text).ToList();
         // The bar, the head, and the groups in the order of the page.
@@ -3005,7 +3033,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task The_rows_of_the_info_are_as_high_as_those_of_the_profile()
     {
-        var (_, panel, _) = await OpenInfo();
+        var (_, panel) = await OpenInfo();
         Assert.Equal(40, panel.PhotoRow!.Height);
         Assert.Equal(40, panel.NameRow!.Height);
         Assert.Equal(40, panel.LeaveRow!.Height);
@@ -3034,7 +3062,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task The_pinned_row_counts_the_pins_and_shows_them()
     {
-        var (_, panel, _) = await OpenInfo();
+        var (_, panel) = await OpenInfo();
         var shown = 0;
         panel.ShowPinned = () => shown++;
         var row = panel.GetVisualDescendants().OfType<Border>()
@@ -3049,7 +3077,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task A_person_from_the_list_of_people_goes_back_to_it()
     {
-        var (controller, panel, _) = await OpenInfo();
+        var (controller, panel) = await OpenInfo();
         var bob =
             controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
         panel.OpenMembers();
@@ -3091,7 +3119,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task The_banned_have_a_page_of_their_own()
     {
-        var (controller, panel, _) = await OpenInfo();
+        var (controller, panel) = await OpenInfo();
         Assert.DoesNotContain(panel.GetVisualDescendants().OfType<TextBlock>(),
             t => t.Text == "Banned · 1");
         controller.Store.Update(s => s with {
@@ -3116,7 +3144,7 @@ public partial class ChatPaneTests {
     [AvaloniaFact]
     public async Task What_the_person_may_not_do_has_no_row()
     {
-        var (controller, panel, _) = await OpenInfo();
+        var (controller, panel) = await OpenInfo();
         controller.Store.Update(s => s with {
             Details = s.Details! with {
                 Can = new RoomPermissions(false, false, false, false, false,
@@ -3244,16 +3272,74 @@ public partial class ChatPaneTests {
                                       || a.StartsWith("ban")));
     }
 
-    [AvaloniaFact]
-    public async Task The_info_panel_covers_the_chat_in_a_narrow_window()
+    // The card of the dialog and the host that has it with the backdrop.
+    private static (Border Card, Grid Host) InfoDialog(RoomInfoPanel panel)
     {
-        var (window, controller, _, _) = await Open("dark", 420);
+        var card = Assert.IsType<Border>(panel.Parent);
+        return (card, Assert.IsType<Grid>(card.Parent));
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_is_a_dialog_over_the_window_as_the_profile_is()
+    {
+        var (_, panel) = await OpenInfo();
+        var (card, _) = InfoDialog(panel);
+        Assert.Equal(new Avalonia.CornerRadius(16), card.CornerRadius);
+        Assert.Equal(440, card.Width);
+        Assert.Equal(Avalonia.Layout.HorizontalAlignment.Center,
+            card.HorizontalAlignment);
+        Assert.Equal(Avalonia.Layout.VerticalAlignment.Center,
+            card.VerticalAlignment);
+
+        IEnumerable<string> Glyphs() => panel.GetVisualDescendants()
+            .OfType<Icon>().Select(i => i.Glyph);
+
+        // The first page has the cross, the others a back arrow.
+        Assert.Contains("close", Glyphs());
+        Assert.DoesNotContain("back", Glyphs());
+        panel.OpenGallery();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("back", Glyphs());
+        Assert.DoesNotContain("close", Glyphs());
+        panel.LeaveGallery();
+        Assert.Contains("close", Glyphs());
+    }
+
+    [AvaloniaFact]
+    public async Task The_info_dialog_is_narrower_in_a_narrow_window()
+    {
+        var (window, controller, _, screen) = await Open("dark", 420);
         controller.SelectRoom("!g");
         await Task.Delay(50);
         controller.OpenRoomInfo(true);
-        await Task.Delay(100);
+        await Task.Delay(400);
         Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        Assert.True(panel.IsEffectivelyVisible);
+        Assert.Equal(388, InfoDialog(panel).Card.Width);
         Save(window, "info-narrow");
+    }
+
+    [AvaloniaFact]
+    public async Task A_press_outside_or_Escape_closes_the_info()
+    {
+        var (controller, panel) = await OpenInfo();
+        var (card, host) = InfoDialog(panel);
+        // The backdrop is the other child of the host.
+        var backdrop = host.Children.Single(c => !ReferenceEquals(c, card));
+        Press(backdrop);
+        Assert.False(controller.Store.Value.RoomInfoOpen);
+
+        await Task.Delay(400);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        host.RaiseEvent(new KeyEventArgs {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.Escape,
+        });
+        Assert.False(controller.Store.Value.RoomInfoOpen);
     }
 
     [AvaloniaFact]
