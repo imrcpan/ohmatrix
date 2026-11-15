@@ -123,6 +123,12 @@ public sealed class Dialog : IOverlay {
     /// <summary>A warning: the title has the red warning mark, and the confirmation is red.</summary>
     public bool Warning { get; set; }
 
+    /// <summary>The space around the row of buttons at the end of the card.</summary>
+    public Thickness ActionsMargin {
+        get => actions.Margin;
+        set => actions.Margin = value;
+    }
+
 
     /// <summary>Opens the dialog in <paramref name="window"/>, with <paramref name="content"/> under the title and the message.</summary>
     public void Show(
