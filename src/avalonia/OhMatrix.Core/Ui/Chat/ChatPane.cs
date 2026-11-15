@@ -30,7 +30,8 @@ namespace OhMatrix.Core.Ui.Chat;
 public sealed partial class ChatPane : Grid {
     private static readonly Logger logger = Logger.GetDefault();
 
-    public const double HeaderHeight = PageBar.HeaderHeight;
+    // Narrower than the page bar of the other pages (PageBar.HeaderHeight).
+    public const double HeaderHeight = 58;
 
     private readonly AppController controller;
     private readonly TimeProvider time;
@@ -1196,9 +1197,6 @@ public sealed partial class ChatPane : Grid {
         }
 
         if (room != null) {
-            var avatar = new Avatar(room.Id, room.Name, 38, room.IsSpace);
-            controller.Pictures.Attach(avatar, room.AvatarUrl, 38);
-            row.Children.Add(avatar);
             var words = new StackPanel {
                 VerticalAlignment = VerticalAlignment.Center
             };
