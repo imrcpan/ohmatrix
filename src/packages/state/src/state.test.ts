@@ -400,3 +400,41 @@ test("the profile kept from last time is shown at once, and what the engine give
   expect(kept.get("@test:localhost:8008")?.displayName).toBe("Real Name");
   app.dispose();
 });
+
+test("a room that is read is read in the list at once, and stays read until a new message or the server's own count", async () => {
+  const engine = new MockEngine();
+  let push: ((u: unknown[]) => void) | undefined;
+  const subscribe = engine.rooms.subscribe;
+  engine.rooms.subscribe = (cb) => {
+    push = cb as (u: unknown[]) => void;
+    return subscribe(cb);
+  };
+  // The server answers the read later: the mock's answer at once would be the server's count, which is not what this checks.
+  const openTimeline = engine.openTimeline.bind(engine);
+  engine.openTimeline = (roomId) => ({ ...openTimeline(roomId), markRead: async () => {} });
+  const app = createAppController(engine, { sessionStore: memoryStore() });
+  await engine.sync.start();
+  const id = "!dev:example.org";
+  const room = (last: string, unread: number) =>
+    ({
+      id,
+      name: "Dev",
+      unreadCount: unread,
+      highlightCount: 0,
+      lastActivityTs: 1,
+      lastMessage: { id: last },
+    }) as unknown as import("@ohmatrix/core").RoomSummary;
+  push!([{ op: "reset", items: [room("$1", 2)] }]);
+  expect(app.store.getState().rooms[0]?.unreadCount).toBe(2);
+  // Read here: the list shows it read now, before anything has gone to the server.
+  const open = app.openRoom(id);
+  expect(app.store.getState().rooms[0]?.unreadCount).toBe(0);
+  // The room list from the server, before it has the receipt: still read.
+  push!([{ op: "set", index: 0, item: room("$1", 2) }]);
+  expect(app.store.getState().rooms[0]?.unreadCount).toBe(0);
+  // A new message: unread again, as the server says.
+  push!([{ op: "set", index: 0, item: room("$2", 1) }]);
+  expect(app.store.getState().rooms[0]?.unreadCount).toBe(1);
+  open.close();
+  app.dispose();
+});

@@ -348,6 +348,22 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     cap = undefined;
     set({ roomsSettled: false });
   };
+  // The rooms read here, with the id of their last message when they were read. Until a new message comes, or the server agrees, the room
+  // list keeps them read: the server's room list has the read receipt only after a sync, and it would bring the count back meanwhile.
+  const readRooms = new Map<RoomId, string | undefined>();
+  const keepRead = (rooms: RoomSummary[]): RoomSummary[] => {
+    if (readRooms.size === 0) return rooms;
+    return rooms.map((r) => {
+      if (!readRooms.has(r.id)) return r;
+      const agreed = r.unreadCount === 0 && r.highlightCount === 0 && !r.markedUnread;
+      const last = r.lastMessage?.id;
+      if (agreed || (last !== undefined && last !== readRooms.get(r.id))) {
+        readRooms.delete(r.id);
+        return r;
+      }
+      return r.unreadCount === 0 && r.highlightCount === 0 && !r.markedUnread ? r : { ...r, unreadCount: 0, highlightCount: 0, markedUnread: false };
+    });
+  };
   const offs = [
     () => {
       timers.clearTimeout(quiet);
@@ -370,7 +386,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       if (profile?.displayName && userId) void services.profileCache?.save(userId, profile).catch(() => {});
     }),
     engine.rooms.subscribe((updates) => {
-      set((s) => ({ rooms: applyUpdates(s.rooms, updates) }));
+      set((s) => ({ rooms: keepRead(applyUpdates(s.rooms, updates)) }));
       const { syncState, roomsSettled } = store.getState();
       if (syncState === "syncing" && !roomsSettled) {
         timers.clearTimeout(quiet);
@@ -391,7 +407,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     set((s) => {
       const i = s.rooms.findIndex((r) => r.id === roomId);
       const room = s.rooms[i];
-      if (!room || (room.unreadCount === 0 && room.highlightCount === 0 && !room.markedUnread)) return {};
+      if (!room) return {};
+      readRooms.set(roomId, room.lastMessage?.id);
+      if (room.unreadCount === 0 && room.highlightCount === 0 && !room.markedUnread) return {};
       const rooms = s.rooms.slice();
       rooms[i] = { ...room, unreadCount: 0, highlightCount: 0, markedUnread: false };
       return { rooms };
@@ -593,7 +611,10 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       select(roomId);
     },
     setPinned: (roomId, pinned) => engine.rooms.setPinned(roomId, pinned),
-    setMarkedUnread: (roomId, unread) => engine.rooms.setMarkedUnread(roomId, unread),
+    setMarkedUnread: (roomId, unread) => {
+      readRooms.delete(roomId);
+      return engine.rooms.setMarkedUnread(roomId, unread);
+    },
     markRoomRead: (roomId) => {
       clearUnread(roomId);
       return engine.rooms.markRead(roomId);
