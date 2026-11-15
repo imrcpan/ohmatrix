@@ -386,6 +386,23 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     );
 
   const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
+  // A sticker goes through the room's timeline, as a message does, so it is shown at once and marked as being sent. A room that is not
+  // open gets one for the send.
+  const withTimeline = async <T>(roomId: RoomId, run: (tl: ReturnType<MatrixEngine["openTimeline"]>) => Promise<T>): Promise<T> => {
+    const open = handles.get(roomId);
+    if (open) return run(open);
+    const tl = engine.openTimeline(roomId);
+    try {
+      return await run(tl);
+    } finally {
+      tl.close();
+    }
+  };
+  const packOf = () => {
+    const stickers = engine.stickers;
+    if (!stickers) throw new EngineError("unsupported", "No sticker pack here");
+    return stickers;
+  };
 
   const signedOut = (authError: string | null = null, authErrorCode: EngineErrorCode | null = null) => {
     unsettle();
@@ -613,11 +630,9 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     uploadStickerGroupIcon: (file) =>
       engine.stickers ? engine.stickers.uploadGroupIcon(file) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
     removeStickers: (codes) => (engine.stickers ? engine.stickers.remove(codes) : Promise.reject(new EngineError("unsupported", "No sticker pack here"))),
-    sendSticker: (roomId, code) =>
-      engine.stickers ? engine.stickers.send(roomId, code) : Promise.reject(new EngineError("unsupported", "No sticker pack here")),
+    sendSticker: (roomId, code) => withTimeline(roomId, async (tl) => tl.sendSticker(await packOf().find(code))),
     sendStickerFile: async (roomId, file) => {
-      const stickers = engine.stickers;
-      if (!stickers) throw new EngineError("unsupported", "No sticker pack here");
+      const stickers = packOf();
       let up = uploadedStickers.get(file.name);
       if (!up) {
         up = stickers.uploadGroupIcon(file);
@@ -626,14 +641,16 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         up.catch(() => uploadedStickers.delete(file.name));
       }
       const { url, mimeType } = await up;
-      await stickers.sendExisting(roomId, {
-        url,
-        mimeType,
-        size: file.size,
-        ...(file.width !== undefined && { width: file.width }),
-        ...(file.height !== undefined && { height: file.height }),
-        name: file.name.replace(/\.[^.]+$/, ""),
-      });
+      await withTimeline(roomId, (tl) =>
+        tl.sendSticker({
+          shortcode: file.name.replace(/\.[^.]+$/, ""),
+          url,
+          mimeType,
+          size: file.size,
+          ...(file.width !== undefined && { width: file.width }),
+          ...(file.height !== undefined && { height: file.height }),
+        }),
+      );
     },
     async leaveRoom(roomId) {
       await engine.rooms.leave(roomId);

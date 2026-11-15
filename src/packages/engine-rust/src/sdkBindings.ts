@@ -144,6 +144,16 @@ export function sdkFromBindings(b: Bindings): Sdk {
       async sendText(body, mentions) {
         await call(() => t.send(contentOf(body, mentions)));
       },
+      async sendSticker(s) {
+        // The picture's size and type go in the event's info, as the sticker event of the spec has them.
+        const info = {
+          mimetype: s.mimeType,
+          ...(s.width !== undefined && { width: BigInt(Math.round(s.width)) }),
+          ...(s.height !== undefined && { height: BigInt(Math.round(s.height)) }),
+          ...(s.size !== undefined && { size: BigInt(Math.round(s.size)) }),
+        };
+        await call(() => t.sendSticker(s.shortcode, info as Ffi.ImageInfo, b.MediaSource.fromUrl(s.url)));
+      },
       reply: (eventId, body, mentions) => call(() => t.sendReply(contentOf(body, mentions), eventId)),
       edit: (ref, body) => call(() => t.edit(idOf(ref), new b.EditedContent.RoomMessage({ content: contentOf(body) }))),
       redact: (ref) => call(() => t.redactEvent(idOf(ref), undefined)),

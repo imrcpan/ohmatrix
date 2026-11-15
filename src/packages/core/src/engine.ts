@@ -151,10 +151,8 @@ export interface StickersApi {
   uploadGroupIcon(file: AttachmentSource): Promise<{ url: MxcUri; mimeType: string }>;
   /** Take these stickers out of the pack, in one save. Those it does not have are ignored. */
   remove(shortcodes: string[]): Promise<void>;
-  /** Send one of the pack's stickers to a room. */
-  send(roomId: RoomId, shortcode: string): Promise<void>;
-  /** Send a picture that is already on the server (from `uploadGroupIcon`, say) to a room as a sticker, without adding it to the pack. `name` is its body. */
-  sendExisting(roomId: RoomId, s: { url: MxcUri; mimeType: string; width?: number; height?: number; size?: number; name: string }): Promise<void>;
+  /** One of the pack's stickers, by its name (to send it with `TimelineHandle.sendSticker`). */
+  find(shortcode: string): Promise<Sticker>;
 }
 
 /**
@@ -341,6 +339,11 @@ export interface TimelineHandle {
   paginateBackwards(): Promise<void>;
   /** Send plain text. `mentions` become an `m.mentions` block, so the mentioned people are notified. */
   sendText(body: string, mentions?: UserId[]): Promise<void>;
+  /**
+   * Send a sticker: a picture that is on the server already (the pack's, or one just uploaded), as an `m.sticker` event. It is in the
+   * timeline at once, marked as being sent, like a message (`sendText`).
+   */
+  sendSticker(sticker: Sticker): Promise<void>;
   /** Tell the room I am (or am no longer) typing. Safe to call on every keystroke: the engine throttles. */
   setTyping(typing: boolean): void;
   /** Names of the people typing right now; emits immediately and on every change. */

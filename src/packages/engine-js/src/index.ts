@@ -507,16 +507,11 @@ export class JsSdkEngine implements MatrixEngine {
         const kept = withoutStickers(groups, shortcodes);
         if (kept.some((g, n) => g !== groups[n])) await c.setAccountData(STICKER_GROUPS_EVENT as never, writeGroups(kept) as never);
       }),
-    send: (roomId: string, shortcode: string) =>
+    find: (shortcode: string) =>
       guard(async () => {
         const sticker = this.pack().stickers.find((x) => x.shortcode === shortcode);
         if (!sticker) throw new EngineError("not_found", "That sticker is not in the pack any more");
-        await this.requireClient().sendEvent(roomId, EventType.Sticker as never, stickerEventContent(sticker) as never);
-      }),
-    sendExisting: (roomId: string, s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name: string }) =>
-      guard(async () => {
-        const { name, ...rest } = s;
-        await this.requireClient().sendEvent(roomId, EventType.Sticker as never, stickerEventContent({ shortcode: name, ...rest }) as never);
+        return sticker;
       }),
   };
 
@@ -1800,6 +1795,11 @@ export class JsSdkEngine implements MatrixEngine {
       sendText: (body, mentions) =>
         guard(async () => {
           await client.sendMessage(roomId, { msgtype: "m.text", body, ...mentionBlock(mentions), ...(await linkPreviews(client, body)) } as never);
+        }),
+      sendSticker: (sticker) =>
+        guard(async () => {
+          // The client's send has the local echo, as sendMessage does.
+          await client.sendEvent(roomId, EventType.Sticker as never, stickerEventContent(sticker) as never);
         }),
       cancelUpload: (id: string) => {
         const u = uploading.get(id);

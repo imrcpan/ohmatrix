@@ -132,6 +132,8 @@ export interface SdkTimeline {
   /** Reads `count` older events; resolves to whether the start of the room has been reached. */
   paginateBackwards(count: number): Promise<boolean>;
   sendText(body: string, mentions?: string[]): Promise<void>;
+  /** A sticker, as the timeline sends a message: a local echo with its send state. */
+  sendSticker(s: { shortcode: string; url: string; mimeType: string; width?: number; height?: number; size?: number }): Promise<void>;
   reply(eventId: string, body: string, mentions?: string[]): Promise<void>;
   edit(ref: EventRef, body: string): Promise<void>;
   redact(ref: EventRef): Promise<void>;

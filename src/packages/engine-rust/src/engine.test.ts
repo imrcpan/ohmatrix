@@ -86,6 +86,7 @@ class FakeTimeline implements SdkTimeline {
     async (...args: unknown[]) =>
       void this.calls.push([name, ...args]);
   reply = this.record("reply");
+  sendSticker = this.record("sendSticker");
   edit = this.record("edit");
   redact = this.record("redact");
   react = this.record("react");
@@ -1140,7 +1141,7 @@ test("a room just made or joined is handed on only once the chat list has it, so
   expect(list.map((r) => r.name)).toEqual(["Joined"]);
 });
 
-test("my sticker pack is kept in the account: adding uploads and saves, sending sends an m.sticker, removing saves again", async () => {
+test("my sticker pack is kept in the account: adding uploads and saves, a sticker is sent through the timeline, removing saves again", async () => {
   let saved: unknown = { pack: { display_name: "Mine" } };
   const fetch: RustEngineOptions["fetch"] = async (url, init) => {
     if (url.includes("/account_data/im.ponies.user_emotes")) {
@@ -1167,25 +1168,27 @@ test("my sticker pack is kept in the account: adding uploads and saves, sending 
   ]);
   expect(seen.at(-1)).toEqual(["cat", "cat 2"]);
   expect(saved).toMatchObject({ pack: { display_name: "Mine" }, images: { cat: { url: "mxc://test/1", usage: ["sticker"] } } });
-  await engine.stickers.send("!r", "cat");
-  expect(room.calls).toEqual([
-    ["sendRaw", "m.sticker", JSON.stringify({ body: "cat", url: "mxc://test/1", info: { mimetype: "image/gif", w: 8, h: 6, size: 3 } })],
-  ]);
+  const tl = engine.openTimeline("!r");
+  const cat = await engine.stickers.find("cat");
+  expect(cat).toEqual({ shortcode: "cat", url: "mxc://test/1", mimeType: "image/gif", width: 8, height: 6, size: 3 });
+  await tl.sendSticker(cat);
+  expect(room.timelineObj.calls).toEqual([["sendSticker", cat]]);
+  expect(room.calls).toEqual([]);
   await engine.stickers.remove(["cat", "nothing"]);
   expect(seen.at(-1)).toEqual(["cat 2"]);
-  await expect(engine.stickers.send("!r", "cat")).rejects.toMatchObject({ code: "not_found" });
+  await expect(engine.stickers.find("cat")).rejects.toMatchObject({ code: "not_found" });
   await expect(engine.stickers.add({ name: "big.png", mimeType: "image/png", size: 3 * 1024 * 1024 + 1, data: "/x" })).rejects.toMatchObject({
     code: "too_large",
   });
   await expect(engine.stickers.addExisting({ url: "mxc://s/2", mimeType: "image/png", width: 5, height: 5, name: "from chat.png" })).resolves.toBe("from chat");
   expect(seen.at(-1)).toEqual(["cat 2", "from chat"]);
   // A picture that is not in the pack is sent as a sticker as it is, and is not added to the pack.
-  room.calls.length = 0;
-  await engine.stickers.sendExisting("!r", { url: "mxc://s/9", mimeType: "image/png", width: 192, height: 192, size: 11, name: "smile" });
-  expect(room.calls).toEqual([
-    ["sendRaw", "m.sticker", JSON.stringify({ body: "smile", url: "mxc://s/9", info: { mimetype: "image/png", w: 192, h: 192, size: 11 } })],
-  ]);
+  room.timelineObj.calls.length = 0;
+  const smile = { shortcode: "smile", url: "mxc://s/9", mimeType: "image/png", width: 192, height: 192, size: 11 };
+  await tl.sendSticker(smile);
+  expect(room.timelineObj.calls).toEqual([["sendSticker", smile]]);
   expect(seen.at(-1)).toEqual(["cat 2", "from chat"]);
+  tl.close();
 });
 
 test("sticker groups are kept in the account; a bad icon is refused; removing a sticker takes it out of its group; an icon picture is uploaded alone", async () => {

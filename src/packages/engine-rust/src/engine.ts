@@ -40,7 +40,6 @@ import {
   writeGroups,
   newShortcode,
   parsePack,
-  stickerEventContent,
   writePack,
 } from "@ohmatrix/core";
 import { readAccountData, readPackContent, writeAccountData, writePackContent } from "./stickers.js";
@@ -648,17 +647,12 @@ export class RustEngineCore implements MatrixEngine {
           this.setGroupList(next.groups);
         }
       }),
-    send: (roomId: string, shortcode: string) =>
+    find: (shortcode: string) =>
       guard(async () => {
         const { stickers } = await this.loadPack();
         const sticker = stickers.find((x) => x.shortcode === shortcode);
         if (!sticker) throw new EngineError("not_found", "That sticker is not in the pack any more");
-        await this.room(roomId).sendRaw("m.sticker", JSON.stringify(stickerEventContent(sticker)));
-      }),
-    sendExisting: (roomId: string, s: { url: string; mimeType: string; width?: number; height?: number; size?: number; name: string }) =>
-      guard(async () => {
-        const { name, ...rest } = s;
-        await this.room(roomId).sendRaw("m.sticker", JSON.stringify(stickerEventContent({ shortcode: name, ...rest })));
+        return sticker;
       }),
   };
 
@@ -1257,6 +1251,7 @@ class RustTimeline implements TimelineHandle {
   /** An event of this room, as the chat shows it; `item` rather than `TimelineItem`, since a forward needs what the chat drops. */
   item = (eventId: string) => guard(async () => (await this.timeline).item(eventId));
   sendText = (body: string, mentions?: string[]) => guard(async () => (await this.timeline).sendText(body, mentions));
+  sendSticker = (s: Sticker) => guard(async () => (await this.timeline).sendSticker(s));
   markRead = () => guard(async () => (await this.timeline).markRead());
 
   setTyping(typing: boolean) {

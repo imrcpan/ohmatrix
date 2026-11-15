@@ -230,6 +230,7 @@ export class MockEngine implements MatrixEngine {
         return () => {};
       },
       sendAttachment: async () => {},
+      sendSticker: async () => {}, // the mock has no sticker pack
       cancelUpload: () => {},
       resend: async () => {},
       discard: () => {},
