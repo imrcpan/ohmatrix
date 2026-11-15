@@ -385,6 +385,17 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       s.selectedRoomId === selectedRoomId ? { spaceInfoOpen: false } : { selectedRoomId, roomInfoOpen: false, infoPage: null, spaceInfoOpen: false },
     );
 
+  // A room that is read is read at once here: its counts and marks go in the list now, not when the server has the read receipt and
+  // the room list comes back with them (which takes a sync). The list's next update is the server's, and it agrees.
+  const clearUnread = (roomId: RoomId) =>
+    set((s) => {
+      const i = s.rooms.findIndex((r) => r.id === roomId);
+      const room = s.rooms[i];
+      if (!room || (room.unreadCount === 0 && room.highlightCount === 0 && !room.markedUnread)) return {};
+      const rooms = s.rooms.slice();
+      rooms[i] = { ...room, unreadCount: 0, highlightCount: 0, markedUnread: false };
+      return { rooms };
+    });
   const handles = new Map<RoomId, ReturnType<MatrixEngine["openTimeline"]>>(); // the timeline each open room uses
   // A sticker goes through the room's timeline, as a message does, so it is shown at once and marked as being sent. A room that is not
   // open gets one for the send.
@@ -583,7 +594,10 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
     },
     setPinned: (roomId, pinned) => engine.rooms.setPinned(roomId, pinned),
     setMarkedUnread: (roomId, unread) => engine.rooms.setMarkedUnread(roomId, unread),
-    markRoomRead: (roomId) => engine.rooms.markRead(roomId),
+    markRoomRead: (roomId) => {
+      clearUnread(roomId);
+      return engine.rooms.markRead(roomId);
+    },
     searchMessages: (opts) => engine.search.messages(opts),
     openMessage(roomId, eventId) {
       select(roomId);
@@ -729,6 +743,7 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       const tl = engine.openTimeline(roomId);
       handles.set(roomId, tl);
       const off = tl.subscribe((updates) => set((s) => ({ timelines: { ...s.timelines, [roomId]: applyUpdates(s.timelines[roomId] ?? [], updates) } })));
+      clearUnread(roomId);
       void tl.markRead().catch(() => {});
       return {
         firstUnreadEventId: tl.firstUnreadEventId,
