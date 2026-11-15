@@ -114,11 +114,17 @@ public sealed class SendFilesDialog : IOverlay {
         ThemeScope.SetColors(yes, c);
         ThemeScope.SetColors(no, c);
         SendButton = yes;
-        yes.Click += (_, _) => {
+
+        void Accept()
+        {
             dialog.Close();
             send();
-        };
+        }
+
+        yes.Click += (_, _) => Accept();
         no.Click += (_, _) => dialog.Close();
+        // Enter sends, and Esc (the dialog's own) cancels.
+        dialog.OnEnter = Accept;
         dialog.Show(window, c,
             paths.Count == 1
                 ? controller.T("send.files.one")

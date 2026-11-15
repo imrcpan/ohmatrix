@@ -88,10 +88,15 @@ public sealed class Dialog : IOverlay {
             }
         };
         shade.KeyDown += (_, e) => {
-            if (e.Key != Key.Escape || motion.Closing)
+            if (motion.Closing)
                 return;
-            Close();
-            OnClose?.Invoke();
+            if (e.Key == Key.Escape) {
+                Close();
+                OnClose?.Invoke();
+            } else if (e.Key == Key.Enter && OnEnter != null && !Warning) {
+                e.Handled = true;
+                OnEnter();
+            }
         };
     }
 
@@ -100,6 +105,12 @@ public sealed class Dialog : IOverlay {
 
     /// <summary>Called when it is closed by Esc or by a press outside; not when <see cref="Close"/> is called by the code.</summary>
     public Action? OnClose { get; set; }
+
+    /// <summary>
+    /// Called when Enter is pressed in it, when set. It is not set for a dialog with a field of its own: the Enter of the field would be
+    /// taken for it. A warning does not take Enter either: it is answered with a press.
+    /// </summary>
+    public Action? OnEnter { get; set; }
 
     /// <summary>It is shown and not on its way out: a dialog that is fading away has been closed.</summary>
     public bool IsOpen => shade.Parent != null && !motion.Closing;

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -2507,6 +2508,48 @@ public partial class ChatPaneTests {
         pane.SendFiles.Dialog.Close();
         Assert.Equal("send.files.file", SendFilesDialog.KindOf(file));
         Assert.Equal("photo", SendFilesDialog.KindOf("a.png"));
+        File.Delete(file);
+    }
+
+    [AvaloniaFact]
+    public async Task Enter_sends_the_dropped_files_and_Esc_cancels_them()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        var file = Path.Combine(Path.GetTempPath(),
+            "keys-" + Guid.NewGuid().ToString("N") + ".txt");
+        File.WriteAllText(file, "x");
+        var sent = 0;
+        pane.SendFiles.Show(TopLevel.GetTopLevel(pane)!, [file],
+            () => sent++, pane);
+        Assert.True(pane.SendFiles.Dialog.IsOpen);
+        // The key goes to the focused control of the dialog, and bubbles up.
+        pane.SendFiles.Dialog.Card.RaiseEvent(new KeyEventArgs {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.Escape,
+        });
+        Assert.False(pane.SendFiles.Dialog.IsOpen);
+        Assert.Equal(0, sent);
+
+        pane.SendFiles.Show(TopLevel.GetTopLevel(pane)!, [file],
+            () => sent++, pane);
+        // A warning takes no Enter: it stays open and nothing is sent.
+        pane.SendFiles.Dialog.Warning = true;
+        pane.SendFiles.Dialog.Card.RaiseEvent(new KeyEventArgs {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.Enter,
+        });
+        Assert.True(pane.SendFiles.Dialog.IsOpen);
+        Assert.Equal(0, sent);
+        pane.SendFiles.Dialog.Warning = false;
+        pane.SendFiles.Dialog.Card.RaiseEvent(new KeyEventArgs {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.Enter,
+        });
+        Assert.False(pane.SendFiles.Dialog.IsOpen);
+        Assert.Equal(1, sent);
         File.Delete(file);
     }
 
