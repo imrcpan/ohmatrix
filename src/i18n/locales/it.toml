@@ -260,6 +260,8 @@
 "spaceInfo" = "Info sullo spazio"
 "userInfo" = "Info sull’utente"
 "close" = "Chiudi"
+"tray.show" = "Mostra OhMatrix"
+"tray.quit" = "Esci da OhMatrix"
 "topic" = "Descrizione"
 "address" = "Indirizzo"
 "membersTitle" = "Membri"

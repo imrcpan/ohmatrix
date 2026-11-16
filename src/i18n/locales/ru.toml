@@ -260,6 +260,8 @@
 "spaceInfo" = "О пространстве"
 "userInfo" = "О пользователе"
 "close" = "Закрыть"
+"tray.show" = "Показать OhMatrix"
+"tray.quit" = "Выйти из OhMatrix"
 "topic" = "Описание"
 "address" = "Адрес"
 "membersTitle" = "Участники"

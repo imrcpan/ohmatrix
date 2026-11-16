@@ -260,6 +260,8 @@
 "spaceInfo" = "스페이스 정보"
 "userInfo" = "사용자 정보"
 "close" = "닫기"
+"tray.show" = "OhMatrix 표시"
+"tray.quit" = "OhMatrix 종료"
 "topic" = "설명"
 "address" = "주소"
 "membersTitle" = "멤버"

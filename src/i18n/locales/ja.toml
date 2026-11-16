@@ -260,6 +260,8 @@
 "spaceInfo" = "スペース情報"
 "userInfo" = "ユーザー情報"
 "close" = "閉じる"
+"tray.show" = "OhMatrix を表示"
+"tray.quit" = "OhMatrix を終了"
 "topic" = "説明"
 "address" = "アドレス"
 "membersTitle" = "メンバー"

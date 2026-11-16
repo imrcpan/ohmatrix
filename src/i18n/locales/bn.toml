@@ -260,6 +260,8 @@
 "spaceInfo" = "স্পেসের তথ্য"
 "userInfo" = "ব্যবহারকারীর তথ্য"
 "close" = "বন্ধ করুন"
+"tray.show" = "OhMatrix দেখান"
+"tray.quit" = "OhMatrix বন্ধ করুন"
 "topic" = "বিবরণ"
 "address" = "ঠিকানা"
 "membersTitle" = "সদস্য"

@@ -31,6 +31,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <AvaloniaResource Include="Assets/tray.png" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="../OhMatrix.Core/OhMatrix.Core.csproj" />
         <ProjectReference Include="../OhMatrix.Engine/OhMatrix.Engine.csproj" />
     </ItemGroup>

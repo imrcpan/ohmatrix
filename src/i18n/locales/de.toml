@@ -260,6 +260,8 @@
 "spaceInfo" = "Space-Info"
 "userInfo" = "Benutzerinfo"
 "close" = "Schließen"
+"tray.show" = "OhMatrix anzeigen"
+"tray.quit" = "OhMatrix beenden"
 "topic" = "Beschreibung"
 "address" = "Adresse"
 "membersTitle" = "Mitglieder"
