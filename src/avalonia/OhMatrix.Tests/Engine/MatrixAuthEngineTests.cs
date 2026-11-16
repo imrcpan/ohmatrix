@@ -1010,7 +1010,9 @@ public class MatrixEngineWorkLiveTests {
         // Only one gallery is kept, and the others are not replaced by it.
         Assert.Equal(1, engine.GalleryCount);
         await auth.Client!.GetRoom(id)!.Leave();
+        // Signing out releases the galleries at once: no request is needed.
         await auth.Logout();
+        Assert.Equal(0, engine.GalleryCount);
     }
 
     [Fact]

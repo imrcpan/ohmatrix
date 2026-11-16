@@ -25,6 +25,18 @@ public sealed class MatrixAuthEngine(
     /// <summary>The signed-in client, or null.</summary>
     public Client? Client { get; private set; }
 
+    /// <summary>
+    /// Raised whenever <see cref="Client"/> is set or cleared, after the change:
+    /// what was made for the old client is released by whoever keeps it.
+    /// </summary>
+    public event System.Action? ClientChanged;
+
+    private void SetClient(Client? client)
+    {
+        Client = client;
+        ClientChanged?.Invoke();
+    }
+
     /// <summary>The session of the client now (its token may have been renewed), or null when signed out.</summary>
     public Session? CurrentSession =>
         Client != null ? ToSession(Client.Session()) : null;
@@ -39,7 +51,7 @@ public sealed class MatrixAuthEngine(
             return await WithFreshStoreOnMismatch(async () => {
                 var client = await MakeClient(url);
                 await client.Login(username, password, DeviceName, null);
-                Client = client;
+                SetClient(client);
                 return ToSession(client.Session());
             });
         } catch (Exception e) when (e is not EngineException) {
@@ -98,7 +110,7 @@ public sealed class MatrixAuthEngine(
                         SlidingSyncVersion.Native
                     )
                 );
-                Client = client;
+                SetClient(client);
                 return true;
             });
         } catch (Exception e) when (e is not EngineException) {
@@ -136,7 +148,7 @@ public sealed class MatrixAuthEngine(
     public async Task Logout()
     {
         var client = Client;
-        Client = null;
+        SetClient(null);
         if (client == null)
             return;
         try {
@@ -159,7 +171,7 @@ public sealed class MatrixAuthEngine(
     private void DropStore()
     {
         Client?.Dispose();
-        Client = null;
+        SetClient(null);
         var folder = Path.Combine(dataDirectory, "sdk");
         if (Directory.Exists(folder))
             Directory.Delete(folder, true);

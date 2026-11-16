@@ -10,8 +10,15 @@ using OhMatrix.Infra.Logging;
 namespace OhMatrix.Engine;
 
 /// <summary>Opens chats over the Matrix SDK (<c>timeline</c> of <c>RustEngineCore</c>).</summary>
-public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
+public sealed class MatrixChatEngine : IChatEngine {
     private static readonly Logger logger = Logger.GetDefault();
+    private readonly MatrixAuthEngine auth;
+
+    public MatrixChatEngine(MatrixAuthEngine auth)
+    {
+        this.auth = auth;
+        auth.ClientChanged += ForgetGalleries;
+    }
 
     public async Task SendMessageContent(string roomId,
         System.Text.Json.Nodes.JsonObject content)
@@ -59,13 +66,21 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
     // A room's gallery is opened once: the task is kept, so that requests
     // that come while it opens wait for the same session instead of
     // making another (which would replace it and leave its listener going).
-    private sealed class Gallery(Session session, Client client) {
+    // Every gallery belongs to one generation, which changes with the client
+    // (see ForgetGalleries): a gallery of an old generation is never used
+    // and is released once, by whoever finds it so.
+    private sealed class Gallery(Session session, long generation) {
+        private int retired;
         public Session Session { get; } = session;
-        public Client Client { get; } = client;
+        public long Generation { get; } = generation;
         public bool AtStart { get; set; }
+
+        /// <summary>True for the one caller that ends the gallery.</summary>
+        public bool Retire() => Interlocked.Exchange(ref retired, 1) == 0;
     }
 
     private readonly Dictionary<string, Task<Gallery>> galleries = [];
+    private long generation;
 
     /// <summary>How many galleries are kept; the tests check that one open is shared.</summary>
     public int GalleryCount {
@@ -100,6 +115,13 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
             throw;
         }
 
+        // The client changed while it opened: what it made is not used.
+        if (!IsCurrent(gallery)) {
+            Release(gallery);
+            throw new EngineException(EngineErrorCode.Unauthorized,
+                "Not signed in.");
+        }
+
         using var change = new Change();
         change.Watch(gallery.Session);
 
@@ -123,36 +145,48 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
     }
 
     /// <summary>
-    /// The gallery of a room, opening it on the first request for it. Galleries
-    /// of an account that was signed out are released here, the next time
-    /// one is asked for.
+    /// The gallery of a room, opening it on the first request for it. The
+    /// opening in progress is shared with the requests that come meanwhile.
     /// </summary>
     private Task<Gallery> GalleryOf(string roomId)
     {
-        var current = auth.Client;
-        List<Gallery> stale = [];
-        Task<Gallery> open;
         lock (galleries) {
-            foreach (var (id, task) in galleries.ToList()) {
-                if (task.IsCompletedSuccessfully &&
-                    task.Result.Client != current) {
-                    stale.Add(task.Result);
-                    galleries.Remove(id);
-                }
-            }
-
-            if (!galleries.TryGetValue(roomId, out open!)) {
-                open = OpenGallery(roomId);
+            if (!galleries.TryGetValue(roomId, out var open)) {
+                open = OpenGallery(roomId, generation);
                 galleries[roomId] = open;
             }
-        }
 
-        foreach (var gallery in stale)
-            Release(gallery.Session);
-        return open;
+            return open;
+        }
     }
 
-    private async Task<Gallery> OpenGallery(string roomId)
+    private bool IsCurrent(Gallery gallery)
+    {
+        lock (galleries)
+            return gallery.Generation == generation;
+    }
+
+    /// <summary>
+    /// The client was signed out or replaced: the galleries of it are
+    /// released now, and the openings still going are dropped (they release
+    /// their session when they end, see <see cref="OpenGallery"/>).
+    /// </summary>
+    private void ForgetGalleries()
+    {
+        List<Task<Gallery>> old;
+        lock (galleries) {
+            generation++;
+            old = [.. galleries.Values];
+            galleries.Clear();
+        }
+
+        foreach (var task in old) {
+            if (task.IsCompletedSuccessfully)
+                Release(task.Result);
+        }
+    }
+
+    private async Task<Gallery> OpenGallery(string roomId, long startedAt)
     {
         try {
             var client = auth.Client ?? throw new EngineException(
@@ -164,7 +198,7 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 "No such chat."
             );
             var session = await OpenSession(client, room);
-            var gallery = new Gallery(session, client);
+            var gallery = new Gallery(session, startedAt);
             // The first page of history comes with opening; let it arrive.
             using var change = new Change();
             change.Watch(session);
@@ -176,16 +210,25 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                     break;
             }
 
+            // The client changed while it opened: nothing of it is kept.
+            if (!IsCurrent(gallery)) {
+                Release(gallery);
+                throw new EngineException(EngineErrorCode.Unauthorized,
+                    "Not signed in.");
+            }
+
             return gallery;
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
     }
 
-    private static void Release(Session session)
+    private static void Release(Gallery gallery)
     {
+        if (!gallery.Retire())
+            return;
         try {
-            session.Dispose();
+            gallery.Session.Dispose();
         } catch (Exception e) {
             // The account it belonged to is gone; there is nothing more to do.
             logger.Exception("MatrixChatEngine", e);
