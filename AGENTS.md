@@ -178,5 +178,5 @@ to record it.
 
 For expected logs, you should not log trace stack. For unknown log or
 you indeed need trace stack, you should log trace stack. For example,
-HTTP errors are known exception and should not log trace stack 
+HTTP errors are known exception and should not log trace stack
 unless there is a specific need in that place.
