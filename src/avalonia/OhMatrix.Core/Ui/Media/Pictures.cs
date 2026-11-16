@@ -24,6 +24,13 @@ public sealed class Pictures(
     private readonly Lock gate = new();
     private readonly Dictionary<(string, int, int), Entry> cache = [];
 
+    // A source the server would not give (not there, or not allowed to be
+    // seen here) is not asked for again for a while: the same answer comes
+    // every time the picture is shown, so asking again is only noise. The
+    // time is when it was refused.
+    private static readonly TimeSpan RefusedFor = TimeSpan.FromMinutes(10);
+    private readonly Dictionary<string, DateTimeOffset> refused = [];
+
     // The entries that came, the newest asked for first.
     private readonly LinkedList<(string, int, int)> recent = [];
     private long kept;
@@ -65,6 +72,12 @@ public sealed class Pictures(
         var key = (source, width, height);
         TaskCompletionSource<IImage?> start;
         lock (gate) {
+            if (refused.TryGetValue(source, out var when)) {
+                if (DateTimeOffset.UtcNow - when < RefusedFor)
+                    return Task.FromResult<IImage?>(null);
+                refused.Remove(source);
+            }
+
             if (cache.TryGetValue(key, out var found)) {
                 if (found.Node != null) {
                     recent.Remove(found.Node);
@@ -177,6 +190,20 @@ public sealed class Pictures(
                 return null;
             using var stream = new MemoryStream(bytes);
             return new Bitmap(stream);
+        } catch (EngineException e) when (e.Code is EngineErrorCode.NotFound
+                                              or EngineErrorCode.Unauthorized
+                                              or EngineErrorCode.Forbidden) {
+            // The server of the picture refuses it, here or for good: it is
+            // said once, and kept as refused for a while.
+            logger.Exception("Pictures", e);
+            lock (gate)
+                refused[mxc] = DateTimeOffset.UtcNow;
+            return null;
+        } catch (EngineException e) {
+            // A failure that may pass (the network, a busy server) is asked
+            // for again the next time.
+            logger.Exception("Pictures", e);
+            return null;
         } catch (Exception e) {
             logger.Unexpected("Pictures", e);
             // A picture that cannot be had is the initials; Fetch lets go of

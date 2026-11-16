@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using OhMatrix.Core.Ui.Media;
 using OhMatrix.Core.Ui.Widgets;
@@ -26,6 +27,21 @@ public class PicturesTests {
         }
     }
 
+    // A server that answers with an error each time it is asked.
+    private sealed class Refusing(EngineErrorCode code) : IMediaEngine {
+        public int Calls;
+
+        public Task<string?> Download(string source, string fileName,
+            string mimeType) =>
+            Task.FromResult<string?>(null);
+
+        public Task<byte[]?> Thumbnail(string mxc, int width, int height)
+        {
+            Calls++;
+            throw new EngineException(code, "refused");
+        }
+    }
+
     private static byte[] Png()
     {
         using var target = new RenderTargetBitmap(new PixelSize(8, 8));
@@ -45,6 +61,28 @@ public class PicturesTests {
         Assert.Same(a, b);
         Assert.Equal(1, media.Calls);
         Assert.Equal((88, 88), media.Size);
+    }
+
+    [AvaloniaFact]
+    public async Task A_picture_the_server_refuses_is_not_asked_again_at_once()
+    {
+        var media = new Refusing(EngineErrorCode.NotFound);
+        var pictures = new Pictures(media);
+        Assert.Null(await pictures.Get("mxc://s/gone", 44));
+        // Shown again (another size too): the server is not asked again.
+        Assert.Null(await pictures.Get("mxc://s/gone", 44));
+        Assert.Null(await pictures.Get("mxc://s/gone", 22));
+        Assert.Equal(1, media.Calls);
+    }
+
+    [AvaloniaFact]
+    public async Task A_picture_that_failed_for_the_network_is_asked_again()
+    {
+        var media = new Refusing(EngineErrorCode.Network);
+        var pictures = new Pictures(media);
+        Assert.Null(await pictures.Get("mxc://s/later", 44));
+        Assert.Null(await pictures.Get("mxc://s/later", 44));
+        Assert.Equal(2, media.Calls);
     }
 
     // One picture of the test is 8 x 8 pixels: 256 bytes.
