@@ -679,6 +679,51 @@ public class MatrixProfileEngineTests {
 [Collection("homeserver")]
 public class MatrixChatEngineTests {
     [Fact]
+    public async Task A_file_is_kept_once_however_often_it_is_fetched()
+    {
+        var server =
+            Environment.GetEnvironmentVariable("OHMATRIX_TEST_HOMESERVER");
+        Assert.SkipWhen(string.IsNullOrEmpty(server),
+            "OHMATRIX_TEST_HOMESERVER is not set");
+        var auth = new MatrixAuthEngine(
+            Path.Combine(Path.GetTempPath(),
+                "ohm-once-" + Guid.NewGuid().ToString("N"))
+        );
+        await auth.LoginWithPassword(server!, "test", "123456");
+        var dir = Path.Combine(Path.GetTempPath(),
+            "ohm-once-up-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var note = Path.Combine(dir, "once.txt");
+        await File.WriteAllTextAsync(note, "kept once");
+        var rooms = new MatrixRoomsEngine(auth);
+        var roomId = await rooms.CreateRoom("Once " +
+                                            Guid.NewGuid().ToString("N")[..6],
+            false, []);
+        var chat = await new MatrixChatEngine(auth).Open(roomId);
+        var seen = new TaskCompletionSource<TimelineItem>();
+        chat.Changed += items => {
+            var f = items.FirstOrDefault(i =>
+                i.File?.Name == "once.txt" && !i.Sending);
+            if (f != null)
+                seen.TrySetResult(f);
+        };
+        await chat.SendAttachment(note, "text/plain", null, null);
+        await Task.WhenAny(seen.Task, Task.Delay(30000));
+        Assert.True(seen.Task.IsCompleted, "the file did not come back");
+        var source = seen.Task.Result.File!.Source;
+
+        var media = new MatrixMediaEngine(auth);
+        var first = await media.Download(source, "once.txt", "text/plain");
+        var second = await media.Download(source, "once.txt", "text/plain");
+        var third = await media.Download(source, "once.txt", "text/plain");
+        Assert.Equal(first, second);
+        Assert.Equal(first, third);
+        Assert.Equal("kept once", await File.ReadAllTextAsync(first!));
+        // One file in its folder, and no leftover of the SDK's own copies.
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(first!)!));
+    }
+
+    [Fact]
     public async Task Sends_a_message_and_reads_it_back()
     {
         var server =
@@ -737,6 +782,14 @@ public class MatrixChatEngineTests {
             "text/plain"
         );
         Assert.Equal("hello file", await File.ReadAllTextAsync(fetched!));
+        // A second request is answered with the same copy: nothing new is kept.
+        var again = await new MatrixMediaEngine(auth).Download(
+            fileSeen.Task.Result.File!.Source,
+            "note.txt",
+            "text/plain"
+        );
+        Assert.Equal(fetched, again);
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(fetched!)!));
 
         var id = seen.Task.Result.Id;
         await chat.SetPinned(id, true);

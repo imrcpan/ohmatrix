@@ -1,4 +1,6 @@
 #if OHMATRIX_NATIVE_SDK
+using System.Security.Cryptography;
+using System.Text;
 using OhMatrix.Core.Model;
 using OhMatrix.Core.State;
 using uniffi.matrix_sdk_ffi;
@@ -30,24 +32,41 @@ public sealed class MatrixMediaEngine(MatrixAuthEngine auth) : IMediaEngine {
         if (client == null)
             return null;
         try {
+            // One copy of a file: it is kept where its source says, and a
+            // second request is answered with that copy, not a new one.
+            var to = CopyPath(source, fileName);
+            if (File.Exists(to) && new System.IO.FileInfo(to).Length > 0)
+                return to;
             using var media = source.StartsWith('{')
                 ? MediaSource.FromJson(source)
                 : MediaSource.FromUrl(source);
+            // The handle's file is removed when the handle is disposed; the
+            // copy here is the only one that stays.
             using var handle = await client.GetMediaFile(
                 media, fileName, mimeType, true, null);
-            var from = handle.Path();
-            // The handle removes its file when it goes; the copy stays for the viewer of the system.
-            var dir = Path.Combine(
-                Path.GetTempPath(),
-                "ohmatrix-media",
-                Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(dir);
-            var to = Path.Combine(dir, Path.GetFileName(fileName));
-            File.Copy(from, to, true);
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            var partial = to + ".part";
+            File.Copy(handle.Path(), partial, true);
+            File.Move(partial, to, true);
             return to;
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
         }
+    }
+
+    // The folder of the copies, and the path of the copy of a file: a hash of
+    // its source (the same file has the same source), in a folder of its own,
+    // with the name of the file so that the system knows what it is.
+    private static string CopyPath(string source, string fileName)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(source)))[..32];
+        var name = Path.GetFileName(fileName);
+        foreach (var c in Path.GetInvalidFileNameChars())
+            name = name.Replace(c, '_');
+        if (name.Length == 0)
+            name = "file";
+        return Path.Combine(Path.GetTempPath(), "ohmatrix-media", hash, name);
     }
 }
 #endif
