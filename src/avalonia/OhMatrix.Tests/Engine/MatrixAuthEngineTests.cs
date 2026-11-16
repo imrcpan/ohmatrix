@@ -995,6 +995,25 @@ public class MatrixEngineWorkLiveTests {
     }
 
     [Fact]
+    public async Task Requests_for_one_gallery_at_once_share_one_session()
+    {
+        var auth = await SignIn();
+        var id = await NewRoom(auth,
+            "Gallery " + Guid.NewGuid().ToString("N")[..6]);
+        var engine = new MatrixChatEngine(auth);
+        // Asked for at once, the way quick tab changes ask.
+        var pages = await Task.WhenAll(
+            engine.SharedMedia(id, MediaKind.File, 0, 2),
+            engine.SharedMedia(id, MediaKind.File, 0, 2),
+            engine.SharedMedia(id, MediaKind.File, 0, 2));
+        Assert.All(pages, p => Assert.NotNull(p));
+        // Only one gallery is kept, and the others are not replaced by it.
+        Assert.Equal(1, engine.GalleryCount);
+        await auth.Client!.GetRoom(id)!.Leave();
+        await auth.Logout();
+    }
+
+    [Fact]
     public async Task The_shared_files_of_a_room_come_in_pages()
     {
         var auth = await SignIn();

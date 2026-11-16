@@ -56,12 +56,24 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         return session;
     }
 
-    private sealed class Gallery(Session session) {
+    // A room's gallery is opened once: the task is kept, so that requests
+    // that come while it opens wait for the same session instead of
+    // making another (which would replace it and leave its listener going).
+    private sealed class Gallery(Session session, Client client) {
         public Session Session { get; } = session;
+        public Client Client { get; } = client;
         public bool AtStart { get; set; }
     }
 
-    private readonly Dictionary<string, Gallery> galleries = [];
+    private readonly Dictionary<string, Task<Gallery>> galleries = [];
+
+    /// <summary>How many galleries are kept; the tests check that one open is shared.</summary>
+    public int GalleryCount {
+        get {
+            lock (galleries)
+                return galleries.Count;
+        }
+    }
 
     // How long to wait for what a request for history brings, when it does
     // not tell of a change; it comes at once otherwise.
@@ -73,25 +85,22 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
     public async Task<SharedMediaPage> SharedMedia(string roomId,
         MediaKind kind, int offset, int want)
     {
-        Gallery? gallery;
-        lock (galleries)
-            galleries.TryGetValue(roomId, out gallery);
-        using var change = new Change();
-        if (gallery == null) {
-            gallery = new Gallery(await OpenGallery(roomId));
-            lock (galleries)
-                galleries[roomId] = gallery;
-            // The first page of history comes with opening; let it arrive.
-            change.Watch(gallery.Session);
-            var late = Task.Delay(FirstPageWait);
-            while (gallery.Session.Items.Count == 0) {
-                var next = change.Next;
-                if (gallery.Session.Items.Count != 0 ||
-                    await Task.WhenAny(next, late) != next)
-                    break;
+        var open = GalleryOf(roomId);
+        Gallery gallery;
+        try {
+            gallery = await open;
+        } catch {
+            // Not kept: the next request tries again.
+            lock (galleries) {
+                if (galleries.TryGetValue(roomId, out var kept) &&
+                    kept == open)
+                    galleries.Remove(roomId);
             }
+
+            throw;
         }
 
+        using var change = new Change();
         change.Watch(gallery.Session);
 
         // Ask the room for more until it has what the page needs (and one
@@ -113,7 +122,37 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
         return read.Page;
     }
 
-    private async Task<Session> OpenGallery(string roomId)
+    /// <summary>
+    /// The gallery of a room, opening it on the first request for it. Galleries
+    /// of an account that was signed out are released here, the next time
+    /// one is asked for.
+    /// </summary>
+    private Task<Gallery> GalleryOf(string roomId)
+    {
+        var current = auth.Client;
+        List<Gallery> stale = [];
+        Task<Gallery> open;
+        lock (galleries) {
+            foreach (var (id, task) in galleries.ToList()) {
+                if (task.IsCompletedSuccessfully &&
+                    task.Result.Client != current) {
+                    stale.Add(task.Result);
+                    galleries.Remove(id);
+                }
+            }
+
+            if (!galleries.TryGetValue(roomId, out open!)) {
+                open = OpenGallery(roomId);
+                galleries[roomId] = open;
+            }
+        }
+
+        foreach (var gallery in stale)
+            Release(gallery.Session);
+        return open;
+    }
+
+    private async Task<Gallery> OpenGallery(string roomId)
     {
         try {
             var client = auth.Client ?? throw new EngineException(
@@ -124,9 +163,32 @@ public sealed class MatrixChatEngine(MatrixAuthEngine auth) : IChatEngine {
                 EngineErrorCode.NotFound,
                 "No such chat."
             );
-            return await OpenSession(client, room);
+            var session = await OpenSession(client, room);
+            var gallery = new Gallery(session, client);
+            // The first page of history comes with opening; let it arrive.
+            using var change = new Change();
+            change.Watch(session);
+            var late = Task.Delay(FirstPageWait);
+            while (session.Items.Count == 0) {
+                var next = change.Next;
+                if (session.Items.Count != 0 ||
+                    await Task.WhenAny(next, late) != next)
+                    break;
+            }
+
+            return gallery;
         } catch (Exception e) when (e is not EngineException) {
             throw MatrixAuthEngine.Translate(e);
+        }
+    }
+
+    private static void Release(Session session)
+    {
+        try {
+            session.Dispose();
+        } catch (Exception e) {
+            // The account it belonged to is gone; there is nothing more to do.
+            logger.Exception("MatrixChatEngine", e);
         }
     }
 
