@@ -170,3 +170,13 @@ hand.
   runs the engine tests against a live server.
 - Do not put an access token, a password of a real account, or a saved
   session in the repository, in a commit message or in a log you commit.
+
+## 8. Logging
+
+Exception should not be silently discarded unless there is truly no need
+to record it.
+
+For expected logs, you should not log trace stack. For unknown log or
+you indeed need trace stack, you should log trace stack. For example,
+HTTP errors are known exception and should not log trace stack 
+unless there is a specific need in that place.
