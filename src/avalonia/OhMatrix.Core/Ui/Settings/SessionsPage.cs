@@ -75,7 +75,7 @@ public sealed class SessionsPage : Grid {
         try {
             devices = await controller.ListDevices();
         } catch (Exception e) {
-            logger.Unexpected("SessionsPage", e);
+            logger.Exception("SessionsPage", e);
             devices = [];
         }
 

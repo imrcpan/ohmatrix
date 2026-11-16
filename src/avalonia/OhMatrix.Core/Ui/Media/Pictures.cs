@@ -205,7 +205,7 @@ public sealed class Pictures(
             logger.Exception("Pictures", e);
             return null;
         } catch (Exception e) {
-            logger.Unexpected("Pictures", e);
+            logger.Exception("Pictures", e);
             // A picture that cannot be had is the initials; Fetch lets go of
             // the entry and the next ask tries again.
             return null;

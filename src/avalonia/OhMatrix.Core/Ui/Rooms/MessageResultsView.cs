@@ -95,7 +95,7 @@ public sealed class MessageResultsView : StackPanel {
         try {
             page = await controller.SearchMessages(term.Trim(), roomId, from);
         } catch (Exception e) {
-            logger.Unexpected("MessageResultsView", e);
+            logger.Exception("MessageResultsView", e);
             // Shown as no results.
         }
 

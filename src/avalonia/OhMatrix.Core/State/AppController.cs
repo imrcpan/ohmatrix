@@ -80,10 +80,7 @@ public sealed class AppController(
             });
             StartRooms();
         } catch (Exception e) {
-            if (e is EngineException)
-                logger.Exception("AppController", e);
-            else
-                logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             var code = (e as EngineException)?.Code;
             // A session the server no longer takes, or whose keys are gone, is not kept.
             if (code is EngineErrorCode.Unauthorized
@@ -557,7 +554,7 @@ public sealed class AppController(
         try {
             await verification.Request();
         } catch (Exception e) {
-            logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             Store.Update(s => s with {
                 Verification = new VerifyFlow(VerifyPhase.Failed, false)
             });
@@ -581,7 +578,7 @@ public sealed class AppController(
         try {
             await verification.RequestUser(userId);
         } catch (Exception e) {
-            logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             Store.Update(s => s with {
                 Verification = new VerifyFlow(VerifyPhase.Failed, false)
             });
@@ -756,7 +753,7 @@ public sealed class AppController(
                     });
             });
         } catch (Exception e) {
-            logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             // The panel shows what it has; opening it again tries again.
         }
     }
@@ -1221,7 +1218,7 @@ public sealed class AppController(
             });
             _ = Quietly(session.MarkRead);
         } catch (Exception e) {
-            logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             // The chat stays empty; choosing it again tries again.
         }
     }
@@ -1402,10 +1399,7 @@ public sealed class AppController(
                 SavePreferences();
             }
         } catch (Exception e) {
-            if (e is EngineException)
-                logger.Exception("AppController", e);
-            else
-                logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             SignedOut(e.Message, (e as EngineException)?.Code);
         }
     }
@@ -1476,7 +1470,7 @@ public sealed class AppController(
                 Remember();
             });
         } catch (Exception e) {
-            logger.Unexpected("AppController", e);
+            logger.Exception("AppController", e);
             // The name stays what it was until the next sign-in.
         }
     }

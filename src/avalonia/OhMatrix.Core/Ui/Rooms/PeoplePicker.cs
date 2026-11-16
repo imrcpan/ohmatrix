@@ -129,7 +129,7 @@ public sealed class PeoplePicker : IOverlay {
             try {
                 people = await controller.SearchPeople(term);
             } catch (Exception e) {
-                logger.Unexpected("PeoplePicker", e);
+                logger.Exception("PeoplePicker", e);
                 // The list stays empty; typing again searches again.
             }
         }

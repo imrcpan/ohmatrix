@@ -257,7 +257,7 @@ public sealed partial class CallSignalling {
         try {
             await transport.Media.Start(peer, video && c.Info.Video);
         } catch (Exception e) {
-            logger.Unexpected("CallSignalling", e);
+            logger.Exception("CallSignalling", e);
             _ = Send(c, "m.call.hangup", new JsonObject {
                 ["reason"] = "user_media_failed"
             });
@@ -537,7 +537,7 @@ public sealed partial class CallSignalling {
 
             c.PendingRemote.Clear();
         } catch (Exception ex) {
-            logger.Unexpected("CallSignalling", ex);
+            logger.Exception("CallSignalling", ex);
             End(c, EndReason.Failed, true);
             return;
         }

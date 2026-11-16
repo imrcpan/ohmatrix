@@ -212,7 +212,7 @@ public sealed partial class ChatPane : Grid {
         try {
             await work();
         } catch (Exception e) {
-            logger.Unexpected("ChatPane", e);
+            logger.Exception("ChatPane", e);
             // The stickers shown stay as they were.
         }
     }
@@ -1745,7 +1745,7 @@ public sealed partial class ChatPane : Grid {
             if (stored != null)
                 await window.Launcher.LaunchFileAsync(stored);
         } catch (Exception e) {
-            logger.Unexpected("ChatPane", e);
+            logger.Exception("ChatPane", e);
             // The file stays unopened; pressing it again tries again.
         }
     }
@@ -1826,7 +1826,7 @@ public sealed partial class ChatPane : Grid {
                     }
                 }
             } catch (Exception e) {
-                logger.Unexpected("ChatPane", e);
+                logger.Exception("ChatPane", e);
                 // The clipboard could not be read: the text is pasted as it is.
             }
         }
@@ -1851,7 +1851,7 @@ public sealed partial class ChatPane : Grid {
             try {
                 await controller.SendAttachment(path);
             } catch (Exception e) {
-                logger.Unexpected("ChatPane", e);
+                logger.Exception("ChatPane", e);
                 // The file stays unsent; the person can try again.
             }
         }
@@ -1969,7 +1969,7 @@ public sealed partial class ChatPane : Grid {
                 try {
                     await controller.SendAttachment(path);
                 } catch (Exception e) {
-                    logger.Unexpected("ChatPane", e);
+                    logger.Exception("ChatPane", e);
                     // The file stays unsent; the person can try again.
                 }
             }

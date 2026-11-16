@@ -39,7 +39,7 @@ public sealed class Burst(TimeSpan window, TimeProvider time) {
         try {
             action?.Invoke();
         } catch (Exception e) {
-            logger.Unexpected("Burst", e);
+            logger.Exception("Burst", e);
             // What was asked for tells of its own failure.
         }
     }
