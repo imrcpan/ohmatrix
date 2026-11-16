@@ -430,6 +430,9 @@ public sealed class RoomListPane : Grid {
             foreach (var joining in s.Joining)
                 wanted.Add(joiningRows[joining.Id]);
             foreach (var room in s.Rooms) {
+                // A room being joined is shown above, not again here.
+                if (joiningRows.ContainsKey(room.Id))
+                    continue;
                 if (query.Length == 0 || room.Name.Contains(query,
                         StringComparison.CurrentCultureIgnoreCase))
                     wanted.Add(roomRows[room.Id].Row);

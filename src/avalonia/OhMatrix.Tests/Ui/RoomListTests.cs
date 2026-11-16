@@ -21,6 +21,10 @@ namespace OhMatrix.Tests.Ui;
 
 public class RoomListTests {
     private sealed class Engine : IAuthEngine, IRoomsEngine {
+        // When set, an accepted invitation waits for it: the test decides when
+        // the server has answered.
+        public TaskCompletionSource? AcceptGate;
+
         public event Action<IReadOnlyList<RoomSummary>>? RoomsChanged;
         public event Action<SyncState>? SyncChanged;
 
@@ -82,7 +86,13 @@ public class RoomListTests {
             ));
         }
 
-        public Task AcceptInvite(string roomId) => Log("accept " + roomId);
+        public async Task AcceptInvite(string roomId)
+        {
+            await Log("accept " + roomId);
+            if (AcceptGate != null)
+                await AcceptGate.Task;
+        }
+
         public Task DeclineInvite(string roomId) => Log("decline " + roomId);
 
         public Task SetPinned(string roomId, bool pinned) =>
@@ -323,9 +333,10 @@ public class RoomListTests {
 
     private static (Window Window, AppController Controller, RoomListPane List)
         OpenList(IReadOnlyList<RoomSummary> rooms, bool rail = false,
-            TimeProvider? time = null, ISearchEngine? searchEngine = null)
+            TimeProvider? time = null, ISearchEngine? searchEngine = null,
+            Engine? engine = null)
     {
-        var engine = new Engine();
+        engine ??= new Engine();
         var controller = new AppController(engine, new NoSessions(),
             rooms: engine, searchEngine: searchEngine);
         controller.Store.Update(s => s with {
@@ -597,6 +608,49 @@ public class RoomListTests {
             Assert.NotNull(row.Invite);
             row.RaiseClick();
             Assert.Null(controller.Store.Value.SelectedRoomId);
+        } finally {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Accepting_an_invitation_shows_the_room_as_joining()
+    {
+        var clock = new FakeTimeProvider(
+            DateTimeOffset.FromUnixTimeMilliseconds(Now));
+        var invited = new RoomSummary {
+            Id = "!invite",
+            Name = "Invited room",
+            Inviter = "Carol",
+            LastActivityTs = Now,
+        };
+        var engine = new Engine();
+        var (window, controller, list) = OpenList(
+            [.. Rooms(), invited], time: clock, engine: engine);
+        try {
+            var gate = new TaskCompletionSource();
+            engine.AcceptGate = gate;
+            controller.AcceptInvite("!invite");
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            // The room is shown above the list as it is joined, and only once.
+            var rows = list.Rows.Children.Cast<RoomRow>().ToList();
+            var joining = rows.Where(r => r.RoomId == "!invite").ToList();
+            Assert.Single(joining);
+            Assert.Same(joining[0], rows[0]);
+            Assert.Equal("Invited room", joining[0].Title);
+            Assert.EndsWith("(0s)", joining[0].Preview);
+            Assert.Null(joining[0].Invite);
+
+            // When the server has answered, the room is the ordinary row.
+            gate.SetResult();
+            await Task.Delay(50);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.Empty(controller.Store.Value.Joining);
+            Assert.Equal(
+                1,
+                list.Rows.Children.Cast<RoomRow>()
+                    .Count(r => r.RoomId == "!invite"));
         } finally {
             window.Close();
         }

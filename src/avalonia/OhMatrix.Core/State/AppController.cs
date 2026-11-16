@@ -212,11 +212,34 @@ public sealed class AppController(
         SelectRoom(id);
     }
 
-    /// <summary>Accepts an invitation and opens the chat.</summary>
+    /// <summary>
+    /// Accepts an invitation and opens the chat. Until the server has answered
+    /// the room shows above the chat list as a room being joined, as a join
+    /// does; a failure is shown the same way.
+    /// </summary>
     public async Task AcceptInvite(string roomId)
     {
-        await rooms!.AcceptInvite(roomId);
-        SelectRoom(roomId);
+        var invited = Store.Value.Rooms.FirstOrDefault(r => r.Id == roomId);
+        var joining = new JoiningRoom(roomId, invited?.Name ?? roomId,
+            invited?.AvatarUrl, time.GetUtcNow());
+        if (!Store.Value.Joining.Any(j => j.Id == roomId))
+            Store.Update(s => s with {
+                Joining = [joining, .. s.Joining],
+                JoinError = null
+            });
+        try {
+            await rooms!.AcceptInvite(roomId);
+            SelectRoom(roomId);
+        } catch (EngineException e) {
+            Store.Update(s => s with {
+                JoinError = e.Message,
+                Notice = null
+            });
+        } finally {
+            Store.Update(s => s with {
+                Joining = s.Joining.Where(j => j.Id != roomId).ToList()
+            });
+        }
     }
 
     public Task DeclineInvite(string roomId)
