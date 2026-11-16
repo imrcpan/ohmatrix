@@ -3366,10 +3366,13 @@ public partial class ChatPaneTests {
             engine.Opened[0].Attached);
         var pane = FindPane(screen);
         pane.OpenAttach();
-        Assert.Equal(
-            2 + (RecordingDialog.Available(false) ? 1 : 0) +
-            (RecordingDialog.Available(true) ? 1 : 0),
-            pane.AttachMenu.Rows.Count);
+        // A photo and a file; recording is not offered here.
+        Assert.Equal(2, pane.AttachMenu.Rows.Count);
+        var labels = pane.AttachMenu.Rows
+            .SelectMany(r => r.GetVisualDescendants().OfType<TextBlock>())
+            .Select(t => t.Text).ToList();
+        Assert.DoesNotContain("Record a voice message", labels);
+        Assert.DoesNotContain("Record a video", labels);
         Save(window, "attach");
     }
 

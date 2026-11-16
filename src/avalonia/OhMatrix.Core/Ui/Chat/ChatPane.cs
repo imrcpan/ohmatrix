@@ -1899,14 +1899,6 @@ public sealed partial class ChatPane : Grid {
                 () => _ = PickAndSend(window, false),
                 Icon: "file"),
         };
-        if (RecordingDialog.Available(false))
-            items.Add(new MenuItem(controller.T("record.voice"),
-                () => recording.Open(window, false, this),
-                Icon: "mic"));
-        if (RecordingDialog.Available(true))
-            items.Add(new MenuItem(controller.T("record.video"),
-                () => recording.Open(window, true, this),
-                Icon: "video"));
         // Calls are for one-to-one chats, where this machine can make them.
         var s = controller.Store.Value;
         if (controller.CallsSupported &&
