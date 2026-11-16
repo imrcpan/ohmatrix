@@ -143,6 +143,10 @@ public sealed class RoomRow : PressableButton {
 
         Text(title, Title);
         Text(preview, Preview);
+        // The second line is always regular: it does not take the weight of
+        // the title, whatever state the row is in.
+        if (preview.FontWeight != Fonts.Normal)
+            preview.FontWeight = Fonts.Normal;
         Text(time, Time);
         UpdateAvatar();
         UpdateLayoutMode();
