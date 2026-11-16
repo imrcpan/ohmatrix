@@ -116,6 +116,26 @@ Func<int> f = () => 3;
 - A namespace is file-scoped (`namespace OhMatrix.Core;`). A namespace with braces is an error.
 - An auto property may be written on one line (`{ get; init; }`) or over several; the formatter keeps either.
 
+## Logging
+
+Only use `namespace OhMatrix.Infra.Logging;` to write logs. Exception should not be silently discarded unless there is truly no need to record it.
+
+Avoid using logger like `Logger.GetDefault().Info();`. You should first locally define `private static readonly Logger logger = Logger.GetDefault();`, then use `logger.Info();`.
+
+Use these method to log exception:
+
+- `logger.Exception(string name, Exception e)`
+- `logger.Unexpected(string name, Exception e)`
+
+The `name` style:
+
+- such as "ThemeManager", "MatrixClient", "WebRequest", etc.
+- not "themeManager" not "theme manager"
+
+Use `logger.Exception` to record expected logs (will not print trace stack).
+Use `logger.Unexpected` to record unknown logs or you indeed need trace stack.
+For example, http errors are known exception.
+
 ## Syntax
 
 Do not use `is {}` or `is not {}`; use `some == null` and `some != null` instead. Explicit is better than implicit. You should use `==` to compare equality. If you need to compare reference equality, you should also use `==` to express it clearly instead of using `is`.
