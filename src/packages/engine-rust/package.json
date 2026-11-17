@@ -17,8 +17,8 @@
     "uniffi-bindgen-react-native": "0.31.0-6"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
-    "vitest": "^5.0.3"
+    "@types/node": "^26.6.6",
+    "vitest": "^5.1.0"
   },
   "peerDependencies": {
     "react": "*",

@@ -18,11 +18,11 @@
     "@ohmatrix/ui": "workspace:*",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "zustand": "^5.0.15"
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",
     "@types/react": "~19.2.0",
-    "vitest": "^5.0.3"
+    "vitest": "^5.1.0"
   }
 }
