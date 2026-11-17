@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@ohmatrix/core": "workspace:*",
-    "matrix-js-sdk": "^43.0.0"
+    "matrix-js-sdk": "^45.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
