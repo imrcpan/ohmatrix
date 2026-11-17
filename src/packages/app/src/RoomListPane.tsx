@@ -20,7 +20,7 @@ import { NewChatDialog, NewGroupDialog } from "./NewChatDialogs.js";
 import { NewSpaceDialog, SpaceScreen } from "./SpaceScreen.js";
 import { ExploreScreen } from "./ExploreScreen.js";
 import { JoiningRows } from "./JoiningRows.js";
-import { useJoining } from "./joining.js";
+import { addJoining, removeJoining, useJoining } from "./joining.js";
 import { MessageResults } from "./MessageResults.js";
 import { PromptDialog } from "./PromptDialog.js";
 import { SecuritySheet } from "./SecuritySheet.js";
@@ -54,6 +54,16 @@ function previewOf(room: RoomSummary, t: ReturnType<typeof useT>): string {
   if (m.content.kind === "service") return body;
   if (m.isOwn) return `${t("you")}: ${body}`;
   return room.isDirect ? body : `${m.senderName}: ${body}`;
+}
+
+/**
+ * Accepting an invite is a join: the server can take a long while to answer, so the room is shown in the list at once with the
+ * joining row (its name, its picture, the seconds), as a room being joined is, and the row goes when the accept is done.
+ */
+function acceptAsJoining(room: RoomSummary, accept: Promise<void>): void {
+  const since = Date.now();
+  addJoining({ id: room.id, name: room.name, avatar: room.avatar, since });
+  void accept.finally(() => removeJoining(room.id)).catch(() => {});
 }
 
 /**
@@ -100,7 +110,7 @@ export const RoomListItem = memo(function RoomListItem(props: {
         room.invite && {
           acceptLabel: t("accept"),
           declineLabel: t("decline"),
-          onAccept: () => void controller.acceptInvite(room.id),
+          onAccept: () => acceptAsJoining(room, controller.acceptInvite(room.id)),
           onDecline: () => void controller.declineInvite(room.id),
         }
       }
@@ -143,8 +153,11 @@ export function RoomListPane() {
 
   const data = useMemo(() => {
     const q = rail ? "" : query.trim().toLowerCase(); // the search field is not there in the strip
-    return q ? rooms.filter((r) => r.name.toLowerCase().includes(q)) : rooms;
-  }, [rooms, query, rail]);
+    // An invite that is being accepted is shown as its joining row above the list, not twice.
+    const joiningIds = new Set(joining.map((j) => j.id));
+    const shown = joiningIds.size ? rooms.filter((r) => !(r.invite && joiningIds.has(r.id))) : rooms;
+    return q ? shown.filter((r) => r.name.toLowerCase().includes(q)) : shown;
+  }, [rooms, query, rail, joining]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
