@@ -120,6 +120,9 @@ public sealed record AppState {
     /// <summary>What the info panel lists; null until it has been read.</summary>
     public RoomDetails? Details { get; init; }
 
+    /// <summary>The search for the groups shared with a person, when one is going on or has ended; null when none has been asked for.</summary>
+    public CommonRoomsState? CommonRooms { get; init; }
+
     /// <summary>The message the person is answering in the open chat, if any.</summary>
     public TimelineItem? ReplyTo { get; init; }
 

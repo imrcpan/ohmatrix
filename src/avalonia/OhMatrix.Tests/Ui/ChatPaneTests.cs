@@ -300,7 +300,6 @@ public partial class ChatPaneTests {
             return Task.FromResult("mxc://s/" + file.Name);
         }
 
-
         public Task Remove(IReadOnlyList<string> shortcodes)
         {
             Pack.RemoveAll(p => shortcodes.Contains(p.Shortcode));
@@ -581,7 +580,7 @@ public partial class ChatPaneTests {
             return Task.FromResult(new RoomDetails(
                 "We plan the demo here.",
                 [
-                    new RoomMemberInfo("@me:s", "Mia Example", null,
+                    new RoomMemberInfo("@me", "Mia Example", null,
                         MemberRole.Admin),
                     new RoomMemberInfo("@alice:s", "Alice", null,
                         MemberRole.Moderator),
@@ -690,6 +689,33 @@ public partial class ChatPaneTests {
         public Task SetPowerThresholds(string roomId,
             PowerThresholds thresholds) =>
             Log($"thresholds {roomId}");
+
+        // Whether the groups have the other person; none, when false.
+        public bool SharesGroups = true;
+
+        // When set, the scan answers one group each time it is released.
+        public TaskCompletionSource? Step;
+
+        public async Task CommonRooms(string userId,
+            IReadOnlyList<RoomSummary> groups,
+            Action<CommonRoomsProgress> progress, CancellationToken cancel)
+        {
+            if (Step == null) {
+                progress(new CommonRoomsProgress(groups.Count, groups.Count,
+                    SharesGroups ? groups.Take(1).ToList() : []));
+                return;
+            }
+
+            var found = new List<RoomSummary>();
+            for (var i = 0; i < groups.Count; i++) {
+                await Step.Task;
+                Step = new TaskCompletionSource();
+                if (SharesGroups)
+                    found.Add(groups[i]);
+                progress(new CommonRoomsProgress(i + 1, groups.Count,
+                    [.. found]));
+            }
+        }
 
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {
@@ -3094,6 +3120,141 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task A_direct_chat_shows_the_groups_in_common_with_the_person()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!d");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        // The row is on the info of the direct chat, not only on a person.
+        var labels = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.Contains("Groups in common", labels);
+        // Nothing is searched until its page is opened.
+        Assert.Null(controller.Store.Value.CommonRooms);
+        var row = panel.GetVisualDescendants().OfType<Border>()
+            .First(b => b.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "Groups in common"));
+        Press(row);
+        Dispatcher.UIThread.RunJobs();
+        Assert.NotNull(controller.Store.Value.CommonRooms);
+        Assert.Contains("1 shared", panel.GetVisualDescendants()
+            .OfType<TextBlock>().Select(t => t.Text));
+        panel.LeaveCommon();
+        Assert.Null(controller.Store.Value.CommonRooms);
+    }
+
+    [AvaloniaFact]
+    public async Task The_groups_page_updates_as_each_group_is_answered()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        engine.Step = new TaskCompletionSource();
+        controller.SelectRoom("!d");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        var row = panel.GetVisualDescendants().OfType<Border>()
+            .First(b => b.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "Groups in common"));
+        Press(row);
+        Dispatcher.UIThread.RunJobs();
+        // Nothing answered yet: the page says so.
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.Contains("Checked 0 of 1 groups", texts);
+        // The first answer is shown without leaving and coming back.
+        engine.Step.SetResult();
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.Contains("1 shared", texts);
+        panel.LeaveCommon();
+    }
+
+    [AvaloniaFact]
+    public async Task Reopening_the_info_shows_the_info_not_the_groups_page()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!d");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        var row = panel.GetVisualDescendants().OfType<Border>()
+            .First(b => b.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "Groups in common"));
+        Press(row);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("1 shared", panel.GetVisualDescendants()
+            .OfType<TextBlock>().Select(t => t.Text));
+        // Closed, then opened again: the info, not the page it was left on.
+        controller.OpenRoomInfo(false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(controller.Store.Value.CommonRooms);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.DoesNotContain("1 shared", texts);
+        Assert.Contains("Groups in common", texts);
+    }
+
+    [AvaloniaFact]
+    public async Task A_person_with_no_groups_in_common_says_so()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        engine.SharesGroups = false;
+        controller.SelectRoom("!d");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        var row = panel.GetVisualDescendants().OfType<Border>()
+            .First(b => b.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "Groups in common"));
+        Press(row);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("No groups in common", panel.GetVisualDescendants()
+            .OfType<TextBlock>().Select(t => t.Text));
+        panel.LeaveCommon();
+    }
+
+    [AvaloniaFact]
+    public async Task
+        Groups_in_common_are_searched_on_the_page_and_stopped_on_leave()
+    {
+        var (controller, panel) = await OpenInfo();
+        var bob =
+            controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
+        panel.ViewMember(bob);
+        // Nothing is searched until the page is opened.
+        Assert.Null(controller.Store.Value.CommonRooms);
+        panel.OpenCommon(bob.UserId);
+        Assert.Equal(bob.UserId, controller.Store.Value.CommonRooms!.UserId);
+        Assert.True(controller.Store.Value.CommonRooms.Done);
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        // Shown in English (the tests' language): the result and the group.
+        Assert.Contains("1 shared", texts);
+        Assert.Contains("Demo team", texts);
+        panel.LeaveCommon();
+        Assert.Null(controller.Store.Value.CommonRooms);
+    }
+
+    [AvaloniaFact]
     public async Task The_people_come_in_order_of_their_power()
     {
         var people = new[] {
@@ -3222,8 +3383,8 @@ public partial class ChatPaneTests {
             controller.Store.Value.Details!.Members.First(m => m.Name == "Bob");
         panel.ViewMember(bob);
         Assert.Equal(bob, panel.Viewing);
-        // Copy link, copy address, write, block.
-        Assert.Equal(5, panel.Content.Children.Count - 1);
+        // Copy link, copy address, groups in common, write, block.
+        Assert.Equal(6, panel.Content.Children.Count - 1);
         Save(window, "member-page");
         panel.AskBlockForTest(bob);
         panel.LeaveMember();

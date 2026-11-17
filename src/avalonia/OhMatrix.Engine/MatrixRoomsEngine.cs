@@ -384,6 +384,91 @@ public sealed class MatrixRoomsEngine(MatrixAuthEngine auth) : IRoomsEngine {
         return Act(roomId, room => room.Leave());
     }
 
+    // The SDK has no call for the groups two people share, so each group is
+    // asked for its members. A group that cannot be read is counted as not
+    // shared (it is still counted as checked).
+    public async Task CommonRooms(string userId,
+        IReadOnlyList<RoomSummary> groups,
+        Action<CommonRoomsProgress> progress, CancellationToken cancel)
+    {
+        // Four groups are asked at a time: a slow server then does not make
+        // the search wait for each group in turn.
+        const int Lanes = 4;
+        var client = Signed();
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        List<RoomSummary> shared = [];
+        var checkedCount = 0;
+        var gate = new object();
+        var next = 0;
+        progress(new CommonRoomsProgress(0, groups.Count, []));
+
+        async Task Lane()
+        {
+            while (true) {
+                int index;
+                lock (gate) {
+                    if (next >= groups.Count)
+                        return;
+                    index = next++;
+                }
+
+                cancel.ThrowIfCancellationRequested();
+                var group = groups[index];
+                var found = await IsMember(client, group, userId);
+                // A group that is answered is counted, and the page is told
+                // at once; the list it shows is the groups found so far.
+                CommonRoomsProgress report;
+                lock (gate) {
+                    checkedCount++;
+                    if (found)
+                        shared.Add(group);
+                    report = new CommonRoomsProgress(checkedCount,
+                        groups.Count, [.. shared], Checking(groups, next));
+                }
+
+                cancel.ThrowIfCancellationRequested();
+                progress(report);
+            }
+        }
+
+        await Task.WhenAll(Enumerable.Range(0, Math.Min(Lanes, groups.Count))
+            .Select(_ => Lane()));
+        // Timing for the real app, to see how long a search takes.
+        logger.Info($"CommonRooms: {groups.Count} groups, " +
+                    $"{shared.Count} shared, {started.ElapsedMilliseconds} ms");
+    }
+
+    // The group a lane is asking now, for the page; none when all are asked.
+    private static string? Checking(IReadOnlyList<RoomSummary> groups,
+        int next)
+    {
+        return next < groups.Count ? groups[next].Name : null;
+    }
+
+    // Whether the person is joined to the group. A person who is not in the
+    // group at all is answered as no; a group that cannot be read is not
+    // shared, and the search goes on.
+    private static async Task<bool> IsMember(Client client, RoomSummary group,
+        string userId)
+    {
+        try {
+            var room = client.GetRoom(group.Id);
+            if (room == null)
+                return false;
+            var member = await room.Member(userId);
+            return member.Membership is MembershipState.Join;
+        } catch (ClientException.Generic e) when (e.Message.Contains(
+                                                      "User not found",
+                                                      StringComparison
+                                                          .Ordinal)) {
+            return false;
+        } catch (Exception e) {
+            logger.Exception("MatrixRoomsEngine",
+                MatrixAuthEngine.Translate(e));
+            return false;
+        }
+    }
+
     public async Task BlockUser(string userId)
     {
         try {

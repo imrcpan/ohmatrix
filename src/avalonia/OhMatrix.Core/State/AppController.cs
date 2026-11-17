@@ -291,6 +291,76 @@ public sealed class AppController(
             : rooms.SearchPeople(term);
     }
 
+    private CancellationTokenSource? commonScan;
+
+    /// <summary>
+    /// Starts the search for the groups the person shares with the one given:
+    /// the joined groups (not the direct chats nor the spaces) are checked
+    /// one by one, and the progress is in the store. A search that is going
+    /// on is stopped first; one for another person is replaced.
+    /// </summary>
+    public void StartCommonRooms(string userId)
+    {
+        commonScan?.Cancel();
+        commonScan?.Dispose();
+        var scan = commonScan = new CancellationTokenSource();
+        var groups = Store.Value.Rooms
+            .Where(r => !r.IsDirect && !r.IsSpace && !r.Invite)
+            .ToList();
+        Store.Update(s => s with {
+            CommonRooms = new CommonRoomsState(userId, false,
+                new CommonRoomsProgress(0, groups.Count, []))
+        });
+        if (rooms == null) {
+            Store.Update(s => s with {
+                CommonRooms = new CommonRoomsState(userId, true,
+                    new CommonRoomsProgress(0, 0, []))
+            });
+            return;
+        }
+
+        _ = ScanCommonRooms(userId, groups, scan.Token);
+    }
+
+    private async Task ScanCommonRooms(string userId,
+        IReadOnlyList<RoomSummary> groups, CancellationToken cancel)
+    {
+        try {
+            await rooms!.CommonRooms(userId, groups, progress => {
+                if (cancel.IsCancellationRequested)
+                    return;
+                Store.Update(s => s.CommonRooms?.UserId == userId
+                    ? s with {
+                        CommonRooms = new CommonRoomsState(userId,
+                            progress.Checked == progress.Total,
+                            progress)
+                    }
+                    : s);
+            }, cancel);
+        } catch (OperationCanceledException) {
+            // Left, or started again for someone else: nothing to show.
+        } catch (EngineException e) {
+            logger.Exception("AppController", e);
+            Store.Update(s => s.CommonRooms?.UserId == userId
+                ? s with {
+                    CommonRooms = new CommonRoomsState(userId, true,
+                        s.CommonRooms.Progress)
+                }
+                : s);
+        }
+    }
+
+    /// <summary>Stops the search for the groups shared with a person (when its page is left).</summary>
+    public void StopCommonRooms()
+    {
+        commonScan?.Cancel();
+        commonScan?.Dispose();
+        commonScan = null;
+        Store.Update(s => s with {
+            CommonRooms = null
+        });
+    }
+
     /// <summary>Invites people to a group, and shows them in the info panel.</summary>
     public async Task InviteToRoom(string roomId, IReadOnlyList<string> userIds)
     {
@@ -737,6 +807,10 @@ public sealed class AppController(
     /// <summary>Shows or hides the info panel of the open chat.</summary>
     public void OpenRoomInfo(bool open)
     {
+        // Closed, the search for the groups in common stops: it is not kept
+        // for a page nobody sees.
+        if (!open)
+            StopCommonRooms();
         Store.Update(s => s with {
             RoomInfoOpen = open
         });

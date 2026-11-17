@@ -159,6 +159,8 @@ public sealed partial class RoomInfoPanel : Grid {
 
     private bool membersPage;
     private bool bannedPage;
+    private bool commonPage;
+    private string? commonUser;
 
     /// <summary>The page with all the people of the room is open.</summary>
     public bool MembersOpen => membersPage;
@@ -179,6 +181,25 @@ public sealed partial class RoomInfoPanel : Grid {
     public void LeaveMembers()
     {
         membersPage = false;
+        Apply();
+    }
+
+    /// <summary>Opens the page of the groups shared with the person being viewed; the search starts with it.</summary>
+    public void OpenCommon(string userId)
+    {
+        commonPage = true;
+        commonUser = userId;
+        viewingRoom = controller.Store.Value.SelectedRoomId;
+        controller.StartCommonRooms(userId);
+        Apply();
+    }
+
+    /// <summary>Goes back from the shared groups; the search stops.</summary>
+    public void LeaveCommon()
+    {
+        commonPage = false;
+        commonUser = null;
+        controller.StopCommonRooms();
         Apply();
     }
 
@@ -257,6 +278,9 @@ public sealed partial class RoomInfoPanel : Grid {
         content.Children.Add(Row(c, "copy", controller.T("member.copyAddress"),
             () => Copy(m.UserId), chevron: false));
         if (!me) {
+            content.Children.Add(Row(c, "users", controller.T("common.title"),
+                () => OpenCommon(m.UserId), CommonValue(m.UserId),
+                chevron: true));
             content.Children.Add(Row(c, "chat", controller.T("member.message"),
                 () => AskMessage(m), chevron: false));
             if (controller.CanVerifyUser)
@@ -481,6 +505,83 @@ public sealed partial class RoomInfoPanel : Grid {
 
     // Every banned person, as a page of its own; pressing one offers to
     // lift the ban.
+    // The groups two people share: the search is shown as it goes, then the
+    // groups it found. Nothing is kept once the page is left.
+    private void BuildCommonPage(ColorTokens c, string userId)
+    {
+        FillBar(c, controller.T("common.title"), LeaveCommon,
+            controller.T(viewing != null ? "member.info" : "chatInfo"));
+        var state = controller.Store.Value.CommonRooms;
+        if (state == null || state.UserId != userId) {
+            content.Children.Add(Explain(c, controller.T("common.starting")));
+            content.Children.Add(Spinner());
+            return;
+        }
+
+        var p = state.Progress;
+        if (state.Done) {
+            content.Children.Add(Explain(c, p.Shared.Count == 0
+                ? controller.T("common.none")
+                : controller.T("common.done", ("n", p.Shared.Count))));
+        } else {
+            // How many groups are checked, out of all: a group can take a
+            // moment to answer, so the bar moves with each one.
+            content.Children.Add(Explain(c, controller.T("common.progress",
+                ("checked", p.Checked), ("total", p.Total))));
+            if (p.Checking is { } name)
+                content.Children.Add(Explain(c,
+                    controller.T("common.checking", ("name", name))));
+            content.Children.Add(new ProgressBar {
+                Minimum = 0,
+                Maximum = Math.Max(1, p.Total),
+                Value = p.Checked,
+                Margin = new Thickness(20, 4, 20, 12),
+                Height = 4,
+            });
+        }
+
+        foreach (var room in p.Shared)
+            content.Children.Add(Row(c, "users", room.Name, null,
+                chevron: false));
+        content.Children.Add(new Border {
+            Height = 16
+        });
+    }
+
+    private static TextBlock Explain(ColorTokens c, string text)
+    {
+        return new TextBlock {
+            Text = text,
+            FontSize = 15,
+            Foreground = new SolidColorBrush(c.TextSecondary),
+            Margin = new Thickness(20, 16, 20, 8),
+            TextWrapping = TextWrapping.Wrap,
+        };
+    }
+
+    private static Spinner Spinner()
+    {
+        return new Spinner {
+            Size = 28,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 12),
+        };
+    }
+
+    // The number in the row of the person page: when the search is done, or
+    // the progress while it goes on; nothing until it has been asked for.
+    private string? CommonValue(string userId)
+    {
+        var state = controller.Store.Value.CommonRooms;
+        if (state == null || state.UserId != userId)
+            return null;
+        return state.Done
+            ? state.Progress.Shared.Count.ToString()
+            : controller.T("common.progress",
+                ("checked", state.Progress.Checked),
+                ("total", state.Progress.Total));
+    }
+
     private void BuildBannedPage(ColorTokens c, RoomDetails? details)
     {
         FillBar(c, details == null
@@ -682,6 +783,7 @@ public sealed partial class RoomInfoPanel : Grid {
     private RoomSummary? seenRoom;
     private string? seenRoomId;
     private RoomDetails? seenDetails;
+    private CommonRoomsState? seenCommon;
     private string? seenLocale;
     private string? seenUser;
 
@@ -698,6 +800,7 @@ public sealed partial class RoomInfoPanel : Grid {
         }
 
         return !ReferenceEquals(seenDetails, state.Details) ||
+               !ReferenceEquals(seenCommon, state.CommonRooms) ||
                seenLocale != state.Locale || seenUser != state.UserId;
     }
 
@@ -733,6 +836,7 @@ public sealed partial class RoomInfoPanel : Grid {
         seenRoomId = s.SelectedRoomId;
         seenRoom = s.Rooms.FirstOrDefault(r => r.Id == s.SelectedRoomId);
         seenDetails = s.Details;
+        seenCommon = s.CommonRooms;
         seenLocale = s.Locale;
         seenUser = s.UserId;
         if (!showing) {
@@ -754,9 +858,25 @@ public sealed partial class RoomInfoPanel : Grid {
             viewing = null;
             membersPage = false;
             bannedPage = false;
+            commonPage = false;
+            commonUser = null;
+        }
+
+        // Reopened: the info of the chat, never the page it was left on.
+        if (!s.RoomInfoOpen && (commonPage || commonUser != null)) {
+            commonPage = false;
+            commonUser = null;
+        }
+
+        // The groups in common are a page of their own, for the person it was
+        // opened for (from a person's page or from the info of a direct chat).
+        if (commonPage && commonUser != null) {
+            BuildCommonPage(c, commonUser);
+            return;
         }
 
         var person = viewing;
+
         if (person != null) {
             BuildMember(c, person);
             return;
@@ -782,6 +902,7 @@ public sealed partial class RoomInfoPanel : Grid {
             BuildBannedPage(c, details);
             return;
         }
+
 
         membersPage = false;
         bannedPage = false;
@@ -1063,6 +1184,18 @@ public sealed partial class RoomInfoPanel : Grid {
         if (people.Count > MemberOrder.Shown)
             content.Children.Add(Row(c, "users", controller.T("viewAll"),
                 OpenMembers));
+        // A direct chat is with one other person: the groups shared with
+        // them are a page of this info.
+        if (room.IsDirect && OtherPerson(details) is { } other)
+            content.Children.Add(Row(c, "users", controller.T("common.title"),
+                () => OpenCommon(other.UserId), CommonValue(other.UserId),
+                chevron: true));
+    }
+
+    private RoomMemberInfo? OtherPerson(RoomDetails details)
+    {
+        var me = controller.Store.Value.UserId;
+        return details.Members.FirstOrDefault(m => m.UserId != me);
     }
 
     // Every person, in that order, as a page of its own; a page at a time.

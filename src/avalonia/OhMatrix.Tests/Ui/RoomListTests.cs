@@ -186,6 +186,15 @@ public class RoomListTests {
             PowerThresholds thresholds) =>
             Log($"thresholds {roomId}");
 
+        public Task CommonRooms(string userId,
+            IReadOnlyList<RoomSummary> groups,
+            Action<CommonRoomsProgress> progress, CancellationToken cancel)
+        {
+            progress(new CommonRoomsProgress(groups.Count, groups.Count,
+                groups.Take(1).ToList()));
+            return Task.CompletedTask;
+        }
+
         public Task<IReadOnlyList<PersonInfo>> SearchPeople(string term)
         {
             IReadOnlyList<PersonInfo> all = [

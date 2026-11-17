@@ -59,6 +59,13 @@ public interface IRoomsEngine {
     /// <summary>People of the user directory whose name or id matches the text.</summary>
     Task<IReadOnlyList<PersonInfo>> SearchPeople(string term);
 
+    /// <summary>
+    /// Checks, one group at a time, which of the given groups the other person is in; <paramref name="progress"/> is told after each one.
+    /// Stops when the token is cancelled.
+    /// </summary>
+    Task CommonRooms(string userId, IReadOnlyList<RoomSummary> groups,
+        Action<CommonRoomsProgress> progress, CancellationToken cancel);
+
     Task InviteToRoom(string roomId, IReadOnlyList<string> userIds);
 
     /// <summary>Gives a person a role in the room (admin 100, moderator 50, member 0).</summary>
