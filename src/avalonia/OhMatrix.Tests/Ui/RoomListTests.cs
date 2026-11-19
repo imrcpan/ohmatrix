@@ -746,6 +746,37 @@ public class RoomListTests {
         }
     }
 
+    // Holds its answer until it is released.
+    private sealed class HeldSearch : ISearchEngine {
+        public TaskCompletionSource<SearchPage> Answer = new();
+
+        public Task<SearchPage> Messages(string term, string? roomId,
+            string? from) => Answer.Task;
+    }
+
+    [AvaloniaFact]
+    public async Task A_search_that_is_waiting_shows_a_spinner_of_its_own_size()
+    {
+        var search = new HeldSearch();
+        var (window, controller, _) = OpenList(Rooms(), searchEngine: search);
+        try {
+            var view = new MessageResultsView(controller, null, false);
+            window.Content = view;
+            window.UpdateLayout();
+            view.SetTerm("budget");
+            _ = view.Load(null);
+            Assert.True(view.Busy);
+            // In the middle of the space the waiting search has: inside its grid.
+            var spinner = view.GetVisualDescendants()
+                .OfType<OhMatrix.Core.Ui.Widgets.Spinner>().Single();
+            // The spinner is drawn at its Size: 24, not the default 56.
+            Assert.Equal(24, spinner.Size);
+            search.Answer.SetResult(new SearchPage([], null));
+        } finally {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task A_next_page_of_hits_adds_hits_and_keeps_the_ones_shown()
     {

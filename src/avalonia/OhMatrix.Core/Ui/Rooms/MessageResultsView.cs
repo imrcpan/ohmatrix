@@ -157,10 +157,25 @@ public sealed class MessageResultsView : StackPanel {
             builtHits.Add(shown[i]);
         }
 
-        if (busy)
+        if (busy && shown.Count == 0)
+            // Nothing found yet: the search is the whole of the page, so its
+            // spinner is in the middle of the space the results have.
+            Children.Add(new Grid {
+                // Stretched by the layout, not sized from Bounds: the bounds
+                // are zero before the first layout, and the spinner would
+                // be drawn at the top for that moment.
+                MinHeight = 240,
+                Children = {
+                    new Spinner {
+                        Size = 24,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    }
+                }
+            });
+        else if (busy)
             Children.Add(new Spinner {
-                Width = 24,
-                Height = 24,
+                Size = 24,
                 Margin = new Thickness(0, 12),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
