@@ -157,41 +157,43 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  mac_tauri:
+  # One job per architecture, so that a build not asked for (a manual run with its box unticked) is never started: a skipped job
+  # does not take a runner, while a skipped step inside a job still does.
+  mac_x86_64:
     needs: check
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.mac_x86_64 }}
     # The runner is Apple silicon; the Intel app is a cross build there (the script checks that the program inside is for the CPU asked for).
     runs-on: macos-latest
     env:
       VERSION: ${{ needs.check.outputs.version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x86_64, aarch64]
     steps:
-      # A manual run can leave out one of the two (the inputs below); a release by tag builds both.
-      - name: Whether this architecture is asked for
-        id: want
-        env:
-          ARCH: ${{ matrix.arch }}
-          X86: ${{ inputs.mac_x86_64 }}
-          ARM: ${{ inputs.mac_aarch64 }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then want=true
-          elif [ "$ARCH" = x86_64 ]; then want=$X86
-          else want=$ARM
-          fi
-          echo "want=$want" >> "$GITHUB_OUTPUT"
       - name: Checkout
-        if: steps.want.outputs.want == 'true'
         uses: actions/checkout@v7
       - name: Build the disk image
-        if: steps.want.outputs.want == 'true'
-        run: scripts/build-mac-tauri-${{ matrix.arch }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+        run: scripts/build-mac-tauri-x86_64.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
       - name: Hand the disk image to the release job
-        if: steps.want.outputs.want == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: mac_tauri_${{ matrix.arch }}
+          name: mac_tauri_x86_64
+          path: ${{ runner.temp }}/release/mac_tauri/*.dmg
+          retention-days: 1
+          compression-level: 0
+
+  mac_aarch64:
+    needs: check
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.mac_aarch64 }}
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Build the disk image
+        run: scripts/build-mac-tauri-aarch64.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
+      - name: Hand the disk image to the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac_tauri_aarch64
           path: ${{ runner.temp }}/release/mac_tauri/*.dmg
           retention-days: 1
           compression-level: 0
@@ -237,7 +239,7 @@ jobs:
           compression-level: 0
 
   release:
-    needs: [check, sign-android, web, linux_tauri, win_tauri, mac_tauri]
+    needs: [check, sign-android, web, linux_tauri, win_tauri, mac_x86_64, mac_aarch64]
     # Runs after the builds even when a macOS architecture was left out (its job is then not all skipped, just its steps). A job that
     # failed or was cancelled still stops the release.
     if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
