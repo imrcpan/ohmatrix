@@ -3915,6 +3915,25 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task The_search_bar_is_low_and_its_text_is_a_message_body()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        Dispatcher.UIThread.RunJobs();
+        var pane = FindPane(screen);
+        pane.ToggleSearch();
+        Assert.Equal(40, pane.SearchBar.Height);
+        // Smaller than a message bubble's 16; no fixed line height, so a
+        // letter such as g is not cut.
+        Assert.Equal(15, pane.SearchInput.FontSize);
+        Assert.True(double.IsNaN(pane.SearchInput.LineHeight));
+        // Hovering the input paints no background of its own.
+        Assert.Equal(Brushes.Transparent,
+            pane.SearchInput.Resources["TextControlBackgroundPointerOver"]);
+    }
+
+    [AvaloniaFact]
     public async Task Search_finds_loaded_messages_and_steps_through_them()
     {
         var (window, controller, _, screen) = await Open("light", 1000);

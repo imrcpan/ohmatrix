@@ -251,14 +251,18 @@ public sealed partial class ChatPane : Grid {
     private int pinnedAt;
     private Icon glass = new();
 
+    // As high as the bar of a line of text with its margins: the text is the
+    // size of a message's body.
     private readonly Border searchBar = new() {
-        Height = 52,
+        Height = 40,
         BorderThickness = new Thickness(0, 0, 0, 1),
-        Padding = new Thickness(12, 8),
+        Padding = new Thickness(12, 0),
     };
 
+    // Smaller than a message's body (16), on a line of 20.
     private readonly TextBox searchInput = new() {
-        FontSize = 16,
+        FontSize = 15,
+        FontWeight = Fonts.Normal,
         BorderThickness = new Thickness(0),
         Padding = new Thickness(0),
         Background = Brushes.Transparent,
@@ -268,7 +272,8 @@ public sealed partial class ChatPane : Grid {
     };
 
     private readonly TextBlock searchCount = new() {
-        FontSize = 14,
+        FontSize = 13,
+        FontWeight = Fonts.Normal,
         VerticalAlignment = VerticalAlignment.Center,
         Margin = new Thickness(8, 0),
     };
@@ -1565,6 +1570,9 @@ public sealed partial class ChatPane : Grid {
     public bool Searching => searching;
     public TextBox SearchInput => searchInput;
 
+    /// <summary>The bar of the search in this chat, for the tests of its size.</summary>
+    public Border SearchBar => searchBar;
+
     /// <summary>The ids of the lines that match the search, oldest first.</summary>
     public IReadOnlyList<string> Matches => matches;
 
@@ -1574,7 +1582,8 @@ public sealed partial class ChatPane : Grid {
     {
         var grid = new Grid {
             ColumnDefinitions =
-                new ColumnDefinitions("Auto,*,Auto,Auto,Auto,Auto")
+                new ColumnDefinitions("Auto,*,Auto,Auto,Auto,Auto"),
+            VerticalAlignment = VerticalAlignment.Center,
         };
         glass = new Icon {
             Glyph = "search",
@@ -1603,8 +1612,10 @@ public sealed partial class ChatPane : Grid {
         grid.Children.Add(close);
         searchBar.Child = grid;
         searchInput.PropertyChanged += (_, e) => {
-            if (e.Property == TextBox.TextProperty)
+            if (e.Property == TextBox.TextProperty) {
                 Search();
+                CenterSearchText();
+            }
         };
         searchInput.KeyDown += (_, e) => {
             if (e.Key == Key.Enter) {
@@ -1672,6 +1683,7 @@ public sealed partial class ChatPane : Grid {
         searchCount.Text = query.Length < 2 ? "" :
             matches.Count == 0 ? controller.T("search.empty") :
             $"{current + 1}/{matches.Count}";
+        CenterSearchText();
         Mark();
     }
 
@@ -1696,10 +1708,22 @@ public sealed partial class ChatPane : Grid {
             new SolidColorBrush(c.TextSecondary);
         searchInput.Resources["TextControlBackgroundFocused"] =
             Brushes.Transparent;
+        searchInput.Resources["TextControlBackgroundPointerOver"] =
+            Brushes.Transparent;
         searchInput.Resources["TextControlBorderBrushFocused"] =
             Brushes.Transparent;
         searchCount.Foreground = new SolidColorBrush(c.TextSecondary);
         glass.Color = new SolidColorBrush(c.TextSecondary);
+        CenterSearchText();
+    }
+
+    // The input and the count are one line each: each is moved so the middle
+    // of its letters is at the middle of the bar, whatever the font's own
+    // space above and below the letters (it differs from one font to the
+    // next).
+    private void CenterSearchText()
+    {
+        Fonts.Center(searchCount);
     }
 
     private void Step(int direction)
@@ -1708,6 +1732,7 @@ public sealed partial class ChatPane : Grid {
             return;
         current = (current + direction + matches.Count) % matches.Count;
         searchCount.Text = $"{current + 1}/{matches.Count}";
+        CenterSearchText();
         Mark();
     }
 

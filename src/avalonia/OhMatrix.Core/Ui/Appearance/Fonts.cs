@@ -300,17 +300,24 @@ public static class Fonts {
     {
         if (string.IsNullOrEmpty(text.Text))
             return;
-        // A text that is given no font is drawn in the interface's.
-        var family = text.IsSet(TextBlock.FontFamilyProperty)
-            ? text.FontFamily
-            : System;
-        var layout = new TextLayout(text.Text,
-            new Typeface(family, text.FontStyle, text.FontWeight),
-            text.FontSize, null);
+        text.RenderTransform = new TranslateTransform(0,
+            CenterShift(text.Text, text.IsSet(TextBlock.FontFamilyProperty)
+                ? text.FontFamily
+                : System, text.FontStyle, text.FontWeight, text.FontSize));
+    }
+
+    /// <summary>
+    /// How far down a one-line text is moved to put the middle of its letters
+    /// at the middle of its box, for a font of the given size and style. A
+    /// box (a text field's) is moved the same way.
+    /// </summary>
+    public static double CenterShift(string text, FontFamily family,
+        FontStyle style, FontWeight weight, double size)
+    {
+        var layout = new TextLayout(text,
+            new Typeface(family, style, weight), size, null);
         // The middle of capitals and of ideographs is about 0.36 em above the baseline.
-        var shift = layout.Height / 2 -
-                    (layout.Baseline - 0.36 * text.FontSize);
-        text.RenderTransform = new TranslateTransform(0, shift);
+        return layout.Height / 2 - (layout.Baseline - 0.36 * size);
     }
 
     /// <summary>The names of the fonts installed, sorted.</summary>
