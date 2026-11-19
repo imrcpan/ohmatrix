@@ -6,7 +6,9 @@ A version lists what changed since the version before it.
 
 ## [1.2.5] - 2026
 
+- When message content display is disabled on Android, push notifications are handled entirely by FCM without waking up the app, thereby avoiding any reliance on "auto-start" permissions.
 - Optimization for read status in chat lists: No longer waiting for a full network request to complete.
+- Optimized the accepted invite under server's slow response.
 
 ## [1.2.4] - 2026-11-15
 
