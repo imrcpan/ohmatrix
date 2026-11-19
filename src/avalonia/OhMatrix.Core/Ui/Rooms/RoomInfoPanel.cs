@@ -140,6 +140,20 @@ public sealed partial class RoomInfoPanel : Grid {
         Apply();
     }
 
+    /// <summary>
+    /// Forgets the sub-page that was open when the info was closed, so that
+    /// the next opening shows the info. Called as soon as the info closes,
+    /// not when the panel is next built: a closed panel is not rebuilt.
+    /// </summary>
+    public void ForgetPages()
+    {
+        commonPage = false;
+        commonUser = null;
+        membersPage = false;
+        bannedPage = false;
+        gallery = false;
+    }
+
     /// <summary>Goes back from the gallery to the info of the chat.</summary>
     public void LeaveGallery()
     {

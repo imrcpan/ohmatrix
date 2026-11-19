@@ -3211,6 +3211,39 @@ public partial class ChatPaneTests {
     }
 
     [AvaloniaFact]
+    public async Task
+        Closed_from_outside_then_reopened_is_the_info_not_the_groups()
+    {
+        var (_, controller, _, screen) = await Open("light", 1000);
+        controller.SelectRoom("!d");
+        await Task.Delay(50);
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var panel = screen.GetVisualDescendants().OfType<RoomInfoPanel>()
+            .Single();
+        var row = panel.GetVisualDescendants().OfType<Border>()
+            .First(b => b.GetVisualDescendants().OfType<TextBlock>()
+                .Any(t => t.Text == "Groups in common"));
+        Press(row);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("1 shared", panel.GetVisualDescendants()
+            .OfType<TextBlock>().Select(t => t.Text));
+        // Closed the way a person closes it: the dialog is over the window,
+        // and its close is the same as the backdrop's.
+        controller.OpenRoomInfo(false);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        controller.OpenRoomInfo(true);
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>()
+            .Select(t => t.Text).ToList();
+        Assert.DoesNotContain("1 shared", texts);
+        Assert.Contains("Groups in common", texts);
+    }
+
+    [AvaloniaFact]
     public async Task A_person_with_no_groups_in_common_says_so()
     {
         var (_, controller, engine, screen) = await Open("light", 1000);

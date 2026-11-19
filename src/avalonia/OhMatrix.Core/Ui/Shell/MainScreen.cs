@@ -417,8 +417,10 @@ public sealed class MainScreen : Grid {
                     infoHost.Focus());
             infoHost.IsVisible = true;
             infoFall.Open(Bounds.Height, InfoContent());
-        } else if (infoHost.IsVisible)
+        } else if (infoHost.IsVisible) {
+            infoPanel.ForgetPages();
             infoFall.Close(() => infoHost.IsVisible = false);
+        }
 
         infoBackdrop.Background = new SolidColorBrush(c.Overlay);
         infoCard.Background = new SolidColorBrush(c.Bg);
