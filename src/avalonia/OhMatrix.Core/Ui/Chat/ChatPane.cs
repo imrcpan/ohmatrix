@@ -527,6 +527,9 @@ public sealed partial class ChatPane : Grid {
         };
         field.Children.Add(input);
         field.Children.Add(mic);
+        // The input method hands its composition (preedit) to the field, which
+        // draws it in place as it is typed: Chinese and Japanese need this.
+        Avalonia.Input.InputMethod.SetIsInputMethodEnabled(input, true);
         inputBox.Child = field;
         Grid.SetColumn(inputBox, 1);
         attach.VerticalAlignment = VerticalAlignment.Bottom;
