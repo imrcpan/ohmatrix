@@ -544,7 +544,7 @@ public sealed partial class ChatPane : Grid {
         bar.Children.Add(new StackPanel {
             Orientation = Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, 8, 0),
+            Margin = new Thickness(0, 0, 4, 0),
             Children = {
                 emojiButton,
                 attach
