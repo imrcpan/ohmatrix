@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "এই স্পেস থেকে সরাতে রুম বেছে নিন।"
 "sticker.add.where.body" = "স্টিকারটি আপনার বাছাই করা গ্রুপে যাবে।"
 "pinned.body" = "কোনো বার্তায় ট্যাপ করলে সেখানে যাবেন।"
+"pinned.loading" = "বার্তা লোড হচ্ছে…"
+"pinned.unavailable" = "এই বার্তাটি পাওয়া যাচ্ছে না"
 "sticker.cover.body" = "গ্রুপকে যে ছবি দেখাবে সেটি বেছে নিন।"
 "editStatus.body" = "আপনার স্ট্যাটাস নামের নিচে দেখানো হয়।"
 "room.editName.body" = "রুমের সবাই নতুন নামটি দেখবে।"

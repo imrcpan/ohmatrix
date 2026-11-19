@@ -663,6 +663,8 @@
 "space.manageRooms.body" = "选择要从这个空间移出的房间。"
 "sticker.add.where.body" = "贴纸会放入你选择的分组。"
 "pinned.body" = "点按消息即可跳转到它。"
+"pinned.loading" = "正在加载消息…"
+"pinned.unavailable" = "无法显示此消息"
 "sticker.cover.body" = "选择用来代表这个分组的图片。"
 "editStatus.body" = "你的状态会显示在名字下面。"
 "room.editName.body" = "房间里的所有人都会看到新名称。"

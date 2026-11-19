@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "選擇要從這個空間移出的房間。"
 "sticker.add.where.body" = "貼圖會放入你選擇的群組。"
 "pinned.body" = "點按訊息即可跳到它。"
+"pinned.loading" = "正在載入訊息…"
+"pinned.unavailable" = "無法顯示此訊息"
 "sticker.cover.body" = "選擇用來代表這個群組的圖片。"
 "editStatus.body" = "你的狀態會顯示在名字下面。"
 "room.editName.body" = "房間裡的所有人都會看到新名稱。"

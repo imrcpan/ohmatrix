@@ -663,6 +663,8 @@
 "space.manageRooms.body" = "Choose the rooms to take out of this space."
 "sticker.add.where.body" = "The sticker goes into the group you choose."
 "pinned.body" = "Tap a message to go to it."
+"pinned.loading" = "Loading the message…"
+"pinned.unavailable" = "This message is not available"
 "sticker.cover.body" = "Choose the picture that shows the group."
 "editStatus.body" = "Your status is shown under your name."
 "room.editName.body" = "Everyone in the room sees the new name."

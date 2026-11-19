@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "이 스페이스에서 뺄 방을 선택하세요."
 "sticker.add.where.body" = "스티커는 선택한 그룹에 들어갑니다."
 "pinned.body" = "메시지를 누르면 해당 메시지로 이동합니다."
+"pinned.loading" = "메시지 불러오는 중…"
+"pinned.unavailable" = "이 메시지를 사용할 수 없습니다"
 "sticker.cover.body" = "그룹을 나타낼 사진을 선택하세요."
 "editStatus.body" = "상태는 이름 아래에 표시됩니다."
 "room.editName.body" = "방의 모든 사람에게 새 이름이 보입니다."

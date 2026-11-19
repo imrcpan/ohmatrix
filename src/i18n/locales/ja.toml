@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "このスペースから外すルームを選んでください。"
 "sticker.add.where.body" = "ステッカーは選んだグループに入ります。"
 "pinned.body" = "メッセージをタップするとそこへ移動します。"
+"pinned.loading" = "メッセージを読み込み中…"
+"pinned.unavailable" = "このメッセージは利用できません"
 "sticker.cover.body" = "グループを表す画像を選んでください。"
 "editStatus.body" = "ステータスは名前の下に表示されます。"
 "room.editName.body" = "ルームの全員に新しい名前が表示されます。"

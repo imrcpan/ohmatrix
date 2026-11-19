@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "Scegli le stanze da togliere da questo spazio."
 "sticker.add.where.body" = "Lo sticker andrà nel gruppo che scegli."
 "pinned.body" = "Tocca un messaggio per andare a quel punto."
+"pinned.loading" = "Caricamento del messaggio…"
+"pinned.unavailable" = "Questo messaggio non è disponibile"
 "sticker.cover.body" = "Scegli l'immagine che rappresenta il gruppo."
 "editStatus.body" = "Il tuo stato è mostrato sotto il tuo nome."
 "room.editName.body" = "Tutti nella stanza vedranno il nuovo nome."

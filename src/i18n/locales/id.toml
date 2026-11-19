@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "Pilih ruangan yang akan dikeluarkan dari space ini."
 "sticker.add.where.body" = "Stiker akan masuk ke grup yang Anda pilih."
 "pinned.body" = "Ketuk pesan untuk menuju ke sana."
+"pinned.loading" = "Memuat pesan…"
+"pinned.unavailable" = "Pesan ini tidak tersedia"
 "sticker.cover.body" = "Pilih gambar yang mewakili grup."
 "editStatus.body" = "Status Anda ditampilkan di bawah nama Anda."
 "room.editName.body" = "Semua orang di ruangan akan melihat nama baru."

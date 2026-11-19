@@ -660,6 +660,8 @@
 "space.manageRooms.body" = "इस स्पेस से हटाने के लिए कमरे चुनें।"
 "sticker.add.where.body" = "स्टिकर आपके चुने हुए समूह में जाएगा।"
 "pinned.body" = "किसी संदेश पर टैप करके उस पर जाएँ।"
+"pinned.loading" = "संदेश लोड हो रहा है…"
+"pinned.unavailable" = "यह संदेश उपलब्ध नहीं है"
 "sticker.cover.body" = "वह चित्र चुनें जो समूह को दिखाए।"
 "editStatus.body" = "आपका स्टेटस आपके नाम के नीचे दिखता है।"
 "room.editName.body" = "कमरे में सभी लोग नया नाम देखेंगे।"
