@@ -124,7 +124,6 @@ public sealed class EncryptionPage : Grid {
         var warning = new TextBlock {
             Text = controller.T("keys.reset.warning"),
             FontSize = 16,
-            LineHeight = 21,
             Foreground = new SolidColorBrush(c.Danger),
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Left,

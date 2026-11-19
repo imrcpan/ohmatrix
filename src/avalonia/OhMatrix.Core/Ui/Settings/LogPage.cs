@@ -262,7 +262,6 @@ public sealed class LogPage : Grid {
         return new SelectableTextBlock {
             Text = $"{line.Stamp} {line.Text}",
             FontSize = 12,
-            LineHeight = 17,
             Foreground = new SolidColorBrush(color),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(14, 2),

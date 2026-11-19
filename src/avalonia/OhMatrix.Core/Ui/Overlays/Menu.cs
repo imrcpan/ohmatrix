@@ -241,7 +241,6 @@ public sealed class Menu : IOverlay {
         var label = new TextBlock {
             Text = item.Label,
             FontSize = 15,
-            LineHeight = 20,
             Foreground = new SolidColorBrush(ink),
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,

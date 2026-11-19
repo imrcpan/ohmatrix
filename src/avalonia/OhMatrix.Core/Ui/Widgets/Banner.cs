@@ -13,7 +13,6 @@ namespace OhMatrix.Core.Ui.Widgets;
 public sealed class Banner : Border {
     private readonly TextBlock text = new() {
         FontSize = 14,
-        LineHeight = 18,
         TextWrapping = TextWrapping.Wrap,
         // The text clips to its own box, and the foot of a letter such as g is
         // below a line of 18: the box gets 3 more, taken back with the margin.

@@ -100,7 +100,8 @@ public sealed class RoomRow : PressableButton {
         CornerRadius = new CornerRadius(12);
         Grid.SetColumn(column, 1);
         Grid.SetColumn(time, 3);
-        preview.LineHeight = 20;
+        // Not a LineHeight: a line shorter than the font's own drops the
+        // bottom of letters such as g.
         top.Children.Add(title);
         top.Children.Add(time);
         bottom.Children.Add(preview);

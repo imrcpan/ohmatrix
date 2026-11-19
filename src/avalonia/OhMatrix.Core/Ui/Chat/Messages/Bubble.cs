@@ -109,7 +109,6 @@ public sealed class Bubble : Border {
 
         body = new SelectableTextBlock {
             FontSize = 16,
-            LineHeight = 21,
             Foreground = fg,
             Background = Brushes.Transparent,
             TextWrapping = TextWrapping.Wrap,
@@ -262,7 +261,6 @@ public sealed class Bubble : Border {
                 lines.Children.Add(Overflow(new TextBlock {
                     Text = reply.SenderName,
                     FontSize = 14,
-                    LineHeight = 18,
                     FontWeight = Fonts.Bold,
                     Foreground = mine
                         ? foreground
@@ -384,7 +382,6 @@ public sealed class Bubble : Border {
             var name = Overflow(new TextBlock {
                 Text = file.Name,
                 FontSize = 15,
-                LineHeight = 20,
                 FontWeight = Fonts.Normal,
                 Foreground = fg,
                 TextWrapping = TextWrapping.Wrap,
@@ -405,7 +402,6 @@ public sealed class Bubble : Border {
             var sizeLine = Overflow(new TextBlock {
                 Text = size,
                 FontSize = 12,
-                LineHeight = 16,
                 Foreground = metadata,
                 VerticalAlignment = VerticalAlignment.Bottom,
             });

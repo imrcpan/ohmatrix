@@ -1093,7 +1093,6 @@ public sealed partial class RoomInfoPanel : Grid {
             Child = new SelectableTextBlock {
                 Text = has ? details.Topic : controller.T("room.noTopic"),
                 FontSize = 15,
-                LineHeight = 21,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(has
                     ? c.Text

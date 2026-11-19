@@ -51,7 +51,6 @@ public sealed class Dialog : IOverlay {
     // and the size of the body, lined up with the icon.
     private readonly TextBlock messageText = new() {
         FontSize = 16,
-        LineHeight = 21,
         TextAlignment = TextAlignment.Left,
         TextWrapping = TextWrapping.Wrap,
         Margin = new Thickness(8, 0, 0, 0),

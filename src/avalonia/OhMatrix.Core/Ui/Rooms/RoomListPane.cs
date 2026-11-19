@@ -25,9 +25,10 @@ public sealed class RoomListPane : Grid {
     private readonly AppController controller;
     private readonly TimeProvider time;
 
+    // No fixed LineHeight: a line shorter than the font's drops the bottom of
+    // letters such as g.
     private readonly TextBlock name = new() {
         FontSize = 17,
-        LineHeight = 22,
         FontWeight = Fonts.Bold,
         TextTrimming = TextTrimming.CharacterEllipsis,
         VerticalAlignment = VerticalAlignment.Center,

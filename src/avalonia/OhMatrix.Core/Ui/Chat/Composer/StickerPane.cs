@@ -411,7 +411,6 @@ public sealed class StickerPane : Grid {
         var text = new TextBlock {
             // The format of the message of a dialog, in the full text colour.
             FontSize = 16,
-            LineHeight = 21,
             Foreground = new SolidColorBrush(colors.Text),
             TextAlignment = TextAlignment.Left,
             TextWrapping = TextWrapping.Wrap,
@@ -938,7 +937,6 @@ public sealed class StickerPane : Grid {
                         ? controller.T("sticker.empty")
                         : controller.T("sticker.group.empty"),
                 FontSize = 13,
-                LineHeight = 18,
                 Foreground = new SolidColorBrush(c.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
                 Width = WidthOf(MaxCols) - 2 * Pad,

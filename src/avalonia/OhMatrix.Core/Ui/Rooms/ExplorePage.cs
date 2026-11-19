@@ -384,7 +384,6 @@ public sealed class ExplorePage : Grid {
 
         var topic = new TextBlock {
             FontSize = 14,
-            LineHeight = 19,
             Foreground = new SolidColorBrush(c.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
         };
