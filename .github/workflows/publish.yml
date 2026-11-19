@@ -14,6 +14,16 @@ on:
         default: false
         required: true
         type: boolean
+      mac_x86_64:
+        description: "Build the macOS app for Intel (x86_64)"
+        default: true
+        required: true
+        type: boolean
+      mac_aarch64:
+        description: "Build the macOS app for Apple silicon (aarch64)"
+        default: true
+        required: true
+        type: boolean
 
 defaults:
   run:
@@ -158,11 +168,27 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
     steps:
+      # A manual run can leave out one of the two (the inputs below); a release by tag builds both.
+      - name: Whether this architecture is asked for
+        id: want
+        env:
+          ARCH: ${{ matrix.arch }}
+          X86: ${{ inputs.mac_x86_64 }}
+          ARM: ${{ inputs.mac_aarch64 }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then want=true
+          elif [ "$ARCH" = x86_64 ]; then want=$X86
+          else want=$ARM
+          fi
+          echo "want=$want" >> "$GITHUB_OUTPUT"
       - name: Checkout
+        if: steps.want.outputs.want == 'true'
         uses: actions/checkout@v7
       - name: Build the disk image
+        if: steps.want.outputs.want == 'true'
         run: scripts/build-mac-tauri-${{ matrix.arch }}.sh --version "$VERSION" --release-dir "$RUNNER_TEMP/release"
       - name: Hand the disk image to the release job
+        if: steps.want.outputs.want == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: mac_tauri_${{ matrix.arch }}
@@ -212,6 +238,9 @@ jobs:
 
   release:
     needs: [check, sign-android, web, linux_tauri, win_tauri, mac_tauri]
+    # Runs after the builds even when a macOS architecture was left out (its job is then not all skipped, just its steps). A job that
+    # failed or was cancelled still stops the release.
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
