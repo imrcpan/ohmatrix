@@ -51,6 +51,22 @@ public sealed class Bubble : Border {
     private Icon? mark;
     private readonly AudioCard? audio;
 
+    /// <summary>
+    /// Clears the selection of the text, when a press in the chat is not on
+    /// the text itself (a press on the text keeps what is selected there).
+    /// </summary>
+    /// <param name="press">The point of the press, in the bubble.</param>
+    public void ClearTextSelection(Point press)
+    {
+        if (body.SelectionStart == body.SelectionEnd)
+            return;
+        // The press is in the bubble; it is taken into the text's own space.
+        var inBody = this.TranslatePoint(press, body) is { } local
+                     && new Rect(body.Bounds.Size).Contains(local);
+        if (!inBody)
+            body.SelectionStart = body.SelectionEnd;
+    }
+
     public Bubble(BubbleParams p) : this(
         p.Colors, p.Text, p.Time, p.Own, p.SenderName, p.SenderId,
         p.StuckAbove, p.StuckBelow, p.Sending, p.Failed, p.EditedLabel,

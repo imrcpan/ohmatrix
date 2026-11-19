@@ -83,8 +83,17 @@ public sealed partial class ChatPane {
     {
         scroller.AddHandler(PointerWheelChangedEvent, (_, _) => ScrollInput(),
             Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        scroller.AddHandler(PointerPressedEvent, (_, _) => ScrollInput(),
-            Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        scroller.AddHandler(PointerPressedEvent, (_, e) => {
+            ScrollInput();
+            // A press anywhere in the list ends the selection of the text of
+            // a bubble, unless it is on that text.
+            foreach (var entry in realizedMessages) {
+                var bubble = entry.View?.Bubble;
+                if (bubble == null)
+                    continue;
+                bubble.ClearTextSelection(e.GetPosition(bubble));
+            }
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         scroller.AddHandler(PointerMovedEvent, (_, e) => {
             if (e.GetCurrentPoint(scroller).Properties.IsLeftButtonPressed)
                 ScrollInput();
