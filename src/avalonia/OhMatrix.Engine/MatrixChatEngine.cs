@@ -422,6 +422,22 @@ public sealed class MatrixChatEngine : IChatEngine {
             }
         }
 
+        public async Task<TimelineItem?> FetchEvent(string eventId)
+        {
+            try {
+                var item = await timeline.GetEventTimelineItemByEventId(
+                    eventId);
+                // The line is named by the event id asked for: the item of
+                // the SDK has no id of its own in this call.
+                return FromEvent(eventId, item, me);
+            } catch (Exception e) when (e is not EngineException) {
+                // Not found, or not readable: the pin shows without its text.
+                logger.Exception("MatrixChatEngine",
+                    MatrixAuthEngine.Translate(e));
+                return null;
+            }
+        }
+
         public async Task SetPinned(string itemId, bool pinned)
         {
             if (Event(itemId)?.EventOrTransactionId is not
@@ -667,8 +683,13 @@ public sealed class MatrixChatEngine : IChatEngine {
             }
 
             var e = item.AsEvent();
-            if (e == null)
-                return null;
+            return e == null ? null : FromEvent(id, e, me);
+        }
+
+        /// <summary>The line of one event of the SDK, as the timeline shows it.</summary>
+        private static TimelineItem FromEvent(string id, EventTimelineItem e,
+            string me)
+        {
             // Without a display name the person is named by their id's part
             // before the colon, not by the whole id.
             var name = e.SenderProfile is ProfileDetails.Ready {

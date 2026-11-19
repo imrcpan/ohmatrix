@@ -40,6 +40,12 @@ public interface IChatSession : IDisposable {
     /// <summary>Pins or unpins a message of the chat.</summary>
     Task SetPinned(string itemId, bool pinned);
 
+    /// <summary>
+    /// The message with this event id, when it is not among the lines loaded
+    /// (a pin from long ago); null when the server does not have it.
+    /// </summary>
+    Task<TimelineItem?> FetchEvent(string eventId);
+
     /// <summary>Replaces the text of one of my messages.</summary>
     Task Edit(string itemId, string text);
 
