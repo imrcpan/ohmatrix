@@ -1249,6 +1249,32 @@ public sealed class AppController(
             : chat.SetPinned(itemId, pinned);
     }
 
+    /// <summary>
+    /// A pinned message of the open chat that is not among the lines loaded:
+    /// asked for from the server; null when it cannot be had.
+    /// </summary>
+    public async Task<TimelineItem?> FetchPinned(string roomId,
+        string eventId)
+    {
+        if (chats == null)
+            return null;
+        // The open chat of the room when it is ready; otherwise a session of
+        // the room for this request, which is let go after it.
+        var open = chat != null && Store.Value.SelectedRoomId == roomId
+            ? chat
+            : null;
+        IChatSession? own = null;
+        try {
+            own = open == null ? await chats.Open(roomId) : null;
+            return await (open ?? own)!.FetchEvent(eventId);
+        } catch (EngineException e) {
+            logger.Exception("AppController", e);
+            return null;
+        } finally {
+            own?.Dispose();
+        }
+    }
+
     /// <summary>Removes one of my messages for everyone.</summary>
     public Task DeleteMessage(string itemId)
     {

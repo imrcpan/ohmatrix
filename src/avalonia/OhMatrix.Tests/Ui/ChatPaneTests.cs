@@ -34,7 +34,9 @@ public partial class ChatPaneTests {
         new DateTimeOffset(2026, 11, 7, 12, 30, 0, TimeSpan.Zero)
             .ToUnixTimeMilliseconds();
 
-    private sealed class FakeChat(IReadOnlyList<TimelineItem> first)
+    private sealed class FakeChat(
+        IReadOnlyList<TimelineItem> first,
+        IReadOnlyDictionary<string, TimelineItem>? server = null)
         : IChatSession {
         public event Action<IReadOnlyList<TimelineItem>>? Changed;
         public IReadOnlyList<TimelineItem> Items { get; private set; } = first;
@@ -81,6 +83,18 @@ public partial class ChatPaneTests {
         {
             Pins.Add($"{itemId} {pinned}");
             return Task.CompletedTask;
+        }
+
+        // A message not in the loaded timeline: the server's (see the engine).
+        public int Fetches;
+
+        public Task<TimelineItem?> FetchEvent(string eventId)
+        {
+            Fetches++;
+            return Task.FromResult(server != null &&
+                                   server.TryGetValue(eventId, out var item)
+                ? item
+                : null);
         }
 
         public readonly List<string> Edits = [];
@@ -522,6 +536,18 @@ public partial class ChatPaneTests {
     }
 
     private sealed class Engine : IAuthEngine, IRoomsEngine, IChatEngine {
+        // Messages the server has that are not in the loaded timeline: a pin
+        // from long ago.
+        public readonly Dictionary<string, TimelineItem> Old = [];
+        public int Fetches;
+
+        public Task<TimelineItem?> FetchEvent(string eventId)
+        {
+            Fetches++;
+            return Task.FromResult(
+                Old.TryGetValue(eventId, out var item) ? item : null);
+        }
+
         public event Action<IReadOnlyList<RoomSummary>>? RoomsChanged;
         public event Action<SyncState>? SyncChanged;
         public readonly List<FakeChat> Opened = [];
@@ -782,7 +808,7 @@ public partial class ChatPaneTests {
 
         public Task<IChatSession> Open(string roomId)
         {
-            var chat = new FakeChat(History(roomId));
+            var chat = new FakeChat(History(roomId), Old);
             Opened.Add(chat);
             return Task.FromResult<IChatSession>(chat);
         }
@@ -2504,6 +2530,51 @@ public partial class ChatPaneTests {
             Fonts.Use(new Preferences());
             host.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public async Task A_pin_that_is_not_loaded_is_fetched_once_and_shown()
+    {
+        var (_, controller, engine, screen) = await Open("light", 1000);
+        controller.SelectRoom("!g");
+        await Task.Delay(50);
+        var pane = FindPane(screen);
+        // A pin from long ago: not in the loaded timeline, on the server.
+        engine.Old["$old"] = new TimelineItem {
+            Id = "$old",
+            EventId = "$old",
+            SenderName = "Ann",
+            Body = "Remember   the\n\nbudget",
+        };
+        controller.Store.Update(s => s with {
+            Rooms = s.Rooms.Select(r => r.Id == "!g"
+                ? r with {
+                    PinnedEventIds = ["$old"]
+                }
+                : r).ToList(),
+        });
+        Dispatcher.UIThread.RunJobs();
+        pane.OpenPinnedList();
+        // The fetch is asked for and its answer comes back on the UI thread:
+        // wait for the row to be filled, for a short time.
+        var texts = new List<string?>();
+        for (var i = 0; i < 50; i++) {
+            await Task.Delay(20);
+            Dispatcher.UIThread.RunJobs();
+            // The dialog's card is in the window's overlay layer, not the screen.
+            var window = (Window)TopLevel.GetTopLevel(screen)!;
+            texts = window.GetVisualDescendants().OfType<TextBlock>()
+                .Select(t => t.Text).ToList();
+            if (texts.Contains("Ann: Remember the budget"))
+                break;
+        }
+
+        // The words on one line, with the sender first (as the React Native
+        // app shows a pin).
+        Assert.Contains("Ann: Remember the budget", texts);
+        // Asked for once, from the room's session.
+        Assert.Equal(1, engine.Opened.Sum(o => o.Fetches));
+        pane.PinnedDialog.Close();
     }
 
     [AvaloniaFact]

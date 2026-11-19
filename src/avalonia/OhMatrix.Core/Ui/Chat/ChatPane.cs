@@ -1494,6 +1494,26 @@ public sealed partial class ChatPane : Grid {
 
     public Dialog PinnedDialog => pinnedDialog;
 
+    // The pinned messages not among the lines loaded, asked for once each.
+    private readonly HashSet<string> pinnedAsked = [];
+
+    // A pinned message in a line or two, as the React Native app shows it:
+    // who said it, then the words on one line (at most 200), or "Photo".
+    private string PinnedLine(TimelineItem item)
+    {
+        var body = item.Image != null
+            ? controller.T("photo")
+            : string.Join(" ", (item.Body.Length > 0
+                ? item.Body
+                : item.File?.Name ?? "").Split((char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries));
+        if (body.Length > 200)
+            body = body[..200];
+        return item.SenderName.Length > 0
+            ? $"{item.SenderName}: {body}"
+            : body;
+    }
+
     /// <summary>All the pinned messages of the chat, newest first, in a dialog; pressing one goes to it (<c>PinnedPage</c>).</summary>
     public void OpenPinnedList()
     {
@@ -1502,34 +1522,31 @@ public sealed partial class ChatPane : Grid {
             return;
         var c = ThemeScope.GetColors(this);
         var ids = PinnedIds().Reverse().ToList();
+        var roomId = controller.Store.Value.SelectedRoomId ?? "";
         var rowsList = new StackPanel();
         foreach (var id in ids) {
             var item =
                 controller.Store.Value.Timeline.FirstOrDefault(i =>
                     i.EventId == id);
-            var text = item == null ? "…"
-                : item.Body.Length > 0 ? item.Body
-                : item.File?.Name ?? item.Image?.FileName ?? "";
             var line = new StackPanel {
                 Margin = new Thickness(4, 6),
                 Background = Brushes.Transparent,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
-            if (item != null)
-                line.Children.Add(new TextBlock {
-                    Text = item.SenderName,
-                    FontSize = 13,
-                    FontWeight = Fonts.Bold,
-                    Foreground = new SolidColorBrush(c.Accent),
-                });
-            line.Children.Add(new TextBlock {
-                Text = text,
+            var words = new TextBlock {
+                Text = item == null
+                    ? controller.T("pinned.loading")
+                    : PinnedLine(item),
                 FontSize = 15,
                 Foreground = new SolidColorBrush(c.Text),
                 MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.Wrap,
-            });
+            };
+            line.Children.Add(words);
+            if (item == null)
+                // Not loaded here: asked for once, and the row fills in.
+                _ = FillPinned(roomId, id, words, c);
             var target = item;
             line.PointerPressed += (_, e) => {
                 e.Handled = true;
@@ -1552,6 +1569,21 @@ public sealed partial class ChatPane : Grid {
                 Content = rowsList,
                 MaxHeight = 360
             }, close);
+    }
+
+    // Asks the server for a pinned message that is not loaded, once, and
+    // shows it in its row when it comes.
+    private async Task FillPinned(string roomId, string id, TextBlock words,
+        ColorTokens c)
+    {
+        if (!pinnedAsked.Add(id))
+            return;
+        var item = await controller.FetchPinned(roomId, id);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+            words.Text = item == null
+                ? controller.T("pinned.unavailable")
+                : PinnedLine(item);
+        });
     }
 
     /// <summary>Goes to the pinned message shown, and moves the bar on to the next one.</summary>
