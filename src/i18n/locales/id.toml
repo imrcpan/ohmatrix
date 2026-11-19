@@ -234,6 +234,7 @@
 "notifications" = "Notifikasi"
 "notif.messages" = "Notifikasi pesan"
 "notif.preview" = "Tampilkan teks pesan"
+"notif.plain" = "Anda punya pesan baru"
 "push.enable" = "Aktifkan push FCM"
 "push.footer" = "Pesan Anda selalu aman: isi pesan tidak pernah dikirim ke Google. Jika dimatikan, Anda tidak akan menerima pesan apa pun di latar belakang."
 "notif.footer.default" = "Dapatkan notifikasi saat pesan masuk ketika Anda berada di obrolan lain atau aplikasi lain."

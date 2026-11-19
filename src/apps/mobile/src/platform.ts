@@ -13,6 +13,7 @@ import {
   type Recorder,
   type SystemNotifications,
 } from "@ohmatrix/core";
+import { detectLocale, isLocale, t } from "@ohmatrix/i18n";
 import { fromDocuments, levelOfDb, waveformOf } from "./attachments.js";
 import { requireOptionalNativeModule } from "expo";
 import { appLogoOf, generatedList, phoneAppIcons, type AppIconNative } from "./appIcons.js";
@@ -407,6 +408,11 @@ export function phonePush(): NonNullable<AppServices["push"]> | undefined {
         off = () => sub.remove();
       });
       return () => off();
+    },
+    // What a push shows without the message's text: the app's own words, in the language the push service uses (see pushState.ts).
+    plainText(lang) {
+      const locale = isLocale(lang) ? lang : detectLocale(lang);
+      return { title: "OhMatrix", body: t(locale, "notif.plain") };
     },
   };
 }

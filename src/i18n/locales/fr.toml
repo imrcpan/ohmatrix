@@ -234,6 +234,7 @@
 "notifications" = "Notifications"
 "notif.messages" = "Notifications de messages"
 "notif.preview" = "Afficher le texte des messages"
+"notif.plain" = "Vous avez un nouveau message"
 "push.enable" = "Activer les notifications push FCM"
 "push.footer" = "Vos messages sont toujours en sécurité : aucun contenu de message n’est jamais envoyé à Google. Si cette option est désactivée, vous ne recevrez aucun message en arrière-plan."
 "notif.footer.default" = "Recevez une notification quand un message arrive alors que vous êtes dans une autre discussion ou une autre application."

@@ -234,6 +234,7 @@
 "notifications" = "通知"
 "notif.messages" = "メッセージの通知"
 "notif.preview" = "メッセージの本文を表示"
+"notif.plain" = "新しいメッセージがあります"
 "push.enable" = "FCM プッシュを有効にする"
 "push.footer" = "メッセージは常に安全です。メッセージの内容が Google に送られることはありません。オフにすると、バックグラウンドでメッセージを受信できません。"
 "notif.footer.default" = "別のチャットや別のアプリを使っているときにメッセージが届くと通知します。"

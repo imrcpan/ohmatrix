@@ -234,6 +234,7 @@
 "notifications" = "Notifications"
 "notif.messages" = "Message notifications"
 "notif.preview" = "Show message text"
+"notif.plain" = "You have a new message"
 "push.enable" = "Enable FCM push"
 "push.footer" = "Your messages are always safe: no message content is ever sent to Google. If this is off, you will not receive any background messages."
 "notif.footer.default" = "Get a notification when a message arrives while you are in another chat or another app."

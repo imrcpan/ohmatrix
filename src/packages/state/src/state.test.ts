@@ -438,3 +438,36 @@ test("a room that is read is read in the list at once, and stays read until a ne
   open.close();
   app.dispose();
 });
+
+test("push: with the message text hidden, the pusher carries the plain words of the language; showing the text again takes them away", async () => {
+  const engine = new MockEngine();
+  const seen: Array<{ lang: string; plain?: { title: string; body: string } }> = [];
+  engine.notifications.registerPush = async (p) => void seen.push({ lang: p.lang, ...(p.plain && { plain: p.plain }) });
+  engine.notifications.unregisterPush = async () => {};
+  const timer = globalThis as unknown as { setTimeout(fn: () => void, ms: number): unknown };
+  const flush = () => new Promise<void>((r) => void timer.setTimeout(r, 0));
+  const app = createAppController(engine, {
+    sessionStore: memoryStore(),
+    push: {
+      appId: "org.ohmatrix.app",
+      gatewayUrl: "https://push.example/notify",
+      deviceName: "Phone",
+      token: async () => "t1",
+      onToken: () => () => {},
+      plainText: (lang) => ({ title: "OhMatrix", body: `words in ${lang}` }),
+    },
+  });
+  await app.bootstrap();
+  await app.login("http://localhost:8008", "test", "123456");
+  await flush();
+  expect(seen.at(-1)).toEqual({ lang: "en" }); // the text is shown: nothing plain is sent
+
+  app.setPreferences({ notificationPreview: false });
+  await flush();
+  expect(seen.at(-1)).toEqual({ lang: "en", plain: { title: "OhMatrix", body: "words in en" } });
+
+  app.setPreferences({ notificationPreview: true });
+  await flush();
+  expect(seen.at(-1)).toEqual({ lang: "en" });
+  app.dispose();
+});

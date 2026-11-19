@@ -484,13 +484,17 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
         if (auth === "signedIn" && prefs.pushEnabled) {
           const key = await push.token();
           if (pushKey && pushKey !== key) await engine.notifications.unregisterPush({ appId: push.appId, pushKey }).catch(() => {});
+          const lang = store.getState().prefs.locale ?? "en";
+          // With the message's text not to be shown, the push carries only the words of the phone's language, not the event.
+          const plain = prefs.notificationPreview ? undefined : push.plainText?.(lang);
           await engine.notifications.registerPush({
             appId: push.appId,
             pushKey: key,
             gatewayUrl: push.gatewayUrl,
             appName: "OhMatrix",
             deviceName: push.deviceName,
-            lang: store.getState().prefs.locale ?? "en",
+            lang,
+            ...(plain && { plain }),
           });
           pushKey = key;
         } else if (pushKey) {
@@ -571,9 +575,12 @@ export function createAppController(engine: MatrixEngine, services: PlatformServ
       set({ zoomTrial: null });
     },
     setPreferences(patch) {
-      const was = store.getState().prefs.pushEnabled;
+      const before = store.getState().prefs;
       set((s) => ({ prefs: { ...s.prefs, ...patch } }));
-      if (store.getState().prefs.pushEnabled !== was) void syncPush();
+      const after = store.getState().prefs;
+      // The pusher carries what a push shows (the text, or the plain words): a change of either, or of the language, is sent to the server.
+      if (after.pushEnabled !== before.pushEnabled || after.notificationPreview !== before.notificationPreview || after.locale !== before.locale)
+        void syncPush();
       void services.preferences?.save(store.getState().prefs).catch(() => {});
     },
     setDisplayName: (name) => engine.profile.setDisplayName(name.trim()),

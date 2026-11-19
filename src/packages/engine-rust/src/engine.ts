@@ -1064,7 +1064,15 @@ export class RustEngineCore implements MatrixEngine {
     },
     registerPush: (p: PushRegistration) =>
       guard(() =>
-        this.need().setPusher({ appId: p.appId, pushKey: p.pushKey, gatewayUrl: p.gatewayUrl, appName: p.appName, deviceName: p.deviceName, lang: p.lang }),
+        this.need().setPusher({
+          appId: p.appId,
+          pushKey: p.pushKey,
+          gatewayUrl: p.gatewayUrl,
+          appName: p.appName,
+          deviceName: p.deviceName,
+          lang: p.lang,
+          ...(p.plain && { plain: p.plain }),
+        }),
       ),
     unregisterPush: (p: { appId: string; pushKey: string }) => guard(() => this.need().deletePusher(p)),
   };

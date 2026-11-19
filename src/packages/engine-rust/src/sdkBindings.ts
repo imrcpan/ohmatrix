@@ -386,7 +386,15 @@ export function sdkFromBindings(b: Bindings): Sdk {
         c.setPusher(
           { pushkey: p.pushKey, appId: p.appId },
           // The gateway copies the default payload into the push: it is how the app, with nothing running, knows which account a push is for.
-          new b.PusherKind.Http({ data: { url: p.gatewayUrl, format: b.PushFormat.EventIdOnly, defaultPayload: JSON.stringify({ user_id: c.userId() }) } }),
+          // With the text of a plain push, the gateway sends that text and nothing of the event: the format is then the same, but its
+          // default payload carries the words (see the gateway's `plain`).
+          new b.PusherKind.Http({
+            data: {
+              url: p.gatewayUrl,
+              format: b.PushFormat.EventIdOnly,
+              defaultPayload: JSON.stringify({ user_id: c.userId(), ...(p.plain && { plain: p.plain }) }),
+            },
+          }),
           p.appName,
           p.deviceName,
           undefined,

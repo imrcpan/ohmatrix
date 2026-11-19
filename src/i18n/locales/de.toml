@@ -234,6 +234,7 @@
 "notifications" = "Benachrichtigungen"
 "notif.messages" = "Nachrichtenbenachrichtigungen"
 "notif.preview" = "Nachrichtentext anzeigen"
+"notif.plain" = "Sie haben eine neue Nachricht"
 "push.enable" = "FCM-Push aktivieren"
 "push.footer" = "Deine Nachrichten sind immer sicher: Der Inhalt von Nachrichten wird nie an Google gesendet. Wenn das ausgeschaltet ist, erhältst du keine Nachrichten im Hintergrund."
 "notif.footer.default" = "Erhalte eine Benachrichtigung, wenn eine Nachricht eintrifft, während du in einem anderen Chat oder einer anderen App bist."

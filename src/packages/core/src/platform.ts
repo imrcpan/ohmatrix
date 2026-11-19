@@ -131,6 +131,11 @@ export interface PlatformServices {
     token(): Promise<string>;
     /** Calls `cb` with the new token when the push service changes it; returns an unsubscribe. */
     onToken(cb: (token: string) => void): () => void;
+    /**
+     * The words a push shows in `lang` when the message's text is not to be shown: the gateway sends them, so the phone shows them
+     * without the app running. Absent, a push names the room and event as before.
+     */
+    plainText?(lang: string): { title: string; body: string };
   };
   /** Record a voice message or a short video. Absent = the record buttons are hidden. Rejects with RecordError. */
   recordMedia?(kind: "audio" | "video"): Promise<Recorder>;

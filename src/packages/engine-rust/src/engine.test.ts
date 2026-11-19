@@ -748,6 +748,9 @@ test("push: a pusher is registered with the gateway and taken away again; the SD
   };
   await engine.notifications.registerPush(reg);
   expect(client.pushers).toEqual([reg]);
+  // The words of a plain push go on to the SDK with the rest of the pusher.
+  await engine.notifications.registerPush({ ...reg, plain: { title: "OhMatrix", body: "You have a new message" } });
+  expect(client.pushers.at(-1)).toEqual({ ...reg, plain: { title: "OhMatrix", body: "You have a new message" } });
   await engine.notifications.unregisterPush({ appId: reg.appId, pushKey: reg.pushKey });
   expect(client.removedPushers).toEqual([{ appId: reg.appId, pushKey: reg.pushKey }]);
   client.setPusher = async () => {

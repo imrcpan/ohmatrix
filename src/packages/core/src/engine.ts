@@ -328,6 +328,11 @@ export interface PushRegistration {
   appName: string;
   deviceName: string;
   lang: string;
+  /**
+   * The text a push shows when the message's own text is not to be shown (the setting "Show message text" is off): the gateway then
+   * sends a notification of these words, which the phone shows without the app running. Absent, the push names the room and event.
+   */
+  plain?: { title: string; body: string };
 }
 
 /** A live view of one room. Must be closed to release engine resources. */

@@ -234,6 +234,7 @@
 "notifications" = "通知"
 "notif.messages" = "訊息通知"
 "notif.preview" = "顯示訊息內容"
+"notif.plain" = "你有一則新訊息"
 "push.enable" = "啟用 FCM 推播"
 "push.footer" = "你的訊息永遠是安全的：訊息內容絕不會傳送給 Google。關閉後，你將無法在背景收到任何訊息。"
 "notif.footer.default" = "當你在其他聊天或其他 App 時收到訊息，就會通知你。"
